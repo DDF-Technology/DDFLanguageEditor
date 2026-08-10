@@ -1,0 +1,94 @@
+COMMENTI:
+----------------------------------------------------
+Singola riga: ..
+Blocco di codice: 0.Text.0
+
+REGOLE GRAMMATICALI:
+----------------------------------------------------
+Termina riga: ;
+Apri blocco: {
+Chiudi blocco: }
+
+INCLUSIONE LIBRERIE:
+----------------------------------------------------
+Inclusione libreria: @@'Library'
+
+TIPI DI DATO SEMPLICI:
+----------------------------------------------------
+Intero: int tagName
+Float: float tagName
+Char: char tagName
+Bool: bool tagName
+
+TIPI DI DATO COMPLESSI:
+----------------------------------------------------
+Void: void
+String: string tagName
+Array: dataType[n] tagName
+Dizionario: dict dataType tagName{ID tagName, Value}
+Strutture: struct dataType tagName{dataType tagName_1, dataType tagName_2, ...} 
+
+OPERATORI DI BASE:
+----------------------------------------------------
+Assegnazione: <<
+Estrazione: >>
+
+OPERATORI MATEMATICI:
+----------------------------------------------------
+Addizione: +
+Sottrazione: -
+Moltiplicazione: x
+Divisione: /
+Elevazione: ^
+Radice: ^/
+Incremento: ++
+Decremento: --
+Incremento arbitrario: ++(value)
+Decremento arbitrario: ++(value)
+
+OPERATORI LOGICI:
+----------------------------------------------------
+Minore: <
+Minore uguale: <=
+Maggiore: >
+Maggiore uguale: >=
+Uguale: ==
+Diverso: !!
+Compreso tra: >><<
+Esterno da: <<>>
+
+OPERATORI BOOLEANI:
+----------------------------------------------------
+Not: !
+And: &
+Or: ||
+Xor: |&|
+
+OPERATORI DI FUNZIONE:
+----------------------------------------------------
+Return: ret
+Break: brk
+End: end
+
+CONTROLLO FLUSSO:
+----------------------------------------------------
+IF: if(condition){instruction_1; instruction_2; ...}
+WHILE: while(condition){instruction_1; instruction_2; ...}
+DO WHILE: do while(condition){instruction_1; instruction_2; ...}
+FOR: for(int tagName; condition; finalInstruction){instruction_1; instruction_2; ...}
+
+DICHIARAZIONE DI FUNZIONE:
+----------------------------------------------------
+nameFunction(dataType parameter_1,dataType parameter_2) out DataTypeReturn
+{
+
+	nameFunction << DataTypeReturnValue
+}
+
+PUNTO DI INGRESSO:
+----------------------------------------------------
+main() out DataTypeReturn
+{
+
+	main << DataTypeReturnValue
+}
