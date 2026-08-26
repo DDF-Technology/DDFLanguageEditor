@@ -7,7 +7,7 @@
     <ProjectGuid>{E80CAF6F-ECE1-4F2D-BECA-83F3C2A5E9FF}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>DDF___Program_Language_Editor</RootNamespace>
-    <AssemblyName>DDF - Program Language Editor</AssemblyName>
+    <AssemblyName>DDFLanguageEditor</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

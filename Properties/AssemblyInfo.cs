@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // Le informazioni generali relative a un assembly sono controllate dal seguente 
 // set di attributi. Modificare i valori di questi attributi per modificare le informazioni
 // associate a un assembly.
-[assembly: AssemblyTitle("DDF - Program Language Editor")]
-[assembly: AssemblyDescription("")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("DDF - Program Language Editor")]
-[assembly: AssemblyCopyright("Copyright ©  2025")]
+[assembly: AssemblyTitle("DDFLanguageEditor Beta")]
+[assembly: AssemblyDescription("Experimental syntax editor for the draft DDF language")]
+[assembly: AssemblyConfiguration("Beta")]
+[assembly: AssemblyCompany("DDF.Technology")]
+[assembly: AssemblyProduct("DDFLanguageEditor")]
+[assembly: AssemblyCopyright("Copyright © 2026 Fabio De Deo")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -29,5 +29,6 @@ using System.Runtime.InteropServices;
 //      Numero di build
 //      Revisione
 //
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("0.1.0.0")]
+[assembly: AssemblyFileVersion("0.1.0.0")]
+[assembly: AssemblyInformationalVersion("0.1.0-beta.1")]

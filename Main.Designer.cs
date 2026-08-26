@@ -31,12 +31,18 @@
             this.richTextBoxMainEditor = new System.Windows.Forms.RichTextBox();
             this.richTextBoxLineNumbers = new System.Windows.Forms.RichTextBox();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.panelBeta = new System.Windows.Forms.Panel();
+            this.labelBeta = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
+            this.panelBeta.SuspendLayout();
             this.SuspendLayout();
             // 
             // richTextBoxMainEditor
             // 
             this.richTextBoxMainEditor.AcceptsTab = true;
+            this.richTextBoxMainEditor.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.richTextBoxMainEditor.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.richTextBoxMainEditor.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.richTextBoxMainEditor.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -55,6 +61,8 @@
             // richTextBoxLineNumbers
             // 
             this.richTextBoxLineNumbers.AcceptsTab = true;
+            this.richTextBoxLineNumbers.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)));
             this.richTextBoxLineNumbers.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.richTextBoxLineNumbers.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.richTextBoxLineNumbers.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -76,6 +84,29 @@
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(1027, 793);
             this.panel1.TabIndex = 2;
+            //
+            // panelBeta
+            //
+            this.panelBeta.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(83)))), ((int)(((byte)(53)))), ((int)(((byte)(18)))));
+            this.panelBeta.Controls.Add(this.labelBeta);
+            this.panelBeta.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelBeta.Location = new System.Drawing.Point(0, 0);
+            this.panelBeta.Name = "panelBeta";
+            this.panelBeta.Size = new System.Drawing.Size(1027, 36);
+            this.panelBeta.TabIndex = 3;
+            //
+            // labelBeta
+            //
+            this.labelBeta.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.labelBeta.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labelBeta.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(183)))), ((int)(((byte)(77)))));
+            this.labelBeta.Location = new System.Drawing.Point(0, 0);
+            this.labelBeta.Name = "labelBeta";
+            this.labelBeta.Padding = new System.Windows.Forms.Padding(12, 0, 12, 0);
+            this.labelBeta.Size = new System.Drawing.Size(1027, 36);
+            this.labelBeta.TabIndex = 0;
+            this.labelBeta.Text = "BETA 0.1  ·  Prototipo in sviluppo: evidenziazione sintattica, nessun parser o compilatore";
+            this.labelBeta.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // MainForm
             // 
@@ -83,11 +114,14 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1027, 793);
             this.Controls.Add(this.panel1);
+            this.Controls.Add(this.panelBeta);
+            this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDF - Program Language Editor";
+            this.Text = "DDFLanguageEditor 0.1 Beta — progetto sperimentale";
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.panel1.ResumeLayout(false);
+            this.panelBeta.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -98,6 +132,8 @@
         private System.Windows.Forms.RichTextBox richTextBoxMainEditor;
         private System.Windows.Forms.RichTextBox richTextBoxLineNumbers;
         private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.Panel panelBeta;
+        private System.Windows.Forms.Label labelBeta;
     }
 }
 

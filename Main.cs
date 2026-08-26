@@ -226,8 +226,7 @@ namespace DDF___Program_Language_Editor
             Point pt2 = new Point(ClientRectangle.Width, ClientRectangle.Height);
             int lastIndex = richTextBoxMainEditor.GetCharIndexFromPosition(pt2);
             int lastLine = richTextBoxMainEditor.GetLineFromCharIndex(lastIndex);            
-            int lineCount = lastLine - firstLine + 1;
-            for (int i = firstLine; i <= lastLine + 1; i++)
+            for (int i = firstLine; i <= lastLine; i++)
             {
                 richTextBoxLineNumbers.Text += (i + 1) + "\n";
             }
