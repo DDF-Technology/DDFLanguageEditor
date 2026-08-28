@@ -1,0 +1,6 @@
+main() out int
+{
+    int value << ;
+    value << * 2;
+    ret value;
+}

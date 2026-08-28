@@ -26,5 +26,20 @@ namespace DDF___Program_Language_Editor.Properties
                 return defaultInstance;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string RecentFiles
+        {
+            get
+            {
+                return ((string)(this["RecentFiles"]));
+            }
+            set
+            {
+                this["RecentFiles"] = value;
+            }
+        }
     }
 }

@@ -1,0 +1,423 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Text;
+using System.Windows.Forms;
+using DDFLanguageEditor.Core;
+
+namespace DDF___Program_Language_Editor
+{
+    public partial class MainForm
+    {
+        private void richTextBox_TextChanged(object sender, EventArgs e)
+        {
+            if (isApplyingHighlighting)
+            {
+                return;
+            }
+
+            if (!isReplacingDocument)
+            {
+                documentSession.MarkDirty();
+                updateDocumentUi();
+            }
+
+            updateLineNumbers();
+            updateCaretPosition();
+            highlightTimer.Stop();
+            highlightTimer.Start();
+            scheduleCompletion();
+        }
+
+        private void highlightTimer_Tick(object sender, EventArgs e)
+        {
+            highlightTimer.Stop();
+            applyHighlighting();
+        }
+
+        private void applyHighlighting()
+        {
+            if (isApplyingHighlighting || richTextBoxMainEditor.IsDisposed)
+            {
+                return;
+            }
+
+            int selectionStart = richTextBoxMainEditor.SelectionStart;
+            int selectionLength = richTextBoxMainEditor.SelectionLength;
+            string text = richTextBoxMainEditor.Text;
+            DdfLexUpdate update = incrementalLexer.Update(text);
+            DdfParseResult parseResult = DdfParser.Parse(text, update.Result);
+            int currentDiagnosticStart = parseResult.Diagnostics.Count == 0
+                ? int.MaxValue
+                : parseResult.Diagnostics[0].Start;
+            int delimiterFormatStart = activeDelimiterMatch == null
+                ? int.MaxValue
+                : Math.Min(activeDelimiterMatch.OpenStart, activeDelimiterMatch.CloseStart);
+            int formatStart = Math.Min(update.RelexStart, Math.Min(diagnosticsFormatStart, Math.Min(currentDiagnosticStart, delimiterFormatStart)));
+            formatStart = Math.Min(formatStart, text.Length);
+            diagnosticsFormatStart = currentDiagnosticStart;
+            activeDelimiterMatch = null;
+
+            isApplyingHighlighting = true;
+            try
+            {
+                using (RichTextBoxUpdateScope.Begin(richTextBoxMainEditor))
+                {
+                    richTextBoxMainEditor.Select(formatStart, text.Length - formatStart);
+                    richTextBoxMainEditor.SelectionColor = Color.FromArgb(212, 212, 212);
+                    richTextBoxMainEditor.SelectionBackColor = richTextBoxMainEditor.BackColor;
+
+                    foreach (DdfToken token in update.Result.Tokens)
+                    {
+                        if (token.End <= formatStart)
+                        {
+                            continue;
+                        }
+
+                        SyntaxKind? kind = DdfSyntaxClassifier.ToSyntaxKind(token.Kind);
+                        if (kind.HasValue)
+                        {
+                            richTextBoxMainEditor.Select(token.Start, token.Length);
+                            richTextBoxMainEditor.SelectionColor = getColor(kind.Value);
+                        }
+                    }
+
+                    foreach (DdfDiagnostic diagnostic in parseResult.Diagnostics)
+                    {
+                        if (diagnostic.End <= formatStart)
+                        {
+                            continue;
+                        }
+
+                        int diagnosticStart = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
+                        int diagnosticLength = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - diagnosticStart);
+                        richTextBoxMainEditor.Select(diagnosticStart, diagnosticLength);
+                        richTextBoxMainEditor.SelectionColor = Color.FromArgb(241, 241, 241);
+                        richTextBoxMainEditor.SelectionBackColor = Color.FromArgb(90, 29, 29);
+                    }
+
+                    int safeStart = Math.Min(selectionStart, richTextBoxMainEditor.TextLength);
+                    int safeLength = Math.Min(selectionLength, richTextBoxMainEditor.TextLength - safeStart);
+                    richTextBoxMainEditor.Select(safeStart, safeLength);
+                }
+            }
+            finally
+            {
+                isApplyingHighlighting = false;
+            }
+
+            updateDiagnostics(parseResult.Diagnostics);
+            updateOutline(DdfSymbolIndex.Create(parseResult.Root).Symbols);
+            lastLexResult = update.Result;
+            lastAnalyzedText = text;
+            lastParseResult = parseResult;
+            updateFoldingRanges(DdfFoldingRangeProvider.Create(parseResult.Root, text));
+            refreshDelimiterHighlight();
+        }
+
+        private void updateOutline(IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
+            treeViewOutline.BeginUpdate();
+            try
+            {
+                treeViewOutline.Nodes.Clear();
+                foreach (DdfDocumentSymbol symbol in symbols)
+                {
+                    treeViewOutline.Nodes.Add(createOutlineNode(symbol));
+                }
+
+                if (treeViewOutline.Nodes.Count == 0)
+                {
+                    treeViewOutline.Nodes.Add(new TreeNode("Nessun simbolo nel documento")
+                    {
+                        ForeColor = Color.Gray
+                    });
+                }
+                else
+                {
+                    treeViewOutline.ExpandAll();
+                }
+            }
+            finally
+            {
+                treeViewOutline.EndUpdate();
+            }
+
+            int count = countSymbols(symbols);
+            labelOutline.Text = count == 1 ? "OUTLINE — 1 simbolo" : "OUTLINE — " + count + " simboli";
+        }
+
+        private static TreeNode createOutlineNode(DdfDocumentSymbol symbol)
+        {
+            var node = new TreeNode(getSymbolPrefix(symbol.Kind) + " " + symbol)
+            {
+                Tag = symbol
+            };
+            foreach (DdfDocumentSymbol child in symbol.Children)
+            {
+                node.Nodes.Add(createOutlineNode(child));
+            }
+
+            return node;
+        }
+
+        private static string getSymbolPrefix(DdfSymbolKind kind)
+        {
+            switch (kind)
+            {
+                case DdfSymbolKind.Library: return "◈";
+                case DdfSymbolKind.Structure: return "◆";
+                case DdfSymbolKind.Function: return "ƒ";
+                case DdfSymbolKind.Parameter: return "p";
+                case DdfSymbolKind.Field: return "▪";
+                default: return "•";
+            }
+        }
+
+        private static int countSymbols(IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
+            int count = 0;
+            foreach (DdfDocumentSymbol symbol in symbols)
+            {
+                count += 1 + countSymbols(symbol.Children);
+            }
+
+            return count;
+        }
+
+        private void treeViewOutline_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            var symbol = e.Node.Tag as DdfDocumentSymbol;
+            if (symbol == null) return;
+
+            leaveFoldedView();
+
+            int start = Math.Min(symbol.SelectionStart, richTextBoxMainEditor.TextLength);
+            int length = Math.Min(symbol.SelectionLength, richTextBoxMainEditor.TextLength - start);
+            richTextBoxMainEditor.Select(start, length);
+            richTextBoxMainEditor.ScrollToCaret();
+            richTextBoxMainEditor.Focus();
+        }
+
+        private static Color getColor(SyntaxKind kind)
+        {
+            switch (kind)
+            {
+                case SyntaxKind.Comment:
+                    return Color.FromArgb(106, 153, 85);
+                case SyntaxKind.Library:
+                    return Color.FromArgb(220, 220, 170);
+                case SyntaxKind.String:
+                    return Color.FromArgb(206, 145, 120);
+                case SyntaxKind.Grammar:
+                    return Color.FromArgb(86, 156, 214);
+                case SyntaxKind.Number:
+                    return Color.FromArgb(181, 206, 168);
+                case SyntaxKind.DataType:
+                    return Color.FromArgb(78, 201, 176);
+                case SyntaxKind.Operator:
+                    return Color.FromArgb(212, 212, 212);
+                case SyntaxKind.Function:
+                    return Color.FromArgb(220, 220, 170);
+                case SyntaxKind.ControlFlow:
+                    return Color.FromArgb(197, 134, 192);
+                case SyntaxKind.Error:
+                    return Color.FromArgb(244, 71, 71);
+                default:
+                    return Color.FromArgb(212, 212, 212);
+            }
+        }
+
+        private void richTextBoxMainEditor_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (handleCompletionKeyDown(e))
+            {
+                return;
+            }
+            if (e.Control && e.KeyCode == Keys.M)
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                if (e.Shift)
+                {
+                    leaveFoldedView();
+                }
+                else
+                {
+                    toggleFoldMenuItem_Click(sender, EventArgs.Empty);
+                }
+            }
+            else if (e.KeyCode == Keys.Tab)
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                applyEdit(EditorEditing.CreateTabEdit(
+                    richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart,
+                    richTextBoxMainEditor.SelectionLength,
+                    e.Shift));
+            }
+            else if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                applyEdit(EditorEditing.CreateNewLineEdit(
+                    richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart,
+                    richTextBoxMainEditor.SelectionLength));
+            }
+        }
+
+        private void applyEdit(EditorEdit edit)
+        {
+            richTextBoxMainEditor.Select(edit.Start, edit.Length);
+            richTextBoxMainEditor.SelectedText = edit.Replacement;
+            richTextBoxMainEditor.Select(edit.SelectionStart, edit.SelectionLength);
+        }
+
+        private void richTextBoxMainEditor_VScroll(object sender, EventArgs e)
+        {
+            updateLineNumbers();
+        }
+
+        private void richTextBoxMainEditor_FontChanged(object sender, EventArgs e)
+        {
+            if (richTextBoxLineNumbers != null)
+            {
+                richTextBoxLineNumbers.Font = richTextBoxMainEditor.Font;
+                updateLineNumbers();
+            }
+        }
+
+        private void richTextBoxMainEditor_SelectionChanged(object sender, EventArgs e)
+        {
+            if (isApplyingHighlighting || isUpdatingDelimiterHighlight)
+            {
+                return;
+            }
+
+            updateCaretPosition();
+            hideCompletionIfCaretMoved();
+            scheduleDelimiterHighlight();
+            updateFoldingCommandState();
+        }
+
+        private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            isMouseSelecting = true;
+            hideCompletion();
+            delimiterHighlightTimer.Stop();
+        }
+
+        private void richTextBoxMainEditor_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            isMouseSelecting = false;
+            scheduleDelimiterHighlight();
+        }
+
+        private void updateDiagnostics(System.Collections.Generic.IReadOnlyList<DdfDiagnostic> diagnostics)
+        {
+            listBoxDiagnostics.BeginUpdate();
+            try
+            {
+                listBoxDiagnostics.Items.Clear();
+                foreach (DdfDiagnostic diagnostic in diagnostics)
+                {
+                    listBoxDiagnostics.Items.Add(diagnostic);
+                }
+            }
+            finally
+            {
+                listBoxDiagnostics.EndUpdate();
+            }
+
+            int count = diagnostics.Count;
+            labelDiagnostics.Text = count == 1
+                ? "Diagnostica sorgente — 1 problema"
+                : "Diagnostica sorgente — " + count + " problemi";
+            panelDiagnostics.Visible = true;
+            updateLineNumbers();
+        }
+
+        private void listBoxDiagnostics_DoubleClick(object sender, EventArgs e)
+        {
+            var diagnostic = listBoxDiagnostics.SelectedItem as DdfDiagnostic;
+            if (diagnostic == null)
+            {
+                return;
+            }
+
+            int start = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
+            int length = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - start);
+            richTextBoxMainEditor.Select(start, length);
+            richTextBoxMainEditor.ScrollToCaret();
+            richTextBoxMainEditor.Focus();
+        }
+
+        private void updateCaretPosition()
+        {
+            if (richTextBoxMainEditor == null || statusPositionLabel == null)
+            {
+                return;
+            }
+
+            int position = richTextBoxMainEditor.SelectionStart;
+            int line = richTextBoxMainEditor.GetLineFromCharIndex(position);
+            int lineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(line);
+            int column = lineStart < 0 ? 0 : position - lineStart;
+            statusPositionLabel.Text = "Riga " + (line + 1) + ", Colonna " + (column + 1);
+        }
+
+        private void updateLineNumbers()
+        {
+            if (richTextBoxMainEditor == null || richTextBoxLineNumbers == null ||
+                richTextBoxMainEditor.IsDisposed || richTextBoxLineNumbers.IsDisposed)
+            {
+                return;
+            }
+
+            if (richTextBoxFoldedView != null && richTextBoxFoldedView.Visible && activeFoldProjection != null)
+            {
+                updateFoldedLineNumbers();
+                return;
+            }
+
+            int firstIndex = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, 1)));
+            int firstLine = richTextBoxMainEditor.GetLineFromCharIndex(firstIndex);
+            int bottom = Math.Max(1, richTextBoxMainEditor.ClientRectangle.Height - 1);
+            int lastIndex = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, bottom)));
+            int lastLine = richTextBoxMainEditor.GetLineFromCharIndex(lastIndex);
+
+            if (lastLine < firstLine)
+            {
+                lastLine = firstLine;
+            }
+
+            var lineNumbers = new StringBuilder();
+            for (int line = firstLine; line <= lastLine; line++)
+            {
+                lineNumbers.Append(line + 1).Append('\n');
+            }
+
+            string value = lineNumbers.ToString();
+            if (!string.Equals(richTextBoxLineNumbers.Text, value, StringComparison.Ordinal))
+            {
+                richTextBoxLineNumbers.Text = value;
+                richTextBoxLineNumbers.SelectAll();
+                richTextBoxLineNumbers.SelectionAlignment = HorizontalAlignment.Left;
+                richTextBoxLineNumbers.SelectionIndent = 1;
+                richTextBoxLineNumbers.Select(0, 0);
+            }
+        }
+    }
+}

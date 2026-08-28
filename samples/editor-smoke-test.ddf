@@ -1,0 +1,60 @@
+// DDFLanguageEditor 0.5.4 - controllo visivo manuale
+// Copiare l'intero file nell'editor. Questo commento, incluso int 999, deve
+// rimanere completamente verde.
+
+@@'Console'
+@@'Math'
+
+/* Anche questo blocco deve essere completamente verde.
+   Le parole if, string e il numero 123 non devono ricevere altri colori. */
+
+struct User
+{
+    string name;
+    int age;
+    bool active;
+}
+
+main() out int
+{
+    int counter << 0;
+    float ratio << 12.5;
+    char initial << "F";
+    bool enabled << true;
+    bool legacyFlag << False;
+    string message << "if // 456 resta dentro la stringa";
+    string quoted << "Testo con \"virgolette\" sottoposte a escape";
+    int[3] values;
+
+    if(enabled & counter < 10)
+    {
+        message << "Blocco if";
+        counter++;
+    }
+
+    do
+    {
+        counter--;
+        ratio << ratio + 1.25 * 2 / 4;
+    }
+    while(counter > 0);
+
+    for(int index; index < 3; index++)
+    {
+        values[index] << index ^ 2;
+
+        if(index == 1 || enabled !! false)
+        {
+            brk;
+        }
+    }
+
+    bool inside << counter >><< 10;
+    bool outside << counter <<>> 10;
+    bool exclusive << enabled |&| legacyFlag;
+    bool negated << !enabled;
+
+    message >> Console;
+    ret counter;
+    end;
+}

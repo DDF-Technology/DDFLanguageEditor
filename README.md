@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.1 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.5.4 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un prototipo di editor sintattico: non è ancora un ambiente di sviluppo né
 > un'implementazione completa del linguaggio DDF.
 
@@ -10,26 +10,40 @@ evidenziazione delle regole note e indentazione assistita.
 
 ## Funzioni attualmente disponibili
 
-- evidenziazione sintattica basata su parole chiave e delimitatori;
-- numerazione delle righe visibili;
+- lexer DDF formale ed evidenziazione alimentata dai token;
+- parser con AST tipizzato, precedenze e recupero dagli errori;
+- catalogo centralizzato ed estensibile di parole chiave e operatori;
+- indice gerarchico e outline navigabile di strutture, funzioni e variabili;
+- evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
+- completamento contestuale di catalogo e simboli locali, automatico o con `Ctrl+Spazio`;
+- formattazione automatica idempotente con `Ctrl+Shift+F` e singolo Undo;
+- diagnostica lessicale e sintattica con pannello navigabile;
+- numerazione delle righe visibili in un gutter non selezionabile;
+- Outline e Diagnostica pinnabili oppure richiudibili automaticamente;
 - conversione di Tab in quattro spazi;
-- rientro automatico dopo `{` e `(`;
+- indentazione multilinea, de-indentazione e rientro automatico dopo `{` e `(`;
+- creazione, apertura e salvataggio di sorgenti `.ddf` in UTF-8;
+- protezione delle modifiche non salvate e file recenti;
+- trova, sostituisci, scorciatoie standard e barra di stato;
 - editor locale senza rete, account o telemetria;
 - bozza storica della sintassi in `DDF - Program Language Spec.txt`.
 
 ## Limiti della beta
 
-- nessun comando Apri, Salva o Esporta;
-- nessun tokenizer, parser, albero sintattico o validatore;
+- nessun validatore semantico o risolutore di simboli;
 - nessun interprete, compilatore, debugger o runtime DDF;
-- nessun completamento automatico o gestione progetto;
-- l'evidenziazione ricalcola l'intero documento e non è ottimizzata per file grandi;
-- alcune regole dell'highlighter e della specifica storica non sono ancora
-  allineate: la specifica è una bozza progettuale, non un contratto stabile.
+- nessuna rinomina, risoluzione semantica o gestione progetto;
+- la ri-lessicalizzazione riutilizza il prefisso invariato ma analizza ancora
+  dalla zona modificata fino alla fine del documento;
+- la grammatica 0.4 copre un sottoinsieme sperimentale e può ancora cambiare;
+- la vista compressa mostra più blocchi contemporaneamente in sola lettura, mantenendo i
+  colori dei token visibili e i numeri di riga originali; `⋯` indica le righe
+  nascoste. Il sorgente originale resta nell'editor e viene ripristinato prima
+  di modificarlo.
 
-Il testo inserito nell'editor rimane soltanto nella sessione corrente. Chiudendo
-l'applicazione viene perso: usare contenuti di prova e copiarli altrove prima
-dell'uscita.
+Il contenuto di un documento nuovo rimane in memoria finché non viene salvato.
+Prima di chiudere, aprire un altro file o creare un nuovo documento, l'editor
+richiede se salvare le modifiche non persistite.
 
 ## Requisiti e build
 
@@ -41,13 +55,53 @@ dell'uscita.
 msbuild "DDF - Program Language Editor.sln" /t:Rebuild /p:Configuration=Release
 ```
 
-L'eseguibile `DDFLanguageEditor.exe` viene generato in `bin\Release`. La release pubblica è unsigned:
-Windows può mostrare un avviso di reputazione.
+L'eseguibile `DDFLanguageEditor.exe` e la libreria applicativa
+`DDFLanguageEditor.Core.dll` vengono generati in `bin\Release` e devono essere
+distribuiti insieme. La release pubblica è unsigned: Windows può mostrare un
+avviso di reputazione.
+
+Per eseguire build Debug, test del core e smoke dinamico WinForms con un unico
+comando:
+
+```powershell
+.\tests\run-dynamic-smoke.ps1
+```
+
+Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
+che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
+direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
+inoltre tutti i 19 comandi presenti nei menu File, Modifica, Visualizza e Help; la
+copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
+eseguito:
+
+```powershell
+.\tests\run-dynamic-smoke.ps1 -Visible
+```
+
+Per eseguire soltanto i test del core dopo una build Debug:
+
+```powershell
+.\tests\DDFLanguageEditor.Tests\bin\Debug\DDFLanguageEditor.Tests.exe
+```
 
 ## Struttura
 
-- `Main.cs` e `Main.Designer.cs`: finestra, indentazione ed evidenziazione;
-- `Resource/DictRules.cs`: token, delimitatori e colori sperimentali;
+- `Main.cs`, `Main.Editor.cs`, `Main.Completion.cs`, `Main.Formatting.cs` e `Main.Designer.cs`: finestra e flussi utente;
+- `FindReplaceForm.cs`: ricerca e sostituzione modeless;
+- `AboutForm.cs`: informazioni su autore, sito, licenza e versione beta;
+- `DDFLanguageEditor.Core/`: documenti, ricerca, lexer, parser, AST e trasformazioni testabili;
+- `tests/DDFLanguageEditor.Tests/`: suite di regressione eseguibile senza dipendenze;
+- `tests/DDFLanguageEditor.EditorSmokeTests/`: smoke dinamico sul form WinForms reale;
+- `tests/run-dynamic-smoke.ps1`: build e gate di test ripetibile;
+- `samples/editor-smoke-test.ddf`: controllo visivo manuale dell'editor;
+- `samples/formatter-smoke-test.ddf`: controllo manuale di formattazione, idempotenza e Undo;
+- `samples/lexer/`: corpus lessicale valido e non valido;
+- `samples/parser/`: corpus sintattico valido e non valido;
+- `LANGUAGE_REFERENCE.md`: sottoinsieme sintattico riconosciuto dall'editor;
+- `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
+- `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
+- `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
+- `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
 - `DDF - Program Language Spec.txt`: specifica storica in bozza;
 - `Properties/`: metadati e risorse del progetto .NET Framework.
 
@@ -64,9 +118,15 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.1 — experimental work in progress.** DDFLanguageEditor currently is a
-small Windows Forms syntax-editor prototype with line numbers, highlighting and
-assisted indentation. It does not yet open or save files and includes no parser,
-compiler, interpreter, debugger or DDF runtime. The historical language
-specification is an unstable design draft. Source and documentation are
-available under the MIT License.
+**Beta 0.5.4 — experimental work in progress.** DDFLanguageEditor is a small
+Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
+find/replace, a formal lexer, a typed AST parser, source diagnostics, line
+numbers and assisted indentation. It includes no semantic analyzer, compiler,
+interpreter, debugger or DDF runtime. A live document outline indexes structures,
+functions, parameters and variables. Matching delimiters and a source-preserving
+read-only fold projection are included. Contextual completion suggests catalog
+terms and locally visible document symbols, automatically or with `Ctrl+Space`.
+The idempotent document formatter normalizes indentation and token spacing with
+`Ctrl+Shift+F` while preserving protected token contents and Undo.
+The historical language specification is an unstable design draft.
+Source and documentation are available under the MIT License.

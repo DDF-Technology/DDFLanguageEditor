@@ -12,6 +12,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <ApplicationIcon>Resource\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -34,6 +35,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -49,12 +51,30 @@
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Main.Editor.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Completion.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Folding.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Formatting.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="RichTextBoxUpdateScope.cs" />
+    <Compile Include="LineNumberGutter.cs" />
+    <Compile Include="Main.Palettes.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
     <Compile Include="Main.Designer.cs">
       <DependentUpon>Main.cs</DependentUpon>
     </Compile>
+    <Compile Include="FindReplaceForm.cs" />
+    <Compile Include="AboutForm.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resource\DictRules.cs" />
     <EmbeddedResource Include="Main.resx">
       <DependentUpon>Main.cs</DependentUpon>
     </EmbeddedResource>
@@ -79,6 +99,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Resource\AppIcon.ico" />
+    <EmbeddedResource Include="Resource\AppIcon.png">
+      <LogicalName>DDFLanguageEditor.AppIcon.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj">
+      <Project>{2D0C8167-AB79-48CF-90F7-EB5D2EB661C4}</Project>
+      <Name>DDFLanguageEditor.Core</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

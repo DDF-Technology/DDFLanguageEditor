@@ -1,0 +1,963 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using DDFLanguageEditor.Core;
+
+namespace DDFLanguageEditor.Tests
+{
+    internal static class Program
+    {
+        private static readonly List<string> Failures = new List<string>();
+        private static int passedTests;
+
+        private static int Main()
+        {
+            Run("classifies complete line comments", ClassifiesCompleteLineComments);
+            Run("classifies complete numbers", ClassifiesCompleteNumbers);
+            Run("protects strings from nested classification", ProtectsStrings);
+            Run("classifies unterminated block comments", ClassifiesUnterminatedBlockComments);
+            Run("prefers longest operators", PrefersLongestOperators);
+            Run("inserts four spaces for Tab", InsertsTab);
+            Run("indents and outdents multiline selections", IndentsAndOutdentsSelection);
+            Run("indents after an opening block", IndentsAfterOpeningBlock);
+            Run("replaces the selection on Enter", ReplacesSelectionOnEnter);
+            Run("round-trips UTF-8 documents", RoundTripsUtf8Documents);
+            Run("accepts the optional UTF-8 BOM", AcceptsUtf8Bom);
+            Run("rejects invalid UTF-8 documents", RejectsInvalidUtf8Documents);
+            Run("tracks document session state", TracksDocumentSessionState);
+            Run("deduplicates recent files", DeduplicatesRecentFiles);
+            Run("wraps find-next searches", WrapsFindNextSearches);
+            Run("replaces all matches", ReplacesAllMatches);
+            Run("produces formal tokens", ProducesFormalTokens);
+            Run("reports diagnostic positions", ReportsDiagnosticPositions);
+            Run("matches full lexing after incremental edits", MatchesFullLexingAfterIncrementalEdits);
+            Run("relexes across a shared inserted prefix", RelexesAcrossSharedInsertedPrefix);
+            Run("survives deterministic dynamic editing", SurvivesDeterministicDynamicEditing);
+            Run("accepts the valid lexer corpus", AcceptsValidLexerCorpus);
+            Run("reports the invalid lexer corpus", ReportsInvalidLexerCorpus);
+            Run("builds an AST for the parser corpus", BuildsAstForParserCorpus);
+            Run("honors expression precedence", HonorsExpressionPrecedence);
+            Run("honors right associativity", HonorsRightAssociativity);
+            Run("recovers from multiple syntax errors", RecoversFromMultipleSyntaxErrors);
+            Run("keeps AST spans within the source", KeepsAstSpansWithinSource);
+            Run("parses the editor smoke sample", ParsesEditorSmokeSample);
+            Run("drives lexing from a language catalog", DrivesLexingFromLanguageCatalog);
+            Run("drives parsing from syntax roles", DrivesParsingFromSyntaxRoles);
+            Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
+            Run("indexes document symbols hierarchically", IndexesDocumentSymbolsHierarchically);
+            Run("keeps exact symbol selection spans", KeepsExactSymbolSelectionSpans);
+            Run("indexes incomplete documents safely", IndexesIncompleteDocumentsSafely);
+            Run("matches nested delimiters", MatchesNestedDelimiters);
+            Run("ignores delimiters in comments and strings", IgnoresDelimitersInCommentsAndStrings);
+            Run("handles unmatched delimiters", HandlesUnmatchedDelimiters);
+            Run("handles stale delimiter tokens safely", HandlesStaleDelimiterTokensSafely);
+            Run("derives multiline folding ranges", DerivesMultilineFoldingRanges);
+            Run("handles incomplete folding trees", HandlesIncompleteFoldingTrees);
+            Run("creates a source-preserving fold projection", CreatesSourcePreservingFoldProjection);
+            Run("creates a multi-range fold projection", CreatesMultiRangeFoldProjection);
+            Run("completes catalog keywords by prefix", CompletesCatalogKeywordsByPrefix);
+            Run("suppresses completion in comments and strings", SuppressesCompletionInProtectedTokens);
+            Run("offers only visible local symbols", OffersOnlyVisibleLocalSymbols);
+            Run("completes known library names", CompletesKnownLibraryNames);
+            Run("drives completion from an alternative catalog", DrivesCompletionFromAlternativeCatalog);
+            Run("formats a complete DDF document", FormatsCompleteDocument);
+            Run("formats idempotently", FormatsIdempotently);
+            Run("preserves comments strings and libraries while formatting", PreservesProtectedTextWhileFormatting);
+            Run("formats incomplete source without losing tokens", FormatsIncompleteSourceSafely);
+            Run("maps the caret through formatting", MapsCaretThroughFormatting);
+            Run("drives formatting from an alternative catalog", DrivesFormattingFromAlternativeCatalog);
+            Run("formats control flow calls and arrays", FormatsControlFlowCallsAndArrays);
+
+            if (Failures.Count == 0)
+            {
+                Console.WriteLine("All " + passedTests + " tests passed.");
+                return 0;
+            }
+
+            Console.Error.WriteLine(Failures.Count + " test(s) failed:");
+            foreach (string failure in Failures)
+            {
+                Console.Error.WriteLine("- " + failure);
+            }
+
+            return 1;
+        }
+
+        private static void ClassifiesCompleteLineComments()
+        {
+            const string text = "int value; // int 42";
+            ClassifiedSpan comment = DdfSyntaxClassifier.Classify(text)
+                .Single(span => span.Kind == SyntaxKind.Comment);
+            Equal("// int 42", Slice(text, comment));
+            False(DdfSyntaxClassifier.Classify(text).Any(span => span.Start > comment.Start));
+        }
+
+        private static void ClassifiesCompleteNumbers()
+        {
+            const string text = "int value << 123.45;";
+            ClassifiedSpan number = DdfSyntaxClassifier.Classify(text)
+                .Single(span => span.Kind == SyntaxKind.Number);
+            Equal("123.45", Slice(text, number));
+        }
+
+        private static void ProtectsStrings()
+        {
+            const string text = "\"if // 12\"";
+            IReadOnlyList<ClassifiedSpan> spans = DdfSyntaxClassifier.Classify(text);
+            Equal(1, spans.Count);
+            Equal(SyntaxKind.String, spans[0].Kind);
+            Equal(text, Slice(text, spans[0]));
+        }
+
+        private static void ClassifiesUnterminatedBlockComments()
+        {
+            const string text = "/* int value";
+            ClassifiedSpan span = DdfSyntaxClassifier.Classify(text).Single();
+            Equal(SyntaxKind.Comment, span.Kind);
+            Equal(text, Slice(text, span));
+        }
+
+        private static void PrefersLongestOperators()
+        {
+            const string text = "a >><< b <<>> c |&| d";
+            string[] operators = DdfSyntaxClassifier.Classify(text)
+                .Where(span => span.Kind == SyntaxKind.Operator)
+                .Select(span => Slice(text, span))
+                .ToArray();
+            SequenceEqual(new[] { ">><<", "<<>>", "|&|" }, operators);
+        }
+
+        private static void InsertsTab()
+        {
+            EditorEdit edit = EditorEditing.CreateTabEdit("ab", 1, 0, false);
+            Equal("a    b", Apply("ab", edit));
+            Equal(5, edit.SelectionStart);
+        }
+
+        private static void IndentsAndOutdentsSelection()
+        {
+            const string source = "one\ntwo";
+            EditorEdit indent = EditorEditing.CreateTabEdit(source, 0, source.Length, false);
+            string indented = Apply(source, indent);
+            Equal("    one\n    two", indented);
+
+            EditorEdit outdent = EditorEditing.CreateTabEdit(
+                indented,
+                indent.SelectionStart,
+                indent.SelectionLength,
+                true);
+            Equal(source, Apply(indented, outdent));
+        }
+
+        private static void IndentsAfterOpeningBlock()
+        {
+            const string source = "if(condition){";
+            EditorEdit edit = EditorEditing.CreateNewLineEdit(source, source.Length, 0);
+            Equal("if(condition){\n    ", Apply(source, edit));
+            Equal(source.Length + 5, edit.SelectionStart);
+        }
+
+        private static void ReplacesSelectionOnEnter()
+        {
+            const string source = "    old value";
+            EditorEdit edit = EditorEditing.CreateNewLineEdit(source, 4, 4);
+            Equal("    \n    value", Apply(source, edit));
+        }
+
+        private static void RoundTripsUtf8Documents()
+        {
+            string directory = CreateTemporaryDirectory();
+            string path = Path.Combine(directory, "unicode.ddf");
+            const string first = "string saluto << \"Ciao, 世界 🌍\";\r\nint valore << 42;";
+            const string second = "// seconda versione\nfloat valore << 1.5;";
+            try
+            {
+                DdfDocumentFile.Save(path, first);
+                Equal(first, DdfDocumentFile.Load(path));
+                byte[] bytes = File.ReadAllBytes(path);
+                False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+
+                DdfDocumentFile.Save(path, second);
+                Equal(second, DdfDocumentFile.Load(path));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        private static void RejectsInvalidUtf8Documents()
+        {
+            string directory = CreateTemporaryDirectory();
+            string path = Path.Combine(directory, "invalid.ddf");
+            try
+            {
+                File.WriteAllBytes(path, new byte[] { 0xC3, 0x28 });
+                Throws<DecoderFallbackException>(() => DdfDocumentFile.Load(path));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        private static void AcceptsUtf8Bom()
+        {
+            string directory = CreateTemporaryDirectory();
+            string path = Path.Combine(directory, "bom.ddf");
+            const string content = "string value << \"UTF-8\";";
+            try
+            {
+                byte[] preamble = Encoding.UTF8.GetPreamble();
+                byte[] payload = Encoding.UTF8.GetBytes(content);
+                File.WriteAllBytes(path, preamble.Concat(payload).ToArray());
+                Equal(content, DdfDocumentFile.Load(path));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        private static void TracksDocumentSessionState()
+        {
+            var session = new DocumentSession();
+            session.SetUntitled();
+            Equal("Senza titolo.ddf", session.DisplayName);
+            False(session.HasPath);
+            False(session.IsDirty);
+
+            session.MarkDirty();
+            Equal(true, session.IsDirty);
+
+            string path = Path.Combine(Path.GetTempPath(), "example.ddf");
+            session.MarkSaved(path);
+            Equal(Path.GetFullPath(path), session.CurrentPath);
+            Equal("example.ddf", session.DisplayName);
+            False(session.IsDirty);
+        }
+
+        private static void DeduplicatesRecentFiles()
+        {
+            string first = Path.Combine(Path.GetTempPath(), "first.ddf");
+            string second = Path.Combine(Path.GetTempPath(), "second.ddf");
+            IReadOnlyList<string> recent = RecentFileList.Add(new[] { second, first }, first);
+            SequenceEqual(new[] { Path.GetFullPath(first), Path.GetFullPath(second) }, recent);
+            SequenceEqual(recent, RecentFileList.Parse(RecentFileList.Serialize(recent)));
+        }
+
+        private static void WrapsFindNextSearches()
+        {
+            const string text = "Alpha beta alpha";
+            Equal(11, TextSearch.FindNext(text, "alpha", 6, false));
+            Equal(0, TextSearch.FindNext(text, "alpha", 12, false));
+            Equal(-1, TextSearch.FindNext(text, "ALPHA", 0, true));
+        }
+
+        private static void ReplacesAllMatches()
+        {
+            ReplaceResult result = TextSearch.ReplaceAll("one ONE two", "one", "1", false);
+            Equal("1 1 two", result.Text);
+            Equal(2, result.ReplacementCount);
+        }
+
+        private static void ProducesFormalTokens()
+        {
+            const string text = "int value << 12.5; // ok";
+            DdfLexResult result = DdfLexer.Lex(text);
+            DdfToken[] tokens = result.Tokens.ToArray();
+            SequenceEqual(
+                new[]
+                {
+                    DdfTokenKind.DataTypeKeyword,
+                    DdfTokenKind.Identifier,
+                    DdfTokenKind.Operator,
+                    DdfTokenKind.NumberLiteral,
+                    DdfTokenKind.Punctuation,
+                    DdfTokenKind.LineComment
+                },
+                tokens.Select(token => token.Kind));
+            Equal("12.5", text.Substring(tokens[3].Start, tokens[3].Length));
+            Equal(0, result.Diagnostics.Count);
+        }
+
+        private static void ReportsDiagnosticPositions()
+        {
+            const string text = "int value;\n  \"not closed";
+            DdfDiagnostic diagnostic = DdfLexer.Lex(text).Diagnostics.Single();
+            Equal("DDF001", diagnostic.Code);
+            Equal(2, diagnostic.Line);
+            Equal(3, diagnostic.Column);
+        }
+
+        private static void MatchesFullLexingAfterIncrementalEdits()
+        {
+            var lexer = new IncrementalDdfLexer();
+            const string first = "int first << 1;\nstring second << \"ok\";";
+            const string second = "int first << 1;\nstring second << \"changed\";";
+            const string third = "int first << 1;\n/* string second << \"changed\";";
+
+            lexer.Update(first);
+            DdfLexUpdate secondUpdate = lexer.Update(second);
+            Equal(true, secondUpdate.RelexStart > 0);
+            AssertLexResultsEqual(DdfLexer.Lex(second), secondUpdate.Result);
+
+            DdfLexUpdate thirdUpdate = lexer.Update(third);
+            Equal(true, thirdUpdate.RelexStart > 0);
+            AssertLexResultsEqual(DdfLexer.Lex(third), thirdUpdate.Result);
+            Equal("DDF002", thirdUpdate.Result.Diagnostics.Single().Code);
+        }
+
+        private static void SurvivesDeterministicDynamicEditing()
+        {
+            const int editCount = 400;
+            var random = new Random(50201);
+            var lexer = new IncrementalDdfLexer();
+            string text = "@@'Console'\nmain() out int {\n    int value << 1;\n    ret value;\n}";
+            string[] fragments = { "@@'Math'", "@@", "'", "/*", "*/", "\"", "int", " value", "{", "}", ";", "\n" };
+            lexer.Update(text);
+
+            for (int edit = 0; edit < editCount; edit++)
+            {
+                string previousText = text;
+                bool insert = text.Length == 0 || random.Next(100) < 58;
+                int position = random.Next(text.Length + 1);
+                string operation;
+                if (insert)
+                {
+                    string fragment = fragments[random.Next(fragments.Length)];
+                    text = text.Insert(position, fragment);
+                    operation = "insert <" + fragment.Replace("\n", "\\n") + ">";
+                }
+                else
+                {
+                    int length = Math.Min(1 + random.Next(8), text.Length - position);
+                    if (length == 0)
+                    {
+                        position--;
+                        length = 1;
+                    }
+
+                    operation = "delete <" + text.Substring(position, length).Replace("\n", "\\n") + ">";
+                    text = text.Remove(position, length);
+                }
+
+                DdfLexUpdate update = lexer.Update(text);
+                try
+                {
+                    AssertLexResultsEqual(DdfLexer.Lex(text), update.Result);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidOperationException(
+                        "edit " + edit + ", " + operation + ", position " + position +
+                        ", previous <" + previousText.Replace("\r", "\\r").Replace("\n", "\\n") +
+                        ">, source <" +
+                        text.Replace("\r", "\\r").Replace("\n", "\\n") + ">: " + exception.Message,
+                        exception);
+                }
+
+                AssertDiagnosticSpans(text, DdfParser.Parse(text, update.Result).Diagnostics);
+            }
+        }
+
+        private static void RelexesAcrossSharedInsertedPrefix()
+        {
+            var lexer = new IncrementalDdfLexer();
+            lexer.Update("@u( @@/}");
+            const string edited = "@u( @@'Math'@@/}";
+            DdfLexUpdate update = lexer.Update(edited);
+            AssertLexResultsEqual(DdfLexer.Lex(edited), update.Result);
+            Equal(true, update.Result.Tokens.Any(token => token.Kind == DdfTokenKind.LibraryDirective));
+        }
+
+        private static void AssertDiagnosticSpans(string text, IReadOnlyList<DdfDiagnostic> diagnostics)
+        {
+            foreach (DdfDiagnostic diagnostic in diagnostics)
+            {
+                Equal(true, diagnostic.Start >= 0);
+                Equal(true, diagnostic.Start <= text.Length);
+                Equal(true, diagnostic.Length >= 0);
+                Equal(true, diagnostic.End <= text.Length);
+            }
+        }
+
+        private static void AcceptsValidLexerCorpus()
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "valid.ddf");
+            DdfLexResult result = DdfLexer.Lex(File.ReadAllText(path));
+            Equal(0, result.Diagnostics.Count);
+        }
+
+        private static void ReportsInvalidLexerCorpus()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus");
+            var expected = new Dictionary<string, string>
+            {
+                { "invalid-character.ddf", "DDF004" },
+                { "unterminated-string.ddf", "DDF001" },
+                { "unterminated-comment.ddf", "DDF002" },
+                { "unterminated-library.ddf", "DDF003" }
+            };
+
+            foreach (KeyValuePair<string, string> item in expected)
+            {
+                DdfDiagnostic diagnostic = DdfLexer.Lex(File.ReadAllText(Path.Combine(corpus, item.Key)))
+                    .Diagnostics.Single();
+                Equal(item.Value, diagnostic.Code);
+            }
+        }
+
+        private static void BuildsAstForParserCorpus()
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Parser", "valid.ddf");
+            DdfParseResult result = DdfParser.Parse(File.ReadAllText(path));
+            Equal(0, result.Diagnostics.Count);
+            Equal(3, result.Root.Members.Count);
+            Equal(true, result.Root.Members[0] is LibraryDirectiveSyntax);
+            Equal(true, result.Root.Members[1] is StructDeclarationSyntax);
+            var function = result.Root.Members[2] as FunctionDeclarationSyntax;
+            Equal(true, function != null);
+            Equal("main", function.Name);
+            Equal("int", function.ReturnType.Name);
+        }
+
+        private static void HonorsExpressionPrecedence()
+        {
+            DdfParseResult result = DdfParser.Parse("main() out int { int value << 1 + 2 * 3; }");
+            Equal(0, result.Diagnostics.Count);
+            var function = (FunctionDeclarationSyntax)result.Root.Members.Single();
+            var declaration = (VariableDeclarationStatementSyntax)function.Body.Statements.Single();
+            var addition = (BinaryExpressionSyntax)declaration.Initializer;
+            Equal("+", addition.OperatorText);
+            Equal("*", ((BinaryExpressionSyntax)addition.Right).OperatorText);
+        }
+
+        private static void HonorsRightAssociativity()
+        {
+            DdfParseResult result = DdfParser.Parse("main() out int { first << second << third; ret 2 ^ 3 ^ 4; }");
+            Equal(0, result.Diagnostics.Count);
+            var function = (FunctionDeclarationSyntax)result.Root.Members.Single();
+            var assignment = (BinaryExpressionSyntax)((ExpressionStatementSyntax)function.Body.Statements[0]).Expression;
+            Equal("<<", assignment.OperatorText);
+            Equal("<<", ((BinaryExpressionSyntax)assignment.Right).OperatorText);
+            var power = (BinaryExpressionSyntax)((ReturnStatementSyntax)function.Body.Statements[1]).Expression;
+            Equal("^", power.OperatorText);
+            Equal("^", ((BinaryExpressionSyntax)power.Right).OperatorText);
+        }
+
+        private static void RecoversFromMultipleSyntaxErrors()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Parser");
+            string[] files = { "invalid-missing-semicolon.ddf", "invalid-delimiters.ddf", "invalid-expression.ddf" };
+            foreach (string file in files)
+            {
+                DdfParseResult result = DdfParser.Parse(File.ReadAllText(Path.Combine(corpus, file)));
+                Equal(true, result.SyntaxDiagnostics.Count > 0);
+                Equal(true, result.Root.Members.Count > 0);
+            }
+
+            DdfParseResult multiple = DdfParser.Parse(File.ReadAllText(Path.Combine(corpus, "invalid-expression.ddf")));
+            Equal(true, multiple.SyntaxDiagnostics.Count >= 2);
+            Equal(true, multiple.SyntaxDiagnostics.All(diagnostic => diagnostic.Code.StartsWith("DDF1", StringComparison.Ordinal)));
+        }
+
+        private static void KeepsAstSpansWithinSource()
+        {
+            const string source = "main() out int { int value << 1; ret value; }";
+            DdfParseResult result = DdfParser.Parse(source);
+            var function = (FunctionDeclarationSyntax)result.Root.Members.Single();
+            Equal(0, result.Root.Start);
+            Equal(source.Length, result.Root.End);
+            Equal(true, function.Start >= 0 && function.End <= source.Length);
+            Equal(true, function.Body.Start >= function.Start && function.Body.End <= function.End);
+            Equal(true, function.Body.Statements.All(statement => statement.Start >= function.Body.Start && statement.End <= function.Body.End));
+        }
+
+        private static void ParsesEditorSmokeSample()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            string source = File.ReadAllText(Path.Combine(projectRoot, "samples", "editor-smoke-test.ddf"));
+            DdfParseResult result = DdfParser.Parse(source);
+            Equal(0, result.Diagnostics.Count);
+        }
+
+        private static void DrivesLexingFromLanguageCatalog()
+        {
+            DdfLanguageDefinition language = CreateAlternativeLanguage();
+            const string source = "record value returns whole when give := %% yes";
+            DdfLexResult result = DdfLexer.Lex(source, language);
+            Equal(0, result.Diagnostics.Count);
+            SequenceEqual(
+                new[]
+                {
+                    DdfTokenKind.DataTypeKeyword,
+                    DdfTokenKind.Identifier,
+                    DdfTokenKind.FunctionKeyword,
+                    DdfTokenKind.DataTypeKeyword,
+                    DdfTokenKind.ControlFlowKeyword,
+                    DdfTokenKind.FunctionKeyword,
+                    DdfTokenKind.Operator,
+                    DdfTokenKind.Operator,
+                    DdfTokenKind.BooleanLiteral
+                },
+                result.Tokens.Select(token => token.Kind));
+        }
+
+        private static void DrivesParsingFromSyntaxRoles()
+        {
+            DdfLanguageDefinition language = CreateAlternativeLanguage();
+            const string source =
+                "record Item { whole member; } " +
+                "main() returns whole { whole value := 1 %% 2; when(value) give value; }";
+            DdfParseResult result = DdfParser.Parse(source, language);
+            Equal(0, result.Diagnostics.Count);
+            Equal(true, result.Root.Members[0] is StructDeclarationSyntax);
+            var function = (FunctionDeclarationSyntax)result.Root.Members[1];
+            var declaration = (VariableDeclarationStatementSyntax)function.Body.Statements[0];
+            Equal("%%", ((BinaryExpressionSyntax)declaration.Initializer).OperatorText);
+            Equal(true, function.Body.Statements[1] is IfStatementSyntax);
+        }
+
+        private static void RejectsDuplicateCatalogEntries()
+        {
+            Throws<ArgumentException>(() => new DdfLanguageDefinition(
+                new[]
+                {
+                    new DdfKeywordDefinition("whole", DdfTokenKind.DataTypeKeyword),
+                    new DdfKeywordDefinition("whole", DdfTokenKind.DataTypeKeyword)
+                },
+                new string[0],
+                new DdfOperatorDefinition[0],
+                new[] { ';' }));
+        }
+
+        private static DdfLanguageDefinition CreateAlternativeLanguage()
+        {
+            return new DdfLanguageDefinition(
+                new[]
+                {
+                    new DdfKeywordDefinition("whole", DdfTokenKind.DataTypeKeyword),
+                    new DdfKeywordDefinition("record", DdfTokenKind.DataTypeKeyword, DdfKeywordRole.Structure),
+                    new DdfKeywordDefinition("returns", DdfTokenKind.FunctionKeyword, DdfKeywordRole.ReturnTypeMarker),
+                    new DdfKeywordDefinition("give", DdfTokenKind.FunctionKeyword, DdfKeywordRole.Return),
+                    new DdfKeywordDefinition("stop", DdfTokenKind.FunctionKeyword, DdfKeywordRole.Break),
+                    new DdfKeywordDefinition("finish", DdfTokenKind.FunctionKeyword, DdfKeywordRole.End),
+                    new DdfKeywordDefinition("when", DdfTokenKind.ControlFlowKeyword, DdfKeywordRole.If),
+                    new DdfKeywordDefinition("during", DdfTokenKind.ControlFlowKeyword, DdfKeywordRole.While),
+                    new DdfKeywordDefinition("repeat", DdfTokenKind.ControlFlowKeyword, DdfKeywordRole.Do),
+                    new DdfKeywordDefinition("cycle", DdfTokenKind.ControlFlowKeyword, DdfKeywordRole.For)
+                },
+                new[] { "yes", "no" },
+                new[]
+                {
+                    new DdfOperatorDefinition(
+                        ":=",
+                        1,
+                        DdfOperatorAssociativity.Right,
+                        role: DdfOperatorRole.DeclarationInitializer),
+                    new DdfOperatorDefinition("%%", 7),
+                    new DdfOperatorDefinition("!", prefixPrecedence: 9),
+                    new DdfOperatorDefinition("++", postfixPrecedence: 10),
+                    new DdfOperatorDefinition("<", 5)
+                },
+                new[] { '{', '}', '(', ')', '[', ']', '.', ',', ';' });
+        }
+
+        private static void IndexesDocumentSymbolsHierarchically()
+        {
+            const string source =
+                "@@'Console'\n" +
+                "struct Point { int x; int y; }\n" +
+                "sum(int left, int right) out int {\n" +
+                "  int total << left + right;\n" +
+                "  if(total > 0) { int nested; }\n" +
+                "  for(int index; index < 2; index++) { float ratio; }\n" +
+                "  ret total;\n" +
+                "}";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(0, parseResult.Diagnostics.Count);
+            DdfSymbolIndex index = DdfSymbolIndex.Create(parseResult.Root);
+            Equal(3, index.Symbols.Count);
+            Equal(DdfSymbolKind.Library, index.Symbols[0].Kind);
+            Equal("Console", index.Symbols[0].Name);
+            Equal(DdfSymbolKind.Structure, index.Symbols[1].Kind);
+            SequenceEqual(new[] { "x", "y" }, index.Symbols[1].Children.Select(symbol => symbol.Name));
+            Equal(DdfSymbolKind.Function, index.Symbols[2].Kind);
+            SequenceEqual(
+                new[] { "left", "right", "total", "nested", "index", "ratio" },
+                index.Symbols[2].Children.Select(symbol => symbol.Name));
+        }
+
+        private static void KeepsExactSymbolSelectionSpans()
+        {
+            const string source = "main(int argument) out int { string local; ret argument; }";
+            DdfDocumentSymbol function = DdfSymbolIndex.Create(DdfParser.Parse(source).Root).Symbols.Single();
+            Equal("main", source.Substring(function.SelectionStart, function.SelectionLength));
+            Equal("argument", source.Substring(function.Children[0].SelectionStart, function.Children[0].SelectionLength));
+            Equal("local", source.Substring(function.Children[1].SelectionStart, function.Children[1].SelectionLength));
+        }
+
+        private static void IndexesIncompleteDocumentsSafely()
+        {
+            const string source = "main() out int { int complete; int";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(true, parseResult.SyntaxDiagnostics.Count > 0);
+            DdfDocumentSymbol function = DdfSymbolIndex.Create(parseResult.Root).Symbols.Single();
+            SequenceEqual(new[] { "complete" }, function.Children.Select(symbol => symbol.Name));
+        }
+
+        private static void MatchesNestedDelimiters()
+        {
+            const string source = "main() out int { int[2] values; if(values[0] > 0) { ret values[0]; } }";
+            DdfLexResult lexResult = DdfLexer.Lex(source);
+            int functionOpen = source.IndexOf('(');
+            DdfDelimiterMatch functionPair = DdfDelimiterMatcher.FindMatch(source, functionOpen, lexResult);
+            Equal('(', functionPair.OpenCharacter);
+            Equal(source.IndexOf(')'), functionPair.CloseStart);
+
+            int arrayOpen = source.IndexOf('[');
+            DdfDelimiterMatch arrayPair = DdfDelimiterMatcher.FindMatch(source, arrayOpen + 1, lexResult);
+            Equal(arrayOpen, arrayPair.OpenStart);
+            Equal(source.IndexOf(']', arrayOpen), arrayPair.CloseStart);
+
+            int outerOpen = source.IndexOf('{');
+            DdfDelimiterMatch outerPair = DdfDelimiterMatcher.FindMatch(source, outerOpen, lexResult);
+            Equal(source.LastIndexOf('}'), outerPair.CloseStart);
+        }
+
+        private static void IgnoresDelimitersInCommentsAndStrings()
+        {
+            const string source = "\"( [ {\" // ) ] }\n/* { nested } */ main() out int { ret 0; }";
+            DdfLexResult lexResult = DdfLexer.Lex(source);
+            IReadOnlyList<DdfDelimiterMatch> pairs = DdfDelimiterMatcher.FindPairs(source, lexResult);
+            Equal(2, pairs.Count);
+            Equal(true, pairs.All(pair => pair.OpenStart >= source.IndexOf("main", StringComparison.Ordinal)));
+            Equal(null, DdfDelimiterMatcher.FindMatch(source, 1, lexResult));
+        }
+
+        private static void HandlesUnmatchedDelimiters()
+        {
+            const string source = "main( out int { ret 0;";
+            DdfLexResult lexResult = DdfLexer.Lex(source);
+            Equal(null, DdfDelimiterMatcher.FindMatch(source, source.IndexOf('('), lexResult));
+            Equal(0, DdfDelimiterMatcher.FindPairs(source, lexResult).Count);
+        }
+
+        private static void HandlesStaleDelimiterTokensSafely()
+        {
+            DdfLexResult staleResult = DdfLexer.Lex("main() out int { ret 0; }");
+            IReadOnlyList<DdfDelimiterMatch> pairs = DdfDelimiterMatcher.FindPairs("main", staleResult);
+            Equal(0, pairs.Count);
+            Equal(null, DdfDelimiterMatcher.FindMatch("main", 4, staleResult));
+        }
+
+        private static void DerivesMultilineFoldingRanges()
+        {
+            const string source =
+                "struct Item\n{\n int value;\n}\n" +
+                "main() out int\n{\n if(true)\n {\n  int nested;\n }\n { int oneLine; }\n ret 0;\n}";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(0, parseResult.Diagnostics.Count);
+            IReadOnlyList<DdfFoldingRange> ranges = DdfFoldingRangeProvider.Create(parseResult.Root, source);
+            Equal(3, ranges.Count);
+            SequenceEqual(
+                new[] { DdfFoldingKind.Structure, DdfFoldingKind.Function, DdfFoldingKind.Block },
+                ranges.Select(range => range.Kind));
+            Equal(true, ranges.All(range => source[range.Start] == '{' && source[range.End - 1] == '}'));
+            Equal(true, ranges.All(range => source.Substring(range.ContentStart, range.ContentLength).Contains("\n")));
+        }
+
+        private static void HandlesIncompleteFoldingTrees()
+        {
+            const string source = "main() out int\n{\n if(true)\n {\n  ret 0;\n }";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(true, parseResult.SyntaxDiagnostics.Count > 0);
+            IReadOnlyList<DdfFoldingRange> ranges = DdfFoldingRangeProvider.Create(parseResult.Root, source);
+            Equal(1, ranges.Count);
+            Equal(DdfFoldingKind.Block, ranges[0].Kind);
+        }
+
+        private static void CreatesSourcePreservingFoldProjection()
+        {
+            const string source = "main() out int\n{\n    int value;\n    ret 0;\n}";
+            DdfFoldingRange range = DdfFoldingRangeProvider.Create(DdfParser.Parse(source).Root, source).Single();
+            DdfFoldProjection projection = DdfFoldProjection.Create(source, range);
+            Equal("main() out int\n{\n    int value;\n    ret 0;\n}", source);
+            Equal(true, projection.Text.Contains("⋯ blocco compresso — 3 righe ⋯"));
+            Equal(false, projection.Text.Contains("int value"));
+            Equal('{', projection.Text[range.Start]);
+            Equal('}', projection.Text[projection.Text.Length - 1]);
+            Equal(3, projection.HiddenLineCount);
+
+            int returnTypeStart = source.IndexOf("int", StringComparison.Ordinal);
+            Equal(true, projection.TryProjectSpan(returnTypeStart, 3, out int projectedReturnType, out int returnTypeLength));
+            Equal("int", projection.Text.Substring(projectedReturnType, returnTypeLength));
+
+            int closeBrace = source.LastIndexOf('}');
+            Equal(true, projection.TryProjectSpan(closeBrace, 1, out int projectedCloseBrace, out int closeBraceLength));
+            Equal("}", projection.Text.Substring(projectedCloseBrace, closeBraceLength));
+
+            int hiddenDeclaration = source.IndexOf("value", StringComparison.Ordinal);
+            Equal(false, projection.TryProjectSpan(hiddenDeclaration, "value".Length, out _, out _));
+            SequenceEqual(new[] { "1", "2", "⋯", "5" }, projection.LineNumberLabels);
+        }
+
+        private static void CreatesMultiRangeFoldProjection()
+        {
+            const string source =
+                "first() out int\n{\n    int firstValue << 1;\n    ret firstValue;\n}\n" +
+                "second() out int\n{\n    int secondValue << 2;\n    ret secondValue;\n}";
+            IReadOnlyList<DdfFoldingRange> ranges = DdfFoldingRangeProvider
+                .Create(DdfParser.Parse(source).Root, source)
+                .Where(range => range.Kind == DdfFoldingKind.Function)
+                .ToList();
+            Equal(2, ranges.Count);
+
+            DdfFoldProjection projection = DdfFoldProjection.Create(source, ranges);
+            Equal(2, projection.Markers.Count);
+            Equal(false, projection.Text.Contains("firstValue"));
+            Equal(false, projection.Text.Contains("secondValue"));
+            Equal(2, projection.LineNumberLabels.Count(label => label == "⋯"));
+
+            int secondHeader = source.IndexOf("second()", StringComparison.Ordinal);
+            Equal(true, projection.TryProjectSpan(secondHeader, "second".Length,
+                out int projectedSecond, out int projectedLength));
+            Equal("second", projection.Text.Substring(projectedSecond, projectedLength));
+            Equal(true, projection.TryMapProjectedPosition(projection.Markers[1].ProjectedStart + 1,
+                out int sourcePosition, out int markerRangeStart));
+            Equal(ranges[1].ContentStart, sourcePosition);
+            Equal(ranges[1].Start, markerRangeStart);
+        }
+
+        private static void CompletesCatalogKeywordsByPrefix()
+        {
+            DdfCompletionResult result = DdfCompletionService.GetCompletions("wh", 2);
+            Equal(0, result.ReplacementStart);
+            Equal(2, result.ReplacementLength);
+            SequenceEqual(new[] { "while" }, result.Items.Select(item => item.DisplayText));
+            Equal(DdfCompletionKind.Keyword, result.Items[0].Kind);
+        }
+
+        private static void SuppressesCompletionInProtectedTokens()
+        {
+            Equal(0, DdfCompletionService.GetCompletions("// wh", 5).Items.Count);
+            Equal(0, DdfCompletionService.GetCompletions("\"wh\"", 3).Items.Count);
+            Equal(0, DdfCompletionService.GetCompletions("// @@'Con", 9).Items.Count);
+        }
+
+        private static void OffersOnlyVisibleLocalSymbols()
+        {
+            const string source = "main() out int { int before;  int later; ret before; }";
+            int position = source.IndexOf("int later", StringComparison.Ordinal);
+            DdfCompletionResult inside = DdfCompletionService.GetCompletions(source, position, true);
+            Equal(true, inside.Items.Any(item => item.DisplayText == "before" && item.Kind == DdfCompletionKind.Variable));
+            Equal(false, inside.Items.Any(item => item.DisplayText == "later"));
+
+            DdfCompletionResult outside = DdfCompletionService.GetCompletions(source, source.Length, true);
+            Equal(false, outside.Items.Any(item => item.DisplayText == "before"));
+            Equal(true, outside.Items.Any(item => item.DisplayText == "main" && item.Kind == DdfCompletionKind.Function));
+        }
+
+        private static void CompletesKnownLibraryNames()
+        {
+            const string source = "@@'Console'\n@@'Con";
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(source, source.Length);
+            Equal(source.LastIndexOf("Con", StringComparison.Ordinal), result.ReplacementStart);
+            Equal(3, result.ReplacementLength);
+            SequenceEqual(new[] { "Console" }, result.Items.Select(item => item.DisplayText));
+            Equal(DdfCompletionKind.Library, result.Items[0].Kind);
+        }
+
+        private static void DrivesCompletionFromAlternativeCatalog()
+        {
+            DdfCompletionResult result = DdfCompletionService.GetCompletions("wh", 2, false, CreateAlternativeLanguage());
+            SequenceEqual(new[] { "whole", "when" }, result.Items.Select(item => item.DisplayText));
+            Equal(false, result.Items.Any(item => item.DisplayText == "while"));
+        }
+
+        private static void FormatsCompleteDocument()
+        {
+            const string source = "@@'Console'\nmain()out int{int value<<1+2*3;ret value;}";
+            const string expected =
+                "@@'Console'\n\n" +
+                "main() out int\n" +
+                "{\n" +
+                "    int value << 1 + 2 * 3;\n" +
+                "    ret value;\n" +
+                "}";
+            Equal(expected, DdfFormatter.Format(source).Text);
+        }
+
+        private static void FormatsIdempotently()
+        {
+            const string source = "main() out int\n{\n    int value << 1;\n    ret value;\n}";
+            string once = DdfFormatter.Format(source).Text;
+            Equal(source, once);
+            Equal(once, DdfFormatter.Format(once).Text);
+        }
+
+        private static void PreservesProtectedTextWhileFormatting()
+        {
+            const string source =
+                "@@'Console'\nmain()out int{/* keep   { spacing } */string text<<\"a  +  b\";// note   here\nret 0;}";
+            string formatted = DdfFormatter.Format(source).Text;
+            Equal(true, formatted.Contains("@@'Console'"));
+            Equal(true, formatted.Contains("/* keep   { spacing } */"));
+            Equal(true, formatted.Contains("\"a  +  b\""));
+            Equal(true, formatted.Contains("; // note   here"));
+        }
+
+        private static void FormatsIncompleteSourceSafely()
+        {
+            const string source = "main( out int{int value<<\"unfinished";
+            string formatted = DdfFormatter.Format(source).Text;
+            Equal(true, formatted.Contains("main("));
+            Equal(true, formatted.Contains("int value << \"unfinished"));
+            Equal("main(out int\n{\n    int value << \"unfinished", formatted);
+        }
+
+        private static void MapsCaretThroughFormatting()
+        {
+            const string source = "main()out int{ret value;}";
+            int caret = source.IndexOf("value", StringComparison.Ordinal) + "value".Length;
+            DdfFormatResult result = DdfFormatter.Format(source);
+            int mapped = result.MapPosition(caret);
+            Equal("value", result.Text.Substring(mapped - "value".Length, "value".Length));
+            EditorEdit edit = result.CreateEdit(source, caret, 0);
+            Equal(mapped, edit.SelectionStart);
+            Equal(0, edit.SelectionLength);
+        }
+
+        private static void DrivesFormattingFromAlternativeCatalog()
+        {
+            const string source = "main()returns whole{whole value:=1%%2;give value;}";
+            const string expected =
+                "main() returns whole\n" +
+                "{\n" +
+                "    whole value := 1 %% 2;\n" +
+                "    give value;\n" +
+                "}";
+            Equal(expected, DdfFormatter.Format(source, CreateAlternativeLanguage()).Text);
+        }
+
+        private static void FormatsControlFlowCallsAndArrays()
+        {
+            const string source =
+                "main()out int{int[3] values;for(int index;index<3;index++){if(true){values[index]<<call(index,2);}}ret 0;}";
+            const string expected =
+                "main() out int\n" +
+                "{\n" +
+                "    int[3] values;\n" +
+                "    for(int index; index < 3; index++)\n" +
+                "    {\n" +
+                "        if(true)\n" +
+                "        {\n" +
+                "            values[index] << call(index, 2);\n" +
+                "        }\n" +
+                "    }\n" +
+                "    ret 0;\n" +
+                "}";
+            string formatted = DdfFormatter.Format(source).Text;
+            Equal(expected, formatted);
+            Equal(formatted, DdfFormatter.Format(formatted).Text);
+        }
+
+        private static void AssertLexResultsEqual(DdfLexResult expected, DdfLexResult actual)
+        {
+            Equal(expected.Tokens.Count, actual.Tokens.Count);
+            for (int index = 0; index < expected.Tokens.Count; index++)
+            {
+                Equal(expected.Tokens[index].Kind, actual.Tokens[index].Kind);
+                Equal(expected.Tokens[index].Start, actual.Tokens[index].Start);
+                Equal(expected.Tokens[index].Length, actual.Tokens[index].Length);
+            }
+
+            Equal(expected.Diagnostics.Count, actual.Diagnostics.Count);
+            for (int index = 0; index < expected.Diagnostics.Count; index++)
+            {
+                Equal(expected.Diagnostics[index].Code, actual.Diagnostics[index].Code);
+                Equal(expected.Diagnostics[index].Start, actual.Diagnostics[index].Start);
+                Equal(expected.Diagnostics[index].Length, actual.Diagnostics[index].Length);
+                Equal(expected.Diagnostics[index].Line, actual.Diagnostics[index].Line);
+                Equal(expected.Diagnostics[index].Column, actual.Diagnostics[index].Column);
+            }
+        }
+
+        private static string CreateTemporaryDirectory()
+        {
+            string directory = Path.Combine(
+                Path.GetTempPath(),
+                "DDFLanguageEditor.Tests",
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+
+        private static string Apply(string source, EditorEdit edit)
+        {
+            return source.Remove(edit.Start, edit.Length).Insert(edit.Start, edit.Replacement);
+        }
+
+        private static string Slice(string source, ClassifiedSpan span)
+        {
+            return source.Substring(span.Start, span.Length);
+        }
+
+        private static void Run(string name, Action test)
+        {
+            try
+            {
+                test();
+                passedTests++;
+                Console.WriteLine("PASS " + name);
+            }
+            catch (Exception exception)
+            {
+                Failures.Add(name + ": " + exception.Message);
+            }
+        }
+
+        private static void Equal<T>(T expected, T actual)
+        {
+            if (!EqualityComparer<T>.Default.Equals(expected, actual))
+            {
+                throw new InvalidOperationException("expected <" + expected + "> but was <" + actual + ">");
+            }
+        }
+
+        private static void False(bool value)
+        {
+            if (value)
+            {
+                throw new InvalidOperationException("expected false but was true");
+            }
+        }
+
+        private static void SequenceEqual<T>(IEnumerable<T> expected, IEnumerable<T> actual)
+        {
+            if (!expected.SequenceEqual(actual))
+            {
+                throw new InvalidOperationException(
+                    "expected <" + string.Join(", ", expected) + "> but was <" +
+                    string.Join(", ", actual) + ">");
+            }
+        }
+
+        private static void Throws<TException>(Action action) where TException : Exception
+        {
+            try
+            {
+                action();
+            }
+            catch (TException)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException("expected exception " + typeof(TException).Name);
+        }
+    }
+}

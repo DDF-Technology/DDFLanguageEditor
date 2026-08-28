@@ -1,238 +1,496 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Xml.Linq;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
     public partial class MainForm : Form
     {
+        private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
+        private readonly DocumentSession documentSession = new DocumentSession();
+        private readonly IncrementalDdfLexer incrementalLexer = new IncrementalDdfLexer();
+        private readonly Timer highlightTimer;
+        private readonly Timer delimiterHighlightTimer;
+        private DdfLexResult lastLexResult;
+        private string lastAnalyzedText = string.Empty;
+        private DdfParseResult lastParseResult;
+        private DdfDelimiterMatch activeDelimiterMatch;
+        private DdfFoldProjection activeFoldProjection;
+        private IReadOnlyList<DdfFoldingRange> foldingRanges = new List<DdfFoldingRange>();
+        private readonly HashSet<int> collapsedFoldStarts = new HashSet<int>();
+        private List<string> recentFiles;
+        private FindReplaceForm findReplaceForm;
+        private AboutForm aboutForm;
+        private int diagnosticsFormatStart = int.MaxValue;
+        private bool isApplyingHighlighting;
+        private bool isUpdatingDelimiterHighlight;
+        private bool isMouseSelecting;
+        private bool isReplacingDocument;
+        private Func<OpenFileDialog, DialogResult> showOpenFileDialog;
+        private Func<SaveFileDialog, DialogResult> showSaveFileDialog;
+        private Action<string> saveRecentFilesSetting;
+
         public MainForm()
         {
             InitializeComponent();
+
+            System.Drawing.Icon executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (executableIcon != null)
+            {
+                Icon = executableIcon;
+            }
+
+            highlightTimer = new Timer
+            {
+                Interval = 75
+            };
+            highlightTimer.Tick += highlightTimer_Tick;
+            delimiterHighlightTimer = new Timer
+            {
+                Interval = 100
+            };
+            delimiterHighlightTimer.Tick += delimiterHighlightTimer_Tick;
+            richTextBoxMainEditor.MouseDown += richTextBoxMainEditor_MouseDown;
+            richTextBoxMainEditor.MouseUp += richTextBoxMainEditor_MouseUp;
+            richTextBoxFoldedView.VScroll += richTextBoxFoldedView_VScroll;
+            richTextBoxFoldedView.SelectionChanged += richTextBoxFoldedView_SelectionChanged;
+            richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
+            initializePaletteBehavior();
+            recentFiles = new List<string>(RecentFileList.Parse(Properties.Settings.Default.RecentFiles));
+            initializeCompletion();
+            showOpenFileDialog = dialog => dialog.ShowDialog(this);
+            showSaveFileDialog = dialog => dialog.ShowDialog(this);
+            saveRecentFilesSetting = value =>
+            {
+                Properties.Settings.Default.RecentFiles = value;
+                Properties.Settings.Default.Save();
+            };
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            highlightTimer.Stop();
+            delimiterHighlightTimer.Stop();
+            disposeCompletion();
+            disposePaletteBehavior();
+            highlightTimer.Dispose();
+            delimiterHighlightTimer.Dispose();
+            base.OnFormClosed(e);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            updateLineNumbers();
         }
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            richTextBoxLineNumbers.ReadOnly = true;
-            richTextBoxLineNumbers.BackColor = richTextBoxMainEditor.BackColor;
-            richTextBoxLineNumbers.Font = richTextBoxMainEditor.Font;
-            richTextBoxLineNumbers.SelectionAlignment = HorizontalAlignment.Center;
-            richTextBoxLineNumbers.ScrollBars = RichTextBoxScrollBars.None;
-
-            richTextBox_TextChanged(sender, e);
-        }
-
-        private void richTextBox_TextChanged(object sender, EventArgs e)
-        {
-            int selectionStart = richTextBoxMainEditor.SelectionStart;
-            int selectionLength = richTextBoxMainEditor.SelectionLength;
-
-            richTextBoxMainEditor.SuspendLayout();
-
-            // Reset the formatting
-            richTextBoxMainEditor.SelectAll();
-            richTextBoxMainEditor.SelectionColor = Color.White;
-            richTextBoxMainEditor.SelectionFont = new Font(richTextBoxMainEditor.Font, FontStyle.Bold);
-
-            // Apply formatting for keywords
-            keywordTextFormatting(DictRules.commentSingleRow, DictRules.commentColor);
-            keywordTextFormatting(DictRules.grammar, DictRules.grammarColor);
-            keywordTextFormatting(DictRules.number, DictRules.numberColor);
-            keywordTextFormatting(DictRules.dataType, DictRules.dataTypeColor);
-            keywordTextFormatting(DictRules.dataTypeComplex, DictRules.dataTypeComplexColor);
-            keywordTextFormatting(DictRules.baseOperator, DictRules.baseOperatorColor);
-            keywordTextFormatting(DictRules.mathOperator, DictRules.mathOperatorColor);
-            keywordTextFormatting(DictRules.logicOperator, DictRules.logicOperatorColor);
-            keywordTextFormatting(DictRules.booleanOperator, DictRules.booleanOperatorColor);
-            keywordTextFormatting(DictRules.functionOperator, DictRules.functionOperatorColor);
-            keywordTextFormatting(DictRules.flushOperator, DictRules.flushOperatorColor);
-
-            // Apply formatting for block
-            blockTextFormatting(DictRules.libraryStart, DictRules.libraryEnd, DictRules.libraryColor);
-            blockTextFormatting(DictRules.commentStart, DictRules.commentEnd, DictRules.commentColor);            
-            blockTextFormatting(DictRules.stringStart, DictRules.stringEnd, DictRules.stringColor);
-
-            richTextBoxMainEditor.Select(selectionStart, selectionLength);
-            richTextBoxMainEditor.ResumeLayout();
-
-            richTextBoxLineNumbers.Text = "";
+            documentSession.SetUntitled();
+            refreshRecentMenu();
+            updateDocumentUi();
+            applyHighlighting();
             updateLineNumbers();
+            updateCaretPosition();
+            richTextBoxMainEditor.Focus();
         }
 
-        private void richTextBoxMainEditor_KeyDown(object sender, KeyEventArgs e)
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (e.KeyCode == Keys.Tab && !e.Shift)
+            if (!confirmDiscardChanges())
             {
-                e.SuppressKeyPress = true; // Evita il comportamento predefinito del TAB
-
-                int tabSize = 4; // Numero di spazi per il TAB
-                string spaces = new string(' ', tabSize);
-
-                // Inserisce gli spazi al posto del TAB
-                int selectionStart = richTextBoxMainEditor.SelectionStart;
-                richTextBoxMainEditor.Text = richTextBoxMainEditor.Text.Insert(selectionStart, spaces);
-                richTextBoxMainEditor.SelectionStart = selectionStart + tabSize;
+                e.Cancel = true;
+                return;
             }
-            else if (e.KeyCode == Keys.Tab && e.Shift)
+
+            persistRecentFiles();
+        }
+
+        private void aboutMenuItem_Click(object sender, EventArgs e)
+        {
+            if (aboutForm == null || aboutForm.IsDisposed)
             {
-                e.SuppressKeyPress = true; // Evita il comportamento predefinito del Back TAB
+                aboutForm = new AboutForm();
+                aboutForm.FormClosed += (closedSender, closedArgs) => aboutForm = null;
+                aboutForm.Show(this);
+                return;
+            }
 
-                int tabSize = 4; // Numero di spazi per il Back TAB
+            if (aboutForm.WindowState == FormWindowState.Minimized)
+            {
+                aboutForm.WindowState = FormWindowState.Normal;
+            }
 
-                // Gestisce rimuovendo spazi indietro
-                int selectionStart = richTextBoxMainEditor.SelectionStart;
+            aboutForm.Activate();
+        }
 
-                if (selectionStart >= tabSize)
+        private void newMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!confirmDiscardChanges())
+            {
+                return;
+            }
+
+            replaceEditorText(string.Empty);
+            documentSession.SetUntitled();
+            updateDocumentUi();
+            richTextBoxMainEditor.Focus();
+        }
+
+        private void openMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!confirmDiscardChanges())
+            {
+                return;
+            }
+
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Filter = DocumentFilter;
+                dialog.DefaultExt = "ddf";
+                dialog.CheckFileExists = true;
+                dialog.Multiselect = false;
+                dialog.Title = "Apri sorgente DDF";
+                if (documentSession.HasPath)
                 {
-                    // Controlla se ci sono esattamente `tabSize` spazi prima della posizione corrente
-                    string textBeforeCursor = richTextBoxMainEditor.Text.Substring(selectionStart - tabSize, tabSize);
+                    dialog.InitialDirectory = Path.GetDirectoryName(documentSession.CurrentPath);
+                }
 
-                    if (textBeforeCursor == new string(' ', tabSize))
+                if (showOpenFileDialog(dialog) == DialogResult.OK)
+                {
+                    openDocument(dialog.FileName);
+                }
+            }
+        }
+
+        private void saveMenuItem_Click(object sender, EventArgs e)
+        {
+            saveDocument(false);
+        }
+
+        private void saveAsMenuItem_Click(object sender, EventArgs e)
+        {
+            saveDocument(true);
+        }
+
+        private void exitMenuItem_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void recentFileMenuItem_Click(object sender, EventArgs e)
+        {
+            var menuItem = sender as ToolStripMenuItem;
+            string path = menuItem?.Tag as string;
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                recentFiles.RemoveAll(item => string.Equals(item, path, StringComparison.OrdinalIgnoreCase));
+                persistRecentFiles();
+                refreshRecentMenu();
+                MessageBox.Show(
+                    this,
+                    "Il file recente non esiste più:\n" + path,
+                    "File non trovato",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (confirmDiscardChanges())
+            {
+                openDocument(path);
+            }
+        }
+
+        private bool openDocument(string path)
+        {
+            try
+            {
+                string content = DdfDocumentFile.Load(path);
+                replaceEditorText(content);
+                documentSession.SetLoaded(path);
+                addRecentFile(path);
+                updateDocumentUi();
+                richTextBoxMainEditor.Focus();
+                return true;
+            }
+            catch (Exception exception) when (isDocumentException(exception))
+            {
+                showDocumentError("Impossibile aprire il documento", path, exception);
+                return false;
+            }
+        }
+
+        private bool saveDocument(bool forceSaveAs)
+        {
+            string path = documentSession.CurrentPath;
+            if (forceSaveAs || string.IsNullOrEmpty(path))
+            {
+                using (var dialog = new SaveFileDialog())
+                {
+                    dialog.Filter = DocumentFilter;
+                    dialog.DefaultExt = "ddf";
+                    dialog.AddExtension = true;
+                    dialog.OverwritePrompt = true;
+                    dialog.Title = "Salva sorgente DDF";
+                    dialog.FileName = documentSession.DisplayName;
+                    if (documentSession.HasPath)
                     {
-                        // Rimuove i `tabSize` spazi
-                        richTextBoxMainEditor.Text = richTextBoxMainEditor.Text.Remove(selectionStart - tabSize, tabSize);
-                        richTextBoxMainEditor.SelectionStart = selectionStart - tabSize;
+                        dialog.InitialDirectory = Path.GetDirectoryName(documentSession.CurrentPath);
                     }
+
+                    if (showSaveFileDialog(dialog) != DialogResult.OK)
+                    {
+                        return false;
+                    }
+
+                    path = dialog.FileName;
                 }
             }
-            else if (e.KeyCode == Keys.Enter)
+
+            try
             {
-                e.SuppressKeyPress = true; // Evita il comportamento predefinito di "Invio"
-
-                // Ottieni la posizione del cursore prima dell'Enter
-                int selectionStart = richTextBoxMainEditor.SelectionStart;
-
-                // Ottieni il contenuto della riga corrente
-                int currentLineIndex = richTextBoxMainEditor.GetLineFromCharIndex(selectionStart);
-                string currentLine = getLineText(currentLineIndex);
-
-                // Calcola la spaziatura iniziale (tab/spazi) della riga corrente
-                string leadingWhitespace = getLeadingWhitespace(currentLine);
-
-                // Verifica se la riga termina con { o (
-                bool addAdditionalTab = currentLine.TrimEnd().EndsWith("{") || currentLine.TrimEnd().EndsWith("(");
-
-                // Aggiungi la nuova riga con la stessa indentazione
-                richTextBoxMainEditor.Text = richTextBoxMainEditor.Text.Insert(selectionStart, "\n" + leadingWhitespace);
-
-                // Se necessario, aggiungi un ulteriore TAB
-                if (addAdditionalTab)
-                {
-                    int tabSize = 4;
-                    string additionalTab = new string(' ', tabSize);
-                    richTextBoxMainEditor.Text = richTextBoxMainEditor.Text.Insert(selectionStart + leadingWhitespace.Length + 1, additionalTab);
-                    selectionStart += additionalTab.Length; // Sposta il cursore dopo il nuovo TAB
-                }
-
-                // Ripristina la posizione del cursore alla fine della nuova riga
-                richTextBoxMainEditor.SelectionStart = selectionStart + 1 + leadingWhitespace.Length;
+                DdfDocumentFile.Save(path, richTextBoxMainEditor.Text);
+                documentSession.MarkSaved(path);
+                richTextBoxMainEditor.Modified = false;
+                addRecentFile(path);
+                updateDocumentUi();
+                return true;
+            }
+            catch (Exception exception) when (isDocumentException(exception))
+            {
+                showDocumentError("Impossibile salvare il documento", path, exception);
+                return false;
             }
         }
 
-        private void richTextBoxMainEditor_VScroll(object sender, EventArgs e)
+        private bool confirmDiscardChanges()
         {
-            richTextBoxLineNumbers.Text = "";
+            if (!documentSession.IsDirty)
+            {
+                return true;
+            }
+
+            DialogResult result = MessageBox.Show(
+                this,
+                "Salvare le modifiche a " + documentSession.DisplayName + "?",
+                "Modifiche non salvate",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button1);
+
+            if (result == DialogResult.Cancel)
+            {
+                return false;
+            }
+
+            return result == DialogResult.No || saveDocument(false);
+        }
+
+        private void replaceEditorText(string content)
+        {
+            leaveFoldedView();
+            isReplacingDocument = true;
+            highlightTimer.Stop();
+            incrementalLexer.Reset();
+            try
+            {
+                richTextBoxMainEditor.Text = content ?? string.Empty;
+                richTextBoxMainEditor.Select(0, 0);
+                richTextBoxMainEditor.ClearUndo();
+                richTextBoxMainEditor.Modified = false;
+            }
+            finally
+            {
+                isReplacingDocument = false;
+            }
+
+            applyHighlighting();
             updateLineNumbers();
+            updateCaretPosition();
         }
 
-        private void richTextBoxMainEditor_FontChanged(object sender, EventArgs e)
+        private void addRecentFile(string path)
         {
-            updateLineNumbers();
+            recentFiles = new List<string>(RecentFileList.Add(recentFiles, path));
+            persistRecentFiles();
+            refreshRecentMenu();
         }
 
-        //----------------------------------------------------------------------------------------
-
-        private void keywordTextFormatting(string[] keywords, Color keywordColor)
+        private void refreshRecentMenu()
         {
-            foreach (var keyword in keywords)
+            recentMenuItem.DropDownItems.Clear();
+            int index = 1;
+            foreach (string path in recentFiles.Where(File.Exists))
             {
-                // Prepara la regex per le parole chiave con lettere e numeri
-                string pattern;
-                if (Regex.IsMatch(keyword, @"^[A-Za-z_]+$")) //@"^\w+$")
+                var item = new ToolStripMenuItem
                 {
-                    pattern = @"\b" + Regex.Escape(keyword) + @"\b";
-                }
-                else
-                {
-                    pattern = Regex.Escape(keyword);
-                }
-
-                Regex regex = new Regex(pattern);
-
-                foreach (Match match in regex.Matches(richTextBoxMainEditor.Text))
-                {
-                    // Seleziona il testo corrispondente e applica il colore e il font
-                    richTextBoxMainEditor.Select(match.Index, match.Length);
-                    richTextBoxMainEditor.SelectionColor = keywordColor;
-                    richTextBoxMainEditor.SelectionFont = new Font(richTextBoxMainEditor.Font, FontStyle.Bold);
-                }
-            }
-        }
-
-        private void blockTextFormatting(string blockStart, string blockEnd, Color blockColor)
-        {
-            int start = richTextBoxMainEditor.Text.IndexOf(blockStart);
-            while (start != -1)
-            {
-                int end = richTextBoxMainEditor.Text.IndexOf(blockEnd, start + blockStart.Length);
-                if (end == -1)
-                {
-                    break;
-                }
-
-                int length = end - start + blockEnd.Length;
-                richTextBoxMainEditor.Select(start, length);
-                richTextBoxMainEditor.SelectionColor = blockColor;
-                richTextBoxMainEditor.SelectionFont = new Font(richTextBoxMainEditor.Font, FontStyle.Bold);
-
-                start = richTextBoxMainEditor.Text.IndexOf(blockStart, end + blockEnd.Length);
-            }
-        }        
-
-        private string getLineText(int lineIndex)
-        {
-            string[] lines = richTextBoxMainEditor.Lines;
-            if (lineIndex >= 0 && lineIndex < lines.Length)
-            {
-                return lines[lineIndex];
-            }
-            return string.Empty;
-        }
-
-        private string getLeadingWhitespace(string line)
-        {
-            int index = 0;
-            while (index < line.Length && char.IsWhiteSpace(line[index]))
-            {
+                    Name = "recentFileMenuItem" + index,
+                    Text = "&" + index + " " + Path.GetFileName(path) + " — " + Path.GetDirectoryName(path),
+                    Tag = path,
+                    ToolTipText = path
+                };
+                item.Click += recentFileMenuItem_Click;
+                recentMenuItem.DropDownItems.Add(item);
                 index++;
             }
-            return line.Substring(0, index);
+
+            if (recentMenuItem.DropDownItems.Count == 0)
+            {
+                recentMenuItem.DropDownItems.Add(new ToolStripMenuItem("(nessun file recente)") { Enabled = false });
+            }
         }
 
-        private void updateLineNumbers()
+        private void persistRecentFiles()
         {
-            Point pt = new Point(0, 0);
-            int firstIndex = richTextBoxMainEditor.GetCharIndexFromPosition(pt);
-            int firstLine = richTextBoxMainEditor.GetLineFromCharIndex(firstIndex);
-            Point pt2 = new Point(ClientRectangle.Width, ClientRectangle.Height);
-            int lastIndex = richTextBoxMainEditor.GetCharIndexFromPosition(pt2);
-            int lastLine = richTextBoxMainEditor.GetLineFromCharIndex(lastIndex);            
-            for (int i = firstLine; i <= lastLine; i++)
+            try
             {
-                richTextBoxLineNumbers.Text += (i + 1) + "\n";
+                saveRecentFilesSetting(RecentFileList.Serialize(recentFiles));
             }
+            catch (Exception exception) when (
+                exception is IOException ||
+                exception is UnauthorizedAccessException ||
+                exception is System.Configuration.ConfigurationErrorsException)
+            {
+                statusFileLabel.ToolTipText = "Impossibile memorizzare i file recenti: " + exception.Message;
+            }
+        }
+
+        private void updateDocumentUi()
+        {
+            string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
+            Text = "DDFLanguageEditor 0.5.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            statusFileLabel.Text = documentSession.HasPath
+                ? documentSession.CurrentPath + dirtyMarker
+                : documentSession.DisplayName + dirtyMarker;
+            saveMenuItem.Enabled = documentSession.IsDirty || !documentSession.HasPath;
+        }
+
+        private void editMenuItem_DropDownOpening(object sender, EventArgs e)
+        {
+            if (richTextBoxFoldedView.Visible)
+            {
+                undoMenuItem.Enabled = false;
+                redoMenuItem.Enabled = false;
+                cutMenuItem.Enabled = false;
+                copyMenuItem.Enabled = richTextBoxFoldedView.SelectionLength > 0;
+                pasteMenuItem.Enabled = false;
+                selectAllMenuItem.Enabled = richTextBoxFoldedView.TextLength > 0;
+                completionMenuItem.Enabled = false;
+                formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+                return;
+            }
+
+            undoMenuItem.Enabled = richTextBoxMainEditor.CanUndo;
+            redoMenuItem.Enabled = richTextBoxMainEditor.CanRedo;
+            cutMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
+            copyMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
+            pasteMenuItem.Enabled = Clipboard.ContainsText();
+            selectAllMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+            completionMenuItem.Enabled = true;
+            formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+        }
+
+        private void undoMenuItem_Click(object sender, EventArgs e)
+        {
+            if (richTextBoxMainEditor.CanUndo)
+            {
+                richTextBoxMainEditor.Undo();
+            }
+        }
+
+        private void redoMenuItem_Click(object sender, EventArgs e)
+        {
+            if (richTextBoxMainEditor.CanRedo)
+            {
+                richTextBoxMainEditor.Redo();
+            }
+        }
+
+        private void cutMenuItem_Click(object sender, EventArgs e)
+        {
+            richTextBoxMainEditor.Cut();
+        }
+
+        private void copyMenuItem_Click(object sender, EventArgs e)
+        {
+            if (richTextBoxFoldedView.Visible) richTextBoxFoldedView.Copy();
+            else richTextBoxMainEditor.Copy();
+        }
+
+        private void pasteMenuItem_Click(object sender, EventArgs e)
+        {
+            richTextBoxMainEditor.Paste();
+        }
+
+        private void selectAllMenuItem_Click(object sender, EventArgs e)
+        {
+            if (richTextBoxFoldedView.Visible)
+            {
+                richTextBoxFoldedView.SelectAll();
+                richTextBoxFoldedView.Focus();
+            }
+            else
+            {
+                richTextBoxMainEditor.SelectAll();
+                richTextBoxMainEditor.Focus();
+            }
+        }
+
+        private void findMenuItem_Click(object sender, EventArgs e)
+        {
+            showFindReplace(false);
+        }
+
+        private void replaceMenuItem_Click(object sender, EventArgs e)
+        {
+            showFindReplace(true);
+        }
+
+        private void showFindReplace(bool showReplace)
+        {
+            leaveFoldedView();
+            if (findReplaceForm == null || findReplaceForm.IsDisposed)
+            {
+                findReplaceForm = new FindReplaceForm(richTextBoxMainEditor);
+                findReplaceForm.FormClosed += (sender, args) => findReplaceForm = null;
+                findReplaceForm.Show(this);
+            }
+
+            findReplaceForm.SetReplaceMode(showReplace);
+            if (richTextBoxMainEditor.SelectionLength > 0)
+            {
+                findReplaceForm.PrefillFind(richTextBoxMainEditor.SelectedText);
+            }
+            findReplaceForm.Activate();
+        }
+
+        private static bool isDocumentException(Exception exception)
+        {
+            return exception is IOException ||
+                   exception is UnauthorizedAccessException ||
+                   exception is ArgumentException ||
+                   exception is NotSupportedException ||
+                   exception is System.Security.SecurityException;
+        }
+
+        private void showDocumentError(string title, string path, Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                title + ":\n" + path + "\n\n" + exception.Message,
+                "Errore documento",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
     }
 }
-
-
-

@@ -1,0 +1,25 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Debug
+        run: msbuild "DDF - Program Language Editor.sln" /t:Rebuild /p:Configuration=Debug /p:UseSharedCompilation=false /v:minimal
+
+      - name: Run core tests
+        run: .\tests\DDFLanguageEditor.Tests\bin\Debug\DDFLanguageEditor.Tests.exe
+
+      - name: Build Release
+        run: msbuild "DDF - Program Language Editor.sln" /t:Rebuild /p:Configuration=Release /p:UseSharedCompilation=false /v:minimal
