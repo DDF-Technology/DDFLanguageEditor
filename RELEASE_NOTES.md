@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.0
+# DDFLanguageEditor 0.9.0.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.0.1 introduces true multi-document editing. Each tab owns its editor
+buffer and therefore retains unsaved text, caret, selection, scroll and native
+Undo/Redo while other files are active. Save All, selective tab closing and an
+aggregate exit confirmation complete the workflow. Breakpoints now belong to a
+document, follow line edits where possible and appear in a navigable palette;
+unbound locations are shown separately instead of silently being executed.
 
 This release adds the first formal DDF parser and typed abstract syntax tree.
 Declarations, functions, blocks, control-flow statements and precedence-aware

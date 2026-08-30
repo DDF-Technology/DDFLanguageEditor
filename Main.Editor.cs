@@ -39,11 +39,32 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
+            var changedEditor = sender as RichTextBox;
+            DocumentView changedView = findDocumentView(changedEditor);
+
             if (!isReplacingDocument)
             {
-                documentSession.MarkDirty();
-                updateDocumentUi();
+                if (changedView != null)
+                {
+                    string previousSource = changedView.Buffer.Source;
+                    if (changedView.Buffer.BreakpointLines.Count > 0)
+                    {
+                        DdfBreakpointRemapResult remap = DdfBreakpointService.Remap(
+                            previousSource, changedEditor.Text, changedView.Buffer.BreakpointLines);
+                        changedView.Buffer.BreakpointLines.Clear();
+                        foreach (int line in remap.Lines) changedView.Buffer.BreakpointLines.Add(line);
+                        changedView.Buffer.UnboundBreakpointLines.Clear();
+                        foreach (int line in remap.UnboundLines) changedView.Buffer.UnboundBreakpointLines.Add(line);
+                    }
+                    changedView.Buffer.UpdateSource(changedEditor.Text);
+                    updateWorkspaceDocument(changedView.Buffer.Session.CurrentPath, changedEditor.Text);
+                    updateDocumentTab(changedView);
+                    refreshBreakpointsPalette();
+                }
+                if (ReferenceEquals(changedEditor, richTextBoxMainEditor)) updateDocumentUi();
             }
+
+            if (!ReferenceEquals(changedEditor, richTextBoxMainEditor)) return;
 
             updateLineNumbers();
             updateCaretPosition();
@@ -70,6 +91,7 @@ namespace DDF___Program_Language_Editor
             string text = richTextBoxMainEditor.Text;
             DdfLexUpdate update = incrementalLexer.Update(text);
             DdfParseResult parseResult = DdfParser.Parse(text, update.Result);
+            validateBreakpoints(openDocuments.ActiveDocument, text, parseResult.Root);
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
             if (documentSession.IsDirty)
             {

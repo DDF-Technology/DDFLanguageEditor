@@ -31,6 +31,8 @@ namespace DDFLanguageEditor.Tests
             Run("accepts the optional UTF-8 BOM", AcceptsUtf8Bom);
             Run("rejects invalid UTF-8 documents", RejectsInvalidUtf8Documents);
             Run("tracks document session state", TracksDocumentSessionState);
+            Run("tracks independent open document buffers", TracksIndependentOpenDocumentBuffers);
+            Run("remaps and validates line breakpoints", RemapsAndValidatesLineBreakpoints);
             Run("deduplicates recent files", DeduplicatesRecentFiles);
             Run("wraps find-next searches", WrapsFindNextSearches);
             Run("replaces all matches", ReplacesAllMatches);
@@ -284,6 +286,54 @@ namespace DDFLanguageEditor.Tests
             Equal(Path.GetFullPath(path), session.CurrentPath);
             Equal("example.ddf", session.DisplayName);
             False(session.IsDirty);
+        }
+
+        private static void TracksIndependentOpenDocumentBuffers()
+        {
+            string firstPath = Path.Combine(Path.GetTempPath(), "first-buffer.ddf");
+            string secondPath = Path.Combine(Path.GetTempPath(), "second-buffer.ddf");
+            var documents = new OpenDocumentCollection();
+            OpenDocumentBuffer untitled = documents.CreateUntitled();
+            untitled.UpdateSource("main() out int { ret 1; }");
+            untitled.BreakpointLines.Add(1);
+
+            OpenDocumentBuffer first = documents.Open(firstPath, "first() out int { ret 1; }");
+            first.BreakpointLines.Add(7);
+            OpenDocumentBuffer second = documents.Open(secondPath, "second() out int { ret 2; }");
+            second.UpdateSource("second() out int { ret 3; }");
+
+            Equal(3, documents.Documents.Count);
+            Equal(second.Id, documents.ActiveDocument.Id);
+            Equal(true, second.Session.IsDirty);
+            Equal(false, first.Session.IsDirty);
+            Equal(true, documents.Activate(untitled.Id));
+            Equal("main() out int { ret 1; }", documents.ActiveDocument.Source);
+            Equal(true, documents.ActiveDocument.BreakpointLines.Contains(1));
+            Equal(false, documents.ActiveDocument.BreakpointLines.Contains(7));
+            Equal(first.Id, documents.Open(firstPath, "ignored").Id);
+            Equal("first() out int { ret 1; }", first.Source);
+            Equal(true, documents.Remove(first.Id));
+            Equal(2, documents.Documents.Count);
+        }
+
+        private static void RemapsAndValidatesLineBreakpoints()
+        {
+            const string source = "main() out int\n{\n    int value << 1;\n    ret value;\n}";
+            string inserted = "// heading\n" + source;
+            DdfBreakpointRemapResult insertedResult = DdfBreakpointService.Remap(source, inserted, new[] { 3, 4 });
+            SequenceEqual(new[] { 4, 5 }, insertedResult.Lines);
+            Equal(0, insertedResult.UnboundLines.Count);
+
+            string deleted = "main() out int\n{\n    ret value;\n}";
+            DdfBreakpointRemapResult deletedResult = DdfBreakpointService.Remap(source, deleted, new[] { 3 });
+            Equal(1, deletedResult.Lines.Count);
+            Equal(1, deletedResult.UnboundLines.Count);
+
+            DdfParseResult parse = DdfParser.Parse(source);
+            IReadOnlyCollection<int> executable = DdfBreakpointService.GetExecutableLines(source, parse.Root);
+            Equal(true, executable.Contains(3));
+            Equal(true, executable.Contains(4));
+            Equal(false, executable.Contains(1));
         }
 
         private static void DeduplicatesRecentFiles()

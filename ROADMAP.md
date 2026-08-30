@@ -44,7 +44,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
-| `0.9.0.1` | Editing multidocumento e breakpoint per file | Pianificata |
+| `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Pianificata |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Pianificata |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
@@ -325,16 +325,16 @@ senza perdita silenziosa di dati.
 
 ## 0.9.0.1 — Editing multidocumento e breakpoint per file
 
-- [ ] Introdurre un buffer indipendente per ogni documento aperto nel workspace.
-- [ ] Aggiungere schede documento con indicatore `*`, chiusura selettiva e ripristino di cursore, selezione e scroll.
-- [ ] Conservare modifiche, Undo/Redo e analisi dei documenti non attivi senza imporre il salvataggio a ogni cambio file.
-- [ ] Aggiornare completamento, diagnostica, tipi e indice workspace usando tutti i buffer in memoria.
-- [ ] Aggiungere Salva tutto e una conferma aggregata alla chiusura del workspace o dell'applicazione.
-- [ ] Identificare ogni breakpoint tramite percorso canonico del file e posizione sorgente, non con il solo numero di riga.
-- [ ] Conservare e mostrare breakpoint nei file non attivi, ripristinandoli nel gutter quando si cambia scheda.
-- [ ] Rimappare i breakpoint dopo inserimenti, eliminazioni e formattazione; segnalare quelli che non corrispondono più a uno statement eseguibile.
-- [ ] Aggiungere una palette Breakpoint con file, riga, stato abilitato e navigazione tramite doppio clic.
-- [ ] Coprire cambio scheda, buffer sporchi multipli, Salva tutto e breakpoint multi-file con smoke dinamici.
+- [x] Introdurre un buffer indipendente per ogni documento aperto nel workspace.
+- [x] Aggiungere schede documento con indicatore `*`, chiusura selettiva e ripristino di cursore, selezione e scroll.
+- [x] Conservare modifiche, Undo/Redo e analisi dei documenti non attivi senza imporre il salvataggio a ogni cambio file.
+- [x] Aggiornare completamento, diagnostica, tipi e indice workspace usando tutti i buffer in memoria.
+- [x] Aggiungere Salva tutto e una conferma aggregata alla chiusura dell'applicazione.
+- [x] Identificare ogni breakpoint tramite documento canonico e riga sorgente rimappabile, non come stato globale del solo editor attivo.
+- [x] Conservare e mostrare breakpoint nei file non attivi, ripristinandoli nel gutter quando si cambia scheda.
+- [x] Rimappare i breakpoint dopo inserimenti, eliminazioni e formattazione; segnalare quelli che non corrispondono più a uno statement eseguibile.
+- [x] Aggiungere una palette Breakpoint con file, riga, stato abilitato e navigazione tramite doppio clic.
+- [x] Coprire cambio scheda, buffer sporchi, Salva tutto e breakpoint multi-file con smoke dinamici.
 
 ## 0.9.x — Editor Experience
 

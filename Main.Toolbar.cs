@@ -9,12 +9,18 @@ namespace DDF___Program_Language_Editor
         private ToolStripButton toolbarRunButton;
         private ToolStripButton toolbarStopButton;
         private ToolStripButton toolbarBreakpointButton;
+        private ToolStripButton toolbarSaveAllButton;
+        private ToolStripButton toolbarCloseDocumentButton;
 
         private void initializeMainToolbar()
         {
             toolStripMain.Items.Add(createToolbarButton("toolbarNewButton", "\uE710", "Nuovo (Ctrl+N)", newMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarOpenButton", "\uE8E5", "Apri (Ctrl+O)", openMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarSaveButton", "\uE74E", "Salva (Ctrl+S)", saveMenuItem_Click));
+            toolbarSaveAllButton = createToolbarButton("toolbarSaveAllButton", "\uE8F4", "Salva tutto (Ctrl+Alt+S)", saveAllMenuItem_Click);
+            toolStripMain.Items.Add(toolbarSaveAllButton);
+            toolbarCloseDocumentButton = createToolbarButton("toolbarCloseDocumentButton", "\uE8BB", "Chiudi documento (Ctrl+W)", closeDocumentMenuItem_Click);
+            toolStripMain.Items.Add(toolbarCloseDocumentButton);
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(createToolbarButton("toolbarUndoButton", "\uE7A7", "Annulla (Ctrl+Z)", undoMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarRedoButton", "\uE7A6", "Ripristina (Ctrl+Y)", redoMenuItem_Click));

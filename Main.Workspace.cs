@@ -108,9 +108,12 @@ namespace DDF___Program_Language_Editor
             try
             {
                 workspaceIndex = DdfWorkspaceIndex.Load(rootPath);
-                if (documentSession.HasPath && workspaceIndex.ContainsPath(documentSession.CurrentPath))
+                foreach (OpenDocumentBuffer document in openDocuments.Documents)
                 {
-                    workspaceIndex = workspaceIndex.WithDocument(documentSession.CurrentPath, richTextBoxMainEditor.Text);
+                    if (document.Session.HasPath && workspaceIndex.ContainsPath(document.Session.CurrentPath))
+                    {
+                        workspaceIndex = workspaceIndex.WithDocument(document.Session.CurrentPath, document.Source);
+                    }
                 }
                 populateWorkspaceTree();
                 closeWorkspaceMenuItem.Enabled = true;
@@ -236,15 +239,6 @@ namespace DDF___Program_Language_Editor
 
         private bool prepareWorkspaceDocumentSwitch(string targetPath)
         {
-            if (string.Equals(documentSession.CurrentPath, targetPath, StringComparison.OrdinalIgnoreCase)) return true;
-            if (!confirmDiscardChanges()) return false;
-
-            // Choosing "No" leaves the session marked dirty. The editor is about to discard
-            // that buffer, so restore the workspace entry from its persisted contents too.
-            if (documentSession.IsDirty && documentSession.HasPath && File.Exists(documentSession.CurrentPath))
-            {
-                updateWorkspaceDocument(documentSession.CurrentPath, DdfDocumentFile.Load(documentSession.CurrentPath));
-            }
             return true;
         }
 

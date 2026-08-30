@@ -12,7 +12,7 @@ namespace DDF___Program_Language_Editor
     public partial class MainForm : Form
     {
         private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
-        private readonly DocumentSession documentSession = new DocumentSession();
+        private DocumentSession documentSession;
         private readonly IncrementalDdfLexer incrementalLexer = new IncrementalDdfLexer();
         private readonly Timer highlightTimer;
         private readonly Timer delimiterHighlightTimer;
@@ -46,6 +46,7 @@ namespace DDF___Program_Language_Editor
         public MainForm()
         {
             InitializeComponent();
+            initializeDocuments();
             initializeMainToolbar();
             initializeDebugger();
 
@@ -73,10 +74,6 @@ namespace DDF___Program_Language_Editor
                 ReshowDelay = 100,
                 ShowAlways = true
             };
-            richTextBoxMainEditor.MouseDown += richTextBoxMainEditor_MouseDown;
-            richTextBoxMainEditor.MouseUp += richTextBoxMainEditor_MouseUp;
-            richTextBoxMainEditor.MouseMove += richTextBoxMainEditor_MouseMove;
-            richTextBoxMainEditor.MouseLeave += richTextBoxMainEditor_MouseLeave;
             richTextBoxFoldedView.VScroll += richTextBoxFoldedView_VScroll;
             richTextBoxFoldedView.SelectionChanged += richTextBoxFoldedView_SelectionChanged;
             richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
@@ -124,7 +121,6 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            documentSession.SetUntitled();
             refreshRecentMenu();
             updateDocumentUi();
             applyHighlighting();
@@ -135,7 +131,7 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (!confirmDiscardChanges())
+            if (!confirmAllDocumentChanges())
             {
                 e.Cancel = true;
                 return;
@@ -167,24 +163,11 @@ namespace DDF___Program_Language_Editor
 
         private void newMenuItem_Click(object sender, EventArgs e)
         {
-            if (!confirmDiscardChanges())
-            {
-                return;
-            }
-
-            documentSession.SetUntitled();
-            replaceEditorText(string.Empty);
-            updateDocumentUi();
-            richTextBoxMainEditor.Focus();
+            createUntitledDocument();
         }
 
         private void openMenuItem_Click(object sender, EventArgs e)
         {
-            if (!confirmDiscardChanges())
-            {
-                return;
-            }
-
             using (var dialog = new OpenFileDialog())
             {
                 dialog.Filter = DocumentFilter;
@@ -242,19 +225,30 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            if (confirmDiscardChanges())
-            {
-                openDocument(path);
-            }
+            openDocument(path);
         }
 
         private bool openDocument(string path)
         {
             try
             {
+                if (activateOpenDocument(path)) return true;
                 string content = DdfDocumentFile.Load(path);
-                documentSession.SetLoaded(path);
-                replaceEditorText(content);
+                OpenDocumentBuffer buffer = openDocuments.Open(path, content);
+                DocumentView view = addDocumentView(buffer);
+                isReplacingDocument = true;
+                try
+                {
+                    view.Editor.Text = content;
+                    view.Editor.Select(0, 0);
+                    view.Editor.ClearUndo();
+                    view.Editor.Modified = false;
+                }
+                finally
+                {
+                    isReplacingDocument = false;
+                }
+                activateDocument(view);
                 updateWorkspaceDocument(path, content);
                 addRecentFile(path);
                 updateDocumentUi();
@@ -299,10 +293,13 @@ namespace DDF___Program_Language_Editor
             {
                 DdfDocumentFile.Save(path, richTextBoxMainEditor.Text);
                 documentSession.MarkSaved(path);
+                activeDocumentView.Buffer.UpdateSource(richTextBoxMainEditor.Text, false);
                 richTextBoxMainEditor.Modified = false;
                 addRecentFile(path);
                 updateDocumentUi();
                 updateWorkspaceDocument(path, richTextBoxMainEditor.Text);
+                updateDocumentTab(activeDocumentView);
+                refreshBreakpointsPalette();
                 return true;
             }
             catch (Exception exception) when (isDocumentException(exception))
@@ -407,11 +404,16 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.0 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.0.1 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
             saveMenuItem.Enabled = documentSession.IsDirty || !documentSession.HasPath;
+            saveAllMenuItem.Enabled = openDocuments.Documents.Any(document => document.Session.IsDirty);
+            closeDocumentMenuItem.Enabled = openDocuments.Documents.Count > 0;
+            if (toolbarSaveAllButton != null) toolbarSaveAllButton.Enabled = saveAllMenuItem.Enabled;
+            if (toolbarCloseDocumentButton != null) toolbarCloseDocumentButton.Enabled = closeDocumentMenuItem.Enabled;
+            updateDocumentTab(activeDocumentView);
         }
 
         private void editMenuItem_DropDownOpening(object sender, EventArgs e)
@@ -446,10 +448,10 @@ namespace DDF___Program_Language_Editor
 
         private static bool clipboardContainsText()
         {
-            for (int attempt = 0; attempt < 5; attempt++)
+            for (int attempt = 0; attempt < 10; attempt++)
             {
                 try { return Clipboard.ContainsText(); }
-                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+                catch (ExternalException) { System.Threading.Thread.Sleep(25); }
             }
             return false;
         }
@@ -457,28 +459,28 @@ namespace DDF___Program_Language_Editor
         private static bool trySetClipboardText(string text)
         {
             if (string.IsNullOrEmpty(text)) return false;
-            for (int attempt = 0; attempt < 5; attempt++)
+            for (int attempt = 0; attempt < 10; attempt++)
             {
                 try
                 {
                     Clipboard.SetText(text);
                     return true;
                 }
-                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+                catch (ExternalException) { System.Threading.Thread.Sleep(25); }
             }
             return false;
         }
 
         private static bool tryGetClipboardText(out string text)
         {
-            for (int attempt = 0; attempt < 5; attempt++)
+            for (int attempt = 0; attempt < 10; attempt++)
             {
                 try
                 {
                     text = Clipboard.ContainsText() ? Clipboard.GetText() : null;
                     return text != null;
                 }
-                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+                catch (ExternalException) { System.Threading.Thread.Sleep(25); }
             }
             text = null;
             return false;

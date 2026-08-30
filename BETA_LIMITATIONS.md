@@ -1,4 +1,4 @@
-# Beta 0.9.0 limitations
+# Beta 0.9.0.1 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -29,14 +29,16 @@ This release is intended for interface and language-design evaluation only.
 - unresolved-name and duplicate-declaration diagnostics;
 - dependency-free regression tests for the editor core;
 - repeatable dynamic smoke tests for real WinForms editing sequences.
+- independent document tabs with Save All and preserved native Undo/Redo;
+- document-scoped breakpoints with remapping and a navigable status palette;
 
 ## Not implemented
 
 - automatic recovery, snapshots or concurrent-edit conflict detection;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - compiler, bytecode VM, native runtime or full debugger;
-- complete standard library, non-interactive input streams, breakpoints or step-by-step execution;
-- project files, dependency graphs, build configurations or multi-document tabs;
+- complete standard library, non-interactive input streams or step-by-step execution;
+- project files, dependency graphs or build configurations;
 - extension or plug-in APIs;
 - stability guarantees for the DDF syntax.
 

@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 26 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 28 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -149,6 +149,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "openWorkspaceMenuItem", Keys.Control | Keys.Alt | Keys.O },
                     { "saveMenuItem", Keys.Control | Keys.S },
                     { "saveAsMenuItem", Keys.Control | Keys.Shift | Keys.S },
+                    { "saveAllMenuItem", Keys.Control | Keys.Alt | Keys.S },
+                    { "closeDocumentMenuItem", Keys.Control | Keys.W },
                     { "undoMenuItem", Keys.Control | Keys.Z },
                     { "redoMenuItem", Keys.Control | Keys.Y },
                     { "cutMenuItem", Keys.Control | Keys.X },
@@ -170,7 +172,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
                 string[] commands =
                 {
-                    "newMenuItem", "openMenuItem", "saveMenuItem", "saveAsMenuItem",
+                    "newMenuItem", "openMenuItem", "saveMenuItem", "saveAsMenuItem", "saveAllMenuItem", "closeDocumentMenuItem",
                     "openWorkspaceMenuItem", "closeWorkspaceMenuItem",
                     "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem",
@@ -193,7 +195,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 22 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 24 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -422,6 +424,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
                     RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                     FindMenuItem(form, "openMenuItem").PerformClick();
+                    editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                     Require(editor.Text == Source && form.Text.Contains("aperto.ddf"), "Apri non ha caricato il file temporaneo.");
                     editor.AppendText("\n// saved");
                     FindMenuItem(form, "saveMenuItem").PerformClick();
@@ -433,15 +436,56 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     Require(File.Exists(saveAsPath) && File.ReadAllText(saveAsPath).EndsWith("// save as", StringComparison.Ordinal),
                         "Salva con nome non ha scritto il percorso scelto.");
 
+                    editor.Select(editor.GetFirstCharIndexFromLine(2), 0);
+                    FindMenuItem(form, "toggleBreakpointMenuItem").PerformClick();
+                    RichTextBox gutter = FindControl<RichTextBox>(form, "richTextBoxLineNumbers");
+                    Require(gutter.Text.Contains("● 3"), "Il breakpoint non appare nel documento corrente.");
+                    ListBox breakpointPalette = FindControl<ListBox>(form, "listBoxBreakpoints");
+                    Require(breakpointPalette.Items.Count == 1 && breakpointPalette.Items[0].ToString().Contains("riga 3"),
+                        "La palette Breakpoint non elenca il punto di arresto.");
+
                     FindMenuItem(form, "newMenuItem").PerformClick();
+                    editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                     Require(editor.TextLength == 0 && form.Text.Contains("Senza titolo.ddf"), "Nuovo non ha creato un documento vuoto.");
+                    TabControl documentTabs = FindControl<TabControl>(form, "documentTabs");
+                    Require(documentTabs.TabCount == 3, "Nuovo ha sostituito il buffer invece di aggiungere una scheda.");
+                    Require(!gutter.Text.Contains("● 3"), "Il breakpoint di un altro file è visibile nella nuova scheda.");
+
+                    TabPage savedTab = documentTabs.TabPages.Cast<TabPage>()
+                        .Single(page => string.Equals(page.ToolTipText, saveAsPath, StringComparison.OrdinalIgnoreCase));
+                    documentTabs.SelectedTab = savedTab;
+                    PumpMessages(180);
+                    editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    Require(editor.Text.EndsWith("// save as", StringComparison.Ordinal) && gutter.Text.Contains("● 3"),
+                        "Testo o breakpoint non sono stati ripristinati tornando alla scheda.");
+                    editor.AppendText("\n// modifica locale");
+                    editor.Select(4, 0);
+                    documentTabs.SelectedIndex = documentTabs.TabCount - 1;
+                    PumpMessages(100);
+                    documentTabs.SelectedTab = savedTab;
+                    PumpMessages(140);
+                    editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    Require(editor.Text.EndsWith("// modifica locale", StringComparison.Ordinal) && editor.CanUndo && editor.SelectionStart == 4,
+                        "Cambio scheda ha perso modifiche, cursore o cronologia Undo.");
+                    editor.Undo();
+                    PumpMessages(120);
+                    Require(editor.Text.EndsWith("// save as", StringComparison.Ordinal),
+                        "Undo non è rimasto indipendente nella scheda riattivata.");
+
+                    editor.AppendText("\n// save all");
+                    FindMenuItem(form, "saveAllMenuItem").PerformClick();
+                    Require(File.ReadAllText(saveAsPath).EndsWith("// save all", StringComparison.Ordinal),
+                        "Salva tutto non ha scritto il buffer modificato.");
                     ToolStripMenuItem recent = FindMenuItem(form, "recentMenuItem").DropDownItems
                         .OfType<ToolStripMenuItem>()
                         .FirstOrDefault(item => string.Equals(item.Tag as string, saveAsPath, StringComparison.OrdinalIgnoreCase));
                     Require(recent != null, "File recenti non contiene il documento appena salvato.");
                     recent.PerformClick();
-                    Require(editor.Text.EndsWith("// save as", StringComparison.Ordinal) && form.Text.Contains("salvato-con-nome.ddf"),
+                    editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    Require(editor.Text.EndsWith("// save all", StringComparison.Ordinal) && form.Text.Contains("salvato-con-nome.ddf"),
                         "File recenti non ha riaperto il documento selezionato.");
+                    FindMenuItem(form, "closeDocumentMenuItem").PerformClick();
+                    Require(documentTabs.TabCount == 2, "Chiudi documento non ha rimosso la scheda attiva.");
                 }
 
                 using (var exitForm = ShowSmokeForm(visible))
@@ -985,6 +1029,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokeHandler(form, "treeViewWorkspace_NodeMouseDoubleClick", workspaceTree,
                     new TreeNodeMouseClickEventArgs(mainNode, MouseButtons.Left, 2, 0, 0));
                 PumpMessages(220);
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 Require(editor.Text.Contains("helper()"), "Il doppio clic sul file workspace non ha aperto il documento.");
                 Require(!diagnostics.Items.Cast<object>().Any(item => item.ToString().Contains("DDF201")),
                     "Un simbolo definito in un altro file è ancora segnalato come non risolto.");
@@ -994,6 +1039,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
                 FindMenuItem(form, "goToDefinitionMenuItem").PerformClick();
                 PumpMessages(220);
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 Require(editor.SelectedText == "helper" && editor.Text.StartsWith("helper()", StringComparison.Ordinal),
                     "F12 non ha aperto la definizione presente nell'altro documento.");
 
@@ -1059,6 +1105,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static void AssertProgramExecution(MainForm form, RichTextBox editor)
         {
+            editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
             editor.Text = "main() out int\n{\n    int value << 2;\n    value + 3 >> Console;\n    ret value;\n}";
             PumpMessages(240);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
@@ -1140,7 +1187,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
             string[] expected =
             {
-                "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton",
+                "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton", "toolbarSaveAllButton", "toolbarCloseDocumentButton",
                 "toolbarUndoButton", "toolbarRedoButton", "toolbarCutButton",
                 "toolbarCopyButton", "toolbarPasteButton", "toolbarFindButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
@@ -1170,7 +1217,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 14 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 16 comandi principali");
         }
 
         private static void AssertUnifiedLightTheme(MainForm form, RichTextBox editor, RichTextBox foldedView, RichTextBox gutter)

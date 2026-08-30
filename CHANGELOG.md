@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0.1 - 2026-08-30
+
+- add document tabs backed by independent editor controls and in-memory buffers;
+- preserve unsaved text, caret, selection, scroll and native Undo/Redo while switching files;
+- add dirty markers, close-tab actions, Save All and an aggregate exit confirmation;
+- keep workspace analysis synchronized with every open in-memory document;
+- scope breakpoints to their document, remap them after edits and flag unbound locations;
+- add a navigable Breakpoint palette plus Save All and Close Document toolbar commands;
+- expand the Core suite to 87 tests and the UI smoke to 28 menu commands and 24 shortcuts;
+
 ## 0.9.0 - 2026-08-30
 
 - add line breakpoints toggled from the gutter or with `F9`;

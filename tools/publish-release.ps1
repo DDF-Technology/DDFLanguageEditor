@@ -77,7 +77,12 @@ if ($missingFiles.Count -gt 0) {
 
 $applicationDll = Join-Path $publishDirectory 'DDFLanguageEditor.dll'
 $publishedVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($applicationDll).FileVersion
-$expectedFileVersion = ([version]$applicationVersion).ToString(3) + '.0'
+$parsedApplicationVersion = [version]$applicationVersion
+$expectedFileVersion = '{0}.{1}.{2}.{3}' -f `
+    $parsedApplicationVersion.Major, `
+    $parsedApplicationVersion.Minor, `
+    ([Math]::Max(0, $parsedApplicationVersion.Build)), `
+    ([Math]::Max(0, $parsedApplicationVersion.Revision))
 if ($publishedVersion -ne $expectedFileVersion) {
     throw "Versione pubblicata inattesa: $publishedVersion (attesa $expectedFileVersion)"
 }

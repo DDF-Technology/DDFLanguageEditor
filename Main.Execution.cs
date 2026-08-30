@@ -14,6 +14,7 @@ namespace DDF___Program_Language_Editor
         private CancellationTokenSource executionCancellation;
         private Task executionTask;
         private readonly List<OutputNavigationTarget> outputNavigationTargets = new List<OutputNavigationTarget>();
+        private string runtimeDocumentId;
 
         private void runMenuItem_DropDownOpening(object sender, EventArgs e)
         {
@@ -49,13 +50,14 @@ namespace DDF___Program_Language_Editor
             }
 
             clearOutput();
+            runtimeDocumentId = openDocuments.ActiveDocument.Id;
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.9.0 Beta — avvio di main()");
+            appendOutput("DDF 0.9.0.1 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             debuggerSession = new DdfDebuggerSession { Paused = onDebuggerPaused };
-            debuggerSession.SetBreakpoints(breakpointLines);
+            debuggerSession.SetBreakpoints(getEnabledBreakpointLines(openDocuments.ActiveDocument));
             updateExecutionCommands(true);
             executionTask = Task.Run(() => DdfInterpreter.Execute(source, parse.Root, new DdfExecutionOptions
             {
@@ -199,6 +201,8 @@ namespace DDF___Program_Language_Editor
 
         private void navigateToRuntimeSpan(int start, int length)
         {
+            if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
+                activateDocument(runtimeView);
             leaveFoldedView();
             int safeStart = Math.Min(Math.Max(0, start), richTextBoxMainEditor.TextLength);
             int safeLength = Math.Min(Math.Max(1, length), richTextBoxMainEditor.TextLength - safeStart);

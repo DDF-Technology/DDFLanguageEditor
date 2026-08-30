@@ -103,12 +103,13 @@ namespace DDF___Program_Language_Editor
             int rows = Math.Min(8, result.Items.Count);
             completionListBox.Height = Math.Max(42, rows * completionListBox.ItemHeight + 4);
             Point caret = richTextBoxMainEditor.GetPositionFromCharIndex(richTextBoxMainEditor.SelectionStart);
-            int x = richTextBoxMainEditor.Left + caret.X;
-            int y = richTextBoxMainEditor.Top + caret.Y + richTextBoxMainEditor.Font.Height + 4;
+            Point editorOrigin = panelEditor.PointToClient(richTextBoxMainEditor.PointToScreen(Point.Empty));
+            int x = editorOrigin.X + caret.X;
+            int y = editorOrigin.Y + caret.Y + richTextBoxMainEditor.Font.Height + 4;
             x = Math.Max(3, Math.Min(x, panelEditor.ClientSize.Width - completionListBox.Width - 3));
             if (y + completionListBox.Height > panelEditor.ClientSize.Height)
             {
-                y = richTextBoxMainEditor.Top + caret.Y - completionListBox.Height - 3;
+                y = editorOrigin.Y + caret.Y - completionListBox.Height - 3;
             }
 
             completionListBox.Location = new Point(x, Math.Max(3, y));
