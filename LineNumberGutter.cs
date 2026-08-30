@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows.Forms;
 
 namespace DDF___Program_Language_Editor
@@ -18,6 +19,8 @@ namespace DDF___Program_Language_Editor
             SetStyle(ControlStyles.Selectable, false);
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Control TargetControl { get; set; }
 
         protected override void WndProc(ref Message message)

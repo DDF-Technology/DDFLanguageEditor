@@ -1,4 +1,4 @@
-# Beta 0.7.4 limitations
+# Beta 0.8.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -25,6 +25,7 @@ This release is intended for interface and language-design evaluation only.
 - minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
 - native input dialog and a toolbar for the primary editor commands;
 - unified light application chrome with a dark code editor, folded view and gutter;
+- SDK-style projects targeting .NET 10 and modern Windows Forms bootstrap/DPI behavior;
 - unresolved-name and duplicate-declaration diagnostics;
 - dependency-free regression tests for the editor core;
 - repeatable dynamic smoke tests for real WinForms editing sequences.

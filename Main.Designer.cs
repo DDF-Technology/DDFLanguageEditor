@@ -595,7 +595,7 @@ namespace DDF___Program_Language_Editor
             //
             // MainForm
             //
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1027, 793);
             this.Controls.Add(this.panelEditor);

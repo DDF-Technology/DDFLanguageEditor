@@ -41,7 +41,8 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.7.2` | Tema chiaro uniforme dell'interfaccia | Completata |
 | `0.7.3` | Icona, dialoghi e layout delle palette | Completata |
 | `0.7.4` | Stack runtime e navigazione dagli errori | Completata |
-| `0.8.0+` | Debug interattivo e runtime multi-file | Pianificata |
+| `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
+| `0.9.0+` | Debug interattivo e runtime multi-file | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -282,7 +283,18 @@ senza perdita silenziosa di dati.
 - [x] Evidenziare nell'editor l'intervallo sorgente raggiunto dall'Output.
 - [x] Aggiungere test Core e smoke WinForms per errori annidati e navigazione.
 
-## 0.8.0 e successive — Debug interattivo e runtime multi-file
+## 0.8.0 — Modernizzazione .NET
+
+- [x] Consolidare la 0.7.4 in un checkpoint Git verificato.
+- [x] Convertire separatamente i quattro progetti al formato SDK mantenendo `net48`.
+- [x] Verificare il formato SDK su .NET Framework con test Core e smoke WinForms.
+- [x] Portare Core e test logici a `net10.0`.
+- [x] Portare applicazione e smoke WinForms a `net10.0-windows`.
+- [x] Eliminare la dipendenza da `System.Configuration` per i file recenti.
+- [x] Adottare bootstrap, metriche font e analizzatori WinForms moderni senza warning.
+- [x] Migrare build locale e CI alla CLI .NET 10.
+
+## 0.9.0 e successive — Debug interattivo e runtime multi-file
 
 - [ ] Progettare breakpoint, esecuzione passo-passo e ispezione delle variabili.
 - [ ] Definire il caricamento runtime dei moduli del workspace.
@@ -303,6 +315,7 @@ senza perdita silenziosa di dati.
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |
+| 2026-08-30 | Migrare a .NET 10 prima della 1.0 | Evitare di accumulare altro codice UI/runtime legacy e arrivare alla prima stabile su una base LTS già collaudata. |
 | 2026-08-28 | Separare la logica testabile dalla finestra principale | Ridurre l'accoppiamento e preparare lexer e parser. |
 | 2026-08-28 | Considerare la specifica storica come materiale di progetto, non come grammatica definitiva | Contiene contraddizioni che devono essere risolte esplicitamente. |
 | 2026-08-28 | Adottare `//`, `/* ... */` e `*` nel sottoinsieme riconosciuto | Allineare il comportamento corrente a delimitatori non ambigui e testabili. |

@@ -78,7 +78,7 @@ namespace DDF___Program_Language_Editor
                 }
 
                 Guid interfaceId = typeof(ITextDocument).GUID;
-                if (Marshal.QueryInterface(oleInterface, ref interfaceId, out documentInterface) < 0 ||
+                if (Marshal.QueryInterface(oleInterface, in interfaceId, out documentInterface) < 0 ||
                     documentInterface == IntPtr.Zero)
                 {
                     return null;

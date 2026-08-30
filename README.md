@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.7.4 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.8.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -59,16 +59,16 @@ richiede se salvare le modifiche non persistite.
 ## Requisiti e build
 
 - Windows 10 o 11;
-- .NET Framework 4.8;
-- Visual Studio 2022 con workload desktop .NET, oppure MSBuild compatibile.
+- .NET 10 Desktop Runtime per eseguire l'applicazione;
+- .NET 10 SDK per compilare e verificare il progetto.
 
 ```powershell
-msbuild "DDF - Program Language Editor.sln" /t:Rebuild /p:Configuration=Release
+dotnet build "DDF - Program Language Editor.sln" --configuration Release --maxcpucount:1
 ```
 
 L'eseguibile `DDFLanguageEditor.exe` e la libreria applicativa
-`DDFLanguageEditor.Core.dll` vengono generati in `bin\Release` e devono essere
-distribuiti insieme. La release pubblica è unsigned: Windows può mostrare un
+`DDFLanguageEditor.Core.dll` e i file runtime vengono generati in `bin\Release`
+e devono essere distribuiti insieme. La release pubblica è unsigned: Windows può mostrare un
 avviso di reputazione.
 
 Per eseguire build Debug, test del core e smoke dinamico WinForms con un unico
@@ -114,22 +114,22 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
 - `DDF - Program Language Spec.txt`: specifica storica in bozza;
-- `Properties/`: metadati e risorse del progetto .NET Framework.
+- `Properties/`: metadati e risorse dell'applicazione .NET 10.
 
 ## Licenza e dipendenze
 
 Codice e documentazione originali sono distribuiti con licenza [MIT](LICENSE),
 Copyright © 2026 Fabio De Deo.
 
-Non sono presenti pacchetti NuGet o librerie incorporate. Windows Forms e .NET
-Framework appartengono a Microsoft e sono richiesti come componenti di sistema;
+Non sono presenti pacchetti NuGet o librerie incorporate. Windows Forms e il
+runtime .NET 10 appartengono a Microsoft e sono richiesti come componenti di sistema;
 vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
 ## English summary
 
-**Beta 0.7.4 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.8.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

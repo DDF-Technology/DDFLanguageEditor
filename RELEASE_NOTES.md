@@ -1,4 +1,4 @@
-# DDFLanguageEditor 0.7.4
+# DDFLanguageEditor 0.8.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
@@ -88,6 +88,12 @@ failing expression; double-clicking a frame selects its corresponding call site.
 The final runtime report is appended atomically so the UI never exposes a
 partially rendered stack while execution commands are being re-enabled.
 
+Version 0.8.0 modernizes all four projects to SDK format and ports the editor,
+Core and executable regression suites from .NET Framework 4.8 to .NET 10.
+The WinForms bootstrap now uses the modern application configuration and DPI
+model while preserving the tested 300-pixel palette geometry. Recent files use
+a dependency-free UTF-8 store under the user's local application data folder.
+
 The repeatable WinForms smoke now exercises every File, Edit, View and Help command,
 including search/replace, completion, formatting, semantic navigation, recent files, folding states
 and all 21 shortcuts. It uses isolated temporary files and does not persist
@@ -113,7 +119,7 @@ auto-hide. The About window now opens centered on the screen.
 ## Run
 
 1. Extract the complete ZIP to a writable local folder.
-2. Ensure Microsoft .NET Framework 4.8 is installed.
+2. Ensure Microsoft .NET 10 Desktop Runtime is installed.
 3. Start `DDFLanguageEditor.exe`.
 
 Keep `DDFLanguageEditor.Core.dll` in the same folder as the executable.

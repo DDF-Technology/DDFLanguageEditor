@@ -1,14 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>DDF___Program_Language_Editor</RootNamespace>
     <AssemblyName>DDFLanguageEditor</AssemblyName>
     <ApplicationIcon>Resource\DDFLanguageEditor.ico</ApplicationIcon>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.Core\**;tests\**</DefaultItemExcludes>
@@ -16,7 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj" />
-    <Reference Include="System.Configuration" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,8 +34,6 @@
     <Compile Update="Main.Palettes.cs" DependentUpon="Main.cs" />
     <EmbeddedResource Update="Main.resx" DependentUpon="Main.cs" />
     <Compile Update="Properties\Resources.Designer.cs" AutoGen="True" DependentUpon="Resources.resx" />
-    <Compile Update="Properties\Settings.Designer.cs" AutoGen="True" DependentUpon="Settings.settings" DesignTimeSharedInput="True" />
     <EmbeddedResource Update="Properties\Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />
-    <None Update="Properties\Settings.settings" Generator="SettingsSingleFileGenerator" LastGenOutput="Settings.Designer.cs" />
   </ItemGroup>
 </Project>

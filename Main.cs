@@ -81,15 +81,11 @@ namespace DDF___Program_Language_Editor
             initializeWorkspace();
             closeWorkspaceMenuItem.Enabled = false;
             initializePaletteBehavior();
-            recentFiles = new List<string>(RecentFileList.Parse(Properties.Settings.Default.RecentFiles));
+            recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             initializeCompletion();
             showOpenFileDialog = dialog => dialog.ShowDialog(this);
             showSaveFileDialog = dialog => dialog.ShowDialog(this);
-            saveRecentFilesSetting = value =>
-            {
-                Properties.Settings.Default.RecentFiles = value;
-                Properties.Settings.Default.Save();
-            };
+            saveRecentFilesSetting = AppSettingsStore.SaveRecentFiles;
             requestSymbolRename = showRenameSymbolDialog;
             showWorkspaceDialog = dialog => dialog.ShowDialog(this);
             requestRuntimeInput = showRuntimeInputDialog;
@@ -398,8 +394,7 @@ namespace DDF___Program_Language_Editor
             }
             catch (Exception exception) when (
                 exception is IOException ||
-                exception is UnauthorizedAccessException ||
-                exception is System.Configuration.ConfigurationErrorsException)
+                exception is UnauthorizedAccessException)
             {
                 statusFileLabel.ToolTipText = "Impossibile memorizzare i file recenti: " + exception.Message;
             }
@@ -408,7 +403,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.7.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.8.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

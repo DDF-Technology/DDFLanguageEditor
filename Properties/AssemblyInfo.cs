@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 // Le informazioni generali relative a un assembly sono controllate dal seguente 
 // set di attributi. Modificare i valori di questi attributi per modificare le informazioni
@@ -18,6 +19,7 @@ using System.Runtime.InteropServices;
 // ai componenti COM. Se è necessario accedere a un tipo in questo assembly da
 // COM, impostare su true l'attributo ComVisible per tale tipo.
 [assembly: ComVisible(false)]
+[assembly: SupportedOSPlatform("windows")]
 
 // Se il progetto viene esposto a COM, il GUID seguente verrà utilizzato come ID della libreria dei tipi
 [assembly: Guid("e80caf6f-ece1-4f2d-beca-83f3c2a5e9ff")]
@@ -29,6 +31,6 @@ using System.Runtime.InteropServices;
 //      Numero di build
 //      Revisione
 //
-[assembly: AssemblyVersion("0.7.4.0")]
-[assembly: AssemblyFileVersion("0.7.4.0")]
-[assembly: AssemblyInformationalVersion("0.7.4")]
+[assembly: AssemblyVersion("0.8.0.0")]
+[assembly: AssemblyFileVersion("0.8.0.0")]
+[assembly: AssemblyInformationalVersion("0.8.0")]

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 - 2026-08-30
+
+- convert all application and test projects to concise SDK-style project files;
+- verify the intermediate SDK conversion while still targeting .NET Framework 4.8;
+- retarget the UI and smoke suite to `net10.0-windows` and the platform-neutral Core/tests to `net10.0`;
+- adopt the modern WinForms bootstrap, platform annotations and Segoe UI autoscaling metrics;
+- replace legacy `System.Configuration` user settings with a dependency-free UTF-8 local store;
+- move local and CI builds to the .NET 10 CLI and pin the supported SDK family with `global.json`;
+- preserve all 84 Core tests, 25 menu commands and dynamic WinForms scenarios without warnings;
+
 ## 0.7.4 - 2026-08-30
 
 - capture structured DDF call stacks for runtime failures in user and standard functions;
