@@ -1,4 +1,4 @@
-# Beta 0.9.1.2 limitations
+# Beta 0.9.1.3 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -34,6 +34,7 @@ This release is intended for interface and language-design evaluation only.
 - automatic pairs, contextual block editing, line comments and an editor context menu;
 - duplicate/move/delete line commands and context-aware multiline paste indentation;
 - progressive syntax selection with per-tab shrink history and matching-delimiter navigation;
+- multiple cursors/selections with token-aware occurrence selection and single-step Undo;
 
 ## Not implemented
 

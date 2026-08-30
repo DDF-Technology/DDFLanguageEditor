@@ -36,6 +36,8 @@
     <Compile Update="Main.Documents.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.ContextMenu.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Selection.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.MultiSelection.cs" DependentUpon="Main.cs" />
+    <Compile Update="MultiCursorRichTextBox.cs" DependentUpon="Main.cs" />
     <EmbeddedResource Update="Main.resx" DependentUpon="Main.cs" />
     <Compile Update="Properties\Resources.Designer.cs" AutoGen="True" DependentUpon="Resources.resx" />
     <EmbeddedResource Update="Properties\Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />

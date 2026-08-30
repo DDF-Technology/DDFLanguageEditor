@@ -406,7 +406,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.1.2 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.1.3 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -440,6 +440,8 @@ namespace DDF___Program_Language_Editor
                 expandSelectionMenuItem.Enabled = false;
                 shrinkSelectionMenuItem.Enabled = false;
                 matchingDelimiterMenuItem.Enabled = false;
+                selectNextOccurrenceMenuItem.Enabled = false;
+                selectAllOccurrencesMenuItem.Enabled = false;
                 return;
             }
 
@@ -461,6 +463,11 @@ namespace DDF___Program_Language_Editor
             moveLinesDownMenuItem.Enabled = EditorEditing.CreateMoveLinesEdit(
                 richTextBoxMainEditor.Text, richTextBoxMainEditor.SelectionStart, richTextBoxMainEditor.SelectionLength, false) != null;
             deleteLinesMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+            bool hasOccurrences = DdfMultiSelectionService.FindOccurrences(
+                richTextBoxMainEditor.Text, richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength).Count > 0;
+            selectNextOccurrenceMenuItem.Enabled = hasOccurrences;
+            selectAllOccurrencesMenuItem.Enabled = hasOccurrences;
             updateEditingSelectionCommandState();
         }
 
@@ -506,12 +513,26 @@ namespace DDF___Program_Language_Editor
 
         private void copySelectionToClipboard()
         {
+            if (!richTextBoxFoldedView.Visible && hasMultipleSelections)
+            {
+                string joined = string.Join(Environment.NewLine, activeDocumentView.MultiSelections
+                    .Where(range => range.Length > 0)
+                    .Select(range => richTextBoxMainEditor.Text.Substring(range.Start, range.Length)));
+                if (!string.IsNullOrEmpty(joined)) trySetClipboardText(joined);
+                return;
+            }
             RichTextBox source = richTextBoxFoldedView.Visible ? richTextBoxFoldedView : richTextBoxMainEditor;
             if (source.SelectionLength > 0) trySetClipboardText(source.SelectedText);
         }
 
         private void cutSelectionToClipboard()
         {
+            if (!richTextBoxFoldedView.Visible && hasMultipleSelections)
+            {
+                copySelectionToClipboard();
+                applyMultiReplacement(string.Empty);
+                return;
+            }
             if (richTextBoxFoldedView.Visible || richTextBoxMainEditor.SelectionLength == 0) return;
             if (trySetClipboardText(richTextBoxMainEditor.SelectedText))
                 richTextBoxMainEditor.SelectedText = string.Empty;
@@ -520,7 +541,9 @@ namespace DDF___Program_Language_Editor
         private void pasteTextFromClipboard()
         {
             if (richTextBoxFoldedView.Visible) return;
-            if (tryGetClipboardText(out string text))
+            if (tryGetClipboardText(out string text) && hasMultipleSelections)
+                applyMultiReplacement(text);
+            else if (text != null)
                 applyEdit(EditorEditing.CreatePasteEdit(
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,

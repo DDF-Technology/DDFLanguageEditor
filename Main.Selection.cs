@@ -11,6 +11,7 @@ namespace DDF___Program_Language_Editor
         private void expandSyntacticSelection()
         {
             leaveFoldedView();
+            clearMultipleSelections();
             DocumentView view = activeDocumentView;
             if (view == null) return;
             DdfTextRange next = DdfSelectionService.GetNextExpansion(
@@ -28,6 +29,7 @@ namespace DDF___Program_Language_Editor
         private void shrinkSyntacticSelection()
         {
             leaveFoldedView();
+            clearMultipleSelections();
             DocumentView view = activeDocumentView;
             if (view == null || view.SelectionHistory.Count == 0) return;
             Tuple<int, int> previous = view.SelectionHistory.Pop();
@@ -37,6 +39,7 @@ namespace DDF___Program_Language_Editor
         private void goToMatchingDelimiter()
         {
             leaveFoldedView();
+            clearMultipleSelections();
             int? target = DdfDelimiterNavigation.GetMatchingPosition(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart);

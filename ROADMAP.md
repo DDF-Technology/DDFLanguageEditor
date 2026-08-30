@@ -45,7 +45,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
-| `0.9.1` | Comodità e gesti di scrittura | In corso (`0.9.1.0`, `0.9.1.1` e `0.9.1.2` completate) |
+| `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Pianificata |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
@@ -350,7 +350,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Uniformare menu, tastiera e menu contestuale per Taglia/Copia/Incolla con stato sempre corrente (`0.9.1.0`).
 - [x] Aggiungere duplica, sposta ed elimina riga mantenendo selezione e Undo prevedibili (`0.9.1.1`).
 - [x] Introdurre selezione sintattica progressiva, riduzione con cronologia per scheda e navigazione tra delimitatori (`0.9.1.2`).
-- [ ] Supportare più cursori e selezioni per modifiche ripetitive.
+- [x] Supportare più cursori e selezioni con `Alt+Click`, occorrenza successiva/tutte e modifica simultanea annullabile in un passo (`0.9.1.3`).
 - [x] Correggere automaticamente il rientro del testo incollato quando richiesto (`0.9.1.1`).
 - [x] Esporre le nuove azioni tramite menu, scorciatoie e icon bar secondo frequenza d'uso (`0.9.1.0`).
 

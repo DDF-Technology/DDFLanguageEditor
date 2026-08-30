@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.1.2
+# DDFLanguageEditor 0.9.1.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.1.3 completes the 0.9.1 editing-comfort milestone. `Alt+Click` adds
+a cursor without losing the existing ones, `Ctrl+D` selects the next token
+occurrence and `Ctrl+Shift+L` selects all code occurrences while leaving equal
+text in comments and strings untouched. Typing, paired characters, Enter, Tab,
+Backspace, Delete, Cut and Paste operate on every active selection as one Undo
+step. Duplicate Lines moves to `Ctrl+Shift+D`.
 
 Version 0.9.1.2 adds progressive syntax selection with `Shift+Alt+Right`:
 identifier, expression, statement, block, function and whole document. The
@@ -10,7 +17,7 @@ ignoring delimiters inside strings and comments. All three actions are exposed
 in Edit, the editor context menu and the icon toolbar.
 
 Version 0.9.1.1 adds complete-line operations to the daily editing workflow.
-`Ctrl+D` duplicates, `Alt+Up` and `Alt+Down` move, and `Ctrl+Shift+K` deletes
+`Ctrl+Shift+D` duplicates, `Alt+Up` and `Alt+Down` move, and `Ctrl+Shift+K` deletes
 the current lines while preserving selections and native Undo. Multiline paste
 now removes redundant common indentation and aligns the inserted block with the
 current DDF scope. Every action is available from Edit, the context menu and

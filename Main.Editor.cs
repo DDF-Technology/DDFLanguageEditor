@@ -11,6 +11,30 @@ namespace DDF___Program_Language_Editor
     {
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.D))
+            {
+                selectNextOccurrence();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Shift | Keys.L))
+            {
+                selectAllOccurrences();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Shift | Keys.D))
+            {
+                duplicateLines();
+                return true;
+            }
+
+            if (keyData == Keys.Escape && activeDocumentView != null && activeDocumentView.MultiSelections.Count > 0)
+            {
+                clearMultipleSelections();
+                return true;
+            }
+
             if (keyData == (Keys.Shift | Keys.Alt | Keys.Right))
             {
                 expandSyntacticSelection();
@@ -54,12 +78,6 @@ namespace DDF___Program_Language_Editor
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.D))
-            {
-                duplicateLines();
-                return true;
-            }
-
             if (keyData == (Keys.Alt | Keys.Up))
             {
                 moveLines(true);
@@ -91,6 +109,11 @@ namespace DDF___Program_Language_Editor
             var changedEditor = sender as RichTextBox;
             DocumentView changedView = findDocumentView(changedEditor);
             changedView?.SelectionHistory.Clear();
+            if (!isApplyingMultiEdit && changedView != null && changedView.MultiSelections.Count > 0)
+            {
+                changedView.MultiSelections.Clear();
+                diagnosticsFormatStart = 0;
+            }
 
             if (!isReplacingDocument)
             {
@@ -206,6 +229,8 @@ namespace DDF___Program_Language_Editor
                         richTextBoxMainEditor.SelectionColor = Color.FromArgb(241, 241, 241);
                         richTextBoxMainEditor.SelectionBackColor = Color.FromArgb(90, 29, 29);
                     }
+
+                    formatSecondarySelections(formatStart);
 
                     int safeStart = Math.Min(selectionStart, richTextBoxMainEditor.TextLength);
                     int safeLength = Math.Min(selectionLength, richTextBoxMainEditor.TextLength - safeStart);
@@ -343,6 +368,39 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_KeyDown(object sender, KeyEventArgs e)
         {
+            if (hasMultipleSelections)
+            {
+                if (e.KeyCode == Keys.Tab)
+                {
+                    e.SuppressKeyPress = true;
+                    e.Handled = true;
+                    applyMultiEditorEdits(range => createMultiCursorTabEdit(range, e.Shift));
+                    return;
+                }
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.SuppressKeyPress = true;
+                    e.Handled = true;
+                    applyMultiEditorEdits(range => EditorEditing.CreateNewLineEdit(
+                        richTextBoxMainEditor.Text, range.Start, range.Length));
+                    return;
+                }
+                if (e.KeyCode == Keys.Back)
+                {
+                    e.SuppressKeyPress = true;
+                    e.Handled = true;
+                    applyMultiBackspace();
+                    return;
+                }
+                if (e.KeyCode == Keys.Delete)
+                {
+                    e.SuppressKeyPress = true;
+                    e.Handled = true;
+                    applyMultiDelete();
+                    return;
+                }
+            }
+
             if (handleCompletionKeyDown(e))
             {
                 return;
@@ -396,6 +454,15 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_KeyPress(object sender, KeyPressEventArgs e)
         {
+            if (hasMultipleSelections && !char.IsControl(e.KeyChar))
+            {
+                e.Handled = true;
+                applyMultiEditorEdits(range => EditorEditing.CreatePairedCharacterEdit(
+                    richTextBoxMainEditor.Text, range.Start, range.Length, e.KeyChar) ??
+                    new EditorEdit(range.Start, range.Length, e.KeyChar.ToString(), range.Start + 1, 0));
+                return;
+            }
+
             EditorEdit pairedEdit = EditorEditing.CreatePairedCharacterEdit(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
@@ -488,9 +555,17 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            if (!isApplyingSyntacticSelection)
+            if (!isApplyingSyntacticSelection && !isApplyingMultiSelection)
             {
-                findDocumentView(sender as RichTextBox)?.SelectionHistory.Clear();
+                DocumentView view = findDocumentView(sender as RichTextBox);
+                view?.SelectionHistory.Clear();
+                if (view != null && view.MultiSelections.Count > 0)
+                {
+                    view.MultiSelections.Clear();
+                    diagnosticsFormatStart = 0;
+                    highlightTimer.Stop();
+                    highlightTimer.Start();
+                }
             }
 
             updateCaretPosition();
@@ -573,6 +648,8 @@ namespace DDF___Program_Language_Editor
             int lineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(line);
             int column = lineStart < 0 ? 0 : position - lineStart;
             statusPositionLabel.Text = "Riga " + (line + 1) + ", Colonna " + (column + 1);
+            if (hasMultipleSelections)
+                statusPositionLabel.Text += " — " + activeDocumentView.MultiSelections.Count + " cursori";
         }
 
         private void updateLineNumbers()

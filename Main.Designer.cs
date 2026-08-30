@@ -52,7 +52,7 @@ namespace DDF___Program_Language_Editor
             this.aboutMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMain = new System.Windows.Forms.ToolStrip();
             this.panelEditor = new System.Windows.Forms.Panel();
-            this.richTextBoxMainEditor = new System.Windows.Forms.RichTextBox();
+            this.richTextBoxMainEditor = new MultiCursorRichTextBox();
             this.richTextBoxFoldedView = new System.Windows.Forms.RichTextBox();
             this.richTextBoxLineNumbers = new DDF___Program_Language_Editor.LineNumberGutter();
             this.splitterOutline = new System.Windows.Forms.Splitter();
@@ -618,7 +618,7 @@ namespace DDF___Program_Language_Editor
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.9.1.2 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.9.1.3 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);

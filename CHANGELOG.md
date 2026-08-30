@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1.3 - 2026-08-30
+
+- add persistent per-tab multiple cursors through `Alt+Click` with visible secondary selections;
+- select the next token occurrence with `Ctrl+D` or all code occurrences with `Ctrl+Shift+L`;
+- apply typing, paired characters, Enter, Tab, Backspace, Delete, Cut and Paste to all selections as one Undo step;
+- move Duplicate Lines to `Ctrl+Shift+D` and expose occurrence commands in Edit, context menu and toolbar;
+- complete roadmap milestone 0.9.1 with 102 Core tests, 26 toolbar commands, 38 menu commands and 34 shortcuts;
+
 ## 0.9.1.2 - 2026-08-30
 
 - add AST-aware progressive selection from token through expression, statement, block, function and document;

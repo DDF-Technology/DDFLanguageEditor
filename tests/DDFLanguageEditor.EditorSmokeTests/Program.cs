@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 36 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 38 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -86,6 +86,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertClosingBraceAlignment(form, editor);
                 AssertCodingGesturesAndContextMenu(form, editor);
                 AssertSyntacticSelectionAndDelimiterNavigation(form, editor);
+                AssertMultipleSelections(form, editor);
                 AssertColoredFoldFromFunctionHeader(form, editor, foldedView, lineNumbers);
                 AssertMultipleIndependentFolds(form, editor, foldedView);
                 AssertWholeLibraryCutIsClean(editor, diagnostics);
@@ -160,7 +161,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "copyMenuItem", Keys.Control | Keys.C },
                     { "pasteMenuItem", Keys.Control | Keys.V },
                     { "toggleLineCommentMenuItem", Keys.Control | Keys.OemQuestion },
-                    { "duplicateLinesMenuItem", Keys.Control | Keys.D },
+                    { "duplicateLinesMenuItem", Keys.Control | Keys.Shift | Keys.D },
+                    { "selectNextOccurrenceMenuItem", Keys.Control | Keys.D },
+                    { "selectAllOccurrencesMenuItem", Keys.Control | Keys.Shift | Keys.L },
                     { "moveLinesUpMenuItem", Keys.Alt | Keys.Up },
                     { "moveLinesDownMenuItem", Keys.Alt | Keys.Down },
                     { "deleteLinesMenuItem", Keys.Control | Keys.Shift | Keys.K },
@@ -189,6 +192,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem", "toggleLineCommentMenuItem",
                     "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
                     "expandSelectionMenuItem", "shrinkSelectionMenuItem", "matchingDelimiterMenuItem",
+                    "selectNextOccurrenceMenuItem", "selectAllOccurrencesMenuItem",
                     "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
@@ -208,7 +212,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 32 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 34 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -225,7 +229,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.2") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1074,6 +1078,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "contextPasteItem", "contextSelectAllItem", "contextFindItem", "contextRenameItem", "contextCommentItem",
                 "contextDuplicateLinesItem", "contextMoveLinesUpItem", "contextMoveLinesDownItem", "contextDeleteLinesItem",
                 "contextExpandSelectionItem", "contextShrinkSelectionItem", "contextMatchingDelimiterItem"
+                , "contextSelectNextOccurrenceItem", "contextSelectAllOccurrencesItem"
             };
             foreach (string name in expectedItems)
                 Require(contextMenu.Items.OfType<ToolStripMenuItem>().Any(item => item.Name == name),
@@ -1083,8 +1088,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             const string lines = "one\ntwo\nthree";
             editor.Text = lines;
             editor.Select(4, 0);
-            InvokeProcessCmdKey(form, Keys.Control | Keys.D);
-            Require(editor.Text == "one\ntwo\ntwo\nthree", "Ctrl+D non duplica la riga corrente.");
+            InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.D);
+            Require(editor.Text == "one\ntwo\ntwo\nthree", "Ctrl+Shift+D non duplica la riga corrente.");
             editor.Undo();
             editor.Select(4, 3);
             InvokeProcessCmdKey(form, Keys.Alt | Keys.Up);
@@ -1153,6 +1158,51 @@ namespace DDFLanguageEditor.EditorSmokeTests
             FindMenuItem(form, "closeDocumentMenuItem").PerformClick();
             PumpMessages(80);
             Console.WriteLine("PASS selezione sintattica progressiva, riduzione e navigazione delimitatori");
+        }
+
+        private static void AssertMultipleSelections(MainForm form, RichTextBox editor)
+        {
+            const string source = "int value;\nvalue << value + 1; // value";
+            editor.Text = source;
+            int first = source.IndexOf("value", StringComparison.Ordinal);
+            editor.Select(first + 2, 0);
+            InvokeProcessCmdKey(form, Keys.Control | Keys.D);
+            Require(editor.SelectedText == "value", "Il primo Ctrl+D non seleziona il simbolo corrente.");
+            InvokeProcessCmdKey(form, Keys.Control | Keys.D);
+            ToolStripStatusLabel positionLabel = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
+                .Items["statusPositionLabel"];
+            Require(positionLabel.Text.Contains("2 cursori"),
+                "Il secondo Ctrl+D non aggiunge un cursore sulla prossima occorrenza.");
+            var typed = new KeyPressEventArgs('x');
+            InvokeHandler(form, "richTextBoxMainEditor_KeyPress", editor, typed);
+            Require(typed.Handled && editor.Text == "int x;\nx << value + 1; // value",
+                "La digitazione non sostituisce simultaneamente le selezioni attive.");
+            Require(editor.CanUndo, "La modifica multi-cursore non è annullabile.");
+            editor.Undo();
+            PumpMessages(100);
+            Require(editor.Text == source, "Undo non ripristina in un passo la modifica multi-cursore.");
+
+            editor.Select(first, "value".Length);
+            InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.L);
+            Clipboard.SetText("item");
+            InvokeProcessCmdKey(form, Keys.Control | Keys.V);
+            Require(editor.Text == "int item;\nitem << item + 1; // value",
+                "Seleziona tutte e Incolla hanno modificato commenti o perso un'occorrenza del codice.");
+            editor.Undo();
+            PumpMessages(80);
+
+            editor.Select(0, 0);
+            InvokePrivate(form, "addCursorAtPosition", editor.Text.IndexOf('\n') + 1);
+            var tab = new KeyEventArgs(Keys.Tab);
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, tab);
+            Require(tab.Handled && editor.Text.StartsWith("    int value;\n    value", StringComparison.Ordinal),
+                "Tab non indenta simultaneamente tutti i cursori.");
+            var insert = new KeyPressEventArgs('>');
+            InvokeHandler(form, "richTextBoxMainEditor_KeyPress", editor, insert);
+            Require(editor.Text.StartsWith("    >int value;\n    >value", StringComparison.Ordinal),
+                "Il cursore aggiunto tramite il flusso Alt+Click non partecipa alla scrittura.");
+            InvokeProcessCmdKey(form, Keys.Escape);
+            Console.WriteLine("PASS cursori multipli, occorrenze, scrittura/incolla simultanei e Undo unico");
         }
 
         private static void AssertWorkspaceNavigation(MainForm form, RichTextBox editor, ListBox diagnostics)
@@ -1346,6 +1396,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarCopyButton", "toolbarPasteButton", "toolbarCommentButton",
                 "toolbarDuplicateLinesButton", "toolbarMoveLinesUpButton", "toolbarMoveLinesDownButton", "toolbarDeleteLinesButton",
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
+                "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
@@ -1374,7 +1425,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 24 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 26 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -1495,6 +1546,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
             var message = Message.Create(form.Handle, 0, IntPtr.Zero, IntPtr.Zero);
             object[] arguments = { message, keys };
             return (bool)method.Invoke(form, arguments);
+        }
+
+        private static object InvokePrivate(MainForm form, string methodName, params object[] arguments)
+        {
+            MethodInfo method = typeof(MainForm).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) throw new InvalidOperationException("Metodo non trovato: " + methodName);
+            return method.Invoke(form, arguments);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

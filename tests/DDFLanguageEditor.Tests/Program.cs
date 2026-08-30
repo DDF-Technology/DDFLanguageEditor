@@ -98,6 +98,10 @@ namespace DDFLanguageEditor.Tests
             Run("expands protected tokens without reading nested delimiters", ExpandsProtectedTokensSafely);
             Run("navigates between matching delimiters", NavigatesBetweenMatchingDelimiters);
             Run("handles incomplete syntax selection safely", HandlesIncompleteSyntaxSelectionSafely);
+            Run("finds token occurrences outside protected text", FindsTokenOccurrencesOutsideProtectedText);
+            Run("replaces multiple selections in one transformation", ReplacesMultipleSelections);
+            Run("deletes at multiple cursors with mapped positions", DeletesAtMultipleCursors);
+            Run("applies contextual edits at multiple selections", AppliesContextualEditsAtMultipleSelections);
             Run("derives multiline folding ranges", DerivesMultilineFoldingRanges);
             Run("handles incomplete folding trees", HandlesIncompleteFoldingTrees);
             Run("creates a source-preserving fold projection", CreatesSourcePreservingFoldProjection);
@@ -1120,6 +1124,51 @@ namespace DDFLanguageEditor.Tests
             int caret = source.LastIndexOf("value", StringComparison.Ordinal);
             DdfTextRange range = DdfSelectionService.GetNextExpansion(source, caret, 0);
             Equal("value", source.Substring(range.Start, range.Length));
+        }
+
+        private static void FindsTokenOccurrencesOutsideProtectedText()
+        {
+            const string source = "int value; value << 1; // value\nstring text << \"value\";";
+            int caret = source.IndexOf("value", StringComparison.Ordinal) + 2;
+            IReadOnlyList<DdfTextRange> ranges = DdfMultiSelectionService.FindOccurrences(source, caret, 0);
+            Equal(2, ranges.Count);
+            Equal(true, ranges.All(range => source.Substring(range.Start, range.Length) == "value"));
+            Equal(true, ranges.All(range => range.Start < source.IndexOf("//", StringComparison.Ordinal)));
+        }
+
+        private static void ReplacesMultipleSelections()
+        {
+            const string source = "value + value";
+            var ranges = new[] { new DdfTextRange(0, 5), new DdfTextRange(8, 5) };
+            DdfMultiEditResult result = DdfMultiSelectionService.Replace(source, ranges, "item");
+            Equal("item + item", result.Text);
+            SequenceEqual(new[] { 4, 11 }, result.Selections.Select(range => range.Start));
+            Equal(true, result.Selections.All(range => range.Length == 0));
+        }
+
+        private static void DeletesAtMultipleCursors()
+        {
+            const string source = "ab cd";
+            var ranges = new[] { new DdfTextRange(2, 0), new DdfTextRange(5, 0) };
+            DdfMultiEditResult backspace = DdfMultiSelectionService.Backspace(source, ranges);
+            Equal("a c", backspace.Text);
+            SequenceEqual(new[] { 1, 3 }, backspace.Selections.Select(range => range.Start));
+
+            DdfMultiEditResult delete = DdfMultiSelectionService.Delete(source,
+                new[] { new DdfTextRange(0, 0), new DdfTextRange(3, 0) });
+            Equal("b d", delete.Text);
+            SequenceEqual(new[] { 0, 2 }, delete.Selections.Select(range => range.Start));
+        }
+
+        private static void AppliesContextualEditsAtMultipleSelections()
+        {
+            const string source = "a\nb";
+            var ranges = new[] { new DdfTextRange(0, 0), new DdfTextRange(2, 0) };
+            IReadOnlyList<EditorEdit> edits = ranges.Select(range =>
+                EditorEditing.CreateTabEdit(source, range.Start, range.Length, false)).ToList();
+            DdfMultiEditResult result = DdfMultiSelectionService.ApplyEdits(source, edits);
+            Equal("    a\n    b", result.Text);
+            SequenceEqual(new[] { 4, 10 }, result.Selections.Select(range => range.Start));
         }
 
         private static void DerivesMultilineFoldingRanges()

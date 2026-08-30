@@ -29,13 +29,15 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(createToolbarButton("toolbarCopyButton", "\uE8C8", "Copia (Ctrl+C)", copyMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarPasteButton", "\uE77F", "Incolla (Ctrl+V)", pasteMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarCommentButton", "\uE8C1", "Commenta/decommenta (Ctrl+/)", toggleLineCommentMenuItem_Click));
-            toolStripMain.Items.Add(createToolbarButton("toolbarDuplicateLinesButton", "\uE8C8", "Duplica righe (Ctrl+D)", duplicateLinesMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarDuplicateLinesButton", "\uE8C8", "Duplica righe (Ctrl+Shift+D)", duplicateLinesMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarMoveLinesUpButton", "\uE74A", "Sposta righe su (Alt+Su)", moveLinesUpMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarMoveLinesDownButton", "\uE74B", "Sposta righe giù (Alt+Giù)", moveLinesDownMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarDeleteLinesButton", "\uE74D", "Elimina righe (Ctrl+Shift+K)", deleteLinesMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarExpandSelectionButton", "\uE8B7", "Espandi selezione (Shift+Alt+Destra)", expandSelectionMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarShrinkSelectionButton", "\uE8B6", "Riduci selezione (Shift+Alt+Sinistra)", shrinkSelectionMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarMatchingDelimiterButton", "\uE8A7", "Vai al delimitatore corrispondente (Ctrl+Shift+\\)", matchingDelimiterMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarSelectNextOccurrenceButton", "\uE8EE", "Seleziona occorrenza successiva (Ctrl+D)", selectNextOccurrenceMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarSelectAllOccurrencesButton", "\uE8B3", "Seleziona tutte le occorrenze (Ctrl+Shift+L)", selectAllOccurrencesMenuItem_Click));
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(createToolbarButton("toolbarFindButton", "\uE721", "Trova (Ctrl+F)", findMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarFormatButton", "\uE8D2", "Formatta documento (Ctrl+Shift+F)", formatDocumentMenuItem_Click));

@@ -116,7 +116,7 @@ namespace DDF___Program_Language_Editor
 
         private RichTextBox createDocumentEditor(string id)
         {
-            var editor = new RichTextBox
+            var editor = new MultiCursorRichTextBox
             {
                 AcceptsTab = richTextBoxMainEditor.AcceptsTab,
                 BackColor = richTextBoxMainEditor.BackColor,
@@ -144,10 +144,17 @@ namespace DDF___Program_Language_Editor
 
         private void hookEditorMouseEvents(RichTextBox editor)
         {
+            if (editor is MultiCursorRichTextBox multiCursorEditor)
+                multiCursorEditor.AltCursorRequested += richTextBoxMainEditor_AltCursorRequested;
             editor.MouseDown += richTextBoxMainEditor_MouseDown;
             editor.MouseUp += richTextBoxMainEditor_MouseUp;
             editor.MouseMove += richTextBoxMainEditor_MouseMove;
             editor.MouseLeave += richTextBoxMainEditor_MouseLeave;
+        }
+
+        private void richTextBoxMainEditor_AltCursorRequested(object sender, AltCursorEventArgs e)
+        {
+            if (ReferenceEquals(sender, richTextBoxMainEditor)) addCursorAtPosition(e.Position);
         }
 
         private DocumentView findDocumentView(RichTextBox editor)
@@ -376,6 +383,7 @@ namespace DDF___Program_Language_Editor
             public RichTextBox Editor { get; }
             public TabPage Tab { get; }
             public Stack<Tuple<int, int>> SelectionHistory { get; } = new Stack<Tuple<int, int>>();
+            public List<DdfTextRange> MultiSelections { get; } = new List<DdfTextRange>();
         }
     }
 }
