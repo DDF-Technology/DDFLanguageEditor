@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.7.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.7.4 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -23,6 +23,7 @@ evidenziazione delle regole note e indentazione assistita.
 - interprete AST interno con funzioni, scope, controllo di flusso, array e strutture;
 - menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
+- stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
 - barra a icone per i principali comandi File, Modifica, folding ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
@@ -41,7 +42,7 @@ evidenziazione delle regole note e indentazione assistita.
 
 ## Limiti della beta
 
-- nessun compilatore, debugger, input non interattivo o runtime multi-file;
+- nessun compilatore, breakpoint, esecuzione passo-passo o runtime multi-file;
 - nessun overload, generico, conversione personalizzata o sistema di build/progetto;
 - la ri-lessicalizzazione riutilizza il prefisso invariato ma analizza ancora
   dalla zona modificata fino alla fine del documento;
@@ -128,11 +129,12 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.7.3 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.7.4 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
-compiler, interpreter, debugger or DDF runtime. A live document outline indexes structures,
+external compiler or complete debugger. Its internal AST interpreter reports
+navigable runtime failures and DDF call stacks. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving
 read-only fold projection are included. Contextual completion suggests catalog
 terms and locally visible document symbols, automatically or with `Ctrl+Space`.

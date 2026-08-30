@@ -208,7 +208,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.7.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.7.4") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1068,7 +1068,29 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(400);
             Require(output.Text.Contains("41") && output.Text.Contains("Valore restituito: 42"),
                 "Input e funzioni standard non attraversano correttamente la UI.");
-            Console.WriteLine("PASS interprete Run/Stop, input standard e palette Output");
+            PumpMessages(300);
+            Require(FindMenuItem(form, "runProgramMenuItem").Enabled,
+                "Run non viene riabilitato dopo l'uso dell'input standard.");
+
+            editor.Text = "fail() out int\n{\n    int zero << 0;\n    ret 10 / zero;\n}\nmiddle() out int\n{\n    ret fail();\n}\nmain() out int\n{\n    ret middle();\n}";
+            PumpMessages(180);
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpMessages(800);
+            Require(output.Text.Contains("DDF404") && output.Text.Contains("Stack chiamate DDF:"),
+                "L'errore runtime non mostra diagnostica e intestazione dello stack DDF. Output: " + output.Text);
+            Require(output.Text.Contains("in fail()") && output.Text.Contains("in middle()") && output.Text.Contains("in main()"),
+                "Lo stack runtime non contiene tutte le chiamate DDF. Output: " + output.Text);
+
+            output.SelectionStart = output.Text.IndexOf("DDF404", StringComparison.Ordinal);
+            InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
+            Require(editor.SelectedText.Contains("10 / zero"),
+                "Il doppio clic sulla diagnostica runtime non seleziona l'istruzione che ha fallito.");
+
+            output.SelectionStart = output.Text.IndexOf("in fail()", StringComparison.Ordinal);
+            InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
+            Require(editor.SelectedText == "fail",
+                "Il doppio clic su un frame runtime non raggiunge il relativo punto di chiamata. Selezione: '" + editor.SelectedText + "'.");
+            Console.WriteLine("PASS interprete Run/Stop, stack navigabile, input standard e palette Output");
         }
 
         private static void AssertMainToolbar(MainForm form)

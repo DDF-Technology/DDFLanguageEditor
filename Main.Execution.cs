@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,6 +13,7 @@ namespace DDF___Program_Language_Editor
     {
         private CancellationTokenSource executionCancellation;
         private Task executionTask;
+        private readonly List<OutputNavigationTarget> outputNavigationTargets = new List<OutputNavigationTarget>();
 
         private void runMenuItem_DropDownOpening(object sender, EventArgs e)
         {
@@ -38,10 +40,10 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            richTextBoxOutput.Clear();
+            clearOutput();
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.7.3 Beta — avvio di main()");
+            appendOutput("DDF 0.7.4 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             updateExecutionCommands(true);
@@ -72,28 +74,41 @@ namespace DDF___Program_Language_Editor
 
         private void finishExecution(Task<DdfExecutionResult> task)
         {
-            updateExecutionCommands(false);
+            var lines = new List<OutputLine>();
             if (task.IsCanceled)
             {
-                appendOutput("Esecuzione arrestata.");
+                lines.Add(new OutputLine("Esecuzione arrestata."));
             }
             else if (task.IsFaulted)
             {
-                appendOutput("Errore interno: " + task.Exception.GetBaseException().Message);
+                lines.Add(new OutputLine("Errore interno: " + task.Exception.GetBaseException().Message));
             }
             else
             {
                 DdfExecutionResult result = task.Result;
-                foreach (DdfDiagnostic diagnostic in result.Diagnostics) appendOutput(diagnostic.ToString());
-                if (result.WasCancelled) appendOutput("Esecuzione arrestata.");
+                foreach (DdfDiagnostic diagnostic in result.Diagnostics)
+                    lines.Add(new OutputLine(diagnostic.ToString(), diagnostic.Start, diagnostic.Length));
+                if (result.StackTrace.Count > 0)
+                {
+                    lines.Add(new OutputLine("Stack chiamate DDF:"));
+                    foreach (DdfRuntimeStackFrame frame in result.StackTrace)
+                        lines.Add(new OutputLine("  " + frame, frame.Start, frame.Length));
+                }
+                if (result.WasCancelled) lines.Add(new OutputLine("Esecuzione arrestata."));
                 else if (result.Succeeded)
                 {
                     if (result.ReturnValue != null)
-                        appendOutput("Valore restituito: " + Convert.ToString(result.ReturnValue, CultureInfo.InvariantCulture));
-                    appendOutput("Esecuzione completata (" + result.Instructions + " passi runtime).");
+                        lines.Add(new OutputLine("Valore restituito: " + Convert.ToString(result.ReturnValue, CultureInfo.InvariantCulture)));
+                    lines.Add(new OutputLine("Esecuzione completata (" + result.Instructions + " passi runtime)."));
                 }
-                else appendOutput("Esecuzione terminata con errori runtime.");
+                else lines.Add(new OutputLine("Esecuzione terminata con errori runtime."));
             }
+
+            appendOutputBatch(lines);
+            updateExecutionCommands(false);
+            formatNavigableOutput();
+            richTextBoxOutput.Select(richTextBoxOutput.TextLength, 0);
+            richTextBoxOutput.ScrollToCaret();
 
             executionCancellation?.Dispose();
             executionCancellation = null;
@@ -113,6 +128,64 @@ namespace DDF___Program_Language_Editor
             richTextBoxOutput.ScrollToCaret();
         }
 
+        private void clearOutput()
+        {
+            outputNavigationTargets.Clear();
+            richTextBoxOutput.Clear();
+        }
+
+        private void appendOutputBatch(IList<OutputLine> lines)
+        {
+            if (lines == null || lines.Count == 0) return;
+            var builder = new StringBuilder();
+            int outputStart = richTextBoxOutput.TextLength;
+            const string outputNewLine = "\n";
+            if (outputStart > 0) builder.Append(outputNewLine);
+
+            foreach (OutputLine line in lines)
+            {
+                if (builder.Length > (outputStart > 0 ? outputNewLine.Length : 0)) builder.Append(outputNewLine);
+                int lineStart = outputStart + builder.Length;
+                builder.Append(line.Text);
+                if (line.IsNavigable)
+                    outputNavigationTargets.Add(new OutputNavigationTarget(lineStart, line.Text.Length, line.SourceStart, line.SourceLength));
+            }
+
+            richTextBoxOutput.AppendText(builder.ToString());
+        }
+
+        private void formatNavigableOutput()
+        {
+            foreach (OutputNavigationTarget target in outputNavigationTargets)
+            {
+                richTextBoxOutput.Select(target.OutputStart, target.OutputLength);
+                richTextBoxOutput.SelectionColor = AppTheme.Accent;
+            }
+            richTextBoxOutput.Select(richTextBoxOutput.TextLength, 0);
+            richTextBoxOutput.SelectionColor = AppTheme.Text;
+        }
+
+        private void richTextBoxOutput_DoubleClick(object sender, EventArgs e)
+        {
+            int position = richTextBoxOutput.SelectionStart;
+            foreach (OutputNavigationTarget target in outputNavigationTargets)
+            {
+                if (position < target.OutputStart || position > target.OutputStart + target.OutputLength) continue;
+                navigateToRuntimeSpan(target.SourceStart, target.SourceLength);
+                return;
+            }
+        }
+
+        private void navigateToRuntimeSpan(int start, int length)
+        {
+            leaveFoldedView();
+            int safeStart = Math.Min(Math.Max(0, start), richTextBoxMainEditor.TextLength);
+            int safeLength = Math.Min(Math.Max(1, length), richTextBoxMainEditor.TextLength - safeStart);
+            richTextBoxMainEditor.Select(safeStart, safeLength);
+            richTextBoxMainEditor.ScrollToCaret();
+            richTextBoxMainEditor.Focus();
+        }
+
         private void stopExecution()
         {
             executionCancellation?.Cancel();
@@ -123,6 +196,42 @@ namespace DDF___Program_Language_Editor
             if (InvokeRequired) return (string)Invoke(new Func<string>(showRuntimeInputDialog));
             using (var dialog = new RuntimeInputForm())
                 return dialog.ShowDialog(this) == DialogResult.OK ? dialog.InputText : string.Empty;
+        }
+
+        private sealed class OutputNavigationTarget
+        {
+            public OutputNavigationTarget(int outputStart, int outputLength, int sourceStart, int sourceLength)
+            {
+                OutputStart = outputStart;
+                OutputLength = outputLength;
+                SourceStart = sourceStart;
+                SourceLength = sourceLength;
+            }
+
+            public int OutputStart { get; }
+            public int OutputLength { get; }
+            public int SourceStart { get; }
+            public int SourceLength { get; }
+        }
+
+        private sealed class OutputLine
+        {
+            public OutputLine(string text)
+            {
+                Text = text ?? string.Empty;
+            }
+
+            public OutputLine(string text, int sourceStart, int sourceLength) : this(text)
+            {
+                IsNavigable = true;
+                SourceStart = sourceStart;
+                SourceLength = sourceLength;
+            }
+
+            public string Text { get; }
+            public bool IsNavigable { get; }
+            public int SourceStart { get; }
+            public int SourceLength { get; }
         }
     }
 }

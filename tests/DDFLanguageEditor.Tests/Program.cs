@@ -75,6 +75,7 @@ namespace DDFLanguageEditor.Tests
             Run("stops infinite execution at the instruction limit", StopsInfiniteExecutionAtInstructionLimit);
             Run("honors runtime cancellation", HonorsRuntimeCancellation);
             Run("reports runtime failures with source positions", ReportsRuntimeFailuresWithSourcePositions);
+            Run("captures navigable DDF runtime stack traces", CapturesNavigableRuntimeStackTraces);
             Run("executes the minimal standard library with input", ExecutesMinimalStandardLibraryWithInput);
             Run("reports invalid standard conversions", ReportsInvalidStandardConversions);
             Run("matches nested delimiters", MatchesNestedDelimiters);
@@ -1239,6 +1240,38 @@ main() out int
             DdfDiagnostic diagnostic = result.Diagnostics.Single();
             Equal("DDF404", diagnostic.Code);
             Equal(4, diagnostic.Line);
+        }
+
+        private static void CapturesNavigableRuntimeStackTraces()
+        {
+            const string source = @"fail() out int
+{
+    int zero << 0;
+    ret 10 / zero;
+}
+middle() out int
+{
+    ret fail();
+}
+main() out int
+{
+    ret middle();
+}";
+            DdfExecutionResult result = DdfInterpreter.Execute(source);
+            Equal(false, result.Succeeded);
+            Equal("DDF404", result.Diagnostics.Single().Code);
+            Equal(3, result.StackTrace.Count);
+            Equal("fail", result.StackTrace[0].FunctionName);
+            Equal("middle", result.StackTrace[1].FunctionName);
+            Equal("main", result.StackTrace[2].FunctionName);
+            Equal(8, result.StackTrace[0].Line);
+            Equal("fail", source.Substring(result.StackTrace[0].Start, result.StackTrace[0].Length));
+            Equal("middle", source.Substring(result.StackTrace[1].Start, result.StackTrace[1].Length));
+
+            DdfExecutionResult standardFailure = DdfInterpreter.Execute("main() out int { ret toInt(\"abc\"); }");
+            Equal(2, standardFailure.StackTrace.Count);
+            Equal("toInt", standardFailure.StackTrace[0].FunctionName);
+            Equal("main", standardFailure.StackTrace[1].FunctionName);
         }
 
         private static void ExecutesMinimalStandardLibraryWithInput()

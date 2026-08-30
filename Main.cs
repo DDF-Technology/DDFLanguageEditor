@@ -142,6 +142,9 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
+            symbolToolTip.Active = false;
+            symbolToolTip.Hide(richTextBoxMainEditor);
+            symbolToolTip.RemoveAll();
             persistRecentFiles();
         }
 
@@ -405,7 +408,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.7.3 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.7.4 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

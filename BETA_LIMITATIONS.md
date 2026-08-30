@@ -1,4 +1,4 @@
-# Beta 0.7.3 limitations
+# Beta 0.7.4 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -21,6 +21,7 @@ This release is intended for interface and language-design evaluation only.
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
 - Run/Stop commands, cooperative cancellation, instruction limit and Output palette;
+- navigable runtime diagnostics and DDF call stacks in the Output palette;
 - minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
 - native input dialog and a toolbar for the primary editor commands;
 - unified light application chrome with a dark code editor, folded view and gutter;
@@ -32,7 +33,7 @@ This release is intended for interface and language-design evaluation only.
 
 - automatic recovery, snapshots or concurrent-edit conflict detection;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
-- compiler, bytecode VM, native runtime or debugger;
+- compiler, bytecode VM, native runtime or full debugger;
 - complete standard library, non-interactive input streams, breakpoints or step-by-step execution;
 - project files, dependency graphs, build configurations or multi-document tabs;
 - extension or plug-in APIs;

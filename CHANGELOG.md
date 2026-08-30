@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.4 - 2026-08-30
+
+- capture structured DDF call stacks for runtime failures in user and standard functions;
+- show runtime diagnostics and call frames together in the Output palette;
+- make errors and individual frames navigable to their exact source span by double-click;
+- batch final runtime output to avoid partial WinForms updates while preserving colored links;
+- add Core and WinForms regressions for nested failures, source highlighting and call-site navigation;
+- disable pending symbol tooltips before form disposal to avoid delayed UI callbacks;
+
 ## 0.7.3 - 2026-08-29
 
 - regenerate the Release application icon as a newly named multi-resolution resource;

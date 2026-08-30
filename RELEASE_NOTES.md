@@ -1,4 +1,4 @@
-# DDFLanguageEditor 0.7.3
+# DDFLanguageEditor 0.7.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
@@ -81,6 +81,13 @@ automatically uses only the width remaining to its left.
 Find/Replace now uses an aligned grid for fields and options plus a single,
 uniform action row; controls specific to replacement collapse cleanly in Find mode.
 
+Version 0.7.4 captures a structured DDF call stack whenever execution fails.
+The Output palette displays the positioned runtime diagnostic followed by user
+and standard-function frames. Double-clicking the diagnostic selects the exact
+failing expression; double-clicking a frame selects its corresponding call site.
+The final runtime report is appended atomically so the UI never exposes a
+partially rendered stack while execution commands are being re-enabled.
+
 The repeatable WinForms smoke now exercises every File, Edit, View and Help command,
 including search/replace, completion, formatting, semantic navigation, recent files, folding states
 and all 21 shortcuts. It uses isolated temporary files and does not persist
@@ -118,7 +125,7 @@ signed. Verify the SHA-256 published on the GitHub release before running it.
 
 - new documents exist only in memory until they are saved;
 - automatic crash recovery and concurrent-edit detection are not included;
-- the interpreter runs only the current document; no compiler, debugger, interactive input or multi-file runtime is included;
+- the interpreter runs only the current document; no compiler, full debugger, non-interactive input stream or multi-file runtime is included;
 - the language specification is an unstable historical draft;
 - use only disposable example text and copy anything important before closing.
 

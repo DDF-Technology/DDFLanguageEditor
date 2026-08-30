@@ -66,6 +66,7 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_MouseMove(object sender, MouseEventArgs e)
         {
+            if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;
             if (lastSemanticModel == null || !string.Equals(lastAnalyzedText, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
             int position = richTextBoxMainEditor.GetCharIndexFromPosition(e.Location);
             DdfSymbolOccurrence occurrence = lastSemanticModel.FindOccurrence(position);
@@ -82,7 +83,7 @@ namespace DDF___Program_Language_Editor
             if (symbol == null)
             {
                 symbolToolTip.Show("Tipo: " + typedSpan.Type.DisplayName,
-                    richTextBoxMainEditor, e.X + 14, e.Y + 18, 5000);
+                    richTextBoxMainEditor, e.X + 14, e.Y + 18);
                 return;
             }
 
@@ -97,13 +98,14 @@ namespace DDF___Program_Language_Editor
                 ? "Definito alla riga " + line
                 : "Definito in " + workspaceSymbol.Document.RelativePath;
             symbolToolTip.Show(symbol.Name + "\n" + detail + "\n" + location,
-                richTextBoxMainEditor, e.X + 14, e.Y + 18, 5000);
+                richTextBoxMainEditor, e.X + 14, e.Y + 18);
         }
 
         private void richTextBoxMainEditor_MouseLeave(object sender, EventArgs e)
         {
             hoveredSymbol = null;
             hoveredTypedSpan = null;
+            if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;
             symbolToolTip.Hide(richTextBoxMainEditor);
         }
 

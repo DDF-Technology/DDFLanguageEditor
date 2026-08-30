@@ -13,15 +13,39 @@ namespace DDFLanguageEditor.Core
         public Func<bool> CancellationRequested { get; set; }
     }
 
+    public sealed class DdfRuntimeStackFrame
+    {
+        internal DdfRuntimeStackFrame(string functionName, int start, int length, int line, int column)
+        {
+            FunctionName = functionName;
+            Start = start;
+            Length = length;
+            Line = line;
+            Column = column;
+        }
+
+        public string FunctionName { get; }
+        public int Start { get; }
+        public int Length { get; }
+        public int Line { get; }
+        public int Column { get; }
+
+        public override string ToString()
+        {
+            return "in " + FunctionName + "() — riga " + Line + ", colonna " + Column;
+        }
+    }
+
     public sealed class DdfExecutionResult
     {
-        internal DdfExecutionResult(object returnValue, int instructions, bool cancelled, bool terminated, IReadOnlyList<DdfDiagnostic> diagnostics)
+        internal DdfExecutionResult(object returnValue, int instructions, bool cancelled, bool terminated, IReadOnlyList<DdfDiagnostic> diagnostics, IReadOnlyList<DdfRuntimeStackFrame> stackTrace)
         {
             ReturnValue = returnValue;
             Instructions = instructions;
             WasCancelled = cancelled;
             WasTerminated = terminated;
             Diagnostics = diagnostics;
+            StackTrace = stackTrace;
         }
 
         public object ReturnValue { get; }
@@ -29,6 +53,7 @@ namespace DDFLanguageEditor.Core
         public bool WasCancelled { get; }
         public bool WasTerminated { get; }
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
+        public IReadOnlyList<DdfRuntimeStackFrame> StackTrace { get; }
         public bool Succeeded => !WasCancelled && Diagnostics.Count == 0;
     }
 
@@ -39,7 +64,7 @@ namespace DDFLanguageEditor.Core
             if (source == null) throw new ArgumentNullException(nameof(source));
             DdfParseResult parse = DdfParser.Parse(source);
             if (parse.Diagnostics.Count > 0)
-                return new DdfExecutionResult(null, 0, false, false, parse.Diagnostics);
+                return new DdfExecutionResult(null, 0, false, false, parse.Diagnostics, new DdfRuntimeStackFrame[0]);
             return Execute(source, parse.Root, options);
         }
 
@@ -59,6 +84,7 @@ namespace DDFLanguageEditor.Core
             private readonly Dictionary<string, StructDeclarationSyntax> structures = new Dictionary<string, StructDeclarationSyntax>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, Cell>> scopes = new List<Dictionary<string, Cell>>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
+            private readonly List<DdfRuntimeStackFrame> callStack = new List<DdfRuntimeStackFrame>();
             private int instructions;
 
             public Runner(string source, CompilationUnitSyntax root, DdfExecutionOptions options)
@@ -73,6 +99,7 @@ namespace DDFLanguageEditor.Core
                 bool cancelled = false;
                 bool terminated = false;
                 object returnValue = null;
+                IReadOnlyList<DdfRuntimeStackFrame> stackTrace = new DdfRuntimeStackFrame[0];
                 try
                 {
                     IndexDeclarations();
@@ -84,21 +111,25 @@ namespace DDFLanguageEditor.Core
                     {
                         if (!functions.TryGetValue(options.EntryPoint, out FunctionDeclarationSyntax entry))
                             Fail("DDF401", "Funzione di ingresso '" + options.EntryPoint + "' non trovata.", root);
-                        returnValue = Invoke(entry, new object[0]);
+                        returnValue = Invoke(entry, new object[0], null);
                     }
                 }
                 catch (ReturnSignal signal) { returnValue = signal.Value; }
                 catch (BreakSignal) { diagnostics.Add(CreateDiagnostic("DDF403", "'brk' può essere usato soltanto in un ciclo.", root)); }
                 catch (EndSignal) { terminated = true; }
                 catch (CancelledSignal) { cancelled = true; }
-                catch (RuntimeSignal signal) { diagnostics.Add(CreateDiagnostic(signal.Code, signal.Message, signal.Node)); }
+                catch (RuntimeSignal signal)
+                {
+                    diagnostics.Add(CreateDiagnostic(signal.Code, signal.Message, signal.Node));
+                    stackTrace = signal.DdfStackTrace;
+                }
                 catch (Exception exception) { diagnostics.Add(CreateDiagnostic("DDF499", "Errore runtime interno: " + exception.Message, root)); }
                 finally
                 {
                     scopes.Clear();
                 }
 
-                return new DdfExecutionResult(returnValue, instructions, cancelled, terminated, diagnostics.AsReadOnly());
+                return new DdfExecutionResult(returnValue, instructions, cancelled, terminated, diagnostics.AsReadOnly(), stackTrace);
             }
 
             private void IndexDeclarations()
@@ -110,21 +141,29 @@ namespace DDFLanguageEditor.Core
                 }
             }
 
-            private object Invoke(FunctionDeclarationSyntax function, IList<object> arguments)
+            private object Invoke(FunctionDeclarationSyntax function, IList<object> arguments, DdfSyntaxNode invocation)
             {
-                Tick(function);
-                if (arguments.Count != function.Parameters.Count)
-                    Fail("DDF402", "La funzione '" + function.Name + "' richiede " + function.Parameters.Count + " argomenti.", function);
-                PushScope();
+                callStack.Add(CreateFrame(
+                    function.Name,
+                    invocation == null ? function.NameStart : invocation.Start,
+                    invocation == null ? function.NameLength : invocation.Length));
                 try
                 {
-                    for (int index = 0; index < function.Parameters.Count; index++)
-                        Declare(function.Parameters[index].Name, ConvertForType(arguments[index], function.Parameters[index].Type, function.Parameters[index]));
-                    try { ExecuteBlock(function.Body, false); }
-                    catch (ReturnSignal signal) { return signal.Value; }
-                    return null;
+                    Tick(function);
+                    if (arguments.Count != function.Parameters.Count)
+                        Fail("DDF402", "La funzione '" + function.Name + "' richiede " + function.Parameters.Count + " argomenti.", function);
+                    PushScope();
+                    try
+                    {
+                        for (int index = 0; index < function.Parameters.Count; index++)
+                            Declare(function.Parameters[index].Name, ConvertForType(arguments[index], function.Parameters[index].Type, function.Parameters[index]));
+                        try { ExecuteBlock(function.Body, false); }
+                        catch (ReturnSignal signal) { return signal.Value; }
+                        return null;
+                    }
+                    finally { PopScope(); }
                 }
-                finally { PopScope(); }
+                finally { callStack.RemoveAt(callStack.Count - 1); }
             }
 
             private void ExecuteStatement(StatementSyntax statement)
@@ -209,7 +248,7 @@ namespace DDFLanguageEditor.Core
                     {
                         var userArguments = new List<object>();
                         foreach (ExpressionSyntax argument in call.Arguments) userArguments.Add(Evaluate(argument));
-                        return Invoke(function, userArguments);
+                        return Invoke(function, userArguments, call.Target);
                     }
                     if (target != null && DdfRuntimeCatalog.TryGetStandardFunction(target.Name, out DdfStandardFunction standard))
                     {
@@ -227,31 +266,38 @@ namespace DDFLanguageEditor.Core
 
             private object InvokeStandard(DdfStandardFunction function, IList<object> arguments, DdfSyntaxNode node)
             {
-                if (arguments.Count != function.ParameterTypes.Count)
-                    Fail("DDF402", "La funzione standard '" + function.Name + "' richiede " + function.ParameterTypes.Count + " argomenti.", node);
-                if (function.Name == "print")
+                var call = node as CallExpressionSyntax;
+                DdfSyntaxNode invocation = call == null ? node : call.Target;
+                callStack.Add(CreateFrame(function.Name, invocation.Start, invocation.Length));
+                try
                 {
-                    options.Output?.Invoke(arguments[0] as string ?? FormatValue(arguments[0]));
+                    if (arguments.Count != function.ParameterTypes.Count)
+                        Fail("DDF402", "La funzione standard '" + function.Name + "' richiede " + function.ParameterTypes.Count + " argomenti.", node);
+                    if (function.Name == "print")
+                    {
+                        options.Output?.Invoke(arguments[0] as string ?? FormatValue(arguments[0]));
+                        return null;
+                    }
+                    if (function.Name == "readLine")
+                    {
+                        if (options.Input == null) Fail("DDF408", "Input standard non disponibile.", node);
+                        return options.Input() ?? string.Empty;
+                    }
+                    if (function.Name == "length") return ((string)arguments[0]).Length;
+                    if (function.Name == "toInt")
+                    {
+                        if (int.TryParse(arguments[0] as string, NumberStyles.Integer, CultureInfo.InvariantCulture, out int integer)) return integer;
+                        Fail("DDF408", "Impossibile convertire il testo in int.", node);
+                    }
+                    if (function.Name == "toFloat")
+                    {
+                        if (double.TryParse(arguments[0] as string, NumberStyles.Float, CultureInfo.InvariantCulture, out double floating)) return floating;
+                        Fail("DDF408", "Impossibile convertire il testo in float.", node);
+                    }
+                    Fail("DDF402", "Funzione standard non implementata: '" + function.Name + "'.", node);
                     return null;
                 }
-                if (function.Name == "readLine")
-                {
-                    if (options.Input == null) Fail("DDF408", "Input standard non disponibile.", node);
-                    return options.Input() ?? string.Empty;
-                }
-                if (function.Name == "length") return ((string)arguments[0]).Length;
-                if (function.Name == "toInt")
-                {
-                    if (int.TryParse(arguments[0] as string, NumberStyles.Integer, CultureInfo.InvariantCulture, out int integer)) return integer;
-                    Fail("DDF408", "Impossibile convertire il testo in int.", node);
-                }
-                if (function.Name == "toFloat")
-                {
-                    if (double.TryParse(arguments[0] as string, NumberStyles.Float, CultureInfo.InvariantCulture, out double floating)) return floating;
-                    Fail("DDF408", "Impossibile convertire il testo in float.", node);
-                }
-                Fail("DDF402", "Funzione standard non implementata: '" + function.Name + "'.", node);
-                return null;
+                finally { callStack.RemoveAt(callStack.Count - 1); }
             }
 
             private object EvaluateBinary(BinaryExpressionSyntax binary)
@@ -439,7 +485,26 @@ namespace DDFLanguageEditor.Core
                 return Convert.ToString(value, CultureInfo.InvariantCulture);
             }
 
-            private void Fail(string code, string message, DdfSyntaxNode node) { throw new RuntimeSignal(code, message, node); }
+            private void Fail(string code, string message, DdfSyntaxNode node) { throw new RuntimeSignal(code, message, node, CaptureStackTrace()); }
+
+            private IReadOnlyList<DdfRuntimeStackFrame> CaptureStackTrace()
+            {
+                var trace = new List<DdfRuntimeStackFrame>(callStack.Count);
+                for (int index = callStack.Count - 1; index >= 0; index--) trace.Add(callStack[index]);
+                return trace.AsReadOnly();
+            }
+
+            private DdfRuntimeStackFrame CreateFrame(string functionName, int start, int length)
+            {
+                int safeStart = Math.Min(Math.Max(0, start), Math.Max(0, source.Length - 1));
+                int line = 1, column = 1;
+                for (int index = 0; index < Math.Min(safeStart, source.Length); index++)
+                {
+                    if (source[index] == '\n') { line++; column = 1; }
+                    else if (source[index] != '\r') column++;
+                }
+                return new DdfRuntimeStackFrame(functionName, safeStart, Math.Max(1, length), line, column);
+            }
 
             private DdfDiagnostic CreateDiagnostic(string code, string message, DdfSyntaxNode node)
             {
@@ -450,7 +515,18 @@ namespace DDFLanguageEditor.Core
             }
 
             private sealed class Cell { public Cell(object value) { Value = value; } public object Value { get; set; } }
-            private sealed class RuntimeSignal : Exception { public RuntimeSignal(string code, string message, DdfSyntaxNode node) : base(message) { Code = code; Node = node; } public string Code { get; } public DdfSyntaxNode Node { get; } }
+            private sealed class RuntimeSignal : Exception
+            {
+                public RuntimeSignal(string code, string message, DdfSyntaxNode node, IReadOnlyList<DdfRuntimeStackFrame> stackTrace) : base(message)
+                {
+                    Code = code;
+                    Node = node;
+                    DdfStackTrace = stackTrace;
+                }
+                public string Code { get; }
+                public DdfSyntaxNode Node { get; }
+                public IReadOnlyList<DdfRuntimeStackFrame> DdfStackTrace { get; }
+            }
             private sealed class ReturnSignal : Exception { public ReturnSignal(object value) { Value = value; } public object Value { get; } }
             private sealed class BreakSignal : Exception { }
             private sealed class EndSignal : Exception { }

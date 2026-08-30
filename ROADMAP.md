@@ -13,8 +13,8 @@ DDF, mantenendo distinti tre livelli:
 2. analisi lessicale, sintattica e semantica;
 3. eventuale interprete, compilatore o altro modello di esecuzione.
 
-Lo sviluppo di un runtime inizierà soltanto dopo la stabilizzazione della
-grammatica e del parser.
+Lo sviluppo del runtime è iniziato dopo la stabilizzazione della grammatica,
+del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 
 ## Stato delle release
 
@@ -40,7 +40,8 @@ grammatica e del parser.
 | `0.7.1` | Libreria standard minima, input e toolbar | Completata |
 | `0.7.2` | Tema chiaro uniforme dell'interfaccia | Completata |
 | `0.7.3` | Icona, dialoghi e layout delle palette | Completata |
-| `0.7.4+` | Diagnostica runtime e debugging | Pianificata |
+| `0.7.4` | Stack runtime e navigazione dagli errori | Completata |
+| `0.8.0+` | Debug interattivo e runtime multi-file | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -273,9 +274,16 @@ senza perdita silenziosa di dati.
 - [x] Smoke su icona, centratura e geometria del docking.
 - [x] Layout ordinato e adattivo per campi, checkbox e pulsanti di Trova/Sostituisci.
 
-## 0.7.4 e successive — Runtime e debug
+## 0.7.4 — Stack runtime navigabile
 
-- [ ] Aggiungere stack trace DDF e navigazione dagli errori runtime.
+- [x] Conservare uno stack strutturato delle chiamate utente e standard nel Core.
+- [x] Mostrare diagnostica e stack DDF nella palette Output.
+- [x] Rendere navigabili con doppio clic l'istruzione fallita e ogni punto di chiamata.
+- [x] Evidenziare nell'editor l'intervallo sorgente raggiunto dall'Output.
+- [x] Aggiungere test Core e smoke WinForms per errori annidati e navigazione.
+
+## 0.8.0 e successive — Debug interattivo e runtime multi-file
+
 - [ ] Progettare breakpoint, esecuzione passo-passo e ispezione delle variabili.
 - [ ] Definire il caricamento runtime dei moduli del workspace.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.

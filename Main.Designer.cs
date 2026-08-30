@@ -537,6 +537,7 @@ namespace DDF___Program_Language_Editor
             this.richTextBoxOutput.ReadOnly = true;
             this.richTextBoxOutput.Text = "";
             this.richTextBoxOutput.WordWrap = false;
+            this.richTextBoxOutput.DoubleClick += new System.EventHandler(this.richTextBoxOutput_DoubleClick);
             //
             // labelDiagnostics
             //
