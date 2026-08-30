@@ -43,7 +43,7 @@ namespace DDF___Program_Language_Editor
             clearOutput();
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.8.0 Beta — avvio di main()");
+            appendOutput("DDF 0.8.1 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             updateExecutionCommands(true);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 - 2026-08-30
+
+- adopt self-contained Windows x64 as the official distribution format;
+- add a repeatable release script that publishes and validates the bundled .NET and Windows Desktop hosts;
+- generate a ready-to-distribute ZIP and its SHA-256 checksum under `.artifacts\release`;
+- publish the same verified package as a GitHub Actions artifact;
+
 ## 0.8.0 - 2026-08-30
 
 - convert all application and test projects to concise SDK-style project files;

@@ -1,4 +1,4 @@
-# DDFLanguageEditor 0.8.0
+# DDFLanguageEditor 0.8.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
@@ -94,6 +94,11 @@ The WinForms bootstrap now uses the modern application configuration and DPI
 model while preserving the tested 300-pixel palette geometry. Recent files use
 a dependency-free UTF-8 store under the user's local application data folder.
 
+Version 0.8.1 closes the controlled port with an official self-contained
+Windows x64 distribution. The repeatable release script validates that the .NET
+and Windows Desktop hosts are present, produces a ZIP and writes its SHA-256;
+the same package is generated as a GitHub Actions artifact.
+
 The repeatable WinForms smoke now exercises every File, Edit, View and Help command,
 including search/replace, completion, formatting, semantic navigation, recent files, folding states
 and all 21 shortcuts. It uses isolated temporary files and does not persist
@@ -119,10 +124,9 @@ auto-hide. The About window now opens centered on the screen.
 ## Run
 
 1. Extract the complete ZIP to a writable local folder.
-2. Ensure Microsoft .NET 10 Desktop Runtime is installed.
-3. Start `DDFLanguageEditor.exe`.
+2. Start `DDFLanguageEditor.exe`; the required .NET 10 runtime is included.
 
-Keep `DDFLanguageEditor.Core.dll` in the same folder as the executable.
+Keep all extracted files in the same folder as the executable.
 
 Windows may display a reputation warning because the executable is not digitally
 signed. Verify the SHA-256 published on the GitHub release before running it.

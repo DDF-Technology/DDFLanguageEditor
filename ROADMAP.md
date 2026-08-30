@@ -42,6 +42,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.7.3` | Icona, dialoghi e layout delle palette | Completata |
 | `0.7.4` | Stack runtime e navigazione dagli errori | Completata |
 | `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
+| `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0+` | Debug interattivo e runtime multi-file | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
@@ -294,6 +295,14 @@ senza perdita silenziosa di dati.
 - [x] Adottare bootstrap, metriche font e analizzatori WinForms moderni senza warning.
 - [x] Migrare build locale e CI alla CLI .NET 10.
 
+## 0.8.1 — Chiusura distributiva del porting
+
+- [x] Adottare Windows x64 self-contained come formato ufficiale.
+- [x] Aggiungere uno script ripetibile di pubblicazione e validazione.
+- [x] Includere host .NET 10 e Windows Desktop senza dipendere dal runtime installato.
+- [x] Generare lo ZIP distribuibile e il checksum SHA-256.
+- [x] Produrre lo stesso pacchetto come artefatto della CI.
+
 ## 0.9.0 e successive — Debug interattivo e runtime multi-file
 
 - [ ] Progettare breakpoint, esecuzione passo-passo e ispezione delle variabili.
@@ -316,6 +325,7 @@ senza perdita silenziosa di dati.
 | --- | --- | --- |
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |
 | 2026-08-30 | Migrare a .NET 10 prima della 1.0 | Evitare di accumulare altro codice UI/runtime legacy e arrivare alla prima stabile su una base LTS già collaudata. |
+| 2026-08-30 | Distribuire la beta .NET 10 come pacchetto self-contained Windows x64 | Consentire l'avvio su Windows x64 senza installare separatamente il Desktop Runtime, accettando un archivio più grande. |
 | 2026-08-28 | Separare la logica testabile dalla finestra principale | Ridurre l'accoppiamento e preparare lexer e parser. |
 | 2026-08-28 | Considerare la specifica storica come materiale di progetto, non come grammatica definitiva | Contiene contraddizioni che devono essere risolte esplicitamente. |
 | 2026-08-28 | Adottare `//`, `/* ... */` e `*` nel sottoinsieme riconosciuto | Allineare il comportamento corrente a delimitatori non ambigui e testabili. |

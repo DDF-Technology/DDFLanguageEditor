@@ -1,4 +1,4 @@
-# Beta 0.8.0 limitations
+# Beta 0.8.1 limitations
 
 This release is intended for interface and language-design evaluation only.
 

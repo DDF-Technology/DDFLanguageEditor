@@ -25,3 +25,15 @@ jobs:
 
       - name: Build Release
         run: dotnet build "DDF - Program Language Editor.sln" --configuration Release --no-restore --disable-build-servers --maxcpucount:1
+
+      - name: Publish self-contained Windows x64 package
+        run: .\tools\publish-release.ps1
+
+      - name: Upload self-contained package
+        uses: actions/upload-artifact@v4
+        with:
+          name: DDFLanguageEditor-win-x64-self-contained
+          path: |
+            .artifacts/release/*.zip
+            .artifacts/release/*.sha256
+          if-no-files-found: error

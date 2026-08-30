@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.8.0 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.8.1 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -59,17 +59,23 @@ richiede se salvare le modifiche non persistite.
 ## Requisiti e build
 
 - Windows 10 o 11;
-- .NET 10 Desktop Runtime per eseguire l'applicazione;
 - .NET 10 SDK per compilare e verificare il progetto.
 
 ```powershell
 dotnet build "DDF - Program Language Editor.sln" --configuration Release --maxcpucount:1
 ```
 
-L'eseguibile `DDFLanguageEditor.exe` e la libreria applicativa
-`DDFLanguageEditor.Core.dll` e i file runtime vengono generati in `bin\Release`
-e devono essere distribuiti insieme. La release pubblica è unsigned: Windows può mostrare un
-avviso di reputazione.
+La distribuzione ufficiale è **self-contained Windows x64**: include .NET 10 e
+non richiede l'installazione separata del Desktop Runtime. Per creare e verificare
+lo ZIP distribuibile con il relativo checksum SHA-256:
+
+```powershell
+.\tools\publish-release.ps1
+```
+
+Gli artefatti vengono scritti in `.artifacts\release`. Tutti i file contenuti
+nello ZIP devono restare insieme. La release pubblica è unsigned: Windows può
+mostrare un avviso di reputazione.
 
 Per eseguire build Debug, test del core e smoke dinamico WinForms con un unico
 comando:
@@ -104,6 +110,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `tests/DDFLanguageEditor.Tests/`: suite di regressione eseguibile senza dipendenze;
 - `tests/DDFLanguageEditor.EditorSmokeTests/`: smoke dinamico sul form WinForms reale;
 - `tests/run-dynamic-smoke.ps1`: build e gate di test ripetibile;
+- `tools/publish-release.ps1`: pubblicazione self-contained Windows x64, validazione, ZIP e SHA-256;
 - `samples/editor-smoke-test.ddf`: controllo visivo manuale dell'editor;
 - `samples/formatter-smoke-test.ddf`: controllo manuale di formattazione, idempotenza e Undo;
 - `samples/lexer/`: corpus lessicale valido e non valido;
@@ -121,15 +128,15 @@ Per eseguire soltanto i test del core dopo una build Debug:
 Codice e documentazione originali sono distribuiti con licenza [MIT](LICENSE),
 Copyright © 2026 Fabio De Deo.
 
-Non sono presenti pacchetti NuGet o librerie incorporate. Windows Forms e il
-runtime .NET 10 appartengono a Microsoft e sono richiesti come componenti di sistema;
+Non sono presenti pacchetti NuGet o librerie applicative incorporate. Windows Forms e il
+runtime .NET 10 appartengono a Microsoft e sono inclusi nella distribuzione self-contained;
 vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
 ## English summary
 
-**Beta 0.8.0 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.8.1 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
