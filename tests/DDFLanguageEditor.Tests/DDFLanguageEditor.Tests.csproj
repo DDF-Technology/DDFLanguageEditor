@@ -1,82 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{B7D2A484-CBAA-47AE-817F-1FB795D11A83}</ProjectGuid>
     <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
     <RootNamespace>DDFLanguageEditor.Tests</RootNamespace>
     <AssemblyName>DDFLanguageEditor.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <ProjectReference Include="..\..\DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <None Include="..\..\samples\lexer\valid.ddf" Link="Corpus\valid.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\lexer\invalid-character.ddf" Link="Corpus\invalid-character.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\lexer\unterminated-string.ddf" Link="Corpus\unterminated-string.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\lexer\unterminated-comment.ddf" Link="Corpus\unterminated-comment.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\lexer\unterminated-library.ddf" Link="Corpus\unterminated-library.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\parser\valid.ddf" Link="Corpus\Parser\valid.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\parser\invalid-missing-semicolon.ddf" Link="Corpus\Parser\invalid-missing-semicolon.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\parser\invalid-delimiters.ddf" Link="Corpus\Parser\invalid-delimiters.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\parser\invalid-expression.ddf" Link="Corpus\Parser\invalid-expression.ddf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj">
-      <Project>{2D0C8167-AB79-48CF-90F7-EB5D2EB661C4}</Project>
-      <Name>DDFLanguageEditor.Core</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\samples\lexer\valid.ddf">
-      <Link>Corpus\valid.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\lexer\invalid-character.ddf">
-      <Link>Corpus\invalid-character.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\lexer\unterminated-string.ddf">
-      <Link>Corpus\unterminated-string.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\lexer\unterminated-comment.ddf">
-      <Link>Corpus\unterminated-comment.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\lexer\unterminated-library.ddf">
-      <Link>Corpus\unterminated-library.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\parser\valid.ddf">
-      <Link>Corpus\Parser\valid.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\parser\invalid-missing-semicolon.ddf">
-      <Link>Corpus\Parser\invalid-missing-semicolon.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\parser\invalid-delimiters.ddf">
-      <Link>Corpus\Parser\invalid-delimiters.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="..\..\samples\parser\invalid-expression.ddf">
-      <Link>Corpus\Parser\invalid-expression.ddf</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
