@@ -229,7 +229,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -889,8 +889,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(220);
             ListBox completion = FindControl<ListBox>(form, "completionListBox");
             Require(completion.Visible, "Il completamento automatico non è apparso dopo il prefisso.");
-            Require(completion.Items.Cast<DdfCompletionItem>().Any(item => item.DisplayText == "while"),
+            DdfCompletionItem whileItem = completion.Items.Cast<DdfCompletionItem>()
+                .SingleOrDefault(item => item.DisplayText == "while");
+            Require(whileItem != null,
                 "Il completamento non propone la parola chiave while.");
+            Require(completion.DrawMode == DrawMode.OwnerDrawFixed && completion.ItemHeight >= 24 && completion.Width >= 500,
+                "Il popup non usa righe strutturate sufficienti per categoria, tipo e origine.");
+            Require(whileItem.CategoryLabel == "parola chiave" && whileItem.Origin == "linguaggio DDF" &&
+                    !string.IsNullOrEmpty(whileItem.Glyph),
+                "La voce di completamento non espone icona, categoria e origine.");
 
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
             PumpMessages(120);
@@ -901,15 +908,26 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(100);
             Require(editor.Text == "wh", "Undo non ha ripristinato il prefisso precedente al completamento.");
 
+            const string typedSource = "main() out string { int count; string text; ret  }";
+            editor.Text = typedSource;
+            editor.Select(typedSource.IndexOf("ret  ", StringComparison.Ordinal) + 5, 0);
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
+                new KeyEventArgs(Keys.Control | Keys.Space));
+            DdfCompletionResult typedResult = GetPrivateField<DdfCompletionResult>(form, "activeCompletionResult");
+            Require(typedResult != null && typedResult.ExpectedType == "string" &&
+                    typedResult.Context == DdfCompletionContextKind.Expression,
+                "Il popup non riceve il tipo atteso dal contesto di return.");
+            Require(((DdfCompletionItem)completion.Items[0]).DisplayText == "text" &&
+                    ((DdfCompletionItem)completion.Items[0]).TypeName == "string" &&
+                    ((DdfCompletionItem)completion.Items[0]).Origin == "documento corrente",
+                "Il ranking UI non privilegia il simbolo locale compatibile con il tipo atteso.");
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
+
             editor.Text = string.Empty;
             editor.Select(0, 0);
-            InvokeHandler(
-                form,
-                "richTextBoxMainEditor_KeyDown",
-                editor,
-                new KeyEventArgs(Keys.Control | Keys.Space));
+            FindToolbarButton(form, "toolbarCompletionButton").PerformClick();
             Require(completion.Visible && completion.Items.Count > 0,
-                "Ctrl+Spazio non ha mostrato l'elenco completo.");
+                "La icon bar non ha mostrato l'elenco completo.");
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
             Require(!completion.Visible, "Esc non ha chiuso il completamento.");
             Console.WriteLine("PASS completamento contestuale con Tab, Undo, Ctrl+Spazio ed Esc");
@@ -1239,6 +1257,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Un simbolo definito in un altro file è ancora segnalato come non risolto.");
 
                 int helperReference = editor.Text.IndexOf("helper", StringComparison.Ordinal);
+                editor.Select(helperReference + 3, 0);
+                InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
+                    new KeyEventArgs(Keys.Control | Keys.Space));
+                ListBox completion = FindControl<ListBox>(form, "completionListBox");
+                DdfCompletionItem workspaceHelper = completion.Items.Cast<DdfCompletionItem>()
+                    .SingleOrDefault(item => item.DisplayText == "helper");
+                Require(workspaceHelper != null && workspaceHelper.TypeName == "int" &&
+                        workspaceHelper.Origin.EndsWith("helpers.ddf", StringComparison.OrdinalIgnoreCase),
+                    "Il completamento workspace non mostra tipo e file di origine del simbolo esterno.");
+                InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
                 editor.Select(helperReference, 0);
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
                 FindMenuItem(form, "goToDefinitionMenuItem").PerformClick();
@@ -1398,6 +1426,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton",
+                "toolbarCompletionButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
             foreach (string name in expected)
@@ -1425,7 +1454,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 26 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 27 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)

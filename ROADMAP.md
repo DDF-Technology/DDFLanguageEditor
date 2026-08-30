@@ -46,7 +46,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
-| `0.9.2` | IntelliSense, snippet e feedback inline | Pianificata |
+| `0.9.2` | IntelliSense, snippet e feedback inline | In corso (`0.9.2.0` completata) |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
@@ -356,7 +356,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 ## 0.9.2 — IntelliSense, snippet e feedback inline
 
-- [ ] Ordinare il completamento per contesto, prossimità, frequenza e categoria del simbolo.
+- [x] Ordinare il completamento per contesto, tipo atteso, prossimità, frequenza e categoria; mostrare tipo e origine locale/workspace (`0.9.2.0`).
 - [ ] Mostrare firma e parametro corrente durante la scrittura di una chiamata.
 - [ ] Aggiungere snippet con campi navigabili per funzioni, controlli, cicli e strutture.
 - [ ] Arricchire hover con documentazione, firma, tipo, origine e riferimenti principali.

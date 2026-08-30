@@ -31,6 +31,6 @@ using System.Runtime.Versioning;
 //      Numero di build
 //      Revisione
 //
-[assembly: AssemblyVersion("0.9.1.3")]
-[assembly: AssemblyFileVersion("0.9.1.3")]
-[assembly: AssemblyInformationalVersion("0.9.1.3")]
+[assembly: AssemblyVersion("0.9.2.0")]
+[assembly: AssemblyFileVersion("0.9.2.0")]
+[assembly: AssemblyInformationalVersion("0.9.2.0")]

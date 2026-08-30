@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.0 - 2026-08-31
+
+- rank completion by statement/expression/type context, expected type, semantic scope, usage frequency and proximity;
+- expose only symbols genuinely visible at the caret, including correct shadowing and scope exit behavior;
+- retain relative file origins for workspace completion while preferring local declarations on duplicate names;
+- render structured popup rows with category glyph, category, type and origin metadata;
+- expose completion on the icon toolbar and expand coverage to 107 Core tests, 38 menu commands, 34 shortcuts and 27 toolbar actions;
+
 ## 0.9.1.3 - 2026-08-30
 
 - add persistent per-tab multiple cursors through `Alt+Click` with visible secondary selections;

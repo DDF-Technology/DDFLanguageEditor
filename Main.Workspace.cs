@@ -188,11 +188,19 @@ namespace DDF___Program_Language_Editor
             workspaceIndex = workspaceIndex.WithDocument(path, source, root);
         }
 
-        private IReadOnlyList<DdfDocumentSymbol> getWorkspaceCompletionSymbols()
+        private IReadOnlyList<DdfCompletionItem> getWorkspaceCompletionItems()
         {
-            return workspaceIndex == null
-                ? null
-                : workspaceIndex.GetExternalSymbols(documentSession.CurrentPath);
+            if (workspaceIndex == null) return null;
+            return workspaceIndex.Documents
+                .Where(document => !string.Equals(document.Path, documentSession.CurrentPath, StringComparison.OrdinalIgnoreCase))
+                .SelectMany(document => document.Symbols
+                    .Where(symbol => symbol.Kind == DdfSymbolKind.Library ||
+                                     symbol.Kind == DdfSymbolKind.Structure ||
+                                     symbol.Kind == DdfSymbolKind.Function ||
+                                     symbol.Kind == DdfSymbolKind.Variable)
+                    .Select(symbol => DdfCompletionService.CreateSymbolItem(symbol, document.RelativePath)))
+                .ToList()
+                .AsReadOnly();
         }
 
         private IReadOnlyList<CompilationUnitSyntax> getWorkspaceTypeRoots()

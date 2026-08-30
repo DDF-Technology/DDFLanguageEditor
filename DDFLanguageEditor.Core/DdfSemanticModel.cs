@@ -49,15 +49,18 @@ namespace DDFLanguageEditor.Core
         }
 
         private readonly string source;
+        private readonly IReadOnlyList<Binding> bindings;
 
         private DdfSemanticModel(
             string source,
             IReadOnlyList<DdfSymbolOccurrence> occurrences,
-            IReadOnlyList<DdfDiagnostic> diagnostics)
+            IReadOnlyList<DdfDiagnostic> diagnostics,
+            IReadOnlyList<Binding> bindings)
         {
             this.source = source;
             Occurrences = occurrences;
             Diagnostics = diagnostics;
+            this.bindings = bindings;
         }
 
         public IReadOnlyList<DdfSymbolOccurrence> Occurrences { get; }
@@ -116,7 +119,27 @@ namespace DDFLanguageEditor.Core
             return new DdfSemanticModel(
                 source,
                 occurrences.AsReadOnly(),
-                diagnostics.AsReadOnly());
+                diagnostics.AsReadOnly(),
+                bindings.AsReadOnly());
+        }
+
+        public IReadOnlyList<DdfDocumentSymbol> GetVisibleSymbols(int position)
+        {
+            int safePosition = Math.Max(0, Math.Min(position, source.Length));
+            return bindings
+                .Where(binding => safePosition >= binding.ScopeStart &&
+                                  (binding.Depth == 0 || safePosition < binding.ScopeEnd) &&
+                                  safePosition >= binding.VisibleStart)
+                .GroupBy(binding => binding.Symbol.Name, StringComparer.Ordinal)
+                .Select(group => group
+                    .OrderByDescending(binding => binding.Depth)
+                    .ThenByDescending(binding => binding.VisibleStart)
+                    .First())
+                .OrderByDescending(binding => binding.Depth)
+                .ThenByDescending(binding => binding.VisibleStart)
+                .Select(binding => binding.Symbol)
+                .ToList()
+                .AsReadOnly();
         }
 
         public DdfSymbolOccurrence FindOccurrence(int position)

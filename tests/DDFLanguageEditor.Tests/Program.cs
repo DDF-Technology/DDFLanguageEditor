@@ -111,6 +111,11 @@ namespace DDFLanguageEditor.Tests
             Run("offers only visible local symbols", OffersOnlyVisibleLocalSymbols);
             Run("completes known library names", CompletesKnownLibraryNames);
             Run("drives completion from an alternative catalog", DrivesCompletionFromAlternativeCatalog);
+            Run("ranks completion by expected boolean type", RanksCompletionByExpectedBooleanType);
+            Run("ranks completion by function return type", RanksCompletionByFunctionReturnType);
+            Run("recognizes type completion context", RecognizesTypeCompletionContext);
+            Run("ranks frequently used symbols before nearby alternatives", RanksFrequentlyUsedSymbols);
+            Run("exposes completion category type and origin", ExposesCompletionMetadata);
             Run("formats a complete DDF document", FormatsCompleteDocument);
             Run("formats idempotently", FormatsIdempotently);
             Run("preserves comments strings and libraries while formatting", PreservesProtectedTextWhileFormatting);
@@ -1293,6 +1298,63 @@ namespace DDFLanguageEditor.Tests
             DdfCompletionResult result = DdfCompletionService.GetCompletions("wh", 2, false, CreateAlternativeLanguage());
             SequenceEqual(new[] { "whole", "when" }, result.Items.Select(item => item.DisplayText));
             Equal(false, result.Items.Any(item => item.DisplayText == "while"));
+        }
+
+        private static void RanksCompletionByExpectedBooleanType()
+        {
+            const string source = "main() out int { bool flag; int count; if(f) { ret 0; } }";
+            int position = source.IndexOf("if(f", StringComparison.Ordinal) + 4;
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(source, position, true);
+            Equal(DdfCompletionContextKind.Expression, result.Context);
+            Equal("bool", result.ExpectedType);
+            Equal("flag", result.Items[0].DisplayText);
+            Equal("bool", result.Items[0].TypeName);
+        }
+
+        private static void RanksCompletionByFunctionReturnType()
+        {
+            const string source = "main() out string { int count; string text; ret  }";
+            int position = source.IndexOf("ret  ", StringComparison.Ordinal) + 5;
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(source, position, true);
+            Equal("string", result.ExpectedType);
+            int textRank = result.Items.ToList().FindIndex(item => item.DisplayText == "text");
+            int countRank = result.Items.ToList().FindIndex(item => item.DisplayText == "count");
+            Equal(true, textRank >= 0 && countRank > textRank);
+            Equal(true, result.Items.TakeWhile(item => item.DisplayText != "count")
+                .Any(item => item.DisplayText == "readLine" && item.TypeName == "string"));
+        }
+
+        private static void RecognizesTypeCompletionContext()
+        {
+            const string source = "main() out in";
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(source, source.Length);
+            Equal(DdfCompletionContextKind.Type, result.Context);
+            Equal("int", result.Items[0].DisplayText);
+            Equal(DdfCompletionKind.Type, result.Items[0].Kind);
+        }
+
+        private static void RanksFrequentlyUsedSymbols()
+        {
+            const string source = "main() out int { int alpha; int amber; alpha; alpha; a }";
+            int position = source.LastIndexOf('a') + 1;
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(source, position);
+            Equal("alpha", result.Items[0].DisplayText);
+            Equal(true, result.Items[0].Proximity > result.Items.Single(item => item.DisplayText == "amber").Proximity);
+        }
+
+        private static void ExposesCompletionMetadata()
+        {
+            DdfDocumentSymbol external = DdfSymbolIndex.Create(
+                DdfParser.Parse("helper() out int { ret 1; }").Root).Symbols.Single();
+            DdfCompletionItem externalItem = DdfCompletionService.CreateSymbolItem(external, "lib/helpers.ddf");
+            DdfCompletionResult result = DdfCompletionService.GetCompletions(
+                "main() out int { ret hel; }", "main() out int { ret hel".Length,
+                externalItems: new[] { externalItem });
+            DdfCompletionItem helper = result.Items.Single(item => item.DisplayText == "helper");
+            Equal("funzione", helper.CategoryLabel);
+            Equal("int", helper.TypeName);
+            Equal("lib/helpers.ddf", helper.Origin);
+            Equal(true, helper.ToString().Contains("ƒ") && helper.ToString().Contains("lib/helpers.ddf"));
         }
 
         private static void FormatsCompleteDocument()

@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.1.3
+# DDFLanguageEditor 0.9.2.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.0 begins the IntelliSense milestone. Completion now ranks symbols
+by syntactic context, expected type, actual semantic visibility, prior usage and
+source proximity. Local declarations override same-named workspace candidates;
+external functions and structures retain their relative source-file origin.
+Every popup row shows a category glyph, category name, calculated/declared type
+and origin without changing the text inserted by Enter or Tab.
 
 Version 0.9.1.3 completes the 0.9.1 editing-comfort milestone. `Alt+Click` adds
 a cursor without losing the existing ones, `Ctrl+D` selects the next token

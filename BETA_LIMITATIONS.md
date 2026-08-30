@@ -1,4 +1,4 @@
-# Beta 0.9.1.3 limitations
+# Beta 0.9.2.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -14,7 +14,8 @@ This release is intended for interface and language-design evaluation only.
 - typed syntax tree, expression precedence and recoverable syntax diagnostics;
 - live document outline with symbol navigation;
 - matching delimiters and a source-preserving folded preview;
-- contextual completion from the language catalog and locally visible symbols;
+- context-ranked completion using expected type, semantic scope, frequency and proximity;
+- structured completion rows with category glyph, type and local/workspace origin;
 - idempotent whole-document formatting with caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;

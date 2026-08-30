@@ -35,7 +35,7 @@ recenti dell'utente non vengono salvate durante il test.
 | Seleziona tutto | opera sul sorgente e sulla proiezione compressa |
 | Trova | apre la finestra, precompila la selezione e trova la ricorrenza seguente |
 | Sostituisci | verifica sostituzione corrente, sostituzione globale e chiusura |
-| Completamento | mostra i suggerimenti contestuali tramite la voce di menu |
+| Completamento | ordina suggerimenti per contesto/tipo/scope/frequenza/prossimità e mostra categoria, tipo e origine |
 | Formatta documento | normalizza il sorgente, conserva il cursore ed è annullabile in un passo |
 | Vai alla definizione | seleziona la dichiarazione risolta dal riferimento corrente |
 | Rinomina simbolo | modifica solo dichiarazione e riferimenti nello stesso ambito ed è annullabile |
@@ -87,7 +87,7 @@ palette.
 
 ## Barra strumenti
 
-La toolbar espone 26 pulsanti a icona con tooltip, comprese selezione sintattica,
+La toolbar espone 27 pulsanti a icona con tooltip, compresi completamento, selezione sintattica,
 riduzione e navigazione tra delimitatori. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 

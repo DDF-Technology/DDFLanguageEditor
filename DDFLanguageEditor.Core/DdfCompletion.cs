@@ -17,9 +17,31 @@ namespace DDFLanguageEditor.Core
         Library
     }
 
+    public enum DdfCompletionContextKind
+    {
+        General,
+        Statement,
+        Expression,
+        Type,
+        Member,
+        Library
+    }
+
     public sealed class DdfCompletionItem
     {
         public DdfCompletionItem(string displayText, string insertionText, DdfCompletionKind kind, string detail)
+            : this(displayText, insertionText, kind, detail, string.Empty, string.Empty, int.MaxValue)
+        {
+        }
+
+        public DdfCompletionItem(
+            string displayText,
+            string insertionText,
+            DdfCompletionKind kind,
+            string detail,
+            string typeName,
+            string origin,
+            int proximity)
         {
             if (string.IsNullOrWhiteSpace(displayText)) throw new ArgumentException("Display text is required.", nameof(displayText));
             if (string.IsNullOrEmpty(insertionText)) throw new ArgumentException("Insertion text is required.", nameof(insertionText));
@@ -27,33 +49,80 @@ namespace DDFLanguageEditor.Core
             InsertionText = insertionText;
             Kind = kind;
             Detail = detail ?? string.Empty;
+            TypeName = typeName ?? string.Empty;
+            Origin = origin ?? string.Empty;
+            Proximity = Math.Max(0, proximity);
         }
 
         public string DisplayText { get; }
         public string InsertionText { get; }
         public DdfCompletionKind Kind { get; }
         public string Detail { get; }
+        public string TypeName { get; }
+        public string Origin { get; }
+        public int Proximity { get; }
+        public string CategoryLabel => DescribeKind(Kind);
+        public string Glyph => KindGlyph(Kind);
 
         public override string ToString()
         {
-            return string.IsNullOrEmpty(Detail) ? DisplayText : DisplayText + "    " + Detail;
+            string metadata = string.Join(" · ", new[] { CategoryLabel, TypeName, Origin }
+                .Where(value => !string.IsNullOrEmpty(value)));
+            return Glyph + "  " + DisplayText + (string.IsNullOrEmpty(metadata) ? string.Empty : "    " + metadata);
+        }
+
+        private static string DescribeKind(DdfCompletionKind kind)
+        {
+            switch (kind)
+            {
+                case DdfCompletionKind.Parameter: return "parametro";
+                case DdfCompletionKind.Variable: return "variabile";
+                case DdfCompletionKind.Field: return "campo";
+                case DdfCompletionKind.Function: return "funzione";
+                case DdfCompletionKind.Structure: return "struttura";
+                case DdfCompletionKind.Type: return "tipo";
+                case DdfCompletionKind.Keyword: return "parola chiave";
+                case DdfCompletionKind.Boolean: return "booleano";
+                default: return "libreria";
+            }
+        }
+
+        private static string KindGlyph(DdfCompletionKind kind)
+        {
+            switch (kind)
+            {
+                case DdfCompletionKind.Function: return "ƒ";
+                case DdfCompletionKind.Structure: return "◆";
+                case DdfCompletionKind.Type: return "T";
+                case DdfCompletionKind.Parameter: return "p";
+                case DdfCompletionKind.Field: return "▪";
+                case DdfCompletionKind.Variable: return "v";
+                case DdfCompletionKind.Keyword: return "k";
+                case DdfCompletionKind.Boolean: return "b";
+                default: return "◈";
+            }
         }
     }
 
     public sealed class DdfCompletionResult
     {
-        public DdfCompletionResult(int replacementStart, int replacementLength, IReadOnlyList<DdfCompletionItem> items)
+        public DdfCompletionResult(int replacementStart, int replacementLength, IReadOnlyList<DdfCompletionItem> items,
+            DdfCompletionContextKind context = DdfCompletionContextKind.General, string expectedType = "")
         {
             if (replacementStart < 0) throw new ArgumentOutOfRangeException(nameof(replacementStart));
             if (replacementLength < 0) throw new ArgumentOutOfRangeException(nameof(replacementLength));
             ReplacementStart = replacementStart;
             ReplacementLength = replacementLength;
             Items = items ?? throw new ArgumentNullException(nameof(items));
+            Context = context;
+            ExpectedType = expectedType ?? string.Empty;
         }
 
         public int ReplacementStart { get; }
         public int ReplacementLength { get; }
         public IReadOnlyList<DdfCompletionItem> Items { get; }
+        public DdfCompletionContextKind Context { get; }
+        public string ExpectedType { get; }
     }
 
     public static class DdfCompletionService
@@ -63,7 +132,9 @@ namespace DDFLanguageEditor.Core
             int position,
             bool includeAll = false,
             DdfLanguageDefinition language = null,
-            IEnumerable<DdfDocumentSymbol> externalSymbols = null)
+            IEnumerable<DdfDocumentSymbol> externalSymbols = null,
+            IEnumerable<DdfCompletionItem> externalItems = null,
+            IEnumerable<CompilationUnitSyntax> externalRoots = null)
         {
             source = source ?? string.Empty;
             if (position < 0 || position > source.Length) throw new ArgumentOutOfRangeException(nameof(position));
@@ -86,6 +157,10 @@ namespace DDFLanguageEditor.Core
 
             DdfParseResult parseResult = DdfParser.Parse(source, lexResult, language);
             IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
+            DdfSemanticModel semanticModel = DdfSemanticModel.Create(source, parseResult.Root);
+            string expectedType = libraryContext ? string.Empty :
+                DdfExpectedTypeService.GetExpectedType(source, parseResult.Root, prefixStart, externalRoots);
+            DdfCompletionContextKind context = GetContext(source, prefixStart, libraryContext, expectedType, language);
             var candidates = new List<DdfCompletionItem>();
 
             if (libraryContext)
@@ -100,12 +175,16 @@ namespace DDFLanguageEditor.Core
                         keyword.Text,
                         keyword.Text,
                         keyword.TokenKind == DdfTokenKind.DataTypeKeyword ? DdfCompletionKind.Type : DdfCompletionKind.Keyword,
-                        DescribeKeyword(keyword)));
+                        DescribeKeyword(keyword),
+                        keyword.TokenKind == DdfTokenKind.DataTypeKeyword ? keyword.Text : string.Empty,
+                        "linguaggio DDF",
+                        int.MaxValue));
                 }
 
                 foreach (string literal in language.BooleanLiterals)
                 {
-                    candidates.Add(new DdfCompletionItem(literal, literal, DdfCompletionKind.Boolean, "valore booleano"));
+                    candidates.Add(new DdfCompletionItem(literal, literal, DdfCompletionKind.Boolean,
+                        "valore booleano", "bool", "linguaggio DDF", int.MaxValue));
                 }
 
                 foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
@@ -114,26 +193,37 @@ namespace DDFLanguageEditor.Core
                         standard.Name,
                         standard.Name,
                         DdfCompletionKind.Function,
-                        "funzione standard — " + standard.Signature));
+                        "funzione standard — " + standard.Signature,
+                        standard.ReturnType,
+                        "libreria standard",
+                        int.MaxValue));
                 }
 
-                AddVisibleSymbols(candidates, symbols, position);
+                foreach (DdfDocumentSymbol symbol in semanticModel.GetVisibleSymbols(position))
+                    AddSymbol(candidates, symbol, "documento corrente", Math.Abs(position - symbol.SelectionStart));
                 if (externalSymbols != null)
                 {
-                    foreach (DdfDocumentSymbol symbol in externalSymbols) AddSymbol(candidates, symbol);
+                    foreach (DdfDocumentSymbol symbol in externalSymbols) AddSymbol(candidates, symbol, "workspace", int.MaxValue - 1);
                 }
+                if (externalItems != null) candidates.AddRange(externalItems);
             }
 
-            IEnumerable<DdfCompletionItem> filtered = candidates
+            List<DdfCompletionItem> filtered = candidates
                 .Where(item => (includeAll || prefix.Length > 0) &&
                                item.DisplayText.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 .GroupBy(item => item.DisplayText, StringComparer.Ordinal)
-                .Select(group => group.OrderBy(item => KindRank(item.Kind)).First())
+                .Select(group => group.OrderBy(item => ContextRank(item, context, expectedType))
+                    .ThenBy(item => OriginRank(item.Origin)).ThenBy(item => item.Proximity).First())
                 .OrderBy(item => PrefixRank(item.DisplayText, prefix))
+                .ThenBy(item => ContextRank(item, context, expectedType))
+                .ThenByDescending(item => UsageCount(item.DisplayText, source, prefixStart, lexResult))
+                .ThenBy(item => OriginRank(item.Origin))
+                .ThenBy(item => item.Proximity)
                 .ThenBy(item => KindRank(item.Kind))
-                .ThenBy(item => item.DisplayText, StringComparer.OrdinalIgnoreCase);
+                .ThenBy(item => item.DisplayText, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            return new DdfCompletionResult(prefixStart, prefix.Length, filtered.ToList().AsReadOnly());
+            return new DdfCompletionResult(prefixStart, prefix.Length, filtered.AsReadOnly(), context, expectedType);
         }
 
         private static bool IsInProtectedToken(DdfLexResult lexResult, int position)
@@ -171,30 +261,11 @@ namespace DDFLanguageEditor.Core
             return false;
         }
 
-        private static void AddVisibleSymbols(List<DdfCompletionItem> result, IReadOnlyList<DdfDocumentSymbol> symbols, int position)
-        {
-            foreach (DdfDocumentSymbol symbol in symbols)
-            {
-                if (symbol.Kind != DdfSymbolKind.Variable || symbol.SelectionStart <= position)
-                {
-                    AddSymbol(result, symbol);
-                }
-                if ((symbol.Kind == DdfSymbolKind.Function || symbol.Kind == DdfSymbolKind.Structure) &&
-                    position >= symbol.Start && position < symbol.End)
-                {
-                    foreach (DdfDocumentSymbol child in symbol.Children.Where(child => child.SelectionStart <= position))
-                    {
-                        AddSymbol(result, child);
-                    }
-                }
-            }
-        }
-
         private static void AddLibrarySymbols(List<DdfCompletionItem> result, IReadOnlyList<DdfDocumentSymbol> symbols)
         {
             foreach (DdfDocumentSymbol library in Flatten(symbols).Where(symbol => symbol.Kind == DdfSymbolKind.Library))
             {
-                AddSymbol(result, library);
+                AddSymbol(result, library, "documento corrente", 0);
             }
         }
 
@@ -207,9 +278,17 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        private static void AddSymbol(List<DdfCompletionItem> result, DdfDocumentSymbol symbol)
+        public static DdfCompletionItem CreateSymbolItem(DdfDocumentSymbol symbol, string origin, int proximity = int.MaxValue)
         {
-            result.Add(new DdfCompletionItem(symbol.Name, symbol.Name, ToCompletionKind(symbol.Kind), symbol.Detail));
+            if (symbol == null) throw new ArgumentNullException(nameof(symbol));
+            DdfCompletionKind kind = ToCompletionKind(symbol.Kind);
+            return new DdfCompletionItem(symbol.Name, symbol.Name, kind, symbol.Detail,
+                SymbolType(symbol, kind), origin, proximity);
+        }
+
+        private static void AddSymbol(List<DdfCompletionItem> result, DdfDocumentSymbol symbol, string origin, int proximity)
+        {
+            result.Add(CreateSymbolItem(symbol, origin, proximity));
         }
 
         private static DdfCompletionKind ToCompletionKind(DdfSymbolKind kind)
@@ -230,6 +309,99 @@ namespace DDFLanguageEditor.Core
             if (keyword.TokenKind == DdfTokenKind.DataTypeKeyword) return "tipo";
             if (keyword.TokenKind == DdfTokenKind.ControlFlowKeyword) return "controllo di flusso";
             return "parola chiave";
+        }
+
+        private static string SymbolType(DdfDocumentSymbol symbol, DdfCompletionKind kind)
+        {
+            if (kind == DdfCompletionKind.Structure) return symbol.Name;
+            if (kind != DdfCompletionKind.Function) return symbol.Detail;
+            int arrow = symbol.Detail.LastIndexOf('→');
+            return arrow < 0 ? string.Empty : symbol.Detail.Substring(arrow + 1).Trim();
+        }
+
+        private static DdfCompletionContextKind GetContext(
+            string source,
+            int prefixStart,
+            bool libraryContext,
+            string expectedType,
+            DdfLanguageDefinition language)
+        {
+            if (libraryContext) return DdfCompletionContextKind.Library;
+            int position = prefixStart - 1;
+            while (position >= 0 && char.IsWhiteSpace(source[position])) position--;
+            if (position >= 0 && source[position] == '.') return DdfCompletionContextKind.Member;
+
+            int wordEnd = position + 1;
+            while (position >= 0 && IsIdentifierPart(source[position])) position--;
+            string previousWord = wordEnd > position + 1
+                ? source.Substring(position + 1, wordEnd - position - 1)
+                : string.Empty;
+            if (language.TryGetKeyword(previousWord, out DdfKeywordDefinition keyword) &&
+                keyword.Role == DdfKeywordRole.ReturnTypeMarker)
+                return DdfCompletionContextKind.Type;
+            if (!string.IsNullOrEmpty(expectedType)) return DdfCompletionContextKind.Expression;
+
+            char previous = position >= 0 ? source[position] : '\0';
+            if (previous == '\0' || previous == '\n' || previous == '\r' || previous == '{' || previous == '}' || previous == ';')
+                return DdfCompletionContextKind.Statement;
+            return DdfCompletionContextKind.Expression;
+        }
+
+        private static int ContextRank(DdfCompletionItem item, DdfCompletionContextKind context, string expectedType)
+        {
+            if (context == DdfCompletionContextKind.Library)
+                return item.Kind == DdfCompletionKind.Library ? 0 : 20;
+            if (context == DdfCompletionContextKind.Type)
+                return item.Kind == DdfCompletionKind.Type || item.Kind == DdfCompletionKind.Structure ? 0 : 20 + KindRank(item.Kind);
+            if (context == DdfCompletionContextKind.Member)
+                return item.Kind == DdfCompletionKind.Field ? 0 : item.Kind == DdfCompletionKind.Function ? 1 : 20 + KindRank(item.Kind);
+            if (context == DdfCompletionContextKind.Statement)
+            {
+                if (item.Kind == DdfCompletionKind.Type || item.Kind == DdfCompletionKind.Structure) return 0;
+                if (item.Kind == DdfCompletionKind.Keyword && item.Detail == "controllo di flusso") return 1;
+                if (item.Kind == DdfCompletionKind.Function) return 3;
+                return 8 + KindRank(item.Kind);
+            }
+
+            int expectedRank = ExpectedTypeRank(item.TypeName, expectedType);
+            int valueRank = item.Kind == DdfCompletionKind.Parameter ? 0 :
+                item.Kind == DdfCompletionKind.Variable ? 1 :
+                item.Kind == DdfCompletionKind.Field ? 2 :
+                item.Kind == DdfCompletionKind.Boolean ? 3 :
+                item.Kind == DdfCompletionKind.Function ? 4 : 12 + KindRank(item.Kind);
+            return expectedRank * 20 + valueRank;
+        }
+
+        private static int ExpectedTypeRank(string candidateType, string expectedType)
+        {
+            if (string.IsNullOrEmpty(expectedType)) return 0;
+            if (string.Equals(candidateType, expectedType, StringComparison.Ordinal)) return 0;
+            if (IsNumeric(candidateType) && IsNumeric(expectedType)) return 1;
+            return string.IsNullOrEmpty(candidateType) ? 3 : 5;
+        }
+
+        private static bool IsNumeric(string type)
+        {
+            return type == "int" || type == "float" || type == "char";
+        }
+
+        private static int OriginRank(string origin)
+        {
+            if (origin == "documento corrente") return 0;
+            if (origin == "libreria standard") return 1;
+            if (origin == "linguaggio DDF") return 3;
+            return 2;
+        }
+
+        private static int UsageCount(string name, string source, int position, DdfLexResult lexResult)
+        {
+            int count = 0;
+            foreach (DdfToken token in lexResult.Tokens)
+            {
+                if (token.Start >= position || token.Length != name.Length) continue;
+                if (string.CompareOrdinal(source, token.Start, name, 0, name.Length) == 0) count++;
+            }
+            return count;
         }
 
         private static int PrefixRank(string value, string prefix)

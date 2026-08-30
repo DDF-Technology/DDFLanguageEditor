@@ -23,10 +23,12 @@ namespace DDF___Program_Language_Editor
                 ForeColor = AppTheme.Text,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Consolas", 10F),
-                ItemHeight = 20,
-                Size = new Size(360, 160),
+                DrawMode = DrawMode.OwnerDrawFixed,
+                ItemHeight = 24,
+                Size = new Size(560, 192),
                 TabStop = false
             };
+            completionListBox.DrawItem += completionListBox_DrawItem;
             completionListBox.DoubleClick += (sender, args) => acceptSelectedCompletion();
             panelEditor.Controls.Add(completionListBox);
             completionListBox.BringToFront();
@@ -37,6 +39,50 @@ namespace DDF___Program_Language_Editor
                 completionTimer.Stop();
                 showCompletion(false);
             };
+        }
+
+        private void completionListBox_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            e.DrawBackground();
+            if (e.Index < 0 || e.Index >= completionListBox.Items.Count) return;
+            var item = completionListBox.Items[e.Index] as DdfCompletionItem;
+            if (item == null) return;
+
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            Color foreground = selected ? SystemColors.HighlightText : AppTheme.Text;
+            Color muted = selected ? SystemColors.HighlightText : AppTheme.MutedText;
+            Color glyph = selected ? SystemColors.HighlightText : getCompletionKindColor(item.Kind);
+            int top = e.Bounds.Top + 3;
+            TextRenderer.DrawText(e.Graphics, item.Glyph, completionListBox.Font,
+                new Rectangle(e.Bounds.Left + 6, top, 20, e.Bounds.Height - 4), glyph,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(e.Graphics, item.DisplayText, completionListBox.Font,
+                new Rectangle(e.Bounds.Left + 30, top, 150, e.Bounds.Height - 4), foreground,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(e.Graphics, item.CategoryLabel, completionListBox.Font,
+                new Rectangle(e.Bounds.Left + 184, top, 92, e.Bounds.Height - 4), muted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(e.Graphics, string.IsNullOrEmpty(item.TypeName) ? "—" : item.TypeName, completionListBox.Font,
+                new Rectangle(e.Bounds.Left + 280, top, 110, e.Bounds.Height - 4), muted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(e.Graphics, item.Origin, completionListBox.Font,
+                new Rectangle(e.Bounds.Left + 394, top, Math.Max(10, e.Bounds.Width - 400), e.Bounds.Height - 4), muted,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            e.DrawFocusRectangle();
+        }
+
+        private static Color getCompletionKindColor(DdfCompletionKind kind)
+        {
+            switch (kind)
+            {
+                case DdfCompletionKind.Function: return Color.FromArgb(180, 120, 35);
+                case DdfCompletionKind.Type:
+                case DdfCompletionKind.Structure: return Color.FromArgb(0, 120, 110);
+                case DdfCompletionKind.Keyword: return Color.FromArgb(80, 90, 180);
+                case DdfCompletionKind.Boolean: return Color.FromArgb(145, 75, 150);
+                case DdfCompletionKind.Library: return Color.FromArgb(180, 100, 20);
+                default: return Color.FromArgb(35, 100, 170);
+            }
         }
 
         private void completionMenuItem_Click(object sender, EventArgs e)
@@ -80,7 +126,8 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
                 includeAll,
-                externalSymbols: getWorkspaceCompletionSymbols());
+                externalItems: getWorkspaceCompletionItems(),
+                externalRoots: getWorkspaceTypeRoots());
             if (result.Items.Count == 0)
             {
                 hideCompletion();

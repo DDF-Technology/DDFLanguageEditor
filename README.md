@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.1.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.2.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -15,7 +15,7 @@ evidenziazione delle regole note e indentazione assistita.
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
-- completamento contestuale di catalogo e simboli locali, automatico o con `Ctrl+Spazio`;
+- completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
 - formattazione automatica idempotente con `Ctrl+Shift+F` e singolo Undo;
 - risoluzione documentale dei simboli, hover informativo, definizione con `F12` e rinomina scoped con `F2`;
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
@@ -32,7 +32,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 26 icone per i principali comandi File, Modifica, navigazione, folding, breakpoint ed esecuzione;
+- barra a 27 icone per i principali comandi File, Modifica, IntelliSense, navigazione, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - diagnostica lessicale, sintattica e semantica con pannello navigabile;
@@ -143,7 +143,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.1.3 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.2.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -151,8 +151,9 @@ external compiler or complete debugger. Its internal AST interpreter reports
 navigable runtime failures and DDF call stacks, and supports line breakpoints
 with pause/continue. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving
-read-only fold projection are included. Contextual completion suggests catalog
-terms and locally visible document symbols, automatically or with `Ctrl+Space`.
+read-only fold projection are included. Contextual completion ranks catalog,
+local and workspace symbols by expected type, scope, usage and proximity, and
+shows category, type and origin automatically or with `Ctrl+Space`.
 The idempotent document formatter normalizes indentation and token spacing with
 `Ctrl+Shift+F` while preserving protected token contents and Undo.
 Document-local symbol resolution powers hover information, `F12` definition
