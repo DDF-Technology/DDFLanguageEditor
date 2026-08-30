@@ -446,8 +446,61 @@ namespace DDF___Program_Language_Editor
 
         private static bool clipboardContainsText()
         {
-            try { return Clipboard.ContainsText(); }
-            catch (ExternalException) { return false; }
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try { return Clipboard.ContainsText(); }
+                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+            }
+            return false;
+        }
+
+        private static bool trySetClipboardText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    return true;
+                }
+                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+            }
+            return false;
+        }
+
+        private static bool tryGetClipboardText(out string text)
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    text = Clipboard.ContainsText() ? Clipboard.GetText() : null;
+                    return text != null;
+                }
+                catch (ExternalException) { System.Threading.Thread.Sleep(10); }
+            }
+            text = null;
+            return false;
+        }
+
+        private void copySelectionToClipboard()
+        {
+            RichTextBox source = richTextBoxFoldedView.Visible ? richTextBoxFoldedView : richTextBoxMainEditor;
+            if (source.SelectionLength > 0) trySetClipboardText(source.SelectedText);
+        }
+
+        private void cutSelectionToClipboard()
+        {
+            if (richTextBoxFoldedView.Visible || richTextBoxMainEditor.SelectionLength == 0) return;
+            if (trySetClipboardText(richTextBoxMainEditor.SelectedText))
+                richTextBoxMainEditor.SelectedText = string.Empty;
+        }
+
+        private void pasteTextFromClipboard()
+        {
+            if (richTextBoxFoldedView.Visible) return;
+            if (tryGetClipboardText(out string text)) richTextBoxMainEditor.SelectedText = text;
         }
 
         private void undoMenuItem_Click(object sender, EventArgs e)
@@ -468,18 +521,17 @@ namespace DDF___Program_Language_Editor
 
         private void cutMenuItem_Click(object sender, EventArgs e)
         {
-            richTextBoxMainEditor.Cut();
+            cutSelectionToClipboard();
         }
 
         private void copyMenuItem_Click(object sender, EventArgs e)
         {
-            if (richTextBoxFoldedView.Visible) richTextBoxFoldedView.Copy();
-            else richTextBoxMainEditor.Copy();
+            copySelectionToClipboard();
         }
 
         private void pasteMenuItem_Click(object sender, EventArgs e)
         {
-            richTextBoxMainEditor.Paste();
+            pasteTextFromClipboard();
         }
 
         private void selectAllMenuItem_Click(object sender, EventArgs e)

@@ -242,6 +242,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 editor.Text = "alpha beta alpha";
                 PumpMessages(180);
+
+                editor.Select(0, 5);
+                FindMenuItem(form, "copyMenuItem").Enabled = false;
+                InvokeProcessCmdKey(form, Keys.Control | Keys.C);
+                Require(GetClipboardTextWithRetry() == "alpha",
+                    "Ctrl+C dipende ancora dallo stato obsoleto della voce di menu.");
+                FindMenuItem(form, "cutMenuItem").Enabled = false;
+                InvokeProcessCmdKey(form, Keys.Control | Keys.X);
+                Require(editor.Text == " beta alpha",
+                    "Ctrl+X dipende ancora dallo stato obsoleto della voce di menu.");
+                editor.Undo();
+                Clipboard.SetText("gamma");
+                editor.Select(6, 4);
+                FindMenuItem(form, "pasteMenuItem").Enabled = false;
+                InvokeProcessCmdKey(form, Keys.Control | Keys.V);
+                Require(editor.Text == "alpha gamma alpha",
+                    "Ctrl+V dipende ancora dallo stato obsoleto della voce di menu.");
+                editor.Undo();
+
                 editor.Select(0, 5);
                 editor.Focus();
                 Clipboard.SetText("omega");
@@ -1242,6 +1261,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 sender,
                 new MouseEventArgs(MouseButtons.None, 0, location.X, location.Y, 0)
             });
+        }
+
+        private static bool InvokeProcessCmdKey(MainForm form, Keys keys)
+        {
+            MethodInfo method = typeof(MainForm).GetMethod("ProcessCmdKey", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) throw new InvalidOperationException("ProcessCmdKey non trovato.");
+            var message = Message.Create(form.Handle, 0, IntPtr.Zero, IntPtr.Zero);
+            object[] arguments = { message, keys };
+            return (bool)method.Invoke(form, arguments);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

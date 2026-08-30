@@ -9,6 +9,7 @@
 - mark active breakpoint lines in the non-selectable gutter and navigate to the paused statement;
 - add a dedicated breakpoint icon to the toolbar and keep Run synchronized with Continue;
 - keep the Edit menu responsive when another Windows process temporarily owns the clipboard;
+- make keyboard Cut, Copy and Paste independent from stale Edit-menu enabled states;
 - derive self-contained release package names and validation from assembly version metadata;
 - expand the Core suite to 85 tests and the menu smoke to 26 commands and 22 shortcuts;
 

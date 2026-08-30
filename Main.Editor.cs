@@ -9,6 +9,29 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
+        protected override bool ProcessCmdKey(ref Message message, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.C))
+            {
+                copySelectionToClipboard();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.X))
+            {
+                cutSelectionToClipboard();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.V))
+            {
+                pasteTextFromClipboard();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref message, keyData);
+        }
+
         private void richTextBox_TextChanged(object sender, EventArgs e)
         {
             if (isApplyingHighlighting)

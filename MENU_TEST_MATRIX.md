@@ -41,7 +41,9 @@ recenti dell'utente non vengono salvate durante il test.
 | Rinomina simbolo | modifica solo dichiarazione e riferimenti nello stesso ambito ed è annullabile |
 
 Lo smoke conserva e ripristina il contenuto precedente degli appunti Windows.
-Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu.
+Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu e che
+`Ctrl+X`, `Ctrl+C` e `Ctrl+V` usino lo stato corrente dell'editor anche quando
+le corrispondenti voci di menu erano rimaste disabilitate.
 
 ## Esegui
 

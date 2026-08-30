@@ -44,10 +44,16 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
-| `0.9.1` | Variabili e call stack durante la pausa | Pianificata |
-| `0.9.2` | Step Into, Step Over e Step Out | Pianificata |
-| `0.9.3` | Runtime multi-file del workspace | Pianificata |
-| `0.10.0+` | Valutazione di backend compilati | Pianificata |
+| `0.9.0.1` | Editing multidocumento e breakpoint per file | Pianificata |
+| `0.9.1` | Comodità e gesti di scrittura | Pianificata |
+| `0.9.2` | IntelliSense, snippet e feedback inline | Pianificata |
+| `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
+| `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
+| `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
+| `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
+| `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
+| `0.11.0` | Runtime multi-file del workspace | Pianificata |
+| `Dopo 0.11` | Progetti, build e backend compilati | Differita |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -317,17 +323,88 @@ senza perdita silenziosa di dati.
 - [x] Consentire a Stop di cancellare anche un runtime sospeso.
 - [x] Coprire concorrenza del Core, gutter e flusso WinForms con test dinamici.
 
-## 0.9.1 — Variabili e call stack durante la pausa
+## 0.9.0.1 — Editing multidocumento e breakpoint per file
+
+- [ ] Introdurre un buffer indipendente per ogni documento aperto nel workspace.
+- [ ] Aggiungere schede documento con indicatore `*`, chiusura selettiva e ripristino di cursore, selezione e scroll.
+- [ ] Conservare modifiche, Undo/Redo e analisi dei documenti non attivi senza imporre il salvataggio a ogni cambio file.
+- [ ] Aggiornare completamento, diagnostica, tipi e indice workspace usando tutti i buffer in memoria.
+- [ ] Aggiungere Salva tutto e una conferma aggregata alla chiusura del workspace o dell'applicazione.
+- [ ] Identificare ogni breakpoint tramite percorso canonico del file e posizione sorgente, non con il solo numero di riga.
+- [ ] Conservare e mostrare breakpoint nei file non attivi, ripristinandoli nel gutter quando si cambia scheda.
+- [ ] Rimappare i breakpoint dopo inserimenti, eliminazioni e formattazione; segnalare quelli che non corrispondono più a uno statement eseguibile.
+- [ ] Aggiungere una palette Breakpoint con file, riga, stato abilitato e navigazione tramite doppio clic.
+- [ ] Coprire cambio scheda, buffer sporchi multipli, Salva tutto e breakpoint multi-file con smoke dinamici.
+
+## 0.9.x — Editor Experience
+
+Prima di ampliare runtime, build o compilazione, questa linea deve rendere la
+scrittura quotidiana comoda, interattiva e affidabile. Ogni incremento viene
+valutato tramite flussi reali di editing, non soltanto con test statici.
+
+## 0.9.1 — Comodità e gesti di scrittura
+
+- [ ] Chiudere automaticamente parentesi, graffe, quadre, virgolette e apostrofi senza duplicare il carattere già presente.
+- [ ] Gestire Enter, Backspace e Tab in modo contestuale tra coppie e blocchi.
+- [ ] Aggiungere commenta/decommenta selezione o riga.
+- [ ] Uniformare menu, tastiera e menu contestuale per Taglia/Copia/Incolla con stato sempre corrente.
+- [ ] Aggiungere duplica, sposta ed elimina riga mantenendo selezione e Undo prevedibili.
+- [ ] Introdurre selezione sintattica progressiva e navigazione tra delimitatori.
+- [ ] Supportare più cursori e selezioni per modifiche ripetitive.
+- [ ] Correggere automaticamente il rientro del testo incollato quando richiesto.
+- [ ] Esporre le nuove azioni tramite menu, scorciatoie e icon bar secondo frequenza d'uso.
+
+## 0.9.2 — IntelliSense, snippet e feedback inline
+
+- [ ] Ordinare il completamento per contesto, prossimità, frequenza e categoria del simbolo.
+- [ ] Mostrare firma e parametro corrente durante la scrittura di una chiamata.
+- [ ] Aggiungere snippet con campi navigabili per funzioni, controlli, cicli e strutture.
+- [ ] Arricchire hover con documentazione, firma, tipo, origine e riferimenti principali.
+- [ ] Mostrare diagnostiche inline senza alterare testo, selezione o cronologia Undo.
+- [ ] Definire correzioni rapide estensibili per gli errori DDF più comuni.
+- [ ] Eseguire analisi e completamento in background con cancellazione degli snapshot obsoleti.
+
+## 0.9.3 — Ricerca e navigazione del workspace
+
+- [ ] Cercare testo e simboli in tutti i buffer e file del workspace.
+- [ ] Sostituire nel workspace con anteprima selettiva e singola operazione annullabile per documento.
+- [ ] Aggiungere Vai a file, simbolo, riferimento, riga e ultima modifica.
+- [ ] Introdurre cronologia di navigazione Indietro/Avanti tra file e posizioni.
+- [ ] Mostrare breadcrumb di file, funzione, struttura e blocco corrente.
+- [ ] Aggiungere una Command Palette ricercabile per tutte le azioni principali.
+- [ ] Supportare apertura mediante trascinamento di file e cartelle e workspace recenti.
+
+## 0.9.4 — Personalizzazione, sessione e recovery
+
+- [ ] Salvare impostazioni per font, zoom, tema, tab/spazi, fine riga e formattazione.
+- [ ] Rendere configurabili le scorciatoie rilevando conflitti e mantenendo preset ripristinabili.
+- [ ] Aggiungere autosave opzionale e Hot Exit per conservare buffer non salvati.
+- [ ] Ripristinare workspace, schede, layout, cursori e breakpoint della sessione precedente.
+- [ ] Creare recovery locale dopo arresti anomali senza sovrascrivere silenziosamente i file originali.
+- [ ] Rilevare modifiche esterne e offrire confronto, ricarica o conservazione del buffer.
+
+## 0.9.5 — Fluidità, accessibilità e rifinitura
+
+- [ ] Definire budget misurabili per input, selezione, scroll, colorazione e apertura dei popup.
+- [ ] Evitare flickering e aggiornamenti completi durante le operazioni incrementali.
+- [ ] Mantenere reattivi documenti e workspace di dimensioni realistiche con lavoro cancellabile in background.
+- [ ] Aggiungere evidenza della riga corrente, spazi invisibili, guide di indentazione e word wrap configurabile.
+- [ ] Valutare minimappa e overview delle diagnostiche come opzioni disattivabili.
+- [ ] Completare navigazione da tastiera, nomi accessibili, contrasto e comportamento DPI multi-monitor.
+- [ ] Creare smoke dinamici di sessioni prolungate, digitazione rapida e alternanza tra più comandi.
+
+## 0.10.0 — Variabili e call stack durante la pausa
 
 - [ ] Acquisire uno snapshot immutabile dello stato runtime a ogni breakpoint.
 - [ ] Mostrare parametri e variabili locali con nome, tipo e valore.
 - [ ] Distinguere lo scope corrente dagli scope esterni ancora attivi.
 - [ ] Rendere espandibili array e istanze di strutture senza esporre oggetti interni del runtime.
 - [ ] Mostrare il call stack attivo con navigazione al punto di chiamata.
+- [ ] Associare ogni frame e snapshot al documento sorgente corretto, preparando le pause multi-file.
 - [ ] Aggiornare e svuotare le palette in modo coerente su Pausa, Continua, Stop e fine esecuzione.
 - [ ] Coprire valori primitivi, array, strutture, shadowing e chiamate annidate con test Core e smoke WinForms.
 
-## 0.9.2 — Esecuzione passo-passo
+## 0.10.1 — Esecuzione passo-passo
 
 - [ ] Aggiungere Step Into per entrare nelle funzioni chiamate.
 - [ ] Aggiungere Step Over per completare una chiamata restando nel frame corrente.
@@ -336,15 +413,21 @@ senza perdita silenziosa di dati.
 - [ ] Integrare lo step con breakpoint, variabili, call stack, cicli e cancellazione.
 - [ ] Esporre Step Into, Step Over e Step Out nella icon bar con stati coerenti alla pausa.
 
-## 0.9.3 — Runtime multi-file
+## 0.11.0 — Runtime multi-file
 
-- [ ] Definire il caricamento runtime dei moduli del workspace.
+- [ ] Definire formalmente se i simboli del workspace siano visibili implicitamente o richiedano una direttiva di import esplicita.
+- [ ] Decidere se estendere `@@'...'` come import di moduli DDF o introdurre una sintassi distinta, senza attribuirgli retroattivamente una semantica non definita.
+- [ ] Costruire uno snapshot coerente di tutti i buffer, compresi quelli modificati ma non salvati, all'avvio del runtime.
+- [ ] Definire il caricamento runtime dei moduli del workspace e un unico grafo di dichiarazioni.
 - [ ] Risolvere funzioni, strutture e globali tra documenti indicizzati.
-- [ ] Conservare file e intervalli sorgente nei breakpoint, nello stack e nella navigazione.
+- [ ] Definire conflitti di nome, ordine di inizializzazione delle variabili globali e dipendenze cicliche.
+- [ ] Rendere effettivi durante l'esecuzione i breakpoint per file introdotti nella `0.9.0.1`.
+- [ ] Conservare file e intervalli sorgente nelle diagnostiche, nello stack e nella navigazione.
 - [ ] Aggiungere test end-to-end su workspace temporanei multi-file.
 
-## 0.10.0 e successive — Backend compilati
+## Dopo 0.11 — Progetti, build e backend compilati
 
+- [ ] Definire formato progetto, dipendenze, configurazioni e flusso di build soltanto dopo la stabilizzazione dell'esperienza editor.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 
 ## Principi di sviluppo
@@ -355,6 +438,8 @@ senza perdita silenziosa di dati.
 - Le modifiche alla sintassi richiedono aggiornamento della specifica e dei test.
 - Le nuove dipendenze devono essere motivate e documentate.
 - Ogni nuova funzione interattiva principale deve essere valutata per menu, scorciatoia e icon bar nello stesso incremento.
+- Nessuna operazione ordinaria deve perdere modifiche, spostare il cursore in modo inatteso o contaminare Undo/Redo.
+- Fluidità percepita, stabilità delle selezioni e assenza di flickering sono criteri di completamento, non rifiniture opzionali.
 - Compatibilità e migrazioni tecnologiche vengono affrontate separatamente dalle
   funzionalità utente.
 
@@ -366,6 +451,9 @@ senza perdita silenziosa di dati.
 | 2026-08-30 | Migrare a .NET 10 prima della 1.0 | Evitare di accumulare altro codice UI/runtime legacy e arrivare alla prima stabile su una base LTS già collaudata. |
 | 2026-08-30 | Distribuire la beta .NET 10 come pacchetto self-contained Windows x64 | Consentire l'avvio su Windows x64 senza installare separatamente il Desktop Runtime, accettando un archivio più grande. |
 | 2026-08-30 | Anticipare variabili e call stack allo step-by-step | Rendere osservabile lo stato fermato ai breakpoint prima di aggiungere nuovi modi di avanzamento dell'esecuzione. |
+| 2026-08-30 | Anteporre editing multidocumento al resto del debugger | Evitare perdita di modifiche nel passaggio tra file e dare a breakpoint, analisi e futuro runtime multi-file un'identità documentale stabile. |
+| 2026-08-30 | Non considerare ancora `@@'...'` un import eseguibile | La direttiva è riconosciuta e indicizzata, ma la semantica di moduli, visibilità e inizializzazione deve essere definita esplicitamente prima del runtime multi-file. |
+| 2026-08-30 | Completare una linea 0.9.x dedicata all'Editor Experience prima del debugger avanzato e del runtime multi-file | Scrivere DDF deve risultare comodo, interattivo e affidabile prima di investire in compilazione, build e architetture più complesse. |
 | 2026-08-28 | Separare la logica testabile dalla finestra principale | Ridurre l'accoppiamento e preparare lexer e parser. |
 | 2026-08-28 | Considerare la specifica storica come materiale di progetto, non come grammatica definitiva | Contiene contraddizioni che devono essere risolte esplicitamente. |
 | 2026-08-28 | Adottare `//`, `/* ... */` e `*` nel sottoinsieme riconosciuto | Allineare il comportamento corrente a delimitatori non ambigui e testabili. |
