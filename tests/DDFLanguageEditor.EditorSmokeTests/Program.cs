@@ -229,7 +229,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -935,8 +935,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static void AssertDocumentFormatting(MainForm form, RichTextBox editor)
         {
-            const string source = "main()out int{int value<<1+2;ret value;}";
+            const string source = "// formatter smoke\nmain()out int{int value<<1+2;ret value;}";
             const string expected =
+                "// formatter smoke\n" +
                 "main() out int\n" +
                 "{\n" +
                 "    int value << 1 + 2;\n" +
@@ -956,6 +957,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(editor.SelectionStart >= "value".Length &&
                     editor.Text.Substring(editor.SelectionStart - "value".Length, "value".Length) == "value",
                 "La formattazione non ha mantenuto il cursore sul simbolo corrente.");
+            editor.Select(0, 2);
+            Require(editor.SelectionColor == Color.FromArgb(106, 153, 85),
+                "Formatta documento non ha mantenuto verde il commento iniziale.");
+            int firstKeyword = expected.IndexOf("int", StringComparison.Ordinal);
+            editor.Select(firstKeyword, 3);
+            Require(editor.SelectionColor == Color.FromArgb(78, 201, 176),
+                "Formatta documento ha esteso il verde del commento al codice successivo.");
 
             format.PerformClick();
             PumpMessages(80);

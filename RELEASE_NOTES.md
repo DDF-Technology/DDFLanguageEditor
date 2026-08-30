@@ -1,6 +1,11 @@
-# DDFLanguageEditor 0.9.2.0
+# DDFLanguageEditor 0.9.2.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.1 fixes document formatting so the RichEdit control cannot extend
+the green character format of a leading comment into the following code. The
+editor now invalidates incremental analysis and repaints the complete buffer
+after a whole-document formatting replacement.
 
 Version 0.9.2.0 begins the IntelliSense milestone. Completion now ranks symbols
 by syntactic context, expected type, actual semantic visibility, prior usage and

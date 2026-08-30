@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.2.1 - 2026-08-31
+
+- repaint the complete RichEdit buffer after document formatting so a leading comment cannot leak its green character format into unchanged code;
+- extend the WinForms formatting smoke with explicit comment and keyword color assertions;
+
 ## 0.9.2.0 - 2026-08-31
 
 - rank completion by statement/expression/type context, expected type, semantic scope, usage frequency and proximity;
