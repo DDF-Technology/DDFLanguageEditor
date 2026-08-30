@@ -103,7 +103,8 @@ Version 0.9.0 starts the interactive debugger. Clicking a source line in the
 gutter, or pressing `F9`, toggles a breakpoint marked with `●`. The interpreter
 pauses before the corresponding executable statement, selects it in the editor
 and turns `F5`/Run into Continue. Stop remains available during a pause and
-releases the runtime safely before cancellation.
+releases the runtime safely before cancellation. The icon toolbar includes a
+dedicated breakpoint command and keeps Run synchronized with Continue.
 
 The repeatable WinForms smoke now exercises every File, Edit, View and Help command,
 including search/replace, completion, formatting, semantic navigation, recent files, folding states

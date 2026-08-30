@@ -8,6 +8,7 @@ namespace DDF___Program_Language_Editor
     {
         private ToolStripButton toolbarRunButton;
         private ToolStripButton toolbarStopButton;
+        private ToolStripButton toolbarBreakpointButton;
 
         private void initializeMainToolbar()
         {
@@ -26,6 +27,10 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(createToolbarButton("toolbarFormatButton", "\uE8D2", "Formatta documento (Ctrl+Shift+F)", formatDocumentMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarFoldButton", "\uE8B0", "Comprimi o espandi blocco (Ctrl+M)", toggleFoldMenuItem_Click));
             toolStripMain.Items.Add(new ToolStripSeparator());
+            toolbarBreakpointButton = createToolbarButton("toolbarBreakpointButton", "●", "Attiva/disattiva breakpoint (F9)", toggleBreakpointMenuItem_Click);
+            toolbarBreakpointButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
+            toolbarBreakpointButton.ForeColor = AppTheme.Stop;
+            toolStripMain.Items.Add(toolbarBreakpointButton);
             toolbarRunButton = createToolbarButton("toolbarRunButton", "\uE768", "Avvia (F5)", runProgramMenuItem_Click);
             toolbarRunButton.ForeColor = AppTheme.Run;
             toolStripMain.Items.Add(toolbarRunButton);

@@ -99,6 +99,7 @@ namespace DDF___Program_Language_Editor
             AppTheme.ApplyLight(this);
             toolbarRunButton.ForeColor = AppTheme.Run;
             toolbarStopButton.ForeColor = AppTheme.Stop;
+            toolbarBreakpointButton.ForeColor = AppTheme.Stop;
             listBoxDiagnostics.ForeColor = AppTheme.Error;
         }
 

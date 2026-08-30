@@ -1057,7 +1057,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Text = "main() out int\n{\n    int value << 2;\n    value << value + 1;\n    ret value;\n}";
             PumpMessages(180);
             RichTextBox gutter = FindControl<RichTextBox>(form, "richTextBoxLineNumbers");
-            ClickGutterLine(gutter, 4);
+            editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
             Require(gutter.Text.Contains("● 4"), "Il gutter non mostra il breakpoint attivo sulla riga 4.");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
             PumpMessages(400);
@@ -1123,7 +1124,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton",
                 "toolbarUndoButton", "toolbarRedoButton", "toolbarCutButton",
                 "toolbarCopyButton", "toolbarPasteButton", "toolbarFindButton",
-                "toolbarFormatButton", "toolbarFoldButton", "toolbarRunButton", "toolbarStopButton"
+                "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
             foreach (string name in expected)
             {
@@ -1150,7 +1151,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 13 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 14 comandi principali");
         }
 
         private static void AssertUnifiedLightTheme(MainForm form, RichTextBox editor, RichTextBox foldedView, RichTextBox gutter)

@@ -80,10 +80,10 @@ palette.
 
 ## Barra strumenti
 
-La toolbar espone 13 pulsanti a icona con tooltip per Nuovo, Apri, Salva,
+La toolbar espone 14 pulsanti a icona con tooltip per Nuovo, Apri, Salva,
 Annulla, Ripristina, Taglia, Copia, Incolla, Trova, Formatta, folding, Run e
-Stop. Lo smoke verifica presenza, ordine funzionale, accessibilità e condivisione
-degli handler Run/Stop con il menu Esegui.
+Stop, oltre al breakpoint. Lo smoke verifica presenza, ordine funzionale,
+accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette
 chiara e che soltanto editor, folding e gutter conservino lo sfondo scuro.

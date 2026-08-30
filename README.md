@@ -26,7 +26,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a icone per i principali comandi File, Modifica, folding ed esecuzione;
+- barra a 14 icone per i principali comandi File, Modifica, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - diagnostica lessicale, sintattica e semantica con pannello navigabile;

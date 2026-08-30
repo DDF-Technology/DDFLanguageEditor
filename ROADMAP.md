@@ -44,7 +44,10 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
-| `0.9.1+` | Step, ispezione runtime e moduli multi-file | Pianificata |
+| `0.9.1` | Variabili e call stack durante la pausa | Pianificata |
+| `0.9.2` | Step Into, Step Over e Step Out | Pianificata |
+| `0.9.3` | Runtime multi-file del workspace | Pianificata |
+| `0.10.0+` | Valutazione di backend compilati | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -310,14 +313,38 @@ senza perdita silenziosa di dati.
 - [x] Marcare i breakpoint senza rendere selezionabile il gutter.
 - [x] Sospendere il runtime prima dello statement eseguibile corrispondente.
 - [x] Riutilizzare `F5` e Run come Continua durante la pausa.
+- [x] Esporre Breakpoint nella icon bar e sincronizzare il pulsante Run con Continua.
 - [x] Consentire a Stop di cancellare anche un runtime sospeso.
 - [x] Coprire concorrenza del Core, gutter e flusso WinForms con test dinamici.
 
-## 0.9.1 e successive — Ispezione runtime e moduli multi-file
+## 0.9.1 — Variabili e call stack durante la pausa
 
-- [ ] Aggiungere Step Into, Step Over e Step Out.
-- [ ] Mostrare variabili locali e call stack durante la pausa.
+- [ ] Acquisire uno snapshot immutabile dello stato runtime a ogni breakpoint.
+- [ ] Mostrare parametri e variabili locali con nome, tipo e valore.
+- [ ] Distinguere lo scope corrente dagli scope esterni ancora attivi.
+- [ ] Rendere espandibili array e istanze di strutture senza esporre oggetti interni del runtime.
+- [ ] Mostrare il call stack attivo con navigazione al punto di chiamata.
+- [ ] Aggiornare e svuotare le palette in modo coerente su Pausa, Continua, Stop e fine esecuzione.
+- [ ] Coprire valori primitivi, array, strutture, shadowing e chiamate annidate con test Core e smoke WinForms.
+
+## 0.9.2 — Esecuzione passo-passo
+
+- [ ] Aggiungere Step Into per entrare nelle funzioni chiamate.
+- [ ] Aggiungere Step Over per completare una chiamata restando nel frame corrente.
+- [ ] Aggiungere Step Out per raggiungere il chiamante della funzione corrente.
+- [ ] Evidenziare la prossima istruzione e sincronizzare comandi, scorciatoie e toolbar.
+- [ ] Integrare lo step con breakpoint, variabili, call stack, cicli e cancellazione.
+- [ ] Esporre Step Into, Step Over e Step Out nella icon bar con stati coerenti alla pausa.
+
+## 0.9.3 — Runtime multi-file
+
 - [ ] Definire il caricamento runtime dei moduli del workspace.
+- [ ] Risolvere funzioni, strutture e globali tra documenti indicizzati.
+- [ ] Conservare file e intervalli sorgente nei breakpoint, nello stack e nella navigazione.
+- [ ] Aggiungere test end-to-end su workspace temporanei multi-file.
+
+## 0.10.0 e successive — Backend compilati
+
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 
 ## Principi di sviluppo
@@ -327,6 +354,7 @@ senza perdita silenziosa di dati.
 - I bug corretti devono essere accompagnati da un test di regressione.
 - Le modifiche alla sintassi richiedono aggiornamento della specifica e dei test.
 - Le nuove dipendenze devono essere motivate e documentate.
+- Ogni nuova funzione interattiva principale deve essere valutata per menu, scorciatoia e icon bar nello stesso incremento.
 - Compatibilità e migrazioni tecnologiche vengono affrontate separatamente dalle
   funzionalità utente.
 
@@ -337,6 +365,7 @@ senza perdita silenziosa di dati.
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |
 | 2026-08-30 | Migrare a .NET 10 prima della 1.0 | Evitare di accumulare altro codice UI/runtime legacy e arrivare alla prima stabile su una base LTS già collaudata. |
 | 2026-08-30 | Distribuire la beta .NET 10 come pacchetto self-contained Windows x64 | Consentire l'avvio su Windows x64 senza installare separatamente il Desktop Runtime, accettando un archivio più grande. |
+| 2026-08-30 | Anticipare variabili e call stack allo step-by-step | Rendere osservabile lo stato fermato ai breakpoint prima di aggiungere nuovi modi di avanzamento dell'esecuzione. |
 | 2026-08-28 | Separare la logica testabile dalla finestra principale | Ridurre l'accoppiamento e preparare lexer e parser. |
 | 2026-08-28 | Considerare la specifica storica come materiale di progetto, non come grammatica definitiva | Contiene contraddizioni che devono essere risolte esplicitamente. |
 | 2026-08-28 | Adottare `//`, `/* ... */` e `*` nel sottoinsieme riconosciuto | Allineare il comportamento corrente a delimitatori non ambigui e testabili. |
