@@ -18,13 +18,21 @@ namespace DDF___Program_Language_Editor
         private void runMenuItem_DropDownOpening(object sender, EventArgs e)
         {
             bool running = executionTask != null && !executionTask.IsCompleted;
-            runProgramMenuItem.Enabled = !running;
-            stopProgramMenuItem.Enabled = running;
+            updateExecutionCommands(running);
         }
 
         private void runProgramMenuItem_Click(object sender, EventArgs e)
         {
-            if (executionTask != null && !executionTask.IsCompleted) return;
+            if (executionTask != null && !executionTask.IsCompleted)
+            {
+                if (debuggerSession != null && debuggerSession.IsPaused)
+                {
+                    appendOutput("Esecuzione ripresa.");
+                    debuggerSession.Continue();
+                    updateExecutionCommands(true);
+                }
+                return;
+            }
 
             string source = richTextBoxMainEditor.Text;
             DdfParseResult parse = DdfParser.Parse(source);
@@ -43,15 +51,18 @@ namespace DDF___Program_Language_Editor
             clearOutput();
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.8.1 Beta — avvio di main()");
+            appendOutput("DDF 0.9.0 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
+            debuggerSession = new DdfDebuggerSession { Paused = onDebuggerPaused };
+            debuggerSession.SetBreakpoints(breakpointLines);
             updateExecutionCommands(true);
             executionTask = Task.Run(() => DdfInterpreter.Execute(source, parse.Root, new DdfExecutionOptions
             {
                 EntryPoint = DdfRuntimeCatalog.DefaultEntryPoint,
                 MaxInstructions = DdfRuntimeCatalog.DefaultInstructionLimit,
                 CancellationRequested = () => token.IsCancellationRequested,
+                DebuggerSession = debuggerSession,
                 Output = line => appendOutput(line),
                 Input = () => requestRuntimeInput == null ? string.Empty : requestRuntimeInput()
             }), token).ContinueWith(completed => finishExecution(completed), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
@@ -60,15 +71,23 @@ namespace DDF___Program_Language_Editor
         private void stopProgramMenuItem_Click(object sender, EventArgs e)
         {
             executionCancellation?.Cancel();
+            debuggerSession?.Continue();
             stopProgramMenuItem.Enabled = false;
             appendOutput("Arresto richiesto...");
         }
 
         private void updateExecutionCommands(bool running)
         {
-            runProgramMenuItem.Enabled = !running;
+            bool paused = running && debuggerSession != null && debuggerSession.IsPaused;
+            runProgramMenuItem.Enabled = !running || paused;
+            runProgramMenuItem.Text = paused ? "&Continua" : "&Avvia";
             stopProgramMenuItem.Enabled = running;
-            if (toolbarRunButton != null) toolbarRunButton.Enabled = !running;
+            if (toolbarRunButton != null)
+            {
+                toolbarRunButton.Enabled = !running || paused;
+                toolbarRunButton.ToolTipText = paused ? "Continua (F5)" : "Avvia (F5)";
+                toolbarRunButton.AccessibleName = toolbarRunButton.ToolTipText;
+            }
             if (toolbarStopButton != null) toolbarStopButton.Enabled = running;
         }
 
@@ -112,6 +131,8 @@ namespace DDF___Program_Language_Editor
 
             executionCancellation?.Dispose();
             executionCancellation = null;
+            debuggerSession?.Dispose();
+            debuggerSession = null;
         }
 
         private void appendOutput(string text)
@@ -189,6 +210,7 @@ namespace DDF___Program_Language_Editor
         private void stopExecution()
         {
             executionCancellation?.Cancel();
+            debuggerSession?.Continue();
         }
 
         private string showRuntimeInputDialog()

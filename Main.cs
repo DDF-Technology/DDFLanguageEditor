@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
@@ -46,6 +47,7 @@ namespace DDF___Program_Language_Editor
         {
             InitializeComponent();
             initializeMainToolbar();
+            initializeDebugger();
 
             System.Drawing.Icon applicationIcon = AppIconProvider.LoadIcon();
             if (applicationIcon != null)
@@ -335,6 +337,7 @@ namespace DDF___Program_Language_Editor
         private void replaceEditorText(string content)
         {
             leaveFoldedView();
+            clearBreakpoints();
             isReplacingDocument = true;
             highlightTimer.Stop();
             incrementalLexer.Reset();
@@ -403,7 +406,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.8.1 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -431,13 +434,19 @@ namespace DDF___Program_Language_Editor
             redoMenuItem.Enabled = richTextBoxMainEditor.CanRedo;
             cutMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
             copyMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
-            pasteMenuItem.Enabled = Clipboard.ContainsText();
+            pasteMenuItem.Enabled = clipboardContainsText();
             selectAllMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
             completionMenuItem.Enabled = true;
             formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
             DdfSymbolOccurrence occurrence = getCurrentSymbolOccurrence();
             goToDefinitionMenuItem.Enabled = occurrence != null || getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
             renameSymbolMenuItem.Enabled = occurrence != null;
+        }
+
+        private static bool clipboardContainsText()
+        {
+            try { return Clipboard.ContainsText(); }
+            catch (ExternalException) { return false; }
         }
 
         private void undoMenuItem_Click(object sender, EventArgs e)

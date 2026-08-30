@@ -1,4 +1,4 @@
-# DDFLanguageEditor 0.8.1
+# DDFLanguageEditor 0.9.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
@@ -99,9 +99,15 @@ Windows x64 distribution. The repeatable release script validates that the .NET
 and Windows Desktop hosts are present, produces a ZIP and writes its SHA-256;
 the same package is generated as a GitHub Actions artifact.
 
+Version 0.9.0 starts the interactive debugger. Clicking a source line in the
+gutter, or pressing `F9`, toggles a breakpoint marked with `●`. The interpreter
+pauses before the corresponding executable statement, selects it in the editor
+and turns `F5`/Run into Continue. Stop remains available during a pause and
+releases the runtime safely before cancellation.
+
 The repeatable WinForms smoke now exercises every File, Edit, View and Help command,
 including search/replace, completion, formatting, semantic navigation, recent files, folding states
-and all 21 shortcuts. It uses isolated temporary files and does not persist
+and all 22 shortcuts. It uses isolated temporary files and does not persist
 smoke entries in the user's recent-file settings.
 
 The IDE now starts maximized with source diagnostics always visible. The old
@@ -109,7 +115,7 @@ beta banner has been removed from the editing surface while beta status remains
 in version metadata and in the new Help > About popup, together with Fabio De
 Deo, www.ddf.technology and the MIT License. A multi-resolution application
 icon is embedded in the executable and displayed by the application windows.
-The dynamic smoke covers all 25 menu commands, including Run, Stop and About.
+The dynamic smoke covers all 26 menu commands, including breakpoint, Run, Stop and About.
 
 The application icon now uses a white rounded tile, while About renders the
 embedded high-resolution PNG instead of scaling the small executable icon. The

@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.8.1 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -24,6 +24,7 @@ evidenziazione delle regole note e indentazione assistita.
 - menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
+- breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
 - barra a icone per i principali comandi File, Modifica, folding ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
@@ -42,7 +43,7 @@ evidenziazione delle regole note e indentazione assistita.
 
 ## Limiti della beta
 
-- nessun compilatore, breakpoint, esecuzione passo-passo o runtime multi-file;
+- nessun compilatore, esecuzione passo-passo, ispezione variabili o runtime multi-file;
 - nessun overload, generico, conversione personalizzata o sistema di build/progetto;
 - la ri-lessicalizzazione riutilizza il prefisso invariato ma analizza ancora
   dalla zona modificata fino alla fine del documento;
@@ -87,7 +88,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 25 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 26 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -136,12 +137,13 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.8.1 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
 external compiler or complete debugger. Its internal AST interpreter reports
-navigable runtime failures and DDF call stacks. A live document outline indexes structures,
+navigable runtime failures and DDF call stacks, and supports line breakpoints
+with pause/continue. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving
 read-only fold projection are included. Contextual completion suggests catalog
 terms and locally visible document symbols, automatically or with `Ctrl+Space`.

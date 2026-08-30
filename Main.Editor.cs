@@ -432,10 +432,15 @@ namespace DDF___Program_Language_Editor
             }
 
             var lineNumbers = new StringBuilder();
+            var sourceLines = new List<int>();
             for (int line = firstLine; line <= lastLine; line++)
             {
-                lineNumbers.Append(line + 1).Append('\n');
+                int sourceLine = line + 1;
+                sourceLines.Add(sourceLine);
+                lineNumbers.Append(formatLineNumber(sourceLine)).Append('\n');
             }
+
+            richTextBoxLineNumbers.SetDisplayedSourceLines(sourceLines);
 
             string value = lineNumbers.ToString();
             if (!string.Equals(richTextBoxLineNumbers.Text, value, StringComparison.Ordinal))

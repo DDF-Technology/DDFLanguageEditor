@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0 - 2026-08-30
+
+- add line breakpoints toggled from the gutter or with `F9`;
+- pause the interpreter before the matching executable statement without blocking the WinForms UI;
+- reuse `F5` and the Run toolbar command as Continue while execution is paused;
+- keep Stop cooperative and able to release a paused runtime safely;
+- mark active breakpoint lines in the non-selectable gutter and navigate to the paused statement;
+- keep the Edit menu responsive when another Windows process temporarily owns the clipboard;
+- derive self-contained release package names and validation from assembly version metadata;
+- expand the Core suite to 85 tests and the menu smoke to 26 commands and 22 shortcuts;
+
 ## 0.8.1 - 2026-08-30
 
 - adopt self-contained Windows x64 as the official distribution format;

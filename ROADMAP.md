@@ -43,7 +43,8 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.7.4` | Stack runtime e navigazione dagli errori | Completata |
 | `0.8.0` | Porting controllato a .NET 10 LTS | Completata |
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
-| `0.9.0+` | Debug interattivo e runtime multi-file | Pianificata |
+| `0.9.0` | Breakpoint e pausa/continua | Completata |
+| `0.9.1+` | Step, ispezione runtime e moduli multi-file | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -303,9 +304,19 @@ senza perdita silenziosa di dati.
 - [x] Generare lo ZIP distribuibile e il checksum SHA-256.
 - [x] Produrre lo stesso pacchetto come artefatto della CI.
 
-## 0.9.0 e successive — Debug interattivo e runtime multi-file
+## 0.9.0 — Breakpoint e pausa/continua
 
-- [ ] Progettare breakpoint, esecuzione passo-passo e ispezione delle variabili.
+- [x] Attivare e rimuovere breakpoint di riga dal gutter o con `F9`.
+- [x] Marcare i breakpoint senza rendere selezionabile il gutter.
+- [x] Sospendere il runtime prima dello statement eseguibile corrispondente.
+- [x] Riutilizzare `F5` e Run come Continua durante la pausa.
+- [x] Consentire a Stop di cancellare anche un runtime sospeso.
+- [x] Coprire concorrenza del Core, gutter e flusso WinForms con test dinamici.
+
+## 0.9.1 e successive — Ispezione runtime e moduli multi-file
+
+- [ ] Aggiungere Step Into, Step Over e Step Out.
+- [ ] Mostrare variabili locali e call stack durante la pausa.
 - [ ] Definire il caricamento runtime dei moduli del workspace.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 

@@ -28,6 +28,7 @@
     <Compile Update="Main.Folding.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Formatting.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Execution.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.Debugger.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Toolbar.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Semantics.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Workspace.cs" DependentUpon="Main.cs" />

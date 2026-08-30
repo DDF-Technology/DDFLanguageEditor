@@ -273,10 +273,25 @@ namespace DDF___Program_Language_Editor
             lastLine = Math.Min(Math.Max(firstLine, lastLine), activeFoldProjection.LineNumberLabels.Count - 1);
 
             var lineNumbers = new System.Text.StringBuilder();
+            var sourceLines = new System.Collections.Generic.List<int>();
             for (int line = firstLine; line <= lastLine; line++)
             {
-                lineNumbers.Append(activeFoldProjection.LineNumberLabels[line]).Append('\n');
+                string label = activeFoldProjection.LineNumberLabels[line];
+                int sourceLine;
+                if (int.TryParse(label, out sourceLine))
+                {
+                    sourceLines.Add(sourceLine);
+                    lineNumbers.Append(formatLineNumber(sourceLine));
+                }
+                else
+                {
+                    sourceLines.Add(0);
+                    lineNumbers.Append(label);
+                }
+                lineNumbers.Append('\n');
             }
+
+            richTextBoxLineNumbers.SetDisplayedSourceLines(sourceLines);
 
             string value = lineNumbers.ToString();
             if (!string.Equals(richTextBoxLineNumbers.Text, value, StringComparison.Ordinal))

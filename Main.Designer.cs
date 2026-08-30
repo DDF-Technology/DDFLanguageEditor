@@ -43,6 +43,7 @@ namespace DDF___Program_Language_Editor
             this.renameSymbolMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.runMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.runProgramMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toggleBreakpointMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.stopProgramMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.viewMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleFoldMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -278,6 +279,7 @@ namespace DDF___Program_Language_Editor
             //
             this.runMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.runProgramMenuItem,
+            this.toggleBreakpointMenuItem,
             this.stopProgramMenuItem});
             this.runMenuItem.Name = "runMenuItem";
             this.runMenuItem.Text = "&Esegui";
@@ -289,6 +291,13 @@ namespace DDF___Program_Language_Editor
             this.runProgramMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F5;
             this.runProgramMenuItem.Text = "&Avvia";
             this.runProgramMenuItem.Click += new System.EventHandler(this.runProgramMenuItem_Click);
+            //
+            // toggleBreakpointMenuItem
+            //
+            this.toggleBreakpointMenuItem.Name = "toggleBreakpointMenuItem";
+            this.toggleBreakpointMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F9;
+            this.toggleBreakpointMenuItem.Text = "Attiva/disattiva &breakpoint";
+            this.toggleBreakpointMenuItem.Click += new System.EventHandler(this.toggleBreakpointMenuItem_Click);
             //
             // stopProgramMenuItem
             //
@@ -609,7 +618,7 @@ namespace DDF___Program_Language_Editor
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.7.3 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.9.0 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
@@ -656,6 +665,7 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.ToolStripMenuItem renameSymbolMenuItem;
         private System.Windows.Forms.ToolStripMenuItem runMenuItem;
         private System.Windows.Forms.ToolStripMenuItem runProgramMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem toggleBreakpointMenuItem;
         private System.Windows.Forms.ToolStripMenuItem stopProgramMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewMenuItem;
         private System.Windows.Forms.ToolStripMenuItem toggleFoldMenuItem;

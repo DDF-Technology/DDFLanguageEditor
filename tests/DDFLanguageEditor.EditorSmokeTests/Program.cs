@@ -15,6 +15,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 {
     internal static class Program
     {
+        private const int WmLeftButtonDown = 0x0201;
         private const string Source =
             "@@'Console'\n" +
             "main() out int {\n" +
@@ -43,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 25 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 26 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -161,6 +162,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "goToDefinitionMenuItem", Keys.F12 },
                     { "renameSymbolMenuItem", Keys.F2 },
                     { "runProgramMenuItem", Keys.F5 },
+                    { "toggleBreakpointMenuItem", Keys.F9 },
                     { "stopProgramMenuItem", Keys.Shift | Keys.F5 },
                     { "toggleFoldMenuItem", Keys.Control | Keys.M },
                     { "expandAllFoldsMenuItem", Keys.Control | Keys.Shift | Keys.M }
@@ -173,7 +175,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem",
                     "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
-                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "stopProgramMenuItem",
+                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
                 };
                 foreach (string command in commands)
@@ -191,7 +193,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 21 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 22 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -208,7 +210,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.8.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1052,6 +1054,26 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(tabs.SelectedTab.Name == "tabPageOutput", "La palette Output non viene selezionata durante Run.");
             Require(FindMenuItem(form, "runProgramMenuItem").Enabled, "Run non viene riabilitato al termine.");
 
+            editor.Text = "main() out int\n{\n    int value << 2;\n    value << value + 1;\n    ret value;\n}";
+            PumpMessages(180);
+            RichTextBox gutter = FindControl<RichTextBox>(form, "richTextBoxLineNumbers");
+            ClickGutterLine(gutter, 4);
+            Require(gutter.Text.Contains("● 4"), "Il gutter non mostra il breakpoint attivo sulla riga 4.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpMessages(400);
+            Require(output.Text.Contains("Breakpoint raggiunto: riga 4"), "Il runtime non si sospende sul breakpoint.");
+            Require(FindMenuItem(form, "runProgramMenuItem").Enabled &&
+                    FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"),
+                "F5 non passa allo stato Continua durante la pausa.");
+            Require(editor.SelectedText.Contains("value << value + 1"),
+                "La pausa non evidenzia lo statement associato al breakpoint.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpMessages(400);
+            Require(output.Text.Contains("Valore restituito: 3") && output.Text.Contains("Esecuzione completata"),
+                "Continua non completa l'esecuzione sospesa.");
+            ClickGutterLine(gutter, 4);
+            Require(!gutter.Text.Contains("● 4"), "Il breakpoint non viene rimosso dal gutter.");
+
             editor.Text = "main() out void { while(true) { } }";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
@@ -1090,7 +1112,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
             Require(editor.SelectedText == "fail",
                 "Il doppio clic su un frame runtime non raggiunge il relativo punto di chiamata. Selezione: '" + editor.SelectedText + "'.");
-            Console.WriteLine("PASS interprete Run/Stop, stack navigabile, input standard e palette Output");
+            Console.WriteLine("PASS interprete Run/Stop, breakpoint, pausa/continua, stack navigabile, input standard e palette Output");
         }
 
         private static void AssertMainToolbar(MainForm form)
@@ -1231,6 +1253,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
             field.SetValue(target, value);
         }
+
+        private static void ClickGutterLine(RichTextBox gutter, int oneBasedLine)
+        {
+            int character = gutter.GetFirstCharIndexFromLine(oneBasedLine - 1);
+            if (character < 0) throw new InvalidOperationException("Riga gutter non visibile: " + oneBasedLine);
+            Point point = gutter.GetPositionFromCharIndex(character);
+            int packedPoint = ((point.Y + 2) << 16) | Math.Max(1, point.X + 2);
+            SendMessage(gutter.Handle, WmLeftButtonDown, new IntPtr(1), new IntPtr(packedPoint));
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
 
         private static void InvokeMouseHandler(MainForm form, string methodName, RichTextBox editor, MouseButtons button)
         {

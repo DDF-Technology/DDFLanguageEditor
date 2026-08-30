@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using DDFLanguageEditor.Core;
 
 namespace DDFLanguageEditor.Tests
@@ -74,6 +76,7 @@ namespace DDFLanguageEditor.Tests
             Run("executes arrays and structure members", ExecutesArraysAndStructureMembers);
             Run("stops infinite execution at the instruction limit", StopsInfiniteExecutionAtInstructionLimit);
             Run("honors runtime cancellation", HonorsRuntimeCancellation);
+            Run("pauses and continues at line breakpoints", PausesAndContinuesAtLineBreakpoints);
             Run("reports runtime failures with source positions", ReportsRuntimeFailuresWithSourcePositions);
             Run("captures navigable DDF runtime stack traces", CapturesNavigableRuntimeStackTraces);
             Run("executes the minimal standard library with input", ExecutesMinimalStandardLibraryWithInput);
@@ -1231,6 +1234,54 @@ main() out int
                 });
             Equal(true, result.WasCancelled);
             Equal(0, result.Diagnostics.Count);
+        }
+
+        private static void PausesAndContinuesAtLineBreakpoints()
+        {
+            const string source = "main() out int\n{\n    int value << 1;\n    value << value + 1;\n    ret value;\n}";
+            var pauseReached = new ManualResetEventSlim(false);
+            DdfDebugPauseInfo pause = null;
+            using (var debugger = new DdfDebuggerSession())
+            {
+                debugger.SetBreakpoints(new[] { 4 });
+                debugger.Paused = info => { pause = info; pauseReached.Set(); };
+                Task<DdfExecutionResult> execution = Task.Run(() => DdfInterpreter.Execute(source, new DdfExecutionOptions
+                {
+                    DebuggerSession = debugger
+                }));
+
+                Equal(true, pauseReached.Wait(2000));
+                Equal(true, debugger.IsPaused);
+                Equal(false, execution.IsCompleted);
+                Equal(4, pause.Line);
+                Equal("value << value + 1;", source.Substring(pause.Start, pause.Length));
+
+                debugger.Continue();
+                Equal(true, execution.Wait(2000));
+                Equal(true, execution.Result.Succeeded);
+                Equal(2, execution.Result.ReturnValue);
+                Equal(false, debugger.IsPaused);
+            }
+            pauseReached.Dispose();
+
+            const string loopSource = "main() out int\n{\n    int value << 0;\n    while(value < 3)\n    {\n        value++;\n    }\n    ret value;\n}";
+            int pauses = 0;
+            using (var loopDebugger = new DdfDebuggerSession())
+            {
+                loopDebugger.SetBreakpoints(new[] { 6 });
+                loopDebugger.Paused = info =>
+                {
+                    Interlocked.Increment(ref pauses);
+                    loopDebugger.Continue();
+                };
+                DdfExecutionResult loopResult = DdfInterpreter.Execute(loopSource, new DdfExecutionOptions
+                {
+                    DebuggerSession = loopDebugger
+                });
+                Equal(true, loopResult.Succeeded);
+                Equal(3, loopResult.ReturnValue);
+                Equal(3, pauses);
+            }
         }
 
         private static void ReportsRuntimeFailuresWithSourcePositions()

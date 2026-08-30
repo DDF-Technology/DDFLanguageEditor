@@ -11,6 +11,7 @@ namespace DDFLanguageEditor.Core
         public Action<string> Output { get; set; }
         public Func<string> Input { get; set; }
         public Func<bool> CancellationRequested { get; set; }
+        public DdfDebuggerSession DebuggerSession { get; set; }
     }
 
     public sealed class DdfRuntimeStackFrame
@@ -169,6 +170,9 @@ namespace DDFLanguageEditor.Core
             private void ExecuteStatement(StatementSyntax statement)
             {
                 if (statement == null) return;
+                if (!(statement is BlockStatementSyntax) && options.DebuggerSession != null &&
+                    !options.DebuggerSession.BeforeStatement(source, statement, options.CancellationRequested))
+                    throw new CancelledSignal();
                 Tick(statement);
                 if (statement is BlockStatementSyntax block) ExecuteBlock(block, true);
                 else if (statement is VariableDeclarationStatementSyntax variable)

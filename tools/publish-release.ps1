@@ -8,10 +8,16 @@ $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot 'DDF - Program Language Editor.csproj'
+$assemblyInfoPath = Join-Path $repositoryRoot 'Properties\AssemblyInfo.cs'
+$versionMatch = [regex]::Match(
+    (Get-Content -LiteralPath $assemblyInfoPath -Raw),
+    'AssemblyInformationalVersion\("(?<version>[^"+]+)')
+if (-not $versionMatch.Success) { throw 'AssemblyInformationalVersion non trovata.' }
+$applicationVersion = $versionMatch.Groups['version'].Value
 $artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot '.artifacts'))
 $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'publish'))
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'release'))
-$packageName = "DDFLanguageEditor-0.8.1-$RuntimeIdentifier-self-contained"
+$packageName = "DDFLanguageEditor-$applicationVersion-$RuntimeIdentifier-self-contained"
 $publishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot $packageName))
 $archivePath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
@@ -71,8 +77,9 @@ if ($missingFiles.Count -gt 0) {
 
 $applicationDll = Join-Path $publishDirectory 'DDFLanguageEditor.dll'
 $publishedVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($applicationDll).FileVersion
-if ($publishedVersion -ne '0.8.1.0') {
-    throw "Versione pubblicata inattesa: $publishedVersion (attesa 0.8.1.0)"
+$expectedFileVersion = ([version]$applicationVersion).ToString(3) + '.0'
+if ($publishedVersion -ne $expectedFileVersion) {
+    throw "Versione pubblicata inattesa: $publishedVersion (attesa $expectedFileVersion)"
 }
 
 $runtimeConfig = Get-Content -LiteralPath (Join-Path $publishDirectory 'DDFLanguageEditor.runtimeconfig.json') -Raw | ConvertFrom-Json

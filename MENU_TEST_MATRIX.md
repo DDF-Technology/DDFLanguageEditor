@@ -48,6 +48,7 @@ Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu.
 | Comando | Verifica dinamica |
 | --- | --- |
 | Avvia | esegue `main` con `F5`, seleziona Output e verifica valore e completamento |
+| Breakpoint | attiva con `F9` o dal gutter, marca la riga, sospende sullo statement e continua con `F5` |
 | Arresta | espone `Shift+F5` e viene abilitato soltanto durante un'esecuzione |
 
 Il core verifica inoltre cancellazione cooperativa, limite anti-loop ed errori
@@ -93,8 +94,8 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 21 scorciatoie dichiarate, incluse `F12` per la definizione,
-`F2` per la rinomina, `F5` per Run e `Shift+F5` per Stop. Il gate completo si avvia con:
+Lo smoke verifica le 22 scorciatoie dichiarate, incluse `F12` per la definizione,
+`F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
 .\tests\run-dynamic-smoke.ps1
