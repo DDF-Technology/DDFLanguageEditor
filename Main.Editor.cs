@@ -29,6 +29,13 @@ namespace DDF___Program_Language_Editor
                 return true;
             }
 
+            if (keyData == (Keys.Control | Keys.OemQuestion) ||
+                keyData == (Keys.Control | Keys.Shift | Keys.D7))
+            {
+                toggleLineComment();
+                return true;
+            }
+
             return base.ProcessCmdKey(ref message, keyData);
         }
 
@@ -329,16 +336,53 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength));
             }
+            else if (e.KeyCode == Keys.Back && richTextBoxMainEditor.SelectionLength == 0)
+            {
+                EditorEdit edit = EditorEditing.CreatePairedBackspaceEdit(
+                    richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart,
+                    richTextBoxMainEditor.SelectionLength);
+                if (edit != null)
+                {
+                    e.SuppressKeyPress = true;
+                    e.Handled = true;
+                    applyEdit(edit);
+                }
+            }
         }
 
         private void richTextBoxMainEditor_KeyPress(object sender, KeyPressEventArgs e)
         {
-            if (e.KeyChar != '}') return;
-            e.Handled = true;
-            applyEdit(EditorEditing.CreateClosingBraceEdit(
+            EditorEdit pairedEdit = EditorEditing.CreatePairedCharacterEdit(
+                richTextBoxMainEditor.Text,
+                richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength,
+                e.KeyChar);
+            if (pairedEdit != null)
+            {
+                e.Handled = true;
+                applyEdit(pairedEdit);
+                return;
+            }
+
+            if (e.KeyChar == '}')
+            {
+                e.Handled = true;
+                applyEdit(EditorEditing.CreateClosingBraceEdit(
+                    richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart,
+                    richTextBoxMainEditor.SelectionLength));
+            }
+        }
+
+        private void toggleLineComment()
+        {
+            leaveFoldedView();
+            applyEdit(EditorEditing.CreateToggleLineCommentEdit(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
                 richTextBoxMainEditor.SelectionLength));
+            richTextBoxMainEditor.Focus();
         }
 
         private void applyEdit(EditorEdit edit)

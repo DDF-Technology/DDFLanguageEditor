@@ -27,6 +27,9 @@ namespace DDFLanguageEditor.Tests
             Run("replaces the selection on Enter", ReplacesSelectionOnEnter);
             Run("aligns a closing brace with its block", AlignsClosingBraceWithItsBlock);
             Run("ignores braces in comments and strings while aligning", IgnoresProtectedBracesWhileAligning);
+            Run("inserts and skips paired characters", InsertsAndSkipsPairedCharacters);
+            Run("handles enter and backspace inside pairs", HandlesEnterAndBackspaceInsidePairs);
+            Run("toggles line comments while preserving indentation", TogglesLineComments);
             Run("round-trips UTF-8 documents", RoundTripsUtf8Documents);
             Run("accepts the optional UTF-8 BOM", AcceptsUtf8Bom);
             Run("rejects invalid UTF-8 documents", RejectsInvalidUtf8Documents);
@@ -213,6 +216,57 @@ namespace DDFLanguageEditor.Tests
             const string source = "// { ignored\nmain() out int\n{\n    string text << \"}\";\n        ";
             EditorEdit edit = EditorEditing.CreateClosingBraceEdit(source, source.Length, 0);
             Equal("// { ignored\nmain() out int\n{\n    string text << \"}\";\n}", Apply(source, edit));
+        }
+
+        private static void InsertsAndSkipsPairedCharacters()
+        {
+            EditorEdit parentheses = EditorEditing.CreatePairedCharacterEdit(string.Empty, 0, 0, '(');
+            Equal("()", Apply(string.Empty, parentheses));
+            Equal(1, parentheses.SelectionStart);
+
+            EditorEdit wrapped = EditorEditing.CreatePairedCharacterEdit("value", 0, 5, '[');
+            Equal("[value]", Apply("value", wrapped));
+            Equal(1, wrapped.SelectionStart);
+            Equal(5, wrapped.SelectionLength);
+
+            EditorEdit skipped = EditorEditing.CreatePairedCharacterEdit("()", 1, 0, ')');
+            Equal("()", Apply("()", skipped));
+            Equal(2, skipped.SelectionStart);
+
+            EditorEdit escapedQuote = EditorEditing.CreatePairedCharacterEdit("\\", 1, 0, '"');
+            Equal("\\\"", Apply("\\", escapedQuote));
+        }
+
+        private static void HandlesEnterAndBackspaceInsidePairs()
+        {
+            EditorEdit newLine = EditorEditing.CreateNewLineEdit("{}", 1, 0);
+            Equal("{\n    \n}", Apply("{}", newLine));
+            Equal(6, newLine.SelectionStart);
+
+            EditorEdit backspace = EditorEditing.CreatePairedBackspaceEdit("call()", 5, 0);
+            Equal("call", Apply("call()", backspace));
+            Equal(4, backspace.SelectionStart);
+            Equal<EditorEdit>(null, EditorEditing.CreatePairedBackspaceEdit("(value)", 1, 0));
+        }
+
+        private static void TogglesLineComments()
+        {
+            const string source = "    int value;\n    ret value;";
+            EditorEdit comment = EditorEditing.CreateToggleLineCommentEdit(source, 0, source.Length);
+            string commented = Apply(source, comment);
+            Equal("    // int value;\n    // ret value;", commented);
+            EditorEdit uncomment = EditorEditing.CreateToggleLineCommentEdit(
+                commented, comment.SelectionStart, comment.SelectionLength);
+            Equal(source, Apply(commented, uncomment));
+
+            EditorEdit caretLine = EditorEditing.CreateToggleLineCommentEdit("one\n    two", 8, 0);
+            Equal("one\n    // two", Apply("one\n    two", caretLine));
+            Equal(11, caretLine.SelectionStart);
+
+            EditorEdit shortLines = EditorEditing.CreateToggleLineCommentEdit("a\nb", 0, 3);
+            Equal("// a\n// b", Apply("a\nb", shortLines));
+            Equal(3, shortLines.SelectionStart);
+            Equal(6, shortLines.SelectionLength);
         }
 
         private static void RoundTripsUtf8Documents()

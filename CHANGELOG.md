@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1.0 - 2026-08-30
+
+- auto-close parentheses, brackets, braces, quotes and apostrophes while avoiding duplicate closing characters;
+- expand Enter between braces and delete empty pairs with one Backspace, preserving a single native Undo step;
+- wrap selections with typed pairs and retain the selected inner text;
+- add indentation-preserving line comment toggling through Edit, `Ctrl+/` and the main toolbar;
+- add a light-themed editor context menu with current Undo, clipboard, Find, Rename and comment states;
+- cover the editing gestures with 90 Core tests and dynamic WinForms smoke scenarios;
+
 ## 0.9.0.1 - 2026-08-30
 
 - add document tabs backed by independent editor controls and in-memory buffers;

@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.0.1
+# DDFLanguageEditor 0.9.1.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.1.0 begins the editor-comfort phase. Parentheses, brackets, braces,
+quotes and apostrophes close automatically, wrap selections and do not duplicate
+an existing closing character. Enter expands an empty brace pair into an
+indented block, while Backspace removes an empty pair as one undoable action.
+Lines and selections can be commented with `Ctrl+/`, and the editor now exposes
+a light-themed context menu synchronized with its main editing commands.
 
 Version 0.9.0.1 introduces true multi-document editing. Each tab owns its editor
 buffer and therefore retains unsaved text, caret, selection, scroll and native

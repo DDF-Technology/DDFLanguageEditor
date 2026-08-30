@@ -127,7 +127,8 @@ namespace DDF___Program_Language_Editor
                 HideSelection = false,
                 Name = "documentEditor_" + id,
                 WordWrap = false,
-                Visible = false
+                Visible = false,
+                ContextMenuStrip = editorContextMenu
             };
             editor.VScroll += richTextBoxMainEditor_VScroll;
             editor.FontChanged += richTextBoxMainEditor_FontChanged;

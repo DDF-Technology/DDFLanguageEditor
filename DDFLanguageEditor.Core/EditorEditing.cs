@@ -79,6 +79,14 @@ namespace DDFLanguageEditor.Core
             string beforeCaret = text.Substring(lineStart, selectionStart - lineStart);
             string indentation = GetLeadingWhitespace(beforeCaret);
             string trimmed = beforeCaret.TrimEnd();
+            if (selectionLength == 0 && selectionStart > 0 && selectionStart < text.Length &&
+                text[selectionStart - 1] == '{' && text[selectionStart] == '}')
+            {
+                string innerIndentation = indentation + new string(' ', tabSize);
+                string blockReplacement = "\n" + innerIndentation + "\n" + indentation;
+                return new EditorEdit(selectionStart, 0, blockReplacement,
+                    selectionStart + 1 + innerIndentation.Length, 0);
+            }
             if (trimmed.EndsWith("{", StringComparison.Ordinal) ||
                 trimmed.EndsWith("(", StringComparison.Ordinal))
             {
@@ -124,6 +132,135 @@ namespace DDFLanguageEditor.Core
                 indentation + "}",
                 lineStart + indentation.Length + 1,
                 0);
+        }
+
+        public static EditorEdit CreatePairedCharacterEdit(
+            string text,
+            int selectionStart,
+            int selectionLength,
+            char character)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            char closing = GetClosingCharacter(character);
+            bool isOpening = closing != '\0';
+            bool isClosing = character == ')' || character == ']' || character == '}' || character == '"' || character == '\'';
+            if (!isOpening && !isClosing) return null;
+
+            if (selectionLength > 0 && isOpening)
+            {
+                string selected = text.Substring(selectionStart, selectionLength);
+                return new EditorEdit(selectionStart, selectionLength, character + selected + closing,
+                    selectionStart + 1, selectionLength);
+            }
+
+            if (selectionLength == 0 && isClosing && selectionStart < text.Length && text[selectionStart] == character)
+            {
+                return new EditorEdit(selectionStart, 0, string.Empty, selectionStart + 1, 0);
+            }
+
+            if (isOpening)
+            {
+                if ((character == '"' || character == '\'') && selectionStart > 0 && text[selectionStart - 1] == '\\')
+                    return new EditorEdit(selectionStart, selectionLength, character.ToString(), selectionStart + 1, 0);
+                return new EditorEdit(selectionStart, selectionLength, new string(new[] { character, closing }),
+                    selectionStart + 1, 0);
+            }
+
+            return null;
+        }
+
+        public static EditorEdit CreatePairedBackspaceEdit(string text, int selectionStart, int selectionLength)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            if (selectionLength != 0 || selectionStart == 0 || selectionStart >= text.Length) return null;
+            char opening = text[selectionStart - 1];
+            char closing = text[selectionStart];
+            if (GetClosingCharacter(opening) != closing) return null;
+            return new EditorEdit(selectionStart - 1, 2, string.Empty, selectionStart - 1, 0);
+        }
+
+        public static EditorEdit CreateToggleLineCommentEdit(string text, int selectionStart, int selectionLength)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            int selectionEnd = selectionStart + selectionLength;
+            int rangeStart = FindLineStart(text, selectionStart);
+            int effectiveEnd = selectionEnd;
+            if (selectionLength > 0 && effectiveEnd > 0 && effectiveEnd <= text.Length && text[effectiveEnd - 1] == '\n') effectiveEnd--;
+            int rangeEnd = FindLineEnd(text, effectiveEnd);
+            string block = text.Substring(rangeStart, rangeEnd - rangeStart);
+            string[] lines = block.Split('\n');
+            bool uncomment = lines.Where(line => line.Trim().Length > 0)
+                .All(line => line.Substring(GetLeadingWhitespace(line).Length).StartsWith("//", StringComparison.Ordinal));
+            if (!lines.Any(line => line.Trim().Length > 0)) uncomment = false;
+
+            var replacement = new StringBuilder();
+            var lineEdits = new List<LineDelta>();
+            int absoluteLineStart = rangeStart;
+            for (int index = 0; index < lines.Length; index++)
+            {
+                string line = lines[index];
+                int indentationLength = GetLeadingWhitespace(line).Length;
+                int editPosition = absoluteLineStart + indentationLength;
+                int delta = 0;
+                if (line.Trim().Length == 0)
+                {
+                    replacement.Append(line);
+                }
+                else if (uncomment)
+                {
+                    int remove = line.Length > indentationLength + 2 && line[indentationLength + 2] == ' ' ? 3 : 2;
+                    replacement.Append(line.Substring(0, indentationLength));
+                    replacement.Append(line.Substring(indentationLength + remove));
+                    delta = -remove;
+                }
+                else
+                {
+                    replacement.Append(line.Substring(0, indentationLength));
+                    replacement.Append("// ");
+                    replacement.Append(line.Substring(indentationLength));
+                    delta = 3;
+                }
+
+                if (delta != 0) lineEdits.Add(new LineDelta(editPosition, delta));
+                if (index < lines.Length - 1) replacement.Append('\n');
+                absoluteLineStart += line.Length + 1;
+            }
+
+            int mappedStart = MapPositionAfterLineEdits(selectionStart, lineEdits);
+            int mappedEnd = MapPositionAfterLineEdits(selectionEnd, lineEdits);
+            if (selectionLength == 0) mappedEnd = mappedStart;
+            return new EditorEdit(rangeStart, rangeEnd - rangeStart, replacement.ToString(), mappedStart, Math.Max(0, mappedEnd - mappedStart));
+        }
+
+        private static int MapPositionAfterLineEdits(int position, IList<LineDelta> edits)
+        {
+            int mapped = position;
+            foreach (LineDelta edit in edits)
+            {
+                if (edit.Delta >= 0)
+                {
+                    if (position >= edit.Position) mapped += edit.Delta;
+                    continue;
+                }
+
+                int removed = -edit.Delta;
+                if (position >= edit.Position + removed) mapped -= removed;
+                else if (position >= edit.Position) mapped -= position - edit.Position;
+            }
+            return mapped;
+        }
+
+        private static char GetClosingCharacter(char opening)
+        {
+            switch (opening)
+            {
+                case '(': return ')';
+                case '[': return ']';
+                case '{': return '}';
+                case '"': return '"';
+                case '\'': return '\'';
+                default: return '\0';
+            }
         }
 
         private static EditorEdit CreateBlockIndentEdit(
@@ -242,6 +379,12 @@ namespace DDFLanguageEditor.Core
             return previousNewLine + 1;
         }
 
+        private static int FindLineEnd(string text, int position)
+        {
+            int nextNewLine = text.IndexOf('\n', Math.Min(position, text.Length));
+            return nextNewLine < 0 ? text.Length : nextNewLine;
+        }
+
         private static string GetLeadingWhitespace(string value)
         {
             int index = 0;
@@ -293,6 +436,18 @@ namespace DDFLanguageEditor.Core
             public int Start { get; }
 
             public int Length { get; }
+        }
+
+        private sealed class LineDelta
+        {
+            public LineDelta(int position, int delta)
+            {
+                Position = position;
+                Delta = delta;
+            }
+
+            public int Position { get; }
+            public int Delta { get; }
         }
     }
 }

@@ -1,4 +1,4 @@
-# Beta 0.9.0.1 limitations
+# Beta 0.9.1.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -31,6 +31,7 @@ This release is intended for interface and language-design evaluation only.
 - repeatable dynamic smoke tests for real WinForms editing sequences.
 - independent document tabs with Save All and preserved native Undo/Redo;
 - document-scoped breakpoints with remapping and a navigable status palette;
+- automatic pairs, contextual block editing, line comments and an editor context menu;
 
 ## Not implemented
 

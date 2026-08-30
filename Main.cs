@@ -47,6 +47,7 @@ namespace DDF___Program_Language_Editor
         {
             InitializeComponent();
             initializeDocuments();
+            initializeEditingExperience();
             initializeMainToolbar();
             initializeDebugger();
 
@@ -107,6 +108,7 @@ namespace DDF___Program_Language_Editor
             delimiterHighlightTimer.Stop();
             disposeCompletion();
             disposePaletteBehavior();
+            editorContextMenu?.Dispose();
             symbolToolTip.Dispose();
             highlightTimer.Dispose();
             delimiterHighlightTimer.Dispose();
@@ -404,7 +406,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.0.1 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.1.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -430,6 +432,7 @@ namespace DDF___Program_Language_Editor
                 formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
                 goToDefinitionMenuItem.Enabled = false;
                 renameSymbolMenuItem.Enabled = false;
+                toggleLineCommentMenuItem.Enabled = false;
                 return;
             }
 
@@ -444,6 +447,7 @@ namespace DDF___Program_Language_Editor
             DdfSymbolOccurrence occurrence = getCurrentSymbolOccurrence();
             goToDefinitionMenuItem.Enabled = occurrence != null || getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
             renameSymbolMenuItem.Enabled = occurrence != null;
+            toggleLineCommentMenuItem.Enabled = true;
         }
 
         private static bool clipboardContainsText()

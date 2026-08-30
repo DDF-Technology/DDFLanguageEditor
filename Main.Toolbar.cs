@@ -28,6 +28,7 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(createToolbarButton("toolbarCutButton", "\uE8C6", "Taglia (Ctrl+X)", cutMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarCopyButton", "\uE8C8", "Copia (Ctrl+C)", copyMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarPasteButton", "\uE77F", "Incolla (Ctrl+V)", pasteMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarCommentButton", "\uE8C1", "Commenta/decommenta (Ctrl+/)", toggleLineCommentMenuItem_Click));
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(createToolbarButton("toolbarFindButton", "\uE721", "Trova (Ctrl+F)", findMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarFormatButton", "\uE8D2", "Formatta documento (Ctrl+Shift+F)", formatDocumentMenuItem_Click));
