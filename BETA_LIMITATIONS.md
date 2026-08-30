@@ -1,4 +1,4 @@
-# Beta 0.9.1.0 limitations
+# Beta 0.9.1.1 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -32,6 +32,7 @@ This release is intended for interface and language-design evaluation only.
 - independent document tabs with Save All and preserved native Undo/Redo;
 - document-scoped breakpoints with remapping and a navigable status palette;
 - automatic pairs, contextual block editing, line comments and an editor context menu;
+- duplicate/move/delete line commands and context-aware multiline paste indentation;
 
 ## Not implemented
 

@@ -45,7 +45,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.8.1` | Distribuzione self-contained Windows x64 | Completata |
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
-| `0.9.1` | Comodità e gesti di scrittura | In corso (`0.9.1.0` completata) |
+| `0.9.1` | Comodità e gesti di scrittura | In corso (`0.9.1.0` e `0.9.1.1` completate) |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Pianificata |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
@@ -348,10 +348,10 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Gestire Enter, Backspace e Tab in modo contestuale tra coppie e blocchi (`0.9.1.0`).
 - [x] Aggiungere commenta/decommenta selezione o riga (`0.9.1.0`).
 - [x] Uniformare menu, tastiera e menu contestuale per Taglia/Copia/Incolla con stato sempre corrente (`0.9.1.0`).
-- [ ] Aggiungere duplica, sposta ed elimina riga mantenendo selezione e Undo prevedibili.
+- [x] Aggiungere duplica, sposta ed elimina riga mantenendo selezione e Undo prevedibili (`0.9.1.1`).
 - [ ] Introdurre selezione sintattica progressiva e navigazione tra delimitatori.
 - [ ] Supportare più cursori e selezioni per modifiche ripetitive.
-- [ ] Correggere automaticamente il rientro del testo incollato quando richiesto.
+- [x] Correggere automaticamente il rientro del testo incollato quando richiesto (`0.9.1.1`).
 - [x] Esporre le nuove azioni tramite menu, scorciatoie e icon bar secondo frequenza d'uso (`0.9.1.0`).
 
 ## 0.9.2 — IntelliSense, snippet e feedback inline

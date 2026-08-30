@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.1.0
+# DDFLanguageEditor 0.9.1.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.1.1 adds complete-line operations to the daily editing workflow.
+`Ctrl+D` duplicates, `Alt+Up` and `Alt+Down` move, and `Ctrl+Shift+K` deletes
+the current lines while preserving selections and native Undo. Multiline paste
+now removes redundant common indentation and aligns the inserted block with the
+current DDF scope. Every action is available from Edit, the context menu and
+the icon toolbar.
 
 Version 0.9.1.0 begins the editor-comfort phase. Parentheses, brackets, braces,
 quotes and apostrophes close automatically, wrap selections and do not duplicate

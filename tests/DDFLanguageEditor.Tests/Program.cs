@@ -30,6 +30,10 @@ namespace DDFLanguageEditor.Tests
             Run("inserts and skips paired characters", InsertsAndSkipsPairedCharacters);
             Run("handles enter and backspace inside pairs", HandlesEnterAndBackspaceInsidePairs);
             Run("toggles line comments while preserving indentation", TogglesLineComments);
+            Run("duplicates selected lines", DuplicatesSelectedLines);
+            Run("moves selected lines up and down", MovesSelectedLines);
+            Run("deletes complete selected lines", DeletesSelectedLines);
+            Run("reindents multiline pasted code", ReindentsMultilinePastedCode);
             Run("round-trips UTF-8 documents", RoundTripsUtf8Documents);
             Run("accepts the optional UTF-8 BOM", AcceptsUtf8Bom);
             Run("rejects invalid UTF-8 documents", RejectsInvalidUtf8Documents);
@@ -267,6 +271,52 @@ namespace DDFLanguageEditor.Tests
             Equal("// a\n// b", Apply("a\nb", shortLines));
             Equal(3, shortLines.SelectionStart);
             Equal(6, shortLines.SelectionLength);
+        }
+
+        private static void DuplicatesSelectedLines()
+        {
+            const string source = "one\ntwo\nthree";
+            EditorEdit line = EditorEditing.CreateDuplicateLinesEdit(source, 5, 0);
+            Equal("one\ntwo\ntwo\nthree", Apply(source, line));
+            Equal(9, line.SelectionStart);
+
+            EditorEdit block = EditorEditing.CreateDuplicateLinesEdit(source, 0, 7);
+            Equal("one\ntwo\none\ntwo\nthree", Apply(source, block));
+            Equal(8, block.SelectionStart);
+            Equal(7, block.SelectionLength);
+        }
+
+        private static void MovesSelectedLines()
+        {
+            const string source = "one\ntwo\nthree";
+            EditorEdit up = EditorEditing.CreateMoveLinesEdit(source, 4, 3, true);
+            string movedUp = Apply(source, up);
+            Equal("two\none\nthree", movedUp);
+            Equal(0, up.SelectionStart);
+            Equal<EditorEdit>(null, EditorEditing.CreateMoveLinesEdit(movedUp, 0, 3, true));
+
+            EditorEdit down = EditorEditing.CreateMoveLinesEdit(movedUp, 0, 3, false);
+            Equal(source, Apply(movedUp, down));
+            Equal(4, down.SelectionStart);
+        }
+
+        private static void DeletesSelectedLines()
+        {
+            const string source = "one\ntwo\nthree";
+            Equal("one\nthree", Apply(source, EditorEditing.CreateDeleteLinesEdit(source, 5, 0)));
+            Equal("one\ntwo", Apply(source, EditorEditing.CreateDeleteLinesEdit(source, 8, 5)));
+            Equal(string.Empty, Apply("only", EditorEditing.CreateDeleteLinesEdit("only", 2, 0)));
+        }
+
+        private static void ReindentsMultilinePastedCode()
+        {
+            const string target = "main()\n{\n    \n}";
+            const string clipboard = "    if(true)\r\n    {\r\n        ret 1;\r\n    }";
+            EditorEdit paste = EditorEditing.CreatePasteEdit(target, 13, 0, clipboard);
+            Equal("main()\n{\n    if(true)\n    {\n        ret 1;\n    }\n}", Apply(target, paste));
+
+            EditorEdit inline = EditorEditing.CreatePasteEdit("    value", 9, 0, "one\ntwo");
+            Equal("    valueone\n    two", Apply("    value", inline));
         }
 
         private static void RoundTripsUtf8Documents()

@@ -232,6 +232,99 @@ namespace DDFLanguageEditor.Core
             return new EditorEdit(rangeStart, rangeEnd - rangeStart, replacement.ToString(), mappedStart, Math.Max(0, mappedEnd - mappedStart));
         }
 
+        public static EditorEdit CreateDuplicateLinesEdit(string text, int selectionStart, int selectionLength)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            LineRange range = GetSelectedLineRange(text, selectionStart, selectionLength);
+            string block = text.Substring(range.Start, range.End - range.Start);
+            string insertion = "\n" + block;
+            int relativeStart = selectionStart - range.Start;
+            return new EditorEdit(range.End, 0, insertion,
+                range.End + 1 + relativeStart, selectionLength);
+        }
+
+        public static EditorEdit CreateMoveLinesEdit(
+            string text,
+            int selectionStart,
+            int selectionLength,
+            bool moveUp)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            LineRange range = GetSelectedLineRange(text, selectionStart, selectionLength);
+            string block = text.Substring(range.Start, range.End - range.Start);
+            if (moveUp)
+            {
+                if (range.Start == 0) return null;
+                int previousStart = FindLineStart(text, range.Start - 1);
+                string previous = text.Substring(previousStart, range.Start - previousStart - 1);
+                int shift = range.Start - previousStart;
+                return new EditorEdit(previousStart, range.End - previousStart,
+                    block + "\n" + previous,
+                    selectionStart - shift,
+                    selectionLength);
+            }
+
+            if (range.End >= text.Length) return null;
+            int nextStart = range.End + 1;
+            int nextEnd = FindLineEnd(text, nextStart);
+            string next = text.Substring(nextStart, nextEnd - nextStart);
+            int downwardShift = next.Length + 1;
+            return new EditorEdit(range.Start, nextEnd - range.Start,
+                next + "\n" + block,
+                selectionStart + downwardShift,
+                selectionLength);
+        }
+
+        public static EditorEdit CreateDeleteLinesEdit(string text, int selectionStart, int selectionLength)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            LineRange range = GetSelectedLineRange(text, selectionStart, selectionLength);
+            if (range.End < text.Length)
+                return new EditorEdit(range.Start, range.End - range.Start + 1, string.Empty, range.Start, 0);
+            if (range.Start > 0)
+                return new EditorEdit(range.Start - 1, range.End - range.Start + 1, string.Empty, range.Start - 1, 0);
+            return new EditorEdit(0, range.End, string.Empty, 0, 0);
+        }
+
+        public static EditorEdit CreatePasteEdit(
+            string text,
+            int selectionStart,
+            int selectionLength,
+            string clipboardText)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            string normalized = (clipboardText ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
+            if (normalized.IndexOf('\n') < 0)
+                return new EditorEdit(selectionStart, selectionLength, normalized, selectionStart + normalized.Length, 0);
+
+            string[] lines = normalized.Split('\n');
+            int commonIndentation = lines
+                .Where(line => line.Trim().Length > 0)
+                .Select(line => GetLeadingWhitespace(line).Length)
+                .DefaultIfEmpty(0)
+                .Min();
+            int lineStart = FindLineStart(text, selectionStart);
+            string prefix = text.Substring(lineStart, selectionStart - lineStart);
+            string targetIndentation = prefix.All(character => character == ' ' || character == '\t')
+                ? prefix
+                : GetLeadingWhitespace(prefix);
+            var replacement = new StringBuilder();
+            for (int index = 0; index < lines.Length; index++)
+            {
+                if (index > 0)
+                {
+                    replacement.Append('\n');
+                    if (lines[index].Length > 0) replacement.Append(targetIndentation);
+                }
+                string line = lines[index];
+                int remove = Math.Min(commonIndentation, GetLeadingWhitespace(line).Length);
+                replacement.Append(line.Substring(remove));
+            }
+
+            return new EditorEdit(selectionStart, selectionLength, replacement.ToString(),
+                selectionStart + replacement.Length, 0);
+        }
+
         private static int MapPositionAfterLineEdits(int position, IList<LineDelta> edits)
         {
             int mapped = position;
@@ -261,6 +354,14 @@ namespace DDFLanguageEditor.Core
                 case '\'': return '\'';
                 default: return '\0';
             }
+        }
+
+        private static LineRange GetSelectedLineRange(string text, int selectionStart, int selectionLength)
+        {
+            int selectionEnd = selectionStart + selectionLength;
+            int effectiveEnd = selectionEnd;
+            if (selectionLength > 0 && effectiveEnd > selectionStart && text[effectiveEnd - 1] == '\n') effectiveEnd--;
+            return new LineRange(FindLineStart(text, selectionStart), FindLineEnd(text, effectiveEnd));
         }
 
         private static EditorEdit CreateBlockIndentEdit(
@@ -448,6 +549,18 @@ namespace DDFLanguageEditor.Core
 
             public int Position { get; }
             public int Delta { get; }
+        }
+
+        private sealed class LineRange
+        {
+            public LineRange(int start, int end)
+            {
+                Start = start;
+                End = end;
+            }
+
+            public int Start { get; }
+            public int End { get; }
         }
     }
 }

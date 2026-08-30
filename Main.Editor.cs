@@ -36,6 +36,30 @@ namespace DDF___Program_Language_Editor
                 return true;
             }
 
+            if (keyData == (Keys.Control | Keys.D))
+            {
+                duplicateLines();
+                return true;
+            }
+
+            if (keyData == (Keys.Alt | Keys.Up))
+            {
+                moveLines(true);
+                return true;
+            }
+
+            if (keyData == (Keys.Alt | Keys.Down))
+            {
+                moveLines(false);
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Shift | Keys.K))
+            {
+                deleteLines();
+                return true;
+            }
+
             return base.ProcessCmdKey(ref message, keyData);
         }
 
@@ -379,6 +403,38 @@ namespace DDF___Program_Language_Editor
         {
             leaveFoldedView();
             applyEdit(EditorEditing.CreateToggleLineCommentEdit(
+                richTextBoxMainEditor.Text,
+                richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength));
+            richTextBoxMainEditor.Focus();
+        }
+
+        private void duplicateLines()
+        {
+            leaveFoldedView();
+            applyEdit(EditorEditing.CreateDuplicateLinesEdit(
+                richTextBoxMainEditor.Text,
+                richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength));
+            richTextBoxMainEditor.Focus();
+        }
+
+        private void moveLines(bool moveUp)
+        {
+            leaveFoldedView();
+            EditorEdit edit = EditorEditing.CreateMoveLinesEdit(
+                richTextBoxMainEditor.Text,
+                richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength,
+                moveUp);
+            if (edit != null) applyEdit(edit);
+            richTextBoxMainEditor.Focus();
+        }
+
+        private void deleteLines()
+        {
+            leaveFoldedView();
+            applyEdit(EditorEditing.CreateDeleteLinesEdit(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
                 richTextBoxMainEditor.SelectionLength));

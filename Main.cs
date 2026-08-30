@@ -406,7 +406,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.1.0 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.1.1 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -433,6 +433,10 @@ namespace DDF___Program_Language_Editor
                 goToDefinitionMenuItem.Enabled = false;
                 renameSymbolMenuItem.Enabled = false;
                 toggleLineCommentMenuItem.Enabled = false;
+                duplicateLinesMenuItem.Enabled = false;
+                moveLinesUpMenuItem.Enabled = false;
+                moveLinesDownMenuItem.Enabled = false;
+                deleteLinesMenuItem.Enabled = false;
                 return;
             }
 
@@ -448,6 +452,12 @@ namespace DDF___Program_Language_Editor
             goToDefinitionMenuItem.Enabled = occurrence != null || getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
             renameSymbolMenuItem.Enabled = occurrence != null;
             toggleLineCommentMenuItem.Enabled = true;
+            duplicateLinesMenuItem.Enabled = true;
+            moveLinesUpMenuItem.Enabled = EditorEditing.CreateMoveLinesEdit(
+                richTextBoxMainEditor.Text, richTextBoxMainEditor.SelectionStart, richTextBoxMainEditor.SelectionLength, true) != null;
+            moveLinesDownMenuItem.Enabled = EditorEditing.CreateMoveLinesEdit(
+                richTextBoxMainEditor.Text, richTextBoxMainEditor.SelectionStart, richTextBoxMainEditor.SelectionLength, false) != null;
+            deleteLinesMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
         }
 
         private static bool clipboardContainsText()
@@ -506,7 +516,12 @@ namespace DDF___Program_Language_Editor
         private void pasteTextFromClipboard()
         {
             if (richTextBoxFoldedView.Visible) return;
-            if (tryGetClipboardText(out string text)) richTextBoxMainEditor.SelectedText = text;
+            if (tryGetClipboardText(out string text))
+                applyEdit(EditorEditing.CreatePasteEdit(
+                    richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart,
+                    richTextBoxMainEditor.SelectionLength,
+                    text));
         }
 
         private void undoMenuItem_Click(object sender, EventArgs e)

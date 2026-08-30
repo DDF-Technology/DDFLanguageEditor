@@ -29,6 +29,10 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(createToolbarButton("toolbarCopyButton", "\uE8C8", "Copia (Ctrl+C)", copyMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarPasteButton", "\uE77F", "Incolla (Ctrl+V)", pasteMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarCommentButton", "\uE8C1", "Commenta/decommenta (Ctrl+/)", toggleLineCommentMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarDuplicateLinesButton", "\uE8C8", "Duplica righe (Ctrl+D)", duplicateLinesMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarMoveLinesUpButton", "\uE74A", "Sposta righe su (Alt+Su)", moveLinesUpMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarMoveLinesDownButton", "\uE74B", "Sposta righe giù (Alt+Giù)", moveLinesDownMenuItem_Click));
+            toolStripMain.Items.Add(createToolbarButton("toolbarDeleteLinesButton", "\uE74D", "Elimina righe (Ctrl+Shift+K)", deleteLinesMenuItem_Click));
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(createToolbarButton("toolbarFindButton", "\uE721", "Trova (Ctrl+F)", findMenuItem_Click));
             toolStripMain.Items.Add(createToolbarButton("toolbarFormatButton", "\uE8D2", "Formatta documento (Ctrl+Shift+F)", formatDocumentMenuItem_Click));

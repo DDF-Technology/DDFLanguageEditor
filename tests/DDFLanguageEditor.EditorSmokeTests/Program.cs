@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 29 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 33 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -159,6 +159,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "copyMenuItem", Keys.Control | Keys.C },
                     { "pasteMenuItem", Keys.Control | Keys.V },
                     { "toggleLineCommentMenuItem", Keys.Control | Keys.OemQuestion },
+                    { "duplicateLinesMenuItem", Keys.Control | Keys.D },
+                    { "moveLinesUpMenuItem", Keys.Alt | Keys.Up },
+                    { "moveLinesDownMenuItem", Keys.Alt | Keys.Down },
+                    { "deleteLinesMenuItem", Keys.Control | Keys.Shift | Keys.K },
                     { "selectAllMenuItem", Keys.Control | Keys.A },
                     { "findMenuItem", Keys.Control | Keys.F },
                     { "replaceMenuItem", Keys.Control | Keys.H },
@@ -179,6 +183,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "openWorkspaceMenuItem", "closeWorkspaceMenuItem",
                     "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem", "toggleLineCommentMenuItem",
+                    "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
                     "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
@@ -198,7 +203,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 25 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 29 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -215,7 +220,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1061,12 +1066,40 @@ namespace DDFLanguageEditor.EditorSmokeTests
             string[] expectedItems =
             {
                 "contextUndoItem", "contextRedoItem", "contextCutItem", "contextCopyItem",
-                "contextPasteItem", "contextSelectAllItem", "contextFindItem", "contextRenameItem", "contextCommentItem"
+                "contextPasteItem", "contextSelectAllItem", "contextFindItem", "contextRenameItem", "contextCommentItem",
+                "contextDuplicateLinesItem", "contextMoveLinesUpItem", "contextMoveLinesDownItem", "contextDeleteLinesItem"
             };
             foreach (string name in expectedItems)
                 Require(contextMenu.Items.OfType<ToolStripMenuItem>().Any(item => item.Name == name),
                     "Comando mancante nel menu contestuale: " + name);
             Require(IsLight(contextMenu.BackColor), "Il menu contestuale non usa il tema chiaro.");
+
+            const string lines = "one\ntwo\nthree";
+            editor.Text = lines;
+            editor.Select(4, 0);
+            InvokeProcessCmdKey(form, Keys.Control | Keys.D);
+            Require(editor.Text == "one\ntwo\ntwo\nthree", "Ctrl+D non duplica la riga corrente.");
+            editor.Undo();
+            editor.Select(4, 3);
+            InvokeProcessCmdKey(form, Keys.Alt | Keys.Up);
+            Require(editor.Text == "two\none\nthree" && editor.SelectedText == "two",
+                "Alt+Su non sposta la riga conservando la selezione.");
+            editor.Undo();
+            editor.Select(4, 3);
+            FindToolbarButton(form, "toolbarMoveLinesDownButton").PerformClick();
+            Require(editor.Text == "one\nthree\ntwo", "La toolbar non sposta la riga verso il basso.");
+            editor.Undo();
+            editor.Select(4, 0);
+            InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.K);
+            Require(editor.Text == "one\nthree", "Ctrl+Shift+K non elimina la riga completa.");
+            editor.Undo();
+
+            editor.Text = "main()\n{\n    \n}";
+            editor.Select(13, 0);
+            Clipboard.SetText("    if(true)\r\n    {\r\n        ret 1;\r\n    }");
+            InvokeProcessCmdKey(form, Keys.Control | Keys.V);
+            Require(editor.Text == "main()\n{\n    if(true)\n    {\n        ret 1;\n    }\n}",
+                "L'incolla multilinea non adatta il rientro al blocco corrente.");
             Console.WriteLine("PASS coppie automatiche, Invio/Backspace, commenti e menu contestuale");
         }
 
@@ -1258,7 +1291,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton", "toolbarSaveAllButton", "toolbarCloseDocumentButton",
                 "toolbarUndoButton", "toolbarRedoButton", "toolbarCutButton",
-                "toolbarCopyButton", "toolbarPasteButton", "toolbarCommentButton", "toolbarFindButton",
+                "toolbarCopyButton", "toolbarPasteButton", "toolbarCommentButton",
+                "toolbarDuplicateLinesButton", "toolbarMoveLinesUpButton", "toolbarMoveLinesDownButton", "toolbarDeleteLinesButton",
+                "toolbarFindButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
             foreach (string name in expected)
@@ -1286,7 +1321,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 17 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 21 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)

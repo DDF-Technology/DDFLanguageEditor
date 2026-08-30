@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1.1 - 2026-08-30
+
+- duplicate the current lines with `Ctrl+D` while retaining the corresponding caret or selection;
+- move complete selected lines with `Alt+Up` and `Alt+Down` as one native Undo operation;
+- delete complete lines with `Ctrl+Shift+K`, including correct first/last-line newline handling;
+- normalize and reindent multiline clipboard text relative to the current code block;
+- expose all line operations in Edit, the editor context menu and the main icon toolbar;
+- expand regression coverage to 94 Core tests, 21 toolbar commands, 33 menu commands and 29 shortcuts;
+
 ## 0.9.1.0 - 2026-08-30
 
 - auto-close parentheses, brackets, braces, quotes and apostrophes while avoiding duplicate closing characters;
