@@ -1,4 +1,4 @@
-# Beta 0.9.1.1 limitations
+# Beta 0.9.1.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -33,6 +33,7 @@ This release is intended for interface and language-design evaluation only.
 - document-scoped breakpoints with remapping and a navigable status palette;
 - automatic pairs, contextual block editing, line comments and an editor context menu;
 - duplicate/move/delete line commands and context-aware multiline paste indentation;
+- progressive syntax selection with per-tab shrink history and matching-delimiter navigation;
 
 ## Not implemented
 

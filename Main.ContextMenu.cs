@@ -11,6 +11,9 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem moveLinesUpMenuItem;
         private ToolStripMenuItem moveLinesDownMenuItem;
         private ToolStripMenuItem deleteLinesMenuItem;
+        private ToolStripMenuItem expandSelectionMenuItem;
+        private ToolStripMenuItem shrinkSelectionMenuItem;
+        private ToolStripMenuItem matchingDelimiterMenuItem;
         private ContextMenuStrip editorContextMenu;
         private ToolStripMenuItem contextUndoItem;
         private ToolStripMenuItem contextRedoItem;
@@ -25,6 +28,9 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem contextMoveLinesUpItem;
         private ToolStripMenuItem contextMoveLinesDownItem;
         private ToolStripMenuItem contextDeleteLinesItem;
+        private ToolStripMenuItem contextExpandSelectionItem;
+        private ToolStripMenuItem contextShrinkSelectionItem;
+        private ToolStripMenuItem contextMatchingDelimiterItem;
 
         private void initializeEditingExperience()
         {
@@ -45,6 +51,13 @@ namespace DDF___Program_Language_Editor
             editMenuItem.DropDownItems.Insert(commentIndex + 2, moveLinesUpMenuItem);
             editMenuItem.DropDownItems.Insert(commentIndex + 3, moveLinesDownMenuItem);
             editMenuItem.DropDownItems.Insert(commentIndex + 4, deleteLinesMenuItem);
+            expandSelectionMenuItem = createEditingMenuItem("expandSelectionMenuItem", "Espandi selezione sintattica", Keys.Shift | Keys.Alt | Keys.Right, expandSelectionMenuItem_Click);
+            shrinkSelectionMenuItem = createEditingMenuItem("shrinkSelectionMenuItem", "Riduci selezione sintattica", Keys.Shift | Keys.Alt | Keys.Left, shrinkSelectionMenuItem_Click);
+            matchingDelimiterMenuItem = createEditingMenuItem("matchingDelimiterMenuItem", "Vai al delimitatore corrispondente", Keys.Control | Keys.Shift | Keys.OemPipe, matchingDelimiterMenuItem_Click);
+            editMenuItem.DropDownItems.Insert(commentIndex + 5, new ToolStripSeparator());
+            editMenuItem.DropDownItems.Insert(commentIndex + 6, expandSelectionMenuItem);
+            editMenuItem.DropDownItems.Insert(commentIndex + 7, shrinkSelectionMenuItem);
+            editMenuItem.DropDownItems.Insert(commentIndex + 8, matchingDelimiterMenuItem);
 
             editorContextMenu = new ContextMenuStrip
             {
@@ -66,13 +79,17 @@ namespace DDF___Program_Language_Editor
             contextMoveLinesUpItem = createContextItem("contextMoveLinesUpItem", "Sposta righe su", moveLinesUpMenuItem_Click);
             contextMoveLinesDownItem = createContextItem("contextMoveLinesDownItem", "Sposta righe giù", moveLinesDownMenuItem_Click);
             contextDeleteLinesItem = createContextItem("contextDeleteLinesItem", "Elimina righe", deleteLinesMenuItem_Click);
+            contextExpandSelectionItem = createContextItem("contextExpandSelectionItem", "Espandi selezione sintattica", expandSelectionMenuItem_Click);
+            contextShrinkSelectionItem = createContextItem("contextShrinkSelectionItem", "Riduci selezione sintattica", shrinkSelectionMenuItem_Click);
+            contextMatchingDelimiterItem = createContextItem("contextMatchingDelimiterItem", "Vai al delimitatore corrispondente", matchingDelimiterMenuItem_Click);
             editorContextMenu.Items.AddRange(new ToolStripItem[]
             {
                 contextUndoItem, contextRedoItem, new ToolStripSeparator(),
                 contextCutItem, contextCopyItem, contextPasteItem, contextSelectAllItem,
                 new ToolStripSeparator(), contextFindItem, contextRenameItem, contextCommentItem,
                 new ToolStripSeparator(), contextDuplicateLinesItem, contextMoveLinesUpItem,
-                contextMoveLinesDownItem, contextDeleteLinesItem
+                contextMoveLinesDownItem, contextDeleteLinesItem, new ToolStripSeparator(),
+                contextExpandSelectionItem, contextShrinkSelectionItem, contextMatchingDelimiterItem
             });
             editorContextMenu.Opening += editorContextMenu_Opening;
             richTextBoxMainEditor.ContextMenuStrip = editorContextMenu;
@@ -113,6 +130,9 @@ namespace DDF___Program_Language_Editor
             contextMoveLinesUpItem.Enabled = moveLinesUpMenuItem.Enabled;
             contextMoveLinesDownItem.Enabled = moveLinesDownMenuItem.Enabled;
             contextDeleteLinesItem.Enabled = deleteLinesMenuItem.Enabled;
+            contextExpandSelectionItem.Enabled = expandSelectionMenuItem.Enabled;
+            contextShrinkSelectionItem.Enabled = shrinkSelectionMenuItem.Enabled;
+            contextMatchingDelimiterItem.Enabled = matchingDelimiterMenuItem.Enabled;
         }
 
         private void toggleLineCommentMenuItem_Click(object sender, EventArgs e)
@@ -124,5 +144,8 @@ namespace DDF___Program_Language_Editor
         private void moveLinesUpMenuItem_Click(object sender, EventArgs e) => moveLines(true);
         private void moveLinesDownMenuItem_Click(object sender, EventArgs e) => moveLines(false);
         private void deleteLinesMenuItem_Click(object sender, EventArgs e) => deleteLines();
+        private void expandSelectionMenuItem_Click(object sender, EventArgs e) => expandSyntacticSelection();
+        private void shrinkSelectionMenuItem_Click(object sender, EventArgs e) => shrinkSyntacticSelection();
+        private void matchingDelimiterMenuItem_Click(object sender, EventArgs e) => goToMatchingDelimiter();
     }
 }

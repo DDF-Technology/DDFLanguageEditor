@@ -39,6 +39,9 @@ recenti dell'utente non vengono salvate durante il test.
 | Formatta documento | normalizza il sorgente, conserva il cursore ed è annullabile in un passo |
 | Vai alla definizione | seleziona la dichiarazione risolta dal riferimento corrente |
 | Rinomina simbolo | modifica solo dichiarazione e riferimenti nello stesso ambito ed è annullabile |
+| Espandi selezione sintattica | attraversa token, espressione, istruzione, blocco, funzione e documento |
+| Riduci selezione sintattica | ripercorre i livelli precedenti usando la cronologia della scheda attiva |
+| Vai al delimitatore corrispondente | salta tra parentesi, quadre e graffe ignorando stringhe e commenti |
 
 Lo smoke conserva e ripristina il contenuto precedente degli appunti Windows.
 Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu e che
@@ -82,9 +85,8 @@ palette.
 
 ## Barra strumenti
 
-La toolbar espone 14 pulsanti a icona con tooltip per Nuovo, Apri, Salva,
-Annulla, Ripristina, Taglia, Copia, Incolla, Trova, Formatta, folding, Run e
-Stop, oltre al breakpoint. Lo smoke verifica presenza, ordine funzionale,
+La toolbar espone 24 pulsanti a icona con tooltip, comprese selezione sintattica,
+riduzione e navigazione tra delimitatori. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette
@@ -96,7 +98,7 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 22 scorciatoie dichiarate, incluse `F12` per la definizione,
+Lo smoke verifica le 32 scorciatoie dichiarate, incluse `F12` per la definizione,
 `F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell

@@ -94,6 +94,10 @@ namespace DDFLanguageEditor.Tests
             Run("ignores delimiters in comments and strings", IgnoresDelimitersInCommentsAndStrings);
             Run("handles unmatched delimiters", HandlesUnmatchedDelimiters);
             Run("handles stale delimiter tokens safely", HandlesStaleDelimiterTokensSafely);
+            Run("expands selections through syntax levels", ExpandsSelectionsThroughSyntaxLevels);
+            Run("expands protected tokens without reading nested delimiters", ExpandsProtectedTokensSafely);
+            Run("navigates between matching delimiters", NavigatesBetweenMatchingDelimiters);
+            Run("handles incomplete syntax selection safely", HandlesIncompleteSyntaxSelectionSafely);
             Run("derives multiline folding ranges", DerivesMultilineFoldingRanges);
             Run("handles incomplete folding trees", HandlesIncompleteFoldingTrees);
             Run("creates a source-preserving fold projection", CreatesSourcePreservingFoldProjection);
@@ -1069,6 +1073,53 @@ namespace DDFLanguageEditor.Tests
             IReadOnlyList<DdfDelimiterMatch> pairs = DdfDelimiterMatcher.FindPairs("main", staleResult);
             Equal(0, pairs.Count);
             Equal(null, DdfDelimiterMatcher.FindMatch("main", 4, staleResult));
+        }
+
+        private static void ExpandsSelectionsThroughSyntaxLevels()
+        {
+            const string source = "@@'Console'\nmain() out int { ret value + 1; }";
+            int caret = source.IndexOf("value", StringComparison.Ordinal) + 2;
+            DdfTextRange token = DdfSelectionService.GetNextExpansion(source, caret, 0);
+            Equal("value", source.Substring(token.Start, token.Length));
+            DdfTextRange expression = DdfSelectionService.GetNextExpansion(source, token.Start, token.Length);
+            Equal("value + 1", source.Substring(expression.Start, expression.Length));
+            DdfTextRange statement = DdfSelectionService.GetNextExpansion(source, expression.Start, expression.Length);
+            Equal("ret value + 1;", source.Substring(statement.Start, statement.Length));
+            DdfTextRange block = DdfSelectionService.GetNextExpansion(source, statement.Start, statement.Length);
+            Equal("{ ret value + 1; }", source.Substring(block.Start, block.Length));
+            DdfTextRange function = DdfSelectionService.GetNextExpansion(source, block.Start, block.Length);
+            Equal("main() out int { ret value + 1; }", source.Substring(function.Start, function.Length));
+            DdfTextRange document = DdfSelectionService.GetNextExpansion(source, function.Start, function.Length);
+            Equal(source, source.Substring(document.Start, document.Length));
+            Equal(null, DdfSelectionService.GetNextExpansion(source, document.Start, document.Length));
+        }
+
+        private static void ExpandsProtectedTokensSafely()
+        {
+            const string source = "main() out string { string text << \"(not a pair)\"; ret text; }";
+            int caret = source.IndexOf("not", StringComparison.Ordinal);
+            DdfTextRange range = DdfSelectionService.GetNextExpansion(source, caret, 0);
+            Equal("\"(not a pair)\"", source.Substring(range.Start, range.Length));
+            Equal(null, DdfDelimiterNavigation.GetMatchingPosition(source, source.IndexOf("\"(", StringComparison.Ordinal) + 1));
+        }
+
+        private static void NavigatesBetweenMatchingDelimiters()
+        {
+            const string source = "main() out int { ret (1 + 2); }";
+            int open = source.IndexOf('(', source.IndexOf("ret", StringComparison.Ordinal));
+            int close = source.IndexOf(')', open);
+            Equal(close, DdfDelimiterNavigation.GetMatchingPosition(source, open));
+            Equal(close, DdfDelimiterNavigation.GetMatchingPosition(source, open + 1));
+            Equal(open, DdfDelimiterNavigation.GetMatchingPosition(source, close));
+            Equal(open, DdfDelimiterNavigation.GetMatchingPosition(source, close + 1));
+        }
+
+        private static void HandlesIncompleteSyntaxSelectionSafely()
+        {
+            const string source = "main() out int { if(value > 0) { ret value;";
+            int caret = source.LastIndexOf("value", StringComparison.Ordinal);
+            DdfTextRange range = DdfSelectionService.GetNextExpansion(source, caret, 0);
+            Equal("value", source.Substring(range.Start, range.Length));
         }
 
         private static void DerivesMultilineFoldingRanges()

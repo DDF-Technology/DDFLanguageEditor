@@ -406,7 +406,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.1.1 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.1.2 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -437,6 +437,9 @@ namespace DDF___Program_Language_Editor
                 moveLinesUpMenuItem.Enabled = false;
                 moveLinesDownMenuItem.Enabled = false;
                 deleteLinesMenuItem.Enabled = false;
+                expandSelectionMenuItem.Enabled = false;
+                shrinkSelectionMenuItem.Enabled = false;
+                matchingDelimiterMenuItem.Enabled = false;
                 return;
             }
 
@@ -458,6 +461,7 @@ namespace DDF___Program_Language_Editor
             moveLinesDownMenuItem.Enabled = EditorEditing.CreateMoveLinesEdit(
                 richTextBoxMainEditor.Text, richTextBoxMainEditor.SelectionStart, richTextBoxMainEditor.SelectionLength, false) != null;
             deleteLinesMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+            updateEditingSelectionCommandState();
         }
 
         private static bool clipboardContainsText()

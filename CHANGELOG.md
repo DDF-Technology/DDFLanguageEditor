@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1.2 - 2026-08-30
+
+- add AST-aware progressive selection from token through expression, statement, block, function and document;
+- retain an independent shrink-selection history for each open document tab;
+- navigate between matching parentheses, brackets and braces while ignoring strings and comments;
+- expose the three navigation commands in Edit, the context menu, keyboard shortcuts and the icon toolbar;
+- expand regression coverage to 98 Core tests, 24 toolbar commands, 36 menu commands and 32 shortcuts;
+
 ## 0.9.1.1 - 2026-08-30
 
 - duplicate the current lines with `Ctrl+D` while retaining the corresponding caret or selection;

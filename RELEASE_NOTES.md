@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.1.1
+# DDFLanguageEditor 0.9.1.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.1.2 adds progressive syntax selection with `Shift+Alt+Right`:
+identifier, expression, statement, block, function and whole document. The
+reverse command (`Shift+Alt+Left`) uses an independent history for every open
+tab. `Ctrl+Shift+\\` moves between matching parentheses, brackets and braces,
+ignoring delimiters inside strings and comments. All three actions are exposed
+in Edit, the editor context menu and the icon toolbar.
 
 Version 0.9.1.1 adds complete-line operations to the daily editing workflow.
 `Ctrl+D` duplicates, `Alt+Up` and `Alt+Down` move, and `Ctrl+Shift+K` deletes

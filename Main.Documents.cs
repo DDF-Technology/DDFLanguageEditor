@@ -375,6 +375,7 @@ namespace DDF___Program_Language_Editor
             public OpenDocumentBuffer Buffer { get; }
             public RichTextBox Editor { get; }
             public TabPage Tab { get; }
+            public Stack<Tuple<int, int>> SelectionHistory { get; } = new Stack<Tuple<int, int>>();
         }
     }
 }

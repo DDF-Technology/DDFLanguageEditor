@@ -11,6 +11,24 @@ namespace DDF___Program_Language_Editor
     {
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            if (keyData == (Keys.Shift | Keys.Alt | Keys.Right))
+            {
+                expandSyntacticSelection();
+                return true;
+            }
+
+            if (keyData == (Keys.Shift | Keys.Alt | Keys.Left))
+            {
+                shrinkSyntacticSelection();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Shift | Keys.OemPipe))
+            {
+                goToMatchingDelimiter();
+                return true;
+            }
+
             if (keyData == (Keys.Control | Keys.C))
             {
                 copySelectionToClipboard();
@@ -72,6 +90,7 @@ namespace DDF___Program_Language_Editor
 
             var changedEditor = sender as RichTextBox;
             DocumentView changedView = findDocumentView(changedEditor);
+            changedView?.SelectionHistory.Clear();
 
             if (!isReplacingDocument)
             {
@@ -467,6 +486,11 @@ namespace DDF___Program_Language_Editor
             if (isApplyingHighlighting || isUpdatingDelimiterHighlight)
             {
                 return;
+            }
+
+            if (!isApplyingSyntacticSelection)
+            {
+                findDocumentView(sender as RichTextBox)?.SelectionHistory.Clear();
             }
 
             updateCaretPosition();

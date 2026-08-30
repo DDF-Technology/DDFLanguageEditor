@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 33 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 36 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -85,6 +85,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertMouseGesturePreservesNativeSelection(form, editor);
                 AssertClosingBraceAlignment(form, editor);
                 AssertCodingGesturesAndContextMenu(form, editor);
+                AssertSyntacticSelectionAndDelimiterNavigation(form, editor);
                 AssertColoredFoldFromFunctionHeader(form, editor, foldedView, lineNumbers);
                 AssertMultipleIndependentFolds(form, editor, foldedView);
                 AssertWholeLibraryCutIsClean(editor, diagnostics);
@@ -163,6 +164,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "moveLinesUpMenuItem", Keys.Alt | Keys.Up },
                     { "moveLinesDownMenuItem", Keys.Alt | Keys.Down },
                     { "deleteLinesMenuItem", Keys.Control | Keys.Shift | Keys.K },
+                    { "expandSelectionMenuItem", Keys.Shift | Keys.Alt | Keys.Right },
+                    { "shrinkSelectionMenuItem", Keys.Shift | Keys.Alt | Keys.Left },
+                    { "matchingDelimiterMenuItem", Keys.Control | Keys.Shift | Keys.OemPipe },
                     { "selectAllMenuItem", Keys.Control | Keys.A },
                     { "findMenuItem", Keys.Control | Keys.F },
                     { "replaceMenuItem", Keys.Control | Keys.H },
@@ -184,6 +188,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem", "toggleLineCommentMenuItem",
                     "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
+                    "expandSelectionMenuItem", "shrinkSelectionMenuItem", "matchingDelimiterMenuItem",
                     "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
@@ -203,7 +208,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 29 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 32 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -220,7 +225,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.1.2") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1067,7 +1072,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 "contextUndoItem", "contextRedoItem", "contextCutItem", "contextCopyItem",
                 "contextPasteItem", "contextSelectAllItem", "contextFindItem", "contextRenameItem", "contextCommentItem",
-                "contextDuplicateLinesItem", "contextMoveLinesUpItem", "contextMoveLinesDownItem", "contextDeleteLinesItem"
+                "contextDuplicateLinesItem", "contextMoveLinesUpItem", "contextMoveLinesDownItem", "contextDeleteLinesItem",
+                "contextExpandSelectionItem", "contextShrinkSelectionItem", "contextMatchingDelimiterItem"
             };
             foreach (string name in expectedItems)
                 Require(contextMenu.Items.OfType<ToolStripMenuItem>().Any(item => item.Name == name),
@@ -1101,6 +1107,52 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(editor.Text == "main()\n{\n    if(true)\n    {\n        ret 1;\n    }\n}",
                 "L'incolla multilinea non adatta il rientro al blocco corrente.");
             Console.WriteLine("PASS coppie automatiche, Invio/Backspace, commenti e menu contestuale");
+        }
+
+        private static void AssertSyntacticSelectionAndDelimiterNavigation(MainForm form, RichTextBox editor)
+        {
+            const string source = "@@'Console'\nmain() out int { ret value + 1; }";
+            editor.Text = source;
+            int caret = source.IndexOf("value", StringComparison.Ordinal) + 2;
+            editor.Select(caret, 0);
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Right);
+            Require(editor.SelectedText == "value", "L'espansione non parte dal token sotto il cursore.");
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Right);
+            Require(editor.SelectedText == "value + 1", "L'espansione non raggiunge l'espressione.");
+
+            FindMenuItem(form, "newMenuItem").PerformClick();
+            PumpMessages(80);
+            RichTextBox secondEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Left);
+            Require(secondEditor.SelectionLength == 0,
+                "Una nuova scheda ha ereditato la cronologia di selezione di un altro documento.");
+            TabControl documentTabs = FindControl<TabControl>(form, "documentTabs");
+            documentTabs.SelectedIndex = 0;
+            PumpMessages(100);
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Left);
+            Require(editor.SelectedText == "value",
+                "Il cambio scheda non conserva la cronologia sintattica del documento originale.");
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Right);
+            FindToolbarButton(form, "toolbarExpandSelectionButton").PerformClick();
+            Require(editor.SelectedText == "ret value + 1;", "La toolbar non espande fino all'istruzione.");
+            InvokeProcessCmdKey(form, Keys.Shift | Keys.Alt | Keys.Left);
+            Require(editor.SelectedText == "value + 1", "La riduzione non ripristina il livello precedente.");
+            FindToolbarButton(form, "toolbarShrinkSelectionButton").PerformClick();
+            Require(editor.SelectedText == "value", "La cronologia di riduzione non conserva i livelli selezionati.");
+
+            int open = source.IndexOf('(', source.IndexOf("main", StringComparison.Ordinal));
+            int close = source.IndexOf(')', open);
+            editor.Select(open, 0);
+            FindToolbarButton(form, "toolbarMatchingDelimiterButton").PerformClick();
+            Require(editor.SelectionStart == close && editor.SelectionLength == 0,
+                "La navigazione non raggiunge il delimitatore di chiusura.");
+            InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.OemPipe);
+            Require(editor.SelectionStart == open, "La scorciatoia non ritorna al delimitatore di apertura.");
+            documentTabs.SelectedIndex = 1;
+            PumpMessages(60);
+            FindMenuItem(form, "closeDocumentMenuItem").PerformClick();
+            PumpMessages(80);
+            Console.WriteLine("PASS selezione sintattica progressiva, riduzione e navigazione delimitatori");
         }
 
         private static void AssertWorkspaceNavigation(MainForm form, RichTextBox editor, ListBox diagnostics)
@@ -1293,6 +1345,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarUndoButton", "toolbarRedoButton", "toolbarCutButton",
                 "toolbarCopyButton", "toolbarPasteButton", "toolbarCommentButton",
                 "toolbarDuplicateLinesButton", "toolbarMoveLinesUpButton", "toolbarMoveLinesDownButton", "toolbarDeleteLinesButton",
+                "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarFindButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
@@ -1321,7 +1374,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 21 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 24 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
