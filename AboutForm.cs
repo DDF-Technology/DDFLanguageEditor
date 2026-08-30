@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -35,10 +34,10 @@ namespace DDF___Program_Language_Editor
 
         private void InitializeComponent()
         {
-            BackColor = Color.FromArgb(37, 37, 38);
+            BackColor = AppTheme.Window;
             ClientSize = new Size(620, 500);
             Font = new Font("Segoe UI", 9F);
-            ForeColor = Color.Gainsboro;
+            ForeColor = AppTheme.Text;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -47,15 +46,15 @@ namespace DDF___Program_Language_Editor
             StartPosition = FormStartPosition.CenterScreen;
             Text = "About DDFLanguageEditor";
 
-            System.Drawing.Icon executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            if (executableIcon != null)
+            System.Drawing.Icon applicationIcon = AppIconProvider.LoadIcon();
+            if (applicationIcon != null)
             {
-                Icon = executableIcon;
+                Icon = applicationIcon;
             }
 
             var iconPictureBox = new PictureBox
             {
-                Image = LoadHighResolutionIcon(),
+                Image = AppIconProvider.LoadHighResolutionImage(),
                 Location = new Point(24, 25),
                 Name = "aboutIconPictureBox",
                 Size = new Size(96, 96),
@@ -66,7 +65,7 @@ namespace DDF___Program_Language_Editor
             {
                 AutoSize = true,
                 Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold),
-                ForeColor = Color.White,
+                ForeColor = AppTheme.Text,
                 Location = new Point(140, 24),
                 Name = "aboutProductLabel",
                 Text = "DDFLanguageEditor"
@@ -76,7 +75,7 @@ namespace DDF___Program_Language_Editor
             {
                 AutoSize = true,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(255, 183, 77),
+                ForeColor = AppTheme.Accent,
                 Location = new Point(143, 65),
                 Name = "aboutVersionLabel",
                 Text = "Versione " + GetInformationalVersion() + " Beta"
@@ -85,7 +84,7 @@ namespace DDF___Program_Language_Editor
             var statusLabel = new Label
             {
                 AutoSize = true,
-                ForeColor = Color.Silver,
+                ForeColor = AppTheme.MutedText,
                 Location = new Point(143, 91),
                 Name = "aboutStatusLabel",
                 Text = "Editor e linguaggio in fase beta"
@@ -101,14 +100,14 @@ namespace DDF___Program_Language_Editor
 
             var websiteLink = new LinkLabel
             {
-                ActiveLinkColor = Color.White,
+                ActiveLinkColor = AppTheme.Accent,
                 AutoSize = true,
-                LinkColor = Color.FromArgb(86, 182, 194),
+                LinkColor = AppTheme.Accent,
                 Location = new Point(24, 171),
                 Name = "aboutWebsiteLink",
                 TabStop = true,
                 Text = "www.ddf.technology",
-                VisitedLinkColor = Color.FromArgb(86, 182, 194)
+                VisitedLinkColor = AppTheme.Accent
             };
             websiteLink.LinkClicked += websiteLink_LinkClicked;
 
@@ -123,9 +122,9 @@ namespace DDF___Program_Language_Editor
 
             var licenseTextBox = new TextBox
             {
-                BackColor = Color.FromArgb(30, 30, 30),
+                BackColor = AppTheme.Surface,
                 BorderStyle = BorderStyle.FixedSingle,
-                ForeColor = Color.Gainsboro,
+                ForeColor = AppTheme.Text,
                 Location = new Point(27, 236),
                 Multiline = true,
                 Name = "aboutLicenseTextBox",
@@ -138,10 +137,10 @@ namespace DDF___Program_Language_Editor
 
             var closeButton = new Button
             {
-                BackColor = Color.FromArgb(62, 62, 64),
+                BackColor = AppTheme.Chrome,
                 DialogResult = DialogResult.Cancel,
                 FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.White,
+                ForeColor = AppTheme.Text,
                 Location = new Point(493, 452),
                 Name = "aboutCloseButton",
                 Size = new Size(100, 30),
@@ -161,6 +160,7 @@ namespace DDF___Program_Language_Editor
             Controls.Add(licenseLabel);
             Controls.Add(licenseTextBox);
             Controls.Add(closeButton);
+            AppTheme.ApplyLight(this);
         }
 
         private static string GetInformationalVersion()
@@ -169,19 +169,6 @@ namespace DDF___Program_Language_Editor
                 Assembly.GetExecutingAssembly(),
                 typeof(AssemblyInformationalVersionAttribute)) as AssemblyInformationalVersionAttribute;
             return attribute == null ? Assembly.GetExecutingAssembly().GetName().Version.ToString(3) : attribute.InformationalVersion;
-        }
-
-        private static Image LoadHighResolutionIcon()
-        {
-            using (Stream stream = Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream("DDFLanguageEditor.AppIcon.png"))
-            {
-                if (stream == null) return null;
-                using (Image source = Image.FromStream(stream))
-                {
-                    return new Bitmap(source);
-                }
-            }
         }
 
         private static string GetMitLicenseText()

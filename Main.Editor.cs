@@ -47,9 +47,25 @@ namespace DDF___Program_Language_Editor
             string text = richTextBoxMainEditor.Text;
             DdfLexUpdate update = incrementalLexer.Update(text);
             DdfParseResult parseResult = DdfParser.Parse(text, update.Result);
-            int currentDiagnosticStart = parseResult.Diagnostics.Count == 0
+            DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
+            if (documentSession.IsDirty)
+            {
+                updateWorkspaceDocument(documentSession.CurrentPath, text, parseResult.Root);
+            }
+            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
+                text,
+                parseResult.Root,
+                getWorkspaceTypeRoots());
+            var allDiagnostics = new List<DdfDiagnostic>(parseResult.Diagnostics);
+            foreach (DdfDiagnostic diagnostic in semanticModel.Diagnostics)
+            {
+                if (!isResolvedByWorkspace(diagnostic, text)) allDiagnostics.Add(diagnostic);
+            }
+            allDiagnostics.AddRange(typeCheckResult.Diagnostics);
+            allDiagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
+            int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue
-                : parseResult.Diagnostics[0].Start;
+                : allDiagnostics[0].Start;
             int delimiterFormatStart = activeDelimiterMatch == null
                 ? int.MaxValue
                 : Math.Min(activeDelimiterMatch.OpenStart, activeDelimiterMatch.CloseStart);
@@ -82,7 +98,7 @@ namespace DDF___Program_Language_Editor
                         }
                     }
 
-                    foreach (DdfDiagnostic diagnostic in parseResult.Diagnostics)
+                    foreach (DdfDiagnostic diagnostic in allDiagnostics)
                     {
                         if (diagnostic.End <= formatStart)
                         {
@@ -106,11 +122,13 @@ namespace DDF___Program_Language_Editor
                 isApplyingHighlighting = false;
             }
 
-            updateDiagnostics(parseResult.Diagnostics);
+            updateDiagnostics(allDiagnostics);
             updateOutline(DdfSymbolIndex.Create(parseResult.Root).Symbols);
             lastLexResult = update.Result;
             lastAnalyzedText = text;
             lastParseResult = parseResult;
+            lastSemanticModel = semanticModel;
+            lastTypeCheckResult = typeCheckResult;
             updateFoldingRanges(DdfFoldingRangeProvider.Create(parseResult.Root, text));
             refreshDelimiterHighlight();
         }
@@ -266,6 +284,16 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength));
             }
+        }
+
+        private void richTextBoxMainEditor_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar != '}') return;
+            e.Handled = true;
+            applyEdit(EditorEditing.CreateClosingBraceEdit(
+                richTextBoxMainEditor.Text,
+                richTextBoxMainEditor.SelectionStart,
+                richTextBoxMainEditor.SelectionLength));
         }
 
         private void applyEdit(EditorEdit edit)

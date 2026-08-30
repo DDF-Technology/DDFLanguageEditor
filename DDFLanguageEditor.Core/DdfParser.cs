@@ -390,6 +390,19 @@ namespace DDFLanguageEditor.Core
                     continue;
                 }
 
+                if (TryMatchText("."))
+                {
+                    string memberName = MatchIdentifier(out int memberStart, out int memberLength);
+                    expression = new MemberAccessExpressionSyntax(
+                        expression,
+                        memberName,
+                        memberStart,
+                        memberLength,
+                        expression.Start,
+                        Math.Max(0, PreviousEnd - expression.Start));
+                    continue;
+                }
+
                 break;
             }
 

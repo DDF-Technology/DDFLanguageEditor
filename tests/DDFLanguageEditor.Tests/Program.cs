@@ -23,6 +23,8 @@ namespace DDFLanguageEditor.Tests
             Run("indents and outdents multiline selections", IndentsAndOutdentsSelection);
             Run("indents after an opening block", IndentsAfterOpeningBlock);
             Run("replaces the selection on Enter", ReplacesSelectionOnEnter);
+            Run("aligns a closing brace with its block", AlignsClosingBraceWithItsBlock);
+            Run("ignores braces in comments and strings while aligning", IgnoresProtectedBracesWhileAligning);
             Run("round-trips UTF-8 documents", RoundTripsUtf8Documents);
             Run("accepts the optional UTF-8 BOM", AcceptsUtf8Bom);
             Run("rejects invalid UTF-8 documents", RejectsInvalidUtf8Documents);
@@ -49,6 +51,32 @@ namespace DDFLanguageEditor.Tests
             Run("indexes document symbols hierarchically", IndexesDocumentSymbolsHierarchically);
             Run("keeps exact symbol selection spans", KeepsExactSymbolSelectionSpans);
             Run("indexes incomplete documents safely", IndexesIncompleteDocumentsSafely);
+            Run("resolves symbol declarations and references", ResolvesSymbolDeclarationsAndReferences);
+            Run("keeps shadowed symbols in separate scopes", KeepsShadowedSymbolsInSeparateScopes);
+            Run("renames only the resolved symbol", RenamesOnlyTheResolvedSymbol);
+            Run("reports unresolved and duplicate symbols", ReportsUnresolvedAndDuplicateSymbols);
+            Run("validates rename identifiers and keywords", ValidatesRenameIdentifiersAndKeywords);
+            Run("renames library names without damaging directives", RenamesLibraryNamesWithoutDamagingDirectives);
+            Run("renames structure declarations and type references", RenamesStructureDeclarationsAndTypeReferences);
+            Run("indexes DDF workspace documents recursively", IndexesDdfWorkspaceDocumentsRecursively);
+            Run("updates an in-memory workspace document", UpdatesInMemoryWorkspaceDocument);
+            Run("completes symbols from another workspace document", CompletesSymbolsFromAnotherWorkspaceDocument);
+            Run("accepts semantically valid typed code", AcceptsSemanticallyValidTypedCode);
+            Run("reports incompatible initializers and assignments", ReportsIncompatibleInitializersAndAssignments);
+            Run("reports invalid typed operators and conditions", ReportsInvalidTypedOperatorsAndConditions);
+            Run("checks function arguments and return values", ChecksFunctionArgumentsAndReturnValues);
+            Run("resolves structure members and array element types", ResolvesStructureMembersAndArrayElementTypes);
+            Run("reports unknown types and members", ReportsUnknownTypesAndMembers);
+            Run("checks function signatures from another document", ChecksFunctionSignaturesFromAnotherDocument);
+            Run("reports missing returns and invalid assignment targets", ReportsMissingReturnsAndInvalidAssignmentTargets);
+            Run("type-checks the editor smoke sample", TypeChecksEditorSmokeSample);
+            Run("executes functions control flow and output", ExecutesFunctionsControlFlowAndOutput);
+            Run("executes arrays and structure members", ExecutesArraysAndStructureMembers);
+            Run("stops infinite execution at the instruction limit", StopsInfiniteExecutionAtInstructionLimit);
+            Run("honors runtime cancellation", HonorsRuntimeCancellation);
+            Run("reports runtime failures with source positions", ReportsRuntimeFailuresWithSourcePositions);
+            Run("executes the minimal standard library with input", ExecutesMinimalStandardLibraryWithInput);
+            Run("reports invalid standard conversions", ReportsInvalidStandardConversions);
             Run("matches nested delimiters", MatchesNestedDelimiters);
             Run("ignores delimiters in comments and strings", IgnoresDelimitersInCommentsAndStrings);
             Run("handles unmatched delimiters", HandlesUnmatchedDelimiters);
@@ -164,6 +192,21 @@ namespace DDFLanguageEditor.Tests
             const string source = "    old value";
             EditorEdit edit = EditorEditing.CreateNewLineEdit(source, 4, 4);
             Equal("    \n    value", Apply(source, edit));
+        }
+
+        private static void AlignsClosingBraceWithItsBlock()
+        {
+            const string source = "main() out int\n{\n    if(true)\n    {\n        int value;\n            ";
+            EditorEdit edit = EditorEditing.CreateClosingBraceEdit(source, source.Length, 0);
+            Equal("main() out int\n{\n    if(true)\n    {\n        int value;\n    }", Apply(source, edit));
+            Equal(source.LastIndexOf('\n') + 6, edit.SelectionStart);
+        }
+
+        private static void IgnoresProtectedBracesWhileAligning()
+        {
+            const string source = "// { ignored\nmain() out int\n{\n    string text << \"}\";\n        ";
+            EditorEdit edit = EditorEditing.CreateClosingBraceEdit(source, source.Length, 0);
+            Equal("// { ignored\nmain() out int\n{\n    string text << \"}\";\n}", Apply(source, edit));
         }
 
         private static void RoundTripsUtf8Documents()
@@ -609,6 +652,222 @@ namespace DDFLanguageEditor.Tests
             SequenceEqual(new[] { "complete" }, function.Children.Select(symbol => symbol.Name));
         }
 
+        private static void ResolvesSymbolDeclarationsAndReferences()
+        {
+            const string source =
+                "sum(int left, int right) out int { int total << left + right; ret total; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            Equal(0, model.Diagnostics.Count);
+
+            DdfSymbolOccurrence reference = model.FindOccurrence(source.LastIndexOf("total", StringComparison.Ordinal));
+            Equal(false, reference.IsDeclaration);
+            Equal("total", reference.Symbol.Name);
+            Equal("total", source.Substring(reference.Symbol.SelectionStart, reference.Symbol.SelectionLength));
+            Equal(2, model.FindOccurrences(reference.Symbol).Count);
+
+            DdfSymbolOccurrence parameterReference = model.FindOccurrence(source.IndexOf("left +", StringComparison.Ordinal));
+            Equal(DdfSymbolKind.Parameter, parameterReference.Symbol.Kind);
+            Equal(2, model.FindOccurrences(parameterReference.Symbol).Count);
+        }
+
+        private static void KeepsShadowedSymbolsInSeparateScopes()
+        {
+            const string source =
+                "main() out int { int value; if(true) { int value; value++; } ret value; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            DdfSymbolOccurrence innerReference = model.FindOccurrence(source.IndexOf("value++", StringComparison.Ordinal));
+            DdfSymbolOccurrence outerReference = model.FindOccurrence(source.LastIndexOf("value", StringComparison.Ordinal));
+            False(ReferenceEquals(innerReference.Symbol, outerReference.Symbol));
+            Equal(source.IndexOf("value; value", StringComparison.Ordinal), innerReference.Symbol.SelectionStart);
+            Equal(source.IndexOf("value; if", StringComparison.Ordinal), outerReference.Symbol.SelectionStart);
+        }
+
+        private static void RenamesOnlyTheResolvedSymbol()
+        {
+            const string source =
+                "first() out int { int value; ret value; } second() out int { int value; ret value; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            int firstReference = source.IndexOf("ret value", StringComparison.Ordinal) + 4;
+            DdfRenameResult result = model.Rename(firstReference, "result");
+            Equal(2, result.ReplacementCount);
+            Equal(
+                "first() out int { int result; ret result; } second() out int { int value; ret value; }",
+                result.Text);
+            Equal("result", result.Text.Substring(result.SelectionStart, result.SelectionLength));
+        }
+
+        private static void ReportsUnresolvedAndDuplicateSymbols()
+        {
+            const string source = "main() out int { int value; int value; ret missing; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            Equal(true, model.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF201" && diagnostic.Message.Contains("missing")));
+            Equal(true, model.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF202" && diagnostic.Message.Contains("value")));
+        }
+
+        private static void ValidatesRenameIdentifiersAndKeywords()
+        {
+            const string source = "main() out int { int value; ret value; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            int position = source.LastIndexOf("value", StringComparison.Ordinal);
+            Throws<ArgumentException>(() => model.Rename(position, "2invalid"));
+            Throws<ArgumentException>(() => model.Rename(position, "while"));
+            Equal(true, DdfSemanticModel.IsValidIdentifier("valid_name2"));
+        }
+
+        private static void RenamesLibraryNamesWithoutDamagingDirectives()
+        {
+            const string source = "@@'Console'\nmain() out int { ret 0; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            DdfSymbolOccurrence library = model.FindOccurrence(source.IndexOf("Console", StringComparison.Ordinal));
+            Equal(DdfSymbolKind.Library, library.Symbol.Kind);
+            Equal("Console", source.Substring(library.Symbol.SelectionStart, library.Symbol.SelectionLength));
+            Equal("@@'Terminal'\nmain() out int { ret 0; }", model.Rename(library.Start, "Terminal").Text);
+        }
+
+        private static void RenamesStructureDeclarationsAndTypeReferences()
+        {
+            const string source = "struct Point { int x; } main(Point point) out Point { Point local; ret point; }";
+            DdfSemanticModel model = DdfSemanticModel.Create(source, DdfParser.Parse(source).Root);
+            DdfRenameResult result = model.Rename(source.IndexOf("Point", StringComparison.Ordinal), "Coordinate");
+            Equal(4, result.ReplacementCount);
+            Equal(
+                "struct Coordinate { int x; } main(Coordinate point) out Coordinate { Coordinate local; ret point; }",
+                result.Text);
+        }
+
+        private static void IndexesDdfWorkspaceDocumentsRecursively()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "ddf-workspace-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(directory, "nested"));
+                DdfDocumentFile.Save(Path.Combine(directory, "main.ddf"), "main() out int { ret helper(); }");
+                DdfDocumentFile.Save(Path.Combine(directory, "nested", "helpers.ddf"), "helper() out int { ret 1; }");
+                File.WriteAllText(Path.Combine(directory, "ignored.txt"), "not DDF");
+
+                DdfWorkspaceIndex workspace = DdfWorkspaceIndex.Load(directory);
+                Equal(2, workspace.Documents.Count);
+                Equal(1, workspace.FindDefinitions("helper").Count);
+                Equal("nested" + Path.DirectorySeparatorChar + "helpers.ddf",
+                    workspace.FindDefinitions("helper")[0].Document.RelativePath);
+                Equal(true, workspace.ContainsPath(Path.Combine(directory, "main.ddf")));
+                Equal(false, workspace.ContainsPath(Path.Combine(Path.GetTempPath(), "outside.ddf")));
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void UpdatesInMemoryWorkspaceDocument()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "ddf-workspace-update-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "main.ddf");
+                DdfDocumentFile.Save(path, "oldName() out int { ret 0; }");
+                DdfWorkspaceIndex workspace = DdfWorkspaceIndex.Load(directory)
+                    .WithDocument(path, "newName() out int { ret 0; }");
+                Equal(0, workspace.FindDefinitions("oldName").Count);
+                Equal(1, workspace.FindDefinitions("newName").Count);
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void CompletesSymbolsFromAnotherWorkspaceDocument()
+        {
+            const string externalSource = "helper() out int { ret 1; } struct Point { int x; }";
+            IReadOnlyList<DdfDocumentSymbol> external = DdfSymbolIndex.Create(DdfParser.Parse(externalSource).Root).Symbols;
+            DdfCompletionResult completion = DdfCompletionService.GetCompletions(
+                "hel",
+                3,
+                externalSymbols: external);
+            Equal(true, completion.Items.Any(item => item.DisplayText == "helper" && item.Kind == DdfCompletionKind.Function));
+        }
+
+        private static void AcceptsSemanticallyValidTypedCode()
+        {
+            const string source =
+                "sum(int left, int right) out float { float total << left + right; if(total > 0) { ret total; } ret 0; }";
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+        }
+
+        private static void ReportsIncompatibleInitializersAndAssignments()
+        {
+            const string source = "main() out int { int value << \"text\"; value << false; ret value; }";
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
+            Equal(2, result.Diagnostics.Count(diagnostic => diagnostic.Code == "DDF301"));
+        }
+
+        private static void ReportsInvalidTypedOperatorsAndConditions()
+        {
+            const string source = "main() out int { string text; int number; text + number; if(number) { ret 1; } ret 0; }";
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF302"));
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF306"));
+        }
+
+        private static void ChecksFunctionArgumentsAndReturnValues()
+        {
+            const string source =
+                "sum(int left, int right) out int { ret left + right; } " +
+                "main() out bool { int value << sum(1); ret value; }";
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF303"));
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF304"));
+        }
+
+        private static void ResolvesStructureMembersAndArrayElementTypes()
+        {
+            const string source =
+                "struct Point { int x; } main(Point point) out int { int[2] values; values[0] << point.x; ret point.x; }";
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.Diagnostics.Count);
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, parse.Root);
+            Equal(0, result.Diagnostics.Count);
+            int memberStart = source.LastIndexOf(".x", StringComparison.Ordinal) + 1;
+            Equal("int", result.FindTypeAt(memberStart).Type.Name);
+        }
+
+        private static void ReportsUnknownTypesAndMembers()
+        {
+            const string source = "main(Missing item) out int { int value << item.unknown; ret value; }";
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF305" && diagnostic.Message.Contains("Missing")));
+        }
+
+        private static void ChecksFunctionSignaturesFromAnotherDocument()
+        {
+            const string library = "helper(int value) out int { ret value; }";
+            const string source = "main() out int { ret helper(\"wrong\"); }";
+            CompilationUnitSyntax external = DdfParser.Parse(library).Root;
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root, new[] { external });
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF303"));
+        }
+
+        private static void ReportsMissingReturnsAndInvalidAssignmentTargets()
+        {
+            const string source = "main() out int { 1 << 2; }";
+            DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF307"));
+            Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF308"));
+        }
+
+        private static void TypeChecksEditorSmokeSample()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            string source = File.ReadAllText(Path.Combine(projectRoot, "samples", "editor-smoke-test.ddf"));
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+        }
+
         private static void MatchesNestedDelimiters()
         {
             const string source = "main() out int { int[2] values; if(values[0] > 0) { ret values[0]; } }";
@@ -904,6 +1163,113 @@ namespace DDFLanguageEditor.Tests
         private static string Slice(string source, ClassifiedSpan span)
         {
             return source.Substring(span.Start, span.Length);
+        }
+
+        private static void ExecutesFunctionsControlFlowAndOutput()
+        {
+            const string source = @"sum(int limit) out int
+{
+    int total << 0;
+    for(int index << 0; index < limit; index++)
+    {
+        total << total + index;
+    }
+    ret total;
+}
+main() out int
+{
+    int result << sum(5);
+    result >> Console;
+    ret result;
+}";
+            var output = new List<string>();
+            DdfExecutionResult result = DdfInterpreter.Execute(source, new DdfExecutionOptions { Output = output.Add });
+            Equal(true, result.Succeeded);
+            Equal(10, result.ReturnValue);
+            Equal("10", output.Single());
+            Equal(0, DdfSemanticModel.Create(source, DdfParser.Parse(source).Root).Diagnostics.Count);
+        }
+
+        private static void ExecutesArraysAndStructureMembers()
+        {
+            const string source = @"struct Point
+{
+    int x;
+    int y;
+}
+main() out int
+{
+    int[2] values;
+    Point point;
+    values[0] << 4;
+    point.x << values[0] + 3;
+    ret point.x;
+}";
+            DdfExecutionResult result = DdfInterpreter.Execute(source);
+            Equal(true, result.Succeeded);
+            Equal(7, result.ReturnValue);
+        }
+
+        private static void StopsInfiniteExecutionAtInstructionLimit()
+        {
+            const string source = "main() out void { while(true) { } }";
+            DdfExecutionResult result = DdfInterpreter.Execute(source, new DdfExecutionOptions { MaxInstructions = 50 });
+            Equal(false, result.Succeeded);
+            Equal("DDF407", result.Diagnostics.Single().Code);
+        }
+
+        private static void HonorsRuntimeCancellation()
+        {
+            bool cancel = false;
+            DdfExecutionResult result = DdfInterpreter.Execute(
+                "main() out void { while(true) { } }",
+                new DdfExecutionOptions
+                {
+                    MaxInstructions = 1000,
+                    CancellationRequested = () => { cancel = true; return cancel; }
+                });
+            Equal(true, result.WasCancelled);
+            Equal(0, result.Diagnostics.Count);
+        }
+
+        private static void ReportsRuntimeFailuresWithSourcePositions()
+        {
+            const string source = "main() out int\n{\n    int zero << 0;\n    ret 4 / zero;\n}";
+            DdfExecutionResult result = DdfInterpreter.Execute(source);
+            DdfDiagnostic diagnostic = result.Diagnostics.Single();
+            Equal("DDF404", diagnostic.Code);
+            Equal(4, diagnostic.Line);
+        }
+
+        private static void ExecutesMinimalStandardLibraryWithInput()
+        {
+            const string source = @"main() out int
+{
+    string text << readLine();
+    print(text);
+    int size << length(text);
+    ret toInt(text) + size;
+}";
+            var output = new List<string>();
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, DdfSemanticModel.Create(source, parse.Root).Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+            DdfExecutionResult result = DdfInterpreter.Execute(source, parse.Root, new DdfExecutionOptions
+            {
+                Input = () => "41",
+                Output = output.Add
+            });
+            Equal(true, result.Succeeded);
+            Equal(43, result.ReturnValue);
+            Equal("41", output.Single());
+            Equal(true, DdfCompletionService.GetCompletions("rea", 3).Items.Any(item => item.DisplayText == "readLine"));
+        }
+
+        private static void ReportsInvalidStandardConversions()
+        {
+            DdfExecutionResult result = DdfInterpreter.Execute("main() out int { ret toInt(\"abc\"); }");
+            Equal(false, result.Succeeded);
+            Equal("DDF408", result.Diagnostics.Single().Code);
         }
 
         private static void Run(string name, Action test)

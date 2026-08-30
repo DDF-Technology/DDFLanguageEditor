@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace DDFLanguageEditor.Core
@@ -90,6 +91,38 @@ namespace DDFLanguageEditor.Core
                 selectionLength,
                 replacement,
                 selectionStart + replacement.Length,
+                0);
+        }
+
+        public static EditorEdit CreateClosingBraceEdit(string text, int selectionStart, int selectionLength)
+        {
+            ValidateSelection(text, selectionStart, selectionLength);
+            if (selectionLength > 0)
+            {
+                return new EditorEdit(selectionStart, selectionLength, "}", selectionStart + 1, 0);
+            }
+
+            int lineStart = FindLineStart(text, selectionStart);
+            string beforeCaret = text.Substring(lineStart, selectionStart - lineStart);
+            if (beforeCaret.Any(character => character != ' ' && character != '\t'))
+            {
+                return new EditorEdit(selectionStart, 0, "}", selectionStart + 1, 0);
+            }
+
+            int openingBrace = FindUnmatchedOpeningBrace(text, selectionStart);
+            if (openingBrace < 0)
+            {
+                return new EditorEdit(selectionStart, 0, "}", selectionStart + 1, 0);
+            }
+
+            int openingLineStart = FindLineStart(text, openingBrace);
+            string openingPrefix = text.Substring(openingLineStart, openingBrace - openingLineStart);
+            string indentation = GetLeadingWhitespace(openingPrefix);
+            return new EditorEdit(
+                lineStart,
+                selectionStart - lineStart,
+                indentation + "}",
+                lineStart + indentation.Length + 1,
                 0);
         }
 
@@ -218,6 +251,22 @@ namespace DDFLanguageEditor.Core
             }
 
             return value.Substring(0, index);
+        }
+
+        private static int FindUnmatchedOpeningBrace(string text, int position)
+        {
+            var stack = new List<int>();
+            DdfLexResult lexResult = DdfLexer.Lex(text);
+            foreach (DdfToken token in lexResult.Tokens)
+            {
+                if (token.Start >= position) break;
+                if (token.Kind != DdfTokenKind.Punctuation || token.Length != 1) continue;
+                char character = text[token.Start];
+                if (character == '{') stack.Add(token.Start);
+                else if (character == '}' && stack.Count > 0) stack.RemoveAt(stack.Count - 1);
+            }
+
+            return stack.Count == 0 ? -1 : stack[stack.Count - 1];
         }
 
         private static void ValidateSelection(string text, int start, int length)

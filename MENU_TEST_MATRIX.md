@@ -11,6 +11,8 @@ WinForms e vengono eseguiti da
 | --- | --- |
 | Nuovo | crea un documento vuoto e ripristina il titolo senza percorso |
 | Apri | carica un file DDF temporaneo tramite il normale handler |
+| Apri cartella | indicizza ricorsivamente un workspace temporaneo e popola l'explorer |
+| Chiudi cartella | rimuove explorer e indice condiviso senza chiudere il documento corrente |
 | Salva | aggiorna il file corrente e verifica il contenuto su disco |
 | Salva con nome | salva in un secondo percorso temporaneo e aggiorna il titolo |
 | File recenti | espone e riapre il percorso appena salvato |
@@ -35,9 +37,21 @@ recenti dell'utente non vengono salvate durante il test.
 | Sostituisci | verifica sostituzione corrente, sostituzione globale e chiusura |
 | Completamento | mostra i suggerimenti contestuali tramite la voce di menu |
 | Formatta documento | normalizza il sorgente, conserva il cursore ed è annullabile in un passo |
+| Vai alla definizione | seleziona la dichiarazione risolta dal riferimento corrente |
+| Rinomina simbolo | modifica solo dichiarazione e riferimenti nello stesso ambito ed è annullabile |
 
 Lo smoke conserva e ripristina il contenuto precedente degli appunti Windows.
 Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu.
+
+## Esegui
+
+| Comando | Verifica dinamica |
+| --- | --- |
+| Avvia | esegue `main` con `F5`, seleziona Output e verifica valore e completamento |
+| Arresta | espone `Shift+F5` e viene abilitato soltanto durante un'esecuzione |
+
+Il core verifica inoltre cancellazione cooperativa, limite anti-loop ed errori
+runtime posizionati nel sorgente.
 
 ## Visualizza
 
@@ -63,10 +77,24 @@ gutter non selezionabile, l'allineamento a sinistra dei numeri di riga, la
 larghezza iniziale dell'Outline e le transizioni pinned/auto-hide delle due
 palette.
 
+## Barra strumenti
+
+La toolbar espone 13 pulsanti a icona con tooltip per Nuovo, Apri, Salva,
+Annulla, Ripristina, Taglia, Copia, Incolla, Trova, Formatta, folding, Run e
+Stop. Lo smoke verifica presenza, ordine funzionale, accessibilità e condivisione
+degli handler Run/Stop con il menu Esegui.
+
+Lo stesso gate verifica che tutte le superfici applicative usino la palette
+chiara e che soltanto editor, folding e gutter conservino lo sfondo scuro.
+Verifica inoltre la nuova icona incorporata, la centratura delle form secondarie
+e il docking senza sovrapposizioni tra palette destra e pannello inferiore.
+Il popup Trova/Sostituisci viene inoltre controllato per allineamento della
+checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
+
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 16 scorciatoie dichiarate, da `Ctrl+N` a
-`Ctrl+Shift+M`. Il gate completo si avvia con:
+Lo smoke verifica le 21 scorciatoie dichiarate, incluse `F12` per la definizione,
+`F2` per la rinomina, `F5` per Run e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
 .\tests\run-dynamic-smoke.ps1

@@ -19,8 +19,8 @@ namespace DDF___Program_Language_Editor
                 Name = "completionListBox",
                 Visible = false,
                 IntegralHeight = false,
-                BackColor = Color.FromArgb(37, 37, 38),
-                ForeColor = Color.FromArgb(212, 212, 212),
+                BackColor = AppTheme.Surface,
+                ForeColor = AppTheme.Text,
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = new Font("Consolas", 10F),
                 ItemHeight = 20,
@@ -79,7 +79,8 @@ namespace DDF___Program_Language_Editor
             DdfCompletionResult result = DdfCompletionService.GetCompletions(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
-                includeAll);
+                includeAll,
+                externalSymbols: getWorkspaceCompletionSymbols());
             if (result.Items.Count == 0)
             {
                 hideCompletion();

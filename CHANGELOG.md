@@ -1,6 +1,76 @@
 # Changelog
 
-## Unreleased
+## 0.7.3 - 2026-08-29
+
+- regenerate the Release application icon as a newly named multi-resolution resource;
+- use a simplified high-contrast navy/orange chevron mark for small shell and title-bar sizes;
+- load the window icon directly from the embedded assembly resource instead of shell extraction;
+- center Find/Replace, Rename, runtime input and About on the active screen;
+- render Workspace/Outline with the same standard tab style used by Diagnostics/Output;
+- extend the right palette to the full usable form height and constrain the bottom palette to the remaining width;
+- add icon-content, dialog-position and docking-geometry checks to the WinForms smoke;
+- reorganize Find/Replace with aligned fields and checkbox plus one uniformly spaced action bar;
+
+## 0.7.2 - 2026-08-29
+
+- introduce one shared light application palette for forms and dynamically created controls;
+- keep only the source editor, folded projection and line-number gutter on the code-oriented dark theme;
+- convert Workspace, Outline, Diagnostics, Output, completion and status surfaces to light colors;
+- restyle About, Find/Replace, Rename and runtime-input dialogs consistently;
+- restore high-contrast toolbar and palette-pin glyphs on light backgrounds;
+- add a WinForms regression smoke that rejects dark non-editor surfaces and low-contrast command icons;
+
+## 0.7.1 - 2026-08-29
+
+- add a centralized minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
+- make standard functions available to semantic analysis, type checking and completion;
+- connect `readLine` to a native editor input dialog through a testable runtime callback;
+- report failed standard conversions as positioned `DDF408` diagnostics;
+- add a flat icon toolbar for 13 primary editing, navigation, folding and execution commands;
+- keep toolbar Run/Stop state synchronized with the existing menu commands;
+- expand the dependency-free core suite to 83 tests and cover toolbar/input in the WinForms smoke;
+
+## 0.7.0 - 2026-08-29
+
+- add the first internal AST interpreter without external compiler dependencies;
+- execute functions, lexical scopes, declarations, assignments, control flow and returns;
+- support primitive values, arrays, structures, indexes and member access at runtime;
+- route `value >> Console` to the new Output palette;
+- add Run (`F5`) and Stop (`Shift+F5`) with cooperative cancellation;
+- report positioned runtime diagnostics `DDF401`-`DDF407` and cap execution at 100,000 instructions;
+- display the value returned by `main` separately from the internal runtime-step counter;
+- expand the dependency-free core suite to 81 tests and the menu smoke to 25 commands and 21 shortcuts;
+
+## 0.6.0 - 2026-08-29
+
+- add a runtime-independent type model for primitives, structures and arrays;
+- infer expression types and validate declarations, assignments, operators and boolean conditions;
+- check function argument counts/types and return values, including signatures from workspace files;
+- parse and type-check structure member access through `.` and array element access;
+- report stable semantic diagnostics `DDF301`-`DDF308`;
+- enrich editor hover with calculated types and merge type errors into source diagnostics;
+- align a typed closing brace with its unmatched block indentation while ignoring comments and strings;
+- preserve the requested 300-pixel right navigation palette for Workspace and Outline;
+- expand the dependency-free core suite to 76 tests;
+
+## 0.5.6 - 2026-08-29
+
+- add a recursively indexed workspace for small folders of `.ddf` sources;
+- add File > Open Folder and Close Folder with a compact file explorer beside the Outline;
+- open workspace documents by double-click while preserving unsaved-change confirmation;
+- offer top-level functions, structures and variables from other workspace documents in completion;
+- resolve document diagnostics against the shared index and navigate across files with `F12`;
+- keep modified workspace documents indexed from their in-memory contents;
+- expand the core suite to 65 tests and the WinForms smoke to 23 commands and 19 shortcuts;
+
+## 0.5.5 - 2026-08-29
+
+- add a document-local semantic model that resolves declarations and references by lexical scope;
+- report unresolved names (`DDF201`) and duplicate declarations in the same scope (`DDF202`);
+- show symbol kind, signature/type and declaration line while hovering over resolved names;
+- add Go to Definition (`F12`) and scope-safe Rename Symbol (`F2`) with one-step Undo;
+- keep shadowed and same-named symbols in separate rename sets;
+- expand the core suite to 62 tests and the WinForms menu smoke to 21 commands and 18 shortcuts;
 
 - start the IDE maximized with the source diagnostics panel always visible;
 - remove the beta notification banner while retaining beta version metadata;

@@ -12,7 +12,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
-    <ApplicationIcon>Resource\AppIcon.ico</ApplicationIcon>
+    <ApplicationIcon>Resource\DDFLanguageEditor.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -63,7 +63,21 @@
     <Compile Include="Main.Formatting.cs">
       <DependentUpon>Main.cs</DependentUpon>
     </Compile>
+    <Compile Include="Main.Execution.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Toolbar.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Semantics.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Main.Workspace.cs">
+      <DependentUpon>Main.cs</DependentUpon>
+    </Compile>
     <Compile Include="RichTextBoxUpdateScope.cs" />
+    <Compile Include="AppTheme.cs" />
+    <Compile Include="AppIconProvider.cs" />
     <Compile Include="LineNumberGutter.cs" />
     <Compile Include="Main.Palettes.cs">
       <DependentUpon>Main.cs</DependentUpon>
@@ -73,6 +87,8 @@
     </Compile>
     <Compile Include="FindReplaceForm.cs" />
     <Compile Include="AboutForm.cs" />
+    <Compile Include="RuntimeInputForm.cs" />
+    <Compile Include="RenameSymbolForm.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Main.resx">
@@ -100,6 +116,10 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="Resource\AppIcon.ico" />
+    <None Include="tools\generate-app-icon.ps1" />
+    <EmbeddedResource Include="Resource\DDFLanguageEditor.ico">
+      <LogicalName>DDFLanguageEditor.AppIcon.ico</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resource\AppIcon.png">
       <LogicalName>DDFLanguageEditor.AppIcon.png</LogicalName>
     </EmbeddedResource>

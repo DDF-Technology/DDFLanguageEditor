@@ -43,7 +43,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: 12 scenari editor e tutti i 19 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 25 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -74,11 +74,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(form.Controls.Find("panelBeta", true).Length == 0,
                     "La barra beta è ancora presente nella finestra principale.");
 
+                AssertMainToolbar(form);
+                AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
                 AssertEditorPalette(editor);
                 SetSource(editor);
                 AssertSelectionStableDuringHighlight(editor);
                 AssertMouseGesturePreservesNativeSelection(form, editor);
+                AssertClosingBraceAlignment(form, editor);
                 AssertColoredFoldFromFunctionHeader(form, editor, foldedView, lineNumbers);
                 AssertMultipleIndependentFolds(form, editor, foldedView);
                 AssertWholeLibraryCutIsClean(editor, diagnostics);
@@ -87,6 +90,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertRapidTransientEditsAreRecoverable(editor);
                 AssertContextualCompletion(form, editor);
                 AssertDocumentFormatting(form, editor);
+                AssertSemanticNavigationAndRename(form, editor);
+                AssertTypeChecking(form, editor, diagnostics);
+                AssertWorkspaceNavigation(form, editor, diagnostics);
+                AssertProgramExecution(form, editor);
             }
         }
 
@@ -118,12 +125,27 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La barra beta è ancora presente nel layout principale.");
             }
 
+            Type inputType = typeof(MainForm).Assembly.GetType("DDF___Program_Language_Editor.RuntimeInputForm", true);
+            using (var inputForm = (Form)Activator.CreateInstance(inputType))
+            {
+                Require(inputForm.StartPosition == FormStartPosition.CenterScreen &&
+                        IsLight(inputForm.BackColor) && IsLight(FindControl<TextBox>(inputForm, "runtimeInputTextBox").BackColor),
+                    "La finestra di input runtime conserva colori scuri.");
+            }
+            Type renameType = typeof(MainForm).Assembly.GetType("DDF___Program_Language_Editor.RenameSymbolForm", true);
+            using (var renameForm = (Form)Activator.CreateInstance(renameType, "value"))
+            {
+                Require(renameForm.StartPosition == FormStartPosition.CenterScreen && IsLight(renameForm.BackColor),
+                    "La finestra Rinomina simbolo non è chiara e centrata sullo schermo.");
+            }
+
             using (var form = ShowSmokeForm(visible))
             {
                 var shortcuts = new Dictionary<string, Keys>
                 {
                     { "newMenuItem", Keys.Control | Keys.N },
                     { "openMenuItem", Keys.Control | Keys.O },
+                    { "openWorkspaceMenuItem", Keys.Control | Keys.Alt | Keys.O },
                     { "saveMenuItem", Keys.Control | Keys.S },
                     { "saveAsMenuItem", Keys.Control | Keys.Shift | Keys.S },
                     { "undoMenuItem", Keys.Control | Keys.Z },
@@ -136,6 +158,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "replaceMenuItem", Keys.Control | Keys.H },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
+                    { "goToDefinitionMenuItem", Keys.F12 },
+                    { "renameSymbolMenuItem", Keys.F2 },
+                    { "runProgramMenuItem", Keys.F5 },
+                    { "stopProgramMenuItem", Keys.Shift | Keys.F5 },
                     { "toggleFoldMenuItem", Keys.Control | Keys.M },
                     { "expandAllFoldsMenuItem", Keys.Control | Keys.Shift | Keys.M }
                 };
@@ -143,9 +169,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 string[] commands =
                 {
                     "newMenuItem", "openMenuItem", "saveMenuItem", "saveAsMenuItem",
+                    "openWorkspaceMenuItem", "closeWorkspaceMenuItem",
                     "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem",
                     "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
+                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
                 };
                 foreach (string command in commands)
@@ -163,7 +191,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 16 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 21 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -180,7 +208,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.5.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.7.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -193,6 +221,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PictureBox aboutIcon = FindControl<PictureBox>(about, "aboutIconPictureBox");
                 Require(aboutIcon.Image != null && aboutIcon.Image.Width >= 512 && aboutIcon.Image.Height >= 512,
                     "About non usa l'asset dell'icona ad alta risoluzione.");
+                Require(IsLight(about.BackColor) && IsLight(FindControl<TextBox>(about, "aboutLicenseTextBox").BackColor) &&
+                        IsLight(FindControl<Button>(about, "aboutCloseButton").BackColor),
+                    "About contiene ancora superfici del precedente tema scuro.");
 
                 FindControl<Button>(about, "aboutCloseButton").PerformClick();
                 PumpMessages(40);
@@ -245,9 +276,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Form findForm = GetPrivateField<Form>(form, "findReplaceForm");
                 Require(findForm != null && findForm.Visible && findForm.Text == "Trova",
                     "Trova non ha aperto la finestra prevista.");
+                Require(findForm.StartPosition == FormStartPosition.CenterScreen,
+                    "Trova/Sostituisci non è configurata al centro dello schermo.");
+                Require(IsLight(findForm.BackColor) && IsLight(FindControl<TextBox>(findForm, "findTextBox").BackColor) &&
+                        IsLight(FindControl<Button>(findForm, "findNextButton").BackColor),
+                    "Trova/Sostituisci non usa interamente il tema chiaro.");
                 TextBox findText = FindControl<TextBox>(findForm, "findTextBox");
+                CheckBox matchCase = FindControl<CheckBox>(findForm, "matchCaseCheckBox");
+                Button findNext = FindControl<Button>(findForm, "findNextButton");
+                Button replaceCurrent = FindControl<Button>(findForm, "replaceButton");
+                Button replaceAll = FindControl<Button>(findForm, "replaceAllButton");
+                Button closeFind = FindControl<Button>(findForm, "closeButton");
+                Require(!FindControl<TextBox>(findForm, "replaceTextBox").Visible &&
+                        !replaceCurrent.Visible && !replaceAll.Visible,
+                    "La modalità Trova lascia visibili i comandi di sostituzione.");
+                Require(Math.Abs(matchCase.Left - findText.Left) <= 4,
+                    "La checkbox non è allineata con i campi di testo.");
                 Require(findText.Text == "alpha", "Trova non ha precompilato il testo selezionato.");
-                FindControl<Button>(findForm, "findNextButton").PerformClick();
+                findNext.PerformClick();
                 Require(editor.SelectionStart == 11 && editor.SelectedText == "alpha",
                     "Trova dopo non ha selezionato la corrispondenza successiva.");
 
@@ -255,17 +301,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpMessages(60);
                 Require(findForm.Text == "Trova e sostituisci" && FindControl<TextBox>(findForm, "replaceTextBox").Visible,
                     "Sostituisci non ha attivato i controlli di sostituzione.");
+                Require(replaceCurrent.Visible && replaceAll.Visible &&
+                        findNext.Top == replaceCurrent.Top && replaceCurrent.Top == replaceAll.Top && replaceAll.Top == closeFind.Top,
+                    "I pulsanti Trova/Sostituisci non sono allineati sulla stessa barra.");
+                Require(findNext.Left < replaceCurrent.Left && replaceCurrent.Left < replaceAll.Left && replaceAll.Left < closeFind.Left,
+                    "L'ordine dei pulsanti Trova/Sostituisci non è coerente: " +
+                    findNext.Left + ", " + replaceCurrent.Left + ", " + replaceAll.Left + ", " + closeFind.Left + ".");
+                Require(new[] { findNext, replaceCurrent, replaceAll, closeFind }.All(button => button.Height == 30),
+                    "I pulsanti Trova/Sostituisci non hanno dimensioni uniformi.");
                 findText.Text = "beta";
                 FindControl<TextBox>(findForm, "replaceTextBox").Text = "delta";
                 editor.Select(6, 4);
-                FindControl<Button>(findForm, "replaceButton").PerformClick();
+                replaceCurrent.PerformClick();
                 Require(editor.Text == "alpha delta alpha", "Sostituisci non ha modificato la corrispondenza corrente.");
 
                 findText.Text = "alpha";
                 FindControl<TextBox>(findForm, "replaceTextBox").Text = "omega";
-                FindControl<Button>(findForm, "replaceAllButton").PerformClick();
+                replaceAll.PerformClick();
                 Require(editor.Text == "omega delta omega", "Sostituisci tutto non ha modificato tutte le corrispondenze.");
-                FindControl<Button>(findForm, "closeButton").PerformClick();
+                closeFind.PerformClick();
                 PumpMessages(40);
                 Require(findForm.IsDisposed, "Chiudi non ha terminato la finestra Trova/Sostituisci.");
 
@@ -385,7 +439,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS menu File: Nuovo, Apri, Salva, Salva con nome, File recenti ed Esci");
+            Console.WriteLine("PASS menu File: documenti, cartella workspace, file recenti ed Esci");
         }
 
         private static MainForm ShowSmokeForm(bool visible)
@@ -486,20 +540,31 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Focus();
 
             Panel outlinePanel = FindControl<Panel>(form, "panelOutline");
+            Panel diagnosticsPanelFromForm = FindControl<Panel>(form, "panelDiagnostics");
+            Splitter outlineSplitter = FindControl<Splitter>(form, "splitterOutline");
+            StatusStrip status = FindControl<StatusStrip>(form, "statusStripMain");
+            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            TabControl navigation = FindControl<TabControl>(form, "navigationTabs");
             Button outlinePin = FindControl<Button>(form, "buttonOutlinePin");
             Button diagnosticsPin = FindControl<Button>(form, "buttonDiagnosticsPin");
-            Require(outlinePanel.Width <= 190,
-                "L'Outline occupa ancora troppo spazio all'avvio: " + outlinePanel.Width + " px.");
+            Require(outlinePanel.Width >= 300 && outlinePanel.Width <= 310,
+                "La palette destra non misura i 300 px previsti all'avvio: " + outlinePanel.Width + " px.");
+            Require(navigation.Appearance == TabAppearance.Normal,
+                "Workspace e Outline non usano schede standard come Diagnostica e Output.");
+            Require(outlinePanel.Top == toolbar.Bottom && outlinePanel.Bottom == status.Top,
+                "La palette destra non occupa tutta l'altezza utile della form.");
+            Require(diagnosticsPanelFromForm.Right == outlineSplitter.Left && diagnosticsPanelFromForm.Width < form.ClientSize.Width,
+                "Diagnostica e Output non si adattano allo spazio lasciato dalla palette destra.");
 
             outlinePin.PerformClick();
             PumpMessages(20);
             Require(outlinePanel.Width == 28 && outlinePin.Text == "\uE76C",
                 "L'Outline non entra nello stato auto-hide compatto.");
             InvokeHandler(form, "panelOutline_MouseEnter", outlinePanel, EventArgs.Empty);
-            Require(outlinePanel.Width >= 180,
+            Require(outlinePanel.Width >= 300,
                 "L'Outline non si riapre durante l'auto-hide.");
             outlinePin.PerformClick();
-            Require(outlinePin.Text == "\uE718" && outlinePanel.Width >= 180,
+            Require(outlinePin.Text == "\uE718" && outlinePanel.Width >= 300,
                 "L'Outline non torna nello stato pinnato.");
 
             diagnosticsPin.PerformClick();
@@ -802,6 +867,164 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Console.WriteLine("PASS formattazione idempotente con cursore preservato e singolo Undo");
         }
 
+        private static void AssertSemanticNavigationAndRename(MainForm form, RichTextBox editor)
+        {
+            const string source =
+                "// semantic smoke\nfirst() out int { int value; ret value; } second() out int { int value; ret value; }";
+            const string renamed =
+                "// semantic smoke\nfirst() out int { int result; ret result; } second() out int { int value; ret value; }";
+            editor.Text = source;
+            PumpMessages(220);
+
+            int reference = source.IndexOf("ret value", StringComparison.Ordinal) + 4;
+            int declaration = source.IndexOf("value", StringComparison.Ordinal);
+            editor.Select(reference, 0);
+            InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
+            ToolStripMenuItem goToDefinition = FindMenuItem(form, "goToDefinitionMenuItem");
+            ToolStripMenuItem rename = FindMenuItem(form, "renameSymbolMenuItem");
+            Require(goToDefinition.Enabled && rename.Enabled,
+                "I comandi semantici non sono abilitati su un riferimento risolto.");
+
+            goToDefinition.PerformClick();
+            Require(editor.SelectionStart == declaration && editor.SelectedText == "value",
+                "Vai alla definizione non ha selezionato la dichiarazione corretta.");
+
+            Point referencePoint = editor.GetPositionFromCharIndex(reference);
+            InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor, referencePoint);
+            DdfDocumentSymbol hovered = GetPrivateField<DdfDocumentSymbol>(form, "hoveredSymbol");
+            Require(hovered != null && hovered.Name == "value" && hovered.SelectionStart == declaration,
+                "L'hover non espone le informazioni del simbolo risolto.");
+
+            editor.Select(reference, 0);
+            SetPrivateField(form, "requestSymbolRename", new Func<string, string>(name => "result"));
+            rename.PerformClick();
+            PumpMessages(220);
+            Require(editor.Text == renamed,
+                "Rinomina ha modificato simboli omonimi fuori dall'ambito selezionato o ha perso riferimenti.");
+            Require(editor.SelectedText == "result", "Rinomina non ha mantenuto selezionato il simbolo corrente.");
+            int firstKeyword = renamed.IndexOf("int", StringComparison.Ordinal);
+            editor.Select(firstKeyword, 3);
+            Require(editor.SelectionColor == Color.FromArgb(78, 201, 176),
+                "Rinomina ha lasciato il codice precedente con il colore verde del commento iniziale.");
+            Require(editor.CanUndo, "Rinomina non è annullabile.");
+            editor.Undo();
+            PumpMessages(180);
+            Require(editor.Text == source, "Undo non ha ripristinato il documento precedente alla rinomina.");
+            Console.WriteLine("PASS hover, Vai alla definizione e rinomina scoped con Undo");
+        }
+
+        private static void AssertClosingBraceAlignment(MainForm form, RichTextBox editor)
+        {
+            const string source =
+                "main() out int\n{\n    if(true)\n    {\n        int value;\n            ";
+            const string expected =
+                "main() out int\n{\n    if(true)\n    {\n        int value;\n    }";
+            editor.Text = source;
+            editor.Select(editor.TextLength, 0);
+            PumpMessages(180);
+            var keyPress = new KeyPressEventArgs('}');
+            InvokeHandler(form, "richTextBoxMainEditor_KeyPress", editor, keyPress);
+            PumpMessages(180);
+            Require(keyPress.Handled, "La graffa chiusa non è stata gestita dall'editor.");
+            Require(editor.Text == expected,
+                "La graffa chiusa non è allineata alla graffa aperta corrispondente.");
+            Require(editor.SelectionStart == expected.Length, "Il cursore non segue la graffa riallineata.");
+            Require(editor.CanUndo, "Il riallineamento della graffa non è annullabile.");
+            editor.Undo();
+            PumpMessages(140);
+            Require(editor.Text == source, "Undo non ripristina l'indentazione precedente alla graffa.");
+            Console.WriteLine("PASS graffa chiusa allineata al blocco con Undo");
+        }
+
+        private static void AssertWorkspaceNavigation(MainForm form, RichTextBox editor, ListBox diagnostics)
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "ddf-editor-workspace-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(directory, "lib"));
+                string mainPath = Path.Combine(directory, "main.ddf");
+                string helperPath = Path.Combine(directory, "lib", "helpers.ddf");
+                DdfDocumentFile.Save(mainPath, "main() out int { ret helper(); }");
+                DdfDocumentFile.Save(helperPath, "helper() out int { ret 1; }");
+
+                SetPrivateField(form, "showWorkspaceDialog", new Func<FolderBrowserDialog, DialogResult>(dialog =>
+                {
+                    dialog.SelectedPath = directory;
+                    return DialogResult.OK;
+                }));
+                FindMenuItem(form, "openWorkspaceMenuItem").PerformClick();
+                PumpMessages(160);
+                TreeView workspaceTree = FindControl<TreeView>(form, "treeViewWorkspace");
+                Require(workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("2 file"),
+                    "Apri cartella non ha popolato l'explorer con i sorgenti DDF.");
+
+                TreeNode mainNode = FindTreeNodeByTag(workspaceTree.Nodes, mainPath);
+                Require(mainNode != null, "Il file principale non è presente nell'explorer workspace.");
+                GetPrivateField<DocumentSession>(form, "documentSession").SetUntitled();
+                InvokeHandler(form, "treeViewWorkspace_NodeMouseDoubleClick", workspaceTree,
+                    new TreeNodeMouseClickEventArgs(mainNode, MouseButtons.Left, 2, 0, 0));
+                PumpMessages(220);
+                Require(editor.Text.Contains("helper()"), "Il doppio clic sul file workspace non ha aperto il documento.");
+                Require(!diagnostics.Items.Cast<object>().Any(item => item.ToString().Contains("DDF201")),
+                    "Un simbolo definito in un altro file è ancora segnalato come non risolto.");
+
+                int helperReference = editor.Text.IndexOf("helper", StringComparison.Ordinal);
+                editor.Select(helperReference, 0);
+                InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
+                FindMenuItem(form, "goToDefinitionMenuItem").PerformClick();
+                PumpMessages(220);
+                Require(editor.SelectedText == "helper" && editor.Text.StartsWith("helper()", StringComparison.Ordinal),
+                    "F12 non ha aperto la definizione presente nell'altro documento.");
+
+                FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+                Require(workspaceTree.Nodes.Count == 0 && !FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
+                    "Chiudi cartella non ha svuotato lo stato workspace.");
+                Console.WriteLine("PASS workspace multi-file, explorer, diagnostica condivisa e F12 tra documenti");
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void AssertTypeChecking(MainForm form, RichTextBox editor, ListBox diagnostics)
+        {
+            const string invalid =
+                "sum(int value) out int { ret value; } " +
+                "main() out bool { string text; int number << \"wrong\"; text + number; sum(); " +
+                "if(number) { int local; } Missing item; ret number; }";
+            editor.Text = invalid;
+            PumpMessages(240);
+            string[] expectedCodes = { "DDF301", "DDF302", "DDF303", "DDF304", "DDF305", "DDF306" };
+            foreach (string code in expectedCodes)
+            {
+                Require(diagnostics.Items.Cast<object>().Any(item => item.ToString().Contains(code)),
+                    "Il pannello non mostra la diagnostica semantica " + code + ".");
+            }
+
+            const string valid = "main() out int { int value << 1; ret value; }";
+            editor.Text = valid;
+            PumpMessages(220);
+            int reference = valid.LastIndexOf("value", StringComparison.Ordinal);
+            Point point = editor.GetPositionFromCharIndex(reference);
+            InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor, point);
+            DdfTypedSpan typed = GetPrivateField<DdfTypedSpan>(form, "hoveredTypedSpan");
+            Require(typed != null && typed.Type.Name == "int",
+                "L'hover non espone il tipo calcolato del riferimento.");
+            Console.WriteLine("PASS diagnostiche DDF3xx e hover con tipo calcolato");
+        }
+
+        private static TreeNode FindTreeNodeByTag(TreeNodeCollection nodes, string path)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                if (string.Equals(node.Tag as string, path, StringComparison.OrdinalIgnoreCase)) return node;
+                TreeNode nested = FindTreeNodeByTag(node.Nodes, path);
+                if (nested != null) return nested;
+            }
+            return null;
+        }
+
         private static T FindControl<T>(Control root, string name) where T : Control
         {
             T control = root.Controls.Find(name, true).OfType<T>().SingleOrDefault();
@@ -811,6 +1034,122 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             return control;
+        }
+
+        private static void AssertProgramExecution(MainForm form, RichTextBox editor)
+        {
+            editor.Text = "main() out int\n{\n    int value << 2;\n    value + 3 >> Console;\n    ret value;\n}";
+            PumpMessages(240);
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpMessages(500);
+            RichTextBox output = FindControl<RichTextBox>(form, "richTextBoxOutput");
+            TabControl tabs = FindControl<TabControl>(form, "tabControlBottom");
+            Require(output.Text.Contains("5"), "L'output runtime non contiene il valore atteso.");
+            Require(output.Text.Contains("Valore restituito: 2"), "La palette non mostra separatamente il valore restituito da main.");
+            Require(output.Text.Contains("passi runtime") && !output.Text.Contains(" istruzioni)"),
+                "Il contatore tecnico è ancora presentato come valore restituito o istruzioni DDF.");
+            Require(output.Text.Contains("Esecuzione completata"), "Il runtime non segnala il completamento.");
+            Require(tabs.SelectedTab.Name == "tabPageOutput", "La palette Output non viene selezionata durante Run.");
+            Require(FindMenuItem(form, "runProgramMenuItem").Enabled, "Run non viene riabilitato al termine.");
+
+            editor.Text = "main() out void { while(true) { } }";
+            PumpMessages(180);
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            Require(FindToolbarButton(form, "toolbarStopButton").Enabled, "Stop non viene abilitato durante l'esecuzione.");
+            FindToolbarButton(form, "toolbarStopButton").PerformClick();
+            PumpMessages(300);
+            Require(output.Text.Contains("Esecuzione arrestata"), "Stop non arresta cooperativamente il runtime.");
+            Require(FindMenuItem(form, "runProgramMenuItem").Enabled, "Run non viene riabilitato dopo Stop.");
+
+            SetPrivateField(form, "requestRuntimeInput", new Func<string>(() => "41"));
+            editor.Text = "main() out int { string text << readLine(); print(text); ret toInt(text) + 1; }";
+            PumpMessages(180);
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpMessages(400);
+            Require(output.Text.Contains("41") && output.Text.Contains("Valore restituito: 42"),
+                "Input e funzioni standard non attraversano correttamente la UI.");
+            Console.WriteLine("PASS interprete Run/Stop, input standard e palette Output");
+        }
+
+        private static void AssertMainToolbar(MainForm form)
+        {
+            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            string[] expected =
+            {
+                "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton",
+                "toolbarUndoButton", "toolbarRedoButton", "toolbarCutButton",
+                "toolbarCopyButton", "toolbarPasteButton", "toolbarFindButton",
+                "toolbarFormatButton", "toolbarFoldButton", "toolbarRunButton", "toolbarStopButton"
+            };
+            foreach (string name in expected)
+            {
+                ToolStripButton button = FindToolbarButton(form, name);
+                Require(button.DisplayStyle == ToolStripItemDisplayStyle.Text && !string.IsNullOrWhiteSpace(button.Text),
+                    "Il comando toolbar non presenta un'icona: " + name);
+                Require(!string.IsNullOrWhiteSpace(button.ToolTipText), "Tooltip toolbar mancante: " + name);
+                if (button.Enabled)
+                    Require(ColorDistance(button.ForeColor, button.BackColor) >= 80,
+                        "L'icona toolbar non ha contrasto sufficiente: " + name);
+            }
+            Require(toolbar.Items.OfType<ToolStripButton>().Count() == expected.Length,
+                "Numero inatteso di pulsanti nella toolbar principale.");
+            Require(toolbar.Top >= form.MainMenuStrip.Bottom, "La toolbar non è posizionata sotto il menu principale.");
+            using (Bitmap icon = form.Icon.ToBitmap())
+            {
+                bool hasNavy = false, hasOrange = false;
+                for (int y = 0; y < icon.Height; y++)
+                for (int x = 0; x < icon.Width; x++)
+                {
+                    Color pixel = icon.GetPixel(x, y);
+                    hasNavy |= pixel.A > 0 && pixel.R < 60 && pixel.G < 80 && pixel.B < 110;
+                    hasOrange |= pixel.A > 0 && pixel.R > 200 && pixel.G > 90 && pixel.G < 210 && pixel.B < 60;
+                }
+                Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
+            }
+            Console.WriteLine("PASS toolbar a icone con 13 comandi principali");
+        }
+
+        private static void AssertUnifiedLightTheme(MainForm form, RichTextBox editor, RichTextBox foldedView, RichTextBox gutter)
+        {
+            string[] lightControls =
+            {
+                "toolStripMain", "panelOutline", "navigationTabs", "workspaceTabPage", "outlineTabPage",
+                "treeViewWorkspace", "treeViewOutline", "panelDiagnostics", "tabPageDiagnostics",
+                "tabPageOutput", "richTextBoxOutput", "listBoxDiagnostics", "buttonOutlinePin",
+                "buttonDiagnosticsPin", "statusStripMain", "completionListBox"
+            };
+            foreach (string name in lightControls)
+            {
+                Control control = form.Controls.Find(name, true).SingleOrDefault();
+                Require(control != null && IsLight(control.BackColor),
+                    "Il controllo conserva uno sfondo scuro: " + name + ".");
+            }
+            Require(IsLight(form.BackColor) && IsLight(form.MainMenuStrip.BackColor),
+                "La cornice principale o il menu non usa il tema chiaro.");
+            Require(!IsLight(editor.BackColor) && !IsLight(foldedView.BackColor) && !IsLight(gutter.BackColor),
+                "Editor, folding e gutter non hanno mantenuto il tema scuro dedicato al codice.");
+            Require(ColorDistance(FindControl<Button>(form, "buttonOutlinePin").ForeColor,
+                                  FindControl<Button>(form, "buttonOutlinePin").BackColor) >= 80,
+                "L'icona pin non è visibile sul tema chiaro.");
+            Console.WriteLine("PASS tema chiaro uniforme con sola superficie editor scura");
+        }
+
+        private static bool IsLight(Color color)
+        {
+            return color.GetBrightness() >= 0.65F;
+        }
+
+        private static int ColorDistance(Color left, Color right)
+        {
+            return Math.Abs(left.R - right.R) + Math.Abs(left.G - right.G) + Math.Abs(left.B - right.B);
+        }
+
+        private static ToolStripButton FindToolbarButton(Form form, string name)
+        {
+            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            ToolStripButton button = toolbar.Items.OfType<ToolStripButton>().FirstOrDefault(item => item.Name == name);
+            if (button == null) throw new InvalidOperationException("Pulsante toolbar non trovato: " + name);
+            return button;
         }
 
         private static ToolStripMenuItem FindMenuItem(Form form, string name)
@@ -847,6 +1186,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             return field.GetValue(target) as T;
+        }
+
+        private static void InvokeMouseMoveHandler(Form form, string methodName, Control sender, Point location)
+        {
+            MethodInfo method = form.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) throw new InvalidOperationException("Handler non trovato: " + methodName);
+            method.Invoke(form, new object[]
+            {
+                sender,
+                new MouseEventArgs(MouseButtons.None, 0, location.X, location.Y, 0)
+            });
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

@@ -22,6 +22,8 @@ namespace DDF___Program_Language_Editor
             this.fileMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.newMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openWorkspaceMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.closeWorkspaceMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveAsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.recentMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -37,11 +39,17 @@ namespace DDF___Program_Language_Editor
             this.replaceMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.completionMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.formatDocumentMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.goToDefinitionMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameSymbolMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.runMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.runProgramMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.stopProgramMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.viewMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleFoldMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.expandAllFoldsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.aboutMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMain = new System.Windows.Forms.ToolStrip();
             this.panelEditor = new System.Windows.Forms.Panel();
             this.richTextBoxMainEditor = new System.Windows.Forms.RichTextBox();
             this.richTextBoxFoldedView = new System.Windows.Forms.RichTextBox();
@@ -53,6 +61,10 @@ namespace DDF___Program_Language_Editor
             this.labelOutline = new System.Windows.Forms.Label();
             this.panelDiagnostics = new System.Windows.Forms.Panel();
             this.buttonDiagnosticsPin = new System.Windows.Forms.Button();
+            this.tabControlBottom = new System.Windows.Forms.TabControl();
+            this.tabPageDiagnostics = new System.Windows.Forms.TabPage();
+            this.tabPageOutput = new System.Windows.Forms.TabPage();
+            this.richTextBoxOutput = new System.Windows.Forms.RichTextBox();
             this.labelDiagnostics = new System.Windows.Forms.Label();
             this.listBoxDiagnostics = new System.Windows.Forms.ListBox();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
@@ -60,9 +72,13 @@ namespace DDF___Program_Language_Editor
             this.statusPositionLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusEncodingLabel = new System.Windows.Forms.ToolStripStatusLabel();
             this.menuStripMain.SuspendLayout();
+            this.toolStripMain.SuspendLayout();
             this.panelEditor.SuspendLayout();
             this.panelOutline.SuspendLayout();
             this.panelDiagnostics.SuspendLayout();
+            this.tabControlBottom.SuspendLayout();
+            this.tabPageDiagnostics.SuspendLayout();
+            this.tabPageOutput.SuspendLayout();
             this.statusStripMain.SuspendLayout();
             this.SuspendLayout();
             //
@@ -71,6 +87,7 @@ namespace DDF___Program_Language_Editor
             this.menuStripMain.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileMenuItem,
             this.editMenuItem,
+            this.runMenuItem,
             this.viewMenuItem,
             this.helpMenuItem});
             this.menuStripMain.Location = new System.Drawing.Point(0, 0);
@@ -83,6 +100,8 @@ namespace DDF___Program_Language_Editor
             this.fileMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.newMenuItem,
             this.openMenuItem,
+            this.openWorkspaceMenuItem,
+            this.closeWorkspaceMenuItem,
             new System.Windows.Forms.ToolStripSeparator(),
             this.saveMenuItem,
             this.saveAsMenuItem,
@@ -107,6 +126,19 @@ namespace DDF___Program_Language_Editor
             this.openMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
             this.openMenuItem.Text = "&Apri...";
             this.openMenuItem.Click += new System.EventHandler(this.openMenuItem_Click);
+            //
+            // openWorkspaceMenuItem
+            //
+            this.openWorkspaceMenuItem.Name = "openWorkspaceMenuItem";
+            this.openWorkspaceMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt) | System.Windows.Forms.Keys.O));
+            this.openWorkspaceMenuItem.Text = "Apri &cartella...";
+            this.openWorkspaceMenuItem.Click += new System.EventHandler(this.openWorkspaceMenuItem_Click);
+            //
+            // closeWorkspaceMenuItem
+            //
+            this.closeWorkspaceMenuItem.Name = "closeWorkspaceMenuItem";
+            this.closeWorkspaceMenuItem.Text = "Chiudi cartella";
+            this.closeWorkspaceMenuItem.Click += new System.EventHandler(this.closeWorkspaceMenuItem_Click);
             //
             // saveMenuItem
             //
@@ -149,7 +181,10 @@ namespace DDF___Program_Language_Editor
             this.replaceMenuItem,
             new System.Windows.Forms.ToolStripSeparator(),
             this.completionMenuItem,
-            this.formatDocumentMenuItem});
+            this.formatDocumentMenuItem,
+            new System.Windows.Forms.ToolStripSeparator(),
+            this.goToDefinitionMenuItem,
+            this.renameSymbolMenuItem});
             this.editMenuItem.Name = "editMenuItem";
             this.editMenuItem.Size = new System.Drawing.Size(39, 20);
             this.editMenuItem.Text = "&Modifica";
@@ -225,6 +260,44 @@ namespace DDF___Program_Language_Editor
             this.formatDocumentMenuItem.Text = "&Formatta documento";
             this.formatDocumentMenuItem.Click += new System.EventHandler(this.formatDocumentMenuItem_Click);
             //
+            // goToDefinitionMenuItem
+            //
+            this.goToDefinitionMenuItem.Name = "goToDefinitionMenuItem";
+            this.goToDefinitionMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F12;
+            this.goToDefinitionMenuItem.Text = "Vai alla &definizione";
+            this.goToDefinitionMenuItem.Click += new System.EventHandler(this.goToDefinitionMenuItem_Click);
+            //
+            // renameSymbolMenuItem
+            //
+            this.renameSymbolMenuItem.Name = "renameSymbolMenuItem";
+            this.renameSymbolMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F2;
+            this.renameSymbolMenuItem.Text = "&Rinomina simbolo...";
+            this.renameSymbolMenuItem.Click += new System.EventHandler(this.renameSymbolMenuItem_Click);
+            //
+            // runMenuItem
+            //
+            this.runMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.runProgramMenuItem,
+            this.stopProgramMenuItem});
+            this.runMenuItem.Name = "runMenuItem";
+            this.runMenuItem.Text = "&Esegui";
+            this.runMenuItem.DropDownOpening += new System.EventHandler(this.runMenuItem_DropDownOpening);
+            //
+            // runProgramMenuItem
+            //
+            this.runProgramMenuItem.Name = "runProgramMenuItem";
+            this.runProgramMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F5;
+            this.runProgramMenuItem.Text = "&Avvia";
+            this.runProgramMenuItem.Click += new System.EventHandler(this.runProgramMenuItem_Click);
+            //
+            // stopProgramMenuItem
+            //
+            this.stopProgramMenuItem.Enabled = false;
+            this.stopProgramMenuItem.Name = "stopProgramMenuItem";
+            this.stopProgramMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Shift | System.Windows.Forms.Keys.F5)));
+            this.stopProgramMenuItem.Text = "&Arresta";
+            this.stopProgramMenuItem.Click += new System.EventHandler(this.stopProgramMenuItem_Click);
+            //
             // viewMenuItem
             //
             this.viewMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -263,6 +336,19 @@ namespace DDF___Program_Language_Editor
             this.aboutMenuItem.Text = "&About...";
             this.aboutMenuItem.Click += new System.EventHandler(this.aboutMenuItem_Click);
             //
+            // toolStripMain
+            //
+            this.toolStripMain.BackColor = System.Drawing.Color.FromArgb(250, 250, 250);
+            this.toolStripMain.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStripMain.ImageScalingSize = new System.Drawing.Size(20, 20);
+            this.toolStripMain.Location = new System.Drawing.Point(0, 24);
+            this.toolStripMain.Name = "toolStripMain";
+            this.toolStripMain.Padding = new System.Windows.Forms.Padding(5, 1, 1, 1);
+            this.toolStripMain.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
+            this.toolStripMain.Size = new System.Drawing.Size(1027, 32);
+            this.toolStripMain.TabIndex = 1;
+            this.toolStripMain.Text = "Comandi principali";
+            //
             // panelEditor
             //
             this.panelEditor.Controls.Add(this.richTextBoxFoldedView);
@@ -293,6 +379,7 @@ namespace DDF___Program_Language_Editor
             this.richTextBoxMainEditor.SelectionChanged += new System.EventHandler(this.richTextBoxMainEditor_SelectionChanged);
             this.richTextBoxMainEditor.TextChanged += new System.EventHandler(this.richTextBox_TextChanged);
             this.richTextBoxMainEditor.KeyDown += new System.Windows.Forms.KeyEventHandler(this.richTextBoxMainEditor_KeyDown);
+            this.richTextBoxMainEditor.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.richTextBoxMainEditor_KeyPress);
             //
             // richTextBoxFoldedView
             //
@@ -327,23 +414,23 @@ namespace DDF___Program_Language_Editor
             //
             // splitterOutline
             //
-            this.splitterOutline.BackColor = System.Drawing.Color.FromArgb(62, 62, 64);
+            this.splitterOutline.BackColor = System.Drawing.Color.FromArgb(204, 204, 204);
             this.splitterOutline.Dock = System.Windows.Forms.DockStyle.Right;
             this.splitterOutline.MinExtra = 480;
-            this.splitterOutline.MinSize = 180;
+            this.splitterOutline.MinSize = 300;
             this.splitterOutline.Name = "splitterOutline";
             this.splitterOutline.Size = new System.Drawing.Size(4, 711);
             this.splitterOutline.TabStop = false;
             //
             // panelOutline
             //
-            this.panelOutline.BackColor = System.Drawing.Color.FromArgb(37, 37, 38);
+            this.panelOutline.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
             this.panelOutline.Controls.Add(this.buttonOutlinePin);
             this.panelOutline.Controls.Add(this.treeViewOutline);
             this.panelOutline.Controls.Add(this.labelOutline);
             this.panelOutline.Dock = System.Windows.Forms.DockStyle.Right;
             this.panelOutline.Name = "panelOutline";
-            this.panelOutline.Size = new System.Drawing.Size(180, 711);
+            this.panelOutline.Size = new System.Drawing.Size(300, 711);
             this.panelOutline.TabIndex = 3;
             //
             // buttonOutlinePin
@@ -352,26 +439,27 @@ namespace DDF___Program_Language_Editor
             this.buttonOutlinePin.FlatAppearance.BorderSize = 0;
             this.buttonOutlinePin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonOutlinePin.Font = new System.Drawing.Font("Segoe MDL2 Assets", 9F);
-            this.buttonOutlinePin.ForeColor = System.Drawing.Color.Gainsboro;
-            this.buttonOutlinePin.Location = new System.Drawing.Point(154, 1);
+            this.buttonOutlinePin.BackColor = System.Drawing.Color.FromArgb(250, 250, 250);
+            this.buttonOutlinePin.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
+            this.buttonOutlinePin.Location = new System.Drawing.Point(274, 1);
             this.buttonOutlinePin.Name = "buttonOutlinePin";
             this.buttonOutlinePin.Size = new System.Drawing.Size(24, 24);
             this.buttonOutlinePin.TabIndex = 2;
             this.buttonOutlinePin.Text = "";
-            this.buttonOutlinePin.UseVisualStyleBackColor = true;
+            this.buttonOutlinePin.UseVisualStyleBackColor = false;
             //
             // treeViewOutline
             //
-            this.treeViewOutline.BackColor = System.Drawing.Color.FromArgb(37, 37, 38);
+            this.treeViewOutline.BackColor = System.Drawing.Color.White;
             this.treeViewOutline.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.treeViewOutline.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewOutline.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.treeViewOutline.ForeColor = System.Drawing.Color.Gainsboro;
+            this.treeViewOutline.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
             this.treeViewOutline.FullRowSelect = true;
             this.treeViewOutline.HideSelection = false;
             this.treeViewOutline.Name = "treeViewOutline";
             this.treeViewOutline.ShowLines = false;
-            this.treeViewOutline.Size = new System.Drawing.Size(180, 685);
+            this.treeViewOutline.Size = new System.Drawing.Size(300, 685);
             this.treeViewOutline.TabIndex = 0;
             this.treeViewOutline.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeViewOutline_NodeMouseDoubleClick);
             //
@@ -379,19 +467,18 @@ namespace DDF___Program_Language_Editor
             //
             this.labelOutline.Dock = System.Windows.Forms.DockStyle.Top;
             this.labelOutline.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.labelOutline.ForeColor = System.Drawing.Color.Gainsboro;
+            this.labelOutline.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
             this.labelOutline.Name = "labelOutline";
             this.labelOutline.Padding = new System.Windows.Forms.Padding(8, 0, 30, 0);
-            this.labelOutline.Size = new System.Drawing.Size(180, 26);
+            this.labelOutline.Size = new System.Drawing.Size(300, 26);
             this.labelOutline.Text = "OUTLINE — 0 simboli";
             this.labelOutline.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // panelDiagnostics
             //
-            this.panelDiagnostics.BackColor = System.Drawing.Color.FromArgb(45, 45, 48);
+            this.panelDiagnostics.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
             this.panelDiagnostics.Controls.Add(this.buttonDiagnosticsPin);
-            this.panelDiagnostics.Controls.Add(this.listBoxDiagnostics);
-            this.panelDiagnostics.Controls.Add(this.labelDiagnostics);
+            this.panelDiagnostics.Controls.Add(this.tabControlBottom);
             this.panelDiagnostics.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelDiagnostics.Name = "panelDiagnostics";
             this.panelDiagnostics.Size = new System.Drawing.Size(1027, 116);
@@ -403,19 +490,59 @@ namespace DDF___Program_Language_Editor
             this.buttonDiagnosticsPin.FlatAppearance.BorderSize = 0;
             this.buttonDiagnosticsPin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonDiagnosticsPin.Font = new System.Drawing.Font("Segoe MDL2 Assets", 9F);
-            this.buttonDiagnosticsPin.ForeColor = System.Drawing.Color.Gainsboro;
+            this.buttonDiagnosticsPin.BackColor = System.Drawing.Color.FromArgb(250, 250, 250);
+            this.buttonDiagnosticsPin.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
             this.buttonDiagnosticsPin.Location = new System.Drawing.Point(1001, 1);
             this.buttonDiagnosticsPin.Name = "buttonDiagnosticsPin";
             this.buttonDiagnosticsPin.Size = new System.Drawing.Size(24, 24);
             this.buttonDiagnosticsPin.TabIndex = 2;
             this.buttonDiagnosticsPin.Text = "";
-            this.buttonDiagnosticsPin.UseVisualStyleBackColor = true;
+            this.buttonDiagnosticsPin.UseVisualStyleBackColor = false;
+            //
+            // tabControlBottom
+            //
+            this.tabControlBottom.Controls.Add(this.tabPageDiagnostics);
+            this.tabControlBottom.Controls.Add(this.tabPageOutput);
+            this.tabControlBottom.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabControlBottom.Name = "tabControlBottom";
+            this.tabControlBottom.SelectedIndex = 0;
+            this.tabControlBottom.Size = new System.Drawing.Size(1027, 116);
+            this.tabControlBottom.TabIndex = 0;
+            //
+            // tabPageDiagnostics
+            //
+            this.tabPageDiagnostics.BackColor = System.Drawing.Color.White;
+            this.tabPageDiagnostics.Controls.Add(this.listBoxDiagnostics);
+            this.tabPageDiagnostics.Controls.Add(this.labelDiagnostics);
+            this.tabPageDiagnostics.Name = "tabPageDiagnostics";
+            this.tabPageDiagnostics.Padding = new System.Windows.Forms.Padding(0);
+            this.tabPageDiagnostics.Text = "Diagnostica";
+            //
+            // tabPageOutput
+            //
+            this.tabPageOutput.BackColor = System.Drawing.Color.White;
+            this.tabPageOutput.Controls.Add(this.richTextBoxOutput);
+            this.tabPageOutput.Name = "tabPageOutput";
+            this.tabPageOutput.Padding = new System.Windows.Forms.Padding(0);
+            this.tabPageOutput.Text = "Output";
+            //
+            // richTextBoxOutput
+            //
+            this.richTextBoxOutput.BackColor = System.Drawing.Color.White;
+            this.richTextBoxOutput.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.richTextBoxOutput.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.richTextBoxOutput.Font = new System.Drawing.Font("Consolas", 9.5F);
+            this.richTextBoxOutput.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
+            this.richTextBoxOutput.Name = "richTextBoxOutput";
+            this.richTextBoxOutput.ReadOnly = true;
+            this.richTextBoxOutput.Text = "";
+            this.richTextBoxOutput.WordWrap = false;
             //
             // labelDiagnostics
             //
             this.labelDiagnostics.Dock = System.Windows.Forms.DockStyle.Top;
             this.labelDiagnostics.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.labelDiagnostics.ForeColor = System.Drawing.Color.Gainsboro;
+            this.labelDiagnostics.ForeColor = System.Drawing.Color.FromArgb(32, 32, 32);
             this.labelDiagnostics.Name = "labelDiagnostics";
             this.labelDiagnostics.Padding = new System.Windows.Forms.Padding(8, 0, 30, 0);
             this.labelDiagnostics.Size = new System.Drawing.Size(1027, 26);
@@ -424,11 +551,11 @@ namespace DDF___Program_Language_Editor
             //
             // listBoxDiagnostics
             //
-            this.listBoxDiagnostics.BackColor = System.Drawing.Color.FromArgb(37, 37, 38);
+            this.listBoxDiagnostics.BackColor = System.Drawing.Color.White;
             this.listBoxDiagnostics.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.listBoxDiagnostics.Dock = System.Windows.Forms.DockStyle.Fill;
             this.listBoxDiagnostics.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.listBoxDiagnostics.ForeColor = System.Drawing.Color.LightCoral;
+            this.listBoxDiagnostics.ForeColor = System.Drawing.Color.FromArgb(176, 0, 32);
             this.listBoxDiagnostics.FormattingEnabled = true;
             this.listBoxDiagnostics.IntegralHeight = false;
             this.listBoxDiagnostics.Name = "listBoxDiagnostics";
@@ -471,24 +598,30 @@ namespace DDF___Program_Language_Editor
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1027, 793);
             this.Controls.Add(this.panelEditor);
+            this.Controls.Add(this.panelDiagnostics);
             this.Controls.Add(this.splitterOutline);
             this.Controls.Add(this.panelOutline);
-            this.Controls.Add(this.panelDiagnostics);
             this.Controls.Add(this.statusStripMain);
+            this.Controls.Add(this.toolStripMain);
             this.Controls.Add(this.menuStripMain);
             this.MainMenuStrip = this.menuStripMain;
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.5.4 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.7.3 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.menuStripMain.ResumeLayout(false);
             this.menuStripMain.PerformLayout();
+            this.toolStripMain.ResumeLayout(false);
+            this.toolStripMain.PerformLayout();
             this.panelEditor.ResumeLayout(false);
             this.panelOutline.ResumeLayout(false);
             this.panelDiagnostics.ResumeLayout(false);
+            this.tabControlBottom.ResumeLayout(false);
+            this.tabPageDiagnostics.ResumeLayout(false);
+            this.tabPageOutput.ResumeLayout(false);
             this.statusStripMain.ResumeLayout(false);
             this.statusStripMain.PerformLayout();
             this.ResumeLayout(false);
@@ -501,6 +634,8 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.ToolStripMenuItem fileMenuItem;
         private System.Windows.Forms.ToolStripMenuItem newMenuItem;
         private System.Windows.Forms.ToolStripMenuItem openMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openWorkspaceMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem closeWorkspaceMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveAsMenuItem;
         private System.Windows.Forms.ToolStripMenuItem recentMenuItem;
@@ -516,11 +651,17 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.ToolStripMenuItem replaceMenuItem;
         private System.Windows.Forms.ToolStripMenuItem completionMenuItem;
         private System.Windows.Forms.ToolStripMenuItem formatDocumentMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem goToDefinitionMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem renameSymbolMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem runMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem runProgramMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem stopProgramMenuItem;
         private System.Windows.Forms.ToolStripMenuItem viewMenuItem;
         private System.Windows.Forms.ToolStripMenuItem toggleFoldMenuItem;
         private System.Windows.Forms.ToolStripMenuItem expandAllFoldsMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutMenuItem;
+        private System.Windows.Forms.ToolStrip toolStripMain;
         private System.Windows.Forms.Panel panelEditor;
         private System.Windows.Forms.RichTextBox richTextBoxMainEditor;
         private System.Windows.Forms.RichTextBox richTextBoxFoldedView;
@@ -532,6 +673,10 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.Label labelOutline;
         private System.Windows.Forms.Panel panelDiagnostics;
         private System.Windows.Forms.Button buttonDiagnosticsPin;
+        private System.Windows.Forms.TabControl tabControlBottom;
+        private System.Windows.Forms.TabPage tabPageDiagnostics;
+        private System.Windows.Forms.TabPage tabPageOutput;
+        private System.Windows.Forms.RichTextBox richTextBoxOutput;
         private System.Windows.Forms.Label labelDiagnostics;
         private System.Windows.Forms.ListBox listBoxDiagnostics;
         private System.Windows.Forms.StatusStrip statusStripMain;

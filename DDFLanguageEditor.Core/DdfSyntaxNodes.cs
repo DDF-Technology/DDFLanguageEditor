@@ -334,4 +334,21 @@ namespace DDFLanguageEditor.Core
         public ExpressionSyntax Target { get; }
         public ExpressionSyntax Index { get; }
     }
+
+    public sealed class MemberAccessExpressionSyntax : ExpressionSyntax
+    {
+        public MemberAccessExpressionSyntax(ExpressionSyntax target, string name, int nameStart, int nameLength, int start, int length)
+            : base(start, length)
+        {
+            Target = target;
+            Name = name;
+            NameStart = nameStart;
+            NameLength = nameLength;
+        }
+
+        public ExpressionSyntax Target { get; }
+        public string Name { get; }
+        public int NameStart { get; }
+        public int NameLength { get; }
+    }
 }

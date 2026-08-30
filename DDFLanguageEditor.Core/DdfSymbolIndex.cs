@@ -25,7 +25,10 @@ namespace DDFLanguageEditor.Core
                     string name = ExtractLibraryName(library.Text);
                     if (!string.IsNullOrWhiteSpace(name))
                     {
-                        symbols.Add(CreateSymbol(name, DdfSymbolKind.Library, string.Empty, library, library.Start, library.Length));
+                        int nameStart = library.Text.StartsWith("@@'", StringComparison.Ordinal)
+                            ? library.Start + 3
+                            : library.Start;
+                        symbols.Add(CreateSymbol(name, DdfSymbolKind.Library, string.Empty, library, nameStart, name.Length));
                     }
                 }
                 else if (member is StructDeclarationSyntax structure && !string.IsNullOrWhiteSpace(structure.Name))

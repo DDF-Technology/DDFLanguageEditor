@@ -18,6 +18,8 @@ namespace DDF___Program_Language_Editor
         private DdfLexResult lastLexResult;
         private string lastAnalyzedText = string.Empty;
         private DdfParseResult lastParseResult;
+        private DdfSemanticModel lastSemanticModel;
+        private DdfTypeCheckResult lastTypeCheckResult;
         private DdfDelimiterMatch activeDelimiterMatch;
         private DdfFoldProjection activeFoldProjection;
         private IReadOnlyList<DdfFoldingRange> foldingRanges = new List<DdfFoldingRange>();
@@ -25,6 +27,9 @@ namespace DDF___Program_Language_Editor
         private List<string> recentFiles;
         private FindReplaceForm findReplaceForm;
         private AboutForm aboutForm;
+        private readonly ToolTip symbolToolTip;
+        private DdfDocumentSymbol hoveredSymbol;
+        private DdfTypedSpan hoveredTypedSpan;
         private int diagnosticsFormatStart = int.MaxValue;
         private bool isApplyingHighlighting;
         private bool isUpdatingDelimiterHighlight;
@@ -33,15 +38,19 @@ namespace DDF___Program_Language_Editor
         private Func<OpenFileDialog, DialogResult> showOpenFileDialog;
         private Func<SaveFileDialog, DialogResult> showSaveFileDialog;
         private Action<string> saveRecentFilesSetting;
+        private Func<string, string> requestSymbolRename;
+        private Func<FolderBrowserDialog, DialogResult> showWorkspaceDialog;
+        private Func<string> requestRuntimeInput;
 
         public MainForm()
         {
             InitializeComponent();
+            initializeMainToolbar();
 
-            System.Drawing.Icon executableIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            if (executableIcon != null)
+            System.Drawing.Icon applicationIcon = AppIconProvider.LoadIcon();
+            if (applicationIcon != null)
             {
-                Icon = executableIcon;
+                Icon = applicationIcon;
             }
 
             highlightTimer = new Timer
@@ -54,11 +63,23 @@ namespace DDF___Program_Language_Editor
                 Interval = 100
             };
             delimiterHighlightTimer.Tick += delimiterHighlightTimer_Tick;
+            symbolToolTip = new ToolTip
+            {
+                AutomaticDelay = 350,
+                AutoPopDelay = 5000,
+                InitialDelay = 350,
+                ReshowDelay = 100,
+                ShowAlways = true
+            };
             richTextBoxMainEditor.MouseDown += richTextBoxMainEditor_MouseDown;
             richTextBoxMainEditor.MouseUp += richTextBoxMainEditor_MouseUp;
+            richTextBoxMainEditor.MouseMove += richTextBoxMainEditor_MouseMove;
+            richTextBoxMainEditor.MouseLeave += richTextBoxMainEditor_MouseLeave;
             richTextBoxFoldedView.VScroll += richTextBoxFoldedView_VScroll;
             richTextBoxFoldedView.SelectionChanged += richTextBoxFoldedView_SelectionChanged;
             richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
+            initializeWorkspace();
+            closeWorkspaceMenuItem.Enabled = false;
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(Properties.Settings.Default.RecentFiles));
             initializeCompletion();
@@ -69,14 +90,28 @@ namespace DDF___Program_Language_Editor
                 Properties.Settings.Default.RecentFiles = value;
                 Properties.Settings.Default.Save();
             };
+            requestSymbolRename = showRenameSymbolDialog;
+            showWorkspaceDialog = dialog => dialog.ShowDialog(this);
+            requestRuntimeInput = showRuntimeInputDialog;
+            applyApplicationTheme();
+        }
+
+        private void applyApplicationTheme()
+        {
+            AppTheme.ApplyLight(this);
+            toolbarRunButton.ForeColor = AppTheme.Run;
+            toolbarStopButton.ForeColor = AppTheme.Stop;
+            listBoxDiagnostics.ForeColor = AppTheme.Error;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            stopExecution();
             highlightTimer.Stop();
             delimiterHighlightTimer.Stop();
             disposeCompletion();
             disposePaletteBehavior();
+            symbolToolTip.Dispose();
             highlightTimer.Dispose();
             delimiterHighlightTimer.Dispose();
             base.OnFormClosed(e);
@@ -135,8 +170,8 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            replaceEditorText(string.Empty);
             documentSession.SetUntitled();
+            replaceEditorText(string.Empty);
             updateDocumentUi();
             richTextBoxMainEditor.Focus();
         }
@@ -216,8 +251,9 @@ namespace DDF___Program_Language_Editor
             try
             {
                 string content = DdfDocumentFile.Load(path);
-                replaceEditorText(content);
                 documentSession.SetLoaded(path);
+                replaceEditorText(content);
+                updateWorkspaceDocument(path, content);
                 addRecentFile(path);
                 updateDocumentUi();
                 richTextBoxMainEditor.Focus();
@@ -264,6 +300,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Modified = false;
                 addRecentFile(path);
                 updateDocumentUi();
+                updateWorkspaceDocument(path, richTextBoxMainEditor.Text);
                 return true;
             }
             catch (Exception exception) when (isDocumentException(exception))
@@ -368,7 +405,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.5.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.7.3 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -387,6 +424,8 @@ namespace DDF___Program_Language_Editor
                 selectAllMenuItem.Enabled = richTextBoxFoldedView.TextLength > 0;
                 completionMenuItem.Enabled = false;
                 formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+                goToDefinitionMenuItem.Enabled = false;
+                renameSymbolMenuItem.Enabled = false;
                 return;
             }
 
@@ -398,6 +437,9 @@ namespace DDF___Program_Language_Editor
             selectAllMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
             completionMenuItem.Enabled = true;
             formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+            DdfSymbolOccurrence occurrence = getCurrentSymbolOccurrence();
+            goToDefinitionMenuItem.Enabled = occurrence != null || getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
+            renameSymbolMenuItem.Enabled = occurrence != null;
         }
 
         private void undoMenuItem_Click(object sender, EventArgs e)
@@ -463,10 +505,13 @@ namespace DDF___Program_Language_Editor
             {
                 findReplaceForm = new FindReplaceForm(richTextBoxMainEditor);
                 findReplaceForm.FormClosed += (sender, args) => findReplaceForm = null;
+                findReplaceForm.SetReplaceMode(showReplace);
                 findReplaceForm.Show(this);
             }
-
-            findReplaceForm.SetReplaceMode(showReplace);
+            else
+            {
+                findReplaceForm.SetReplaceMode(showReplace);
+            }
             if (richTextBoxMainEditor.SelectionLength > 0)
             {
                 findReplaceForm.PrefillFind(richTextBoxMainEditor.SelectedText);

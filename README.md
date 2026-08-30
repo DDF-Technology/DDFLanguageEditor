@@ -1,8 +1,8 @@
 # DDFLanguageEditor
 
-> **Beta 0.5.4 — progetto sperimentale in sviluppo.** La versione disponibile è
-> un prototipo di editor sintattico: non è ancora un ambiente di sviluppo né
-> un'implementazione completa del linguaggio DDF.
+> **Beta 0.7.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> un editor con il primo interprete DDF interno; linguaggio e runtime non sono
+> ancora completi né stabili.
 
 DDFLanguageEditor conserva ed espone il primo esperimento WinForms dedicato al
 linguaggio sperimentale DDF. Offre un'area di scrittura scura con numeri di riga,
@@ -17,11 +17,22 @@ evidenziazione delle regole note e indentazione assistita.
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale di catalogo e simboli locali, automatico o con `Ctrl+Spazio`;
 - formattazione automatica idempotente con `Ctrl+Shift+F` e singolo Undo;
-- diagnostica lessicale e sintattica con pannello navigabile;
+- risoluzione documentale dei simboli, hover informativo, definizione con `F12` e rinomina scoped con `F2`;
+- workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
+- type checker per primitivi, strutture e array con diagnostiche `DDF3xx` e hover tipizzato;
+- interprete AST interno con funzioni, scope, controllo di flusso, array e strutture;
+- menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output;
+- diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
+- libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
+- barra a icone per i principali comandi File, Modifica, folding ed esecuzione;
+- interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
+- palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
+- diagnostica lessicale, sintattica e semantica con pannello navigabile;
 - numerazione delle righe visibili in un gutter non selezionabile;
 - Outline e Diagnostica pinnabili oppure richiudibili automaticamente;
 - conversione di Tab in quattro spazi;
 - indentazione multilinea, de-indentazione e rientro automatico dopo `{` e `(`;
+- riallineamento automatico di `}` alla graffa aperta corrispondente;
 - creazione, apertura e salvataggio di sorgenti `.ddf` in UTF-8;
 - protezione delle modifiche non salvate e file recenti;
 - trova, sostituisci, scorciatoie standard e barra di stato;
@@ -30,9 +41,8 @@ evidenziazione delle regole note e indentazione assistita.
 
 ## Limiti della beta
 
-- nessun validatore semantico o risolutore di simboli;
-- nessun interprete, compilatore, debugger o runtime DDF;
-- nessuna rinomina, risoluzione semantica o gestione progetto;
+- nessun compilatore, debugger, input non interattivo o runtime multi-file;
+- nessun overload, generico, conversione personalizzata o sistema di build/progetto;
 - la ri-lessicalizzazione riutilizza il prefisso invariato ma analizza ancora
   dalla zona modificata fino alla fine del documento;
 - la grammatica 0.4 copre un sottoinsieme sperimentale e può ancora cambiare;
@@ -70,7 +80,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 19 comandi presenti nei menu File, Modifica, Visualizza e Help; la
+inoltre tutti i 25 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -86,10 +96,10 @@ Per eseguire soltanto i test del core dopo una build Debug:
 
 ## Struttura
 
-- `Main.cs`, `Main.Editor.cs`, `Main.Completion.cs`, `Main.Formatting.cs` e `Main.Designer.cs`: finestra e flussi utente;
+- `Main.cs`, `Main.Editor.cs`, `Main.Completion.cs`, `Main.Formatting.cs`, `Main.Semantics.cs`, `Main.Workspace.cs`, `Main.Execution.cs` e `Main.Designer.cs`: finestra e flussi utente;
 - `FindReplaceForm.cs`: ricerca e sostituzione modeless;
 - `AboutForm.cs`: informazioni su autore, sito, licenza e versione beta;
-- `DDFLanguageEditor.Core/`: documenti, ricerca, lexer, parser, AST e trasformazioni testabili;
+- `DDFLanguageEditor.Core/`: documenti, lexer, parser, AST, analisi semantica e interprete testabile;
 - `tests/DDFLanguageEditor.Tests/`: suite di regressione eseguibile senza dipendenze;
 - `tests/DDFLanguageEditor.EditorSmokeTests/`: smoke dinamico sul form WinForms reale;
 - `tests/run-dynamic-smoke.ps1`: build e gate di test ripetibile;
@@ -118,15 +128,21 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.5.4 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.7.3 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
-numbers and assisted indentation. It includes no semantic analyzer, compiler,
-interpreter, debugger or DDF runtime. A live document outline indexes structures,
+numbers and assisted indentation. It includes a first semantic analyzer but no
+compiler, interpreter, debugger or DDF runtime. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving
 read-only fold projection are included. Contextual completion suggests catalog
 terms and locally visible document symbols, automatically or with `Ctrl+Space`.
 The idempotent document formatter normalizes indentation and token spacing with
 `Ctrl+Shift+F` while preserving protected token contents and Undo.
+Document-local symbol resolution powers hover information, `F12` definition
+navigation and scope-safe rename with `F2`.
+A small-folder workspace indexes `.ddf` files recursively and extends completion
+and definition navigation across documents.
+A runtime-independent type checker validates primitive, structure and array
+operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.
 Source and documentation are available under the MIT License.

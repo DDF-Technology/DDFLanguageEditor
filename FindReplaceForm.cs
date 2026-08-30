@@ -16,6 +16,7 @@ namespace DDF___Program_Language_Editor
         private readonly Button replaceButton;
         private readonly Button replaceAllButton;
         private readonly Label resultLabel;
+        private readonly RowStyle replaceRowStyle;
 
         public FindReplaceForm(RichTextBox editor)
         {
@@ -26,70 +27,113 @@ namespace DDF___Program_Language_Editor
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(430, 174);
+            StartPosition = FormStartPosition.CenterScreen;
+            ClientSize = new Size(560, 212);
             Font = new Font("Segoe UI", 9F);
 
-            var findLabel = new Label { AutoSize = true, Location = new Point(12, 16), Text = "Trova:" };
+            var layout = new TableLayoutPanel
+            {
+                Name = "findReplaceLayout",
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 5,
+                Padding = new Padding(14, 12, 14, 10)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            replaceRowStyle = new RowStyle(SizeType.Absolute, 34F);
+            layout.RowStyles.Add(replaceRowStyle);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var findLabel = new Label
+            {
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                Name = "findLabel",
+                Text = "Trova:",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
             findTextBox = new TextBox
             {
                 Name = "findTextBox",
-                Location = new Point(90, 12),
-                Size = new Size(235, 23),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                Dock = DockStyle.Fill,
+                Margin = new Padding(3, 5, 0, 5)
             };
-            replaceLabel = new Label { AutoSize = true, Location = new Point(12, 50), Text = "Sostituisci:" };
+            replaceLabel = new Label
+            {
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                Name = "replaceLabel",
+                Text = "Sostituisci con:",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
             replaceTextBox = new TextBox
             {
                 Name = "replaceTextBox",
-                Location = new Point(90, 46),
-                Size = new Size(235, 23),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                Dock = DockStyle.Fill,
+                Margin = new Padding(3, 5, 0, 5)
             };
             matchCaseCheckBox = new CheckBox
             {
                 Name = "matchCaseCheckBox",
                 AutoSize = true,
-                Location = new Point(90, 79),
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(3, 4, 0, 4),
                 Text = "Maiuscole/minuscole"
             };
             var findNextButton = new Button
             {
                 Name = "findNextButton",
-                Location = new Point(333, 11),
-                Size = new Size(85, 27),
-                Text = "Trova dopo"
+                Size = new Size(108, 30),
+                Text = "Trova successivo"
             };
             replaceButton = new Button
             {
                 Name = "replaceButton",
-                Location = new Point(333, 45),
-                Size = new Size(85, 27),
+                Size = new Size(96, 30),
                 Text = "Sostituisci"
             };
             replaceAllButton = new Button
             {
                 Name = "replaceAllButton",
-                Location = new Point(333, 79),
-                Size = new Size(85, 27),
-                Text = "Tutti"
+                Size = new Size(116, 30),
+                Text = "Sostituisci tutto"
             };
             resultLabel = new Label
             {
                 Name = "resultLabel",
                 AutoEllipsis = true,
+                Dock = DockStyle.Fill,
                 ForeColor = Color.DimGray,
-                Location = new Point(12, 112),
-                Size = new Size(406, 20),
+                Margin = new Padding(0),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             var closeButton = new Button
             {
                 Name = "closeButton",
-                Location = new Point(333, 137),
-                Size = new Size(85, 27),
+                Size = new Size(84, 30),
                 Text = "Chiudi"
             };
+            var actionPanel = new FlowLayoutPanel
+            {
+                Name = "findReplaceActionPanel",
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.RightToLeft,
+                Margin = new Padding(0),
+                Padding = new Padding(0, 4, 0, 0),
+                WrapContents = false
+            };
+            closeButton.Margin = new Padding(6, 0, 0, 0);
+            replaceAllButton.Margin = new Padding(6, 0, 0, 0);
+            replaceButton.Margin = new Padding(6, 0, 0, 0);
+            findNextButton.Margin = new Padding(6, 0, 0, 0);
+            actionPanel.Controls.Add(closeButton);
+            actionPanel.Controls.Add(replaceButton);
+            actionPanel.Controls.Add(replaceAllButton);
+            actionPanel.Controls.Add(findNextButton);
 
             findNextButton.Click += (sender, args) => findNext();
             replaceButton.Click += (sender, args) => replaceCurrent();
@@ -97,19 +141,20 @@ namespace DDF___Program_Language_Editor
             closeButton.Click += (sender, args) => Close();
             findTextBox.TextChanged += (sender, args) => resultLabel.Text = string.Empty;
 
-            Controls.Add(findLabel);
-            Controls.Add(findTextBox);
-            Controls.Add(replaceLabel);
-            Controls.Add(replaceTextBox);
-            Controls.Add(matchCaseCheckBox);
-            Controls.Add(findNextButton);
-            Controls.Add(replaceButton);
-            Controls.Add(replaceAllButton);
-            Controls.Add(resultLabel);
-            Controls.Add(closeButton);
+            layout.Controls.Add(findLabel, 0, 0);
+            layout.Controls.Add(findTextBox, 1, 0);
+            layout.Controls.Add(replaceLabel, 0, 1);
+            layout.Controls.Add(replaceTextBox, 1, 1);
+            layout.Controls.Add(matchCaseCheckBox, 1, 2);
+            layout.Controls.Add(resultLabel, 0, 3);
+            layout.SetColumnSpan(resultLabel, 2);
+            layout.Controls.Add(actionPanel, 0, 4);
+            layout.SetColumnSpan(actionPanel, 2);
+            Controls.Add(layout);
 
             AcceptButton = findNextButton;
             CancelButton = closeButton;
+            AppTheme.ApplyLight(this);
         }
 
         public void SetReplaceMode(bool enabled)
@@ -117,8 +162,15 @@ namespace DDF___Program_Language_Editor
             Text = enabled ? "Trova e sostituisci" : "Trova";
             replaceLabel.Visible = enabled;
             replaceTextBox.Visible = enabled;
-            replaceButton.Visible = enabled;
             replaceAllButton.Visible = enabled;
+            replaceButton.Visible = enabled;
+            replaceRowStyle.Height = enabled ? 34F : 0F;
+            ClientSize = new Size(560, enabled ? 212 : 178);
+            if (Visible)
+            {
+                Rectangle area = Screen.FromControl(this).WorkingArea;
+                Location = new Point(area.Left + (area.Width - Width) / 2, area.Top + (area.Height - Height) / 2);
+            }
             findTextBox.Focus();
             findTextBox.SelectAll();
         }

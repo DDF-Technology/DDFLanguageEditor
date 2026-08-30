@@ -1,4 +1,4 @@
-# Beta 0.5.4 limitations
+# Beta 0.7.3 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -16,16 +16,25 @@ This release is intended for interface and language-design evaluation only.
 - matching delimiters and a source-preserving folded preview;
 - contextual completion from the language catalog and locally visible symbols;
 - idempotent whole-document formatting with caret mapping and one-step Undo;
+- document-local symbol resolution, hover, definition navigation and scoped rename;
+- recursive folder workspace, shared global completion and cross-file definition navigation;
+- primitive/structure/array type checking with stable semantic diagnostics;
+- internal AST interpreter with functions, control flow, arrays and structures;
+- Run/Stop commands, cooperative cancellation, instruction limit and Output palette;
+- minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
+- native input dialog and a toolbar for the primary editor commands;
+- unified light application chrome with a dark code editor, folded view and gutter;
+- unresolved-name and duplicate-declaration diagnostics;
 - dependency-free regression tests for the editor core;
 - repeatable dynamic smoke tests for real WinForms editing sequences.
 
 ## Not implemented
 
 - automatic recovery, snapshots or concurrent-edit conflict detection;
-- semantic validation or symbol resolution;
-- compiler, interpreter or runtime;
-- build, run or debug commands;
-- project/workspace management;
+- cross-file local/member resolution, overload resolution, generics or user-defined conversions;
+- compiler, bytecode VM, native runtime or debugger;
+- complete standard library, non-interactive input streams, breakpoints or step-by-step execution;
+- project files, dependency graphs, build configurations or multi-document tabs;
 - extension or plug-in APIs;
 - stability guarantees for the DDF syntax.
 
@@ -33,11 +42,17 @@ The folded preview can show multiple collapsed blocks and is read-only. A single
 block can be expanded independently; expanding all returns to the original
 editable buffer without replacing its text or Undo state.
 
-Completion is syntactic and document-local. It does not yet resolve types,
-members, overloads, imports from disk or symbols from other files.
+Detailed local resolution remains document-local and does not yet resolve
+overloads or generic types. A workspace shares top-level symbols and signatures between files,
+but does not define imports, dependencies or compilation units.
 
 Formatting follows the implemented parser subset and intentionally does not
 repair invalid syntax or apply semantic style rules.
+
+The first interpreter executes only the current document through `main`. It is
+bounded to 100,000 syntax-node instructions per run and does not yet load
+functions from other workspace documents at runtime. Output through `>>` is
+currently textual; interactive input is not defined.
 
 New documents are not persisted until they are saved. The editor asks before
 discarding known unsaved changes, but does not yet recover content after a crash

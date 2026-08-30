@@ -26,14 +26,21 @@ grammatica e del parser.
 | `0.3.0` | Lexer DDF e diagnostica lessicale | Completata |
 | `0.4.0` | Parser, AST e diagnostica sintattica | Completata |
 | `0.4.1` | Catalogo del linguaggio estensibile | Completata |
-| `0.5.0` | Funzioni da IDE | In corso |
+| `0.5.0` | Funzioni da IDE | Completata |
 | `0.5.1` | Indice dei simboli e outline navigabile | Completata |
 | `0.5.2` | Delimitatori corrispondenti e folding | Completata |
 | `0.5.2.x` | Stabilità interattiva e smoke dinamici | Completata |
 | `0.5.3` | Completamento contestuale | Completata |
 | `0.5.4` | Formattazione automatica | Completata |
 | `0.5.4.x` | Rifinitura shell IDE e informazioni applicazione | Completata |
-| `0.6.0+` | Semantica e possibile runtime | Da definire |
+| `0.5.5` | Risoluzione, hover e rinomina dei simboli | Completata |
+| `0.5.6` | Workspace DDF multi-file | Completata |
+| `0.6.0` | Sistema dei tipi e diagnostica semantica | Completata |
+| `0.7.0` | Primo interprete AST e comandi Run/Stop | Completata |
+| `0.7.1` | Libreria standard minima, input e toolbar | Completata |
+| `0.7.2` | Tema chiaro uniforme dell'interfaccia | Completata |
+| `0.7.3` | Icona, dialoghi e layout delle palette | Completata |
+| `0.7.4+` | Diagnostica runtime e debugging | Pianificata |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -109,8 +116,8 @@ senza perdita silenziosa di dati.
 - [x] parentesi corrispondenti e folding (`0.5.2`);
 - [x] outline e navigazione ai simboli (`0.5.1`);
 - [x] formattazione automatica (`0.5.4`);
-- hover e rinomina simboli;
-- workspace DDF di piccole dimensioni.
+- [x] hover e rinomina simboli (`0.5.5`);
+- [x] workspace DDF di piccole dimensioni (`0.5.6`).
 
 ### 0.5.1 — Indice dei simboli e outline
 
@@ -189,12 +196,89 @@ senza perdita silenziosa di dati.
 - [x] Finestra About centrata sullo schermo.
 - [x] Smoke dinamico esteso al layout iniziale e a tutti i 19 comandi di menu.
 
-## 0.6.0 e successive — Semantica ed esecuzione
+### 0.5.5 — Informazioni e rinomina dei simboli
 
-Prima di questa fase occorrerà scegliere e documentare se DDF sarà interpretato,
-compilato, tradotto verso un altro linguaggio o mantenuto come esperimento di
-language tooling. La decisione determinerà sistema dei tipi, libreria standard,
-modello di esecuzione e possibilità di debugging.
+- [x] Modello semantico indipendente dalla UI e derivato dall'AST recuperabile.
+- [x] Risoluzione di dichiarazioni e riferimenti con ambiti lessicali annidati.
+- [x] Omonimi e simboli oscurati mantenuti in insiemi di riferimenti separati.
+- [x] Diagnostiche `DDF201` per riferimenti non risolti e `DDF202` per duplicati nello stesso ambito.
+- [x] Hover con categoria, tipo/firma e riga della dichiarazione.
+- [x] Comando Vai alla definizione con `F12`.
+- [x] Rinomina scoped con `F2`, validazione del nome e singolo Undo.
+- [x] Test core e smoke WinForms sui comandi semantici.
+
+### 0.5.6 — Workspace DDF multi-file
+
+- [x] Apertura e chiusura di una cartella di lavoro dal menu File.
+- [x] Indicizzazione ricorsiva dei sorgenti `.ddf` in un componente indipendente dalla UI.
+- [x] Explorer compatto affiancato all'Outline con apertura tramite doppio clic.
+- [x] Contenuto modificato in memoria reinserito nell'indice condiviso.
+- [x] Simboli globali degli altri file disponibili nel completamento.
+- [x] Riferimenti esterni riconosciuti senza falso diagnostico `DDF201`.
+- [x] Navigazione `F12` alla definizione con apertura automatica del documento.
+- [x] Test su filesystem temporaneo e smoke WinForms end-to-end.
+
+## 0.6.0 — Sistema dei tipi
+
+- [x] Modello indipendente dalla UI per primitivi, strutture e array.
+- [x] Risoluzione dei tipi definiti nel documento e nel workspace.
+- [x] Inferenza dei tipi di letterali, nomi, operatori, chiamate, indici e membri.
+- [x] Verifica di inizializzazioni, assegnazioni e condizioni booleane.
+- [x] Verifica di numero/tipo degli argomenti e valori restituiti.
+- [x] Accesso ai campi di struttura tramite `.` aggiunto all'AST.
+- [x] Diagnostiche stabili `DDF301`–`DDF308` nel pannello sorgente.
+- [x] Hover arricchito con il tipo calcolato.
+- [x] Test documentali, multi-file e smoke WinForms.
+
+## 0.7.0 — Primo interprete AST
+
+- [x] Interprete interno indipendente dalla UI basato sull'AST esistente.
+- [x] Scope globali/locali, chiamate di funzione e punto di ingresso `main`.
+- [x] Dichiarazioni, assegnazioni, operatori, condizioni e cicli.
+- [x] Valori primitivi, array e istanze di strutture con accesso ai membri.
+- [x] `ret`, `brk`, `end` e output tramite l'operatore `>>`.
+- [x] Diagnostiche runtime `DDF401`–`DDF407` con posizione nel sorgente.
+- [x] Cancellazione cooperativa e limite predefinito di 100.000 istruzioni.
+- [x] Menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output.
+- [x] Test core e smoke WinForms end-to-end.
+
+## 0.7.1 — Libreria standard, input e toolbar
+
+- [x] Catalogo centralizzato delle funzioni standard indipendente dalla UI.
+- [x] `print`, `readLine`, `length`, `toInt` e `toFloat` tipizzate e completabili.
+- [x] Input tramite callback host e dialogo WinForms sostituibile nei test.
+- [x] Diagnostica `DDF408` per conversioni standard non valide.
+- [x] Toolbar piatta a icone per 13 comandi principali con tooltip accessibili.
+- [x] Run/Stop della toolbar sincronizzati con i corrispondenti comandi di menu.
+- [x] Test Core e smoke WinForms per libreria standard, input e toolbar.
+
+## 0.7.2 — Tema chiaro uniforme
+
+- [x] Palette applicativa centralizzata per superfici, testo, bordi e stati.
+- [x] Form principale, menu, toolbar, palette e status bar in tema chiaro.
+- [x] Workspace, Outline, Diagnostica, Output e completamento in tema chiaro.
+- [x] About, Trova/Sostituisci, Rinomina e Input runtime in tema chiaro.
+- [x] Icone toolbar e pin con contrasto verificabile.
+- [x] Tema scuro conservato esclusivamente per editor, folding e gutter.
+- [x] Smoke WinForms di regressione sui colori di tutte le superfici principali.
+
+## 0.7.3 — Icona, dialoghi e layout palette
+
+- [x] Nuovo ICO multi-risoluzione incorporato nella Release con frame piccoli leggibili.
+- [x] Icona caricata dalla risorsa assembly per form principale e About.
+- [x] Trova/Sostituisci, Rinomina, Input e About sempre centrati sullo schermo.
+- [x] Workspace/Outline resi come schede standard coerenti con Diagnostica/Output.
+- [x] Palette destra estesa per tutta l'altezza utile della finestra.
+- [x] Diagnostica/Output adattata alla larghezza residua senza passare sotto la palette destra.
+- [x] Smoke su icona, centratura e geometria del docking.
+- [x] Layout ordinato e adattivo per campi, checkbox e pulsanti di Trova/Sostituisci.
+
+## 0.7.4 e successive — Runtime e debug
+
+- [ ] Aggiungere stack trace DDF e navigazione dagli errori runtime.
+- [ ] Progettare breakpoint, esecuzione passo-passo e ispezione delle variabili.
+- [ ] Definire il caricamento runtime dei moduli del workspace.
+- [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 
 ## Principi di sviluppo
 
@@ -231,3 +315,10 @@ modello di esecuzione e possibilità di debugging.
 | 2026-08-28 | Derivare il completamento da catalogo e indice simboli | Conservare l'estensibilità del vocabolario e preparare il futuro confronto con C senza duplicare dizionari nella UI. |
 | 2026-08-28 | Formattare il flusso di token senza riscrivere l'AST | Conservare commenti e sorgenti incompleti, mantenendo le regole lessicali estendibili tramite catalogo. |
 | 2026-08-29 | Mantenere lo stato beta nei metadati e spostarne i dettagli in About | Liberare spazio nell'editor senza nascondere maturità, versione e licenza del prodotto. |
+| 2026-08-29 | Risolvere i simboli per identità e ambito, non tramite sostituzione testuale | Evitare che rinomina e navigazione tocchino omonimi, commenti, stringhe o blocchi non correlati. |
+| 2026-08-29 | Limitare il primo workspace ai simboli globali dei file `.ddf` | Rendere navigazione e completamento multi-file affidabili prima di introdurre progetti, dipendenze e build. |
+| 2026-08-29 | Costruire il type checker prima di scegliere il runtime | Le stesse regole semantiche saranno riutilizzabili da interprete, compilatore o traduttore verso C. |
+| 2026-08-29 | Adottare un interprete AST interno come primo runtime DDF | Rendere il linguaggio eseguibile e testabile senza vincolarlo subito a C, .NET o compilatori esterni. |
+| 2026-08-29 | Esporre I/O e conversioni tramite un catalogo standard e callback host | Mantenere il runtime testabile e indipendente dalla UI preparando future implementazioni console o compilate. |
+| 2026-08-29 | Usare un tema chiaro applicativo con area codice scura | Eliminare superfici miste e preservare il contrasto dell'editor senza duplicare colori nei controlli dinamici. |
+| 2026-08-29 | Incorporare e caricare direttamente un ICO con frame piccoli dedicati | Evitare icone obsolete o illeggibili dovute all'estrazione shell e al ridimensionamento del logo completo. |

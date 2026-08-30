@@ -8,7 +8,7 @@ namespace DDF___Program_Language_Editor
     {
         private const int OutlineAutoHideWidth = 28;
         private const int DiagnosticsAutoHideHeight = 26;
-        private const int MinimumOutlineExpandedWidth = 180;
+        private const int MinimumOutlineExpandedWidth = 300;
         private const int MinimumDiagnosticsExpandedHeight = 116;
 
         private Timer paletteAutoHideTimer;

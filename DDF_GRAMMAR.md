@@ -1,8 +1,9 @@
-# DDF grammar — parser subset 0.4
+# DDF grammar — parser and semantic subset 0.6
 
 Questa grammatica descrive il sottoinsieme sintattico riconosciuto dal parser di
-DDFLanguageEditor 0.4. È deliberatamente piccola e conserva la natura
-sperimentale del linguaggio. La semantica dei costrutti non è ancora definita.
+DDFLanguageEditor 0.6. È deliberatamente piccola e conserva la natura
+sperimentale del linguaggio. Dalla 0.7.0 questo sottoinsieme può essere eseguito
+dal primo interprete AST interno, ancora privo di libreria standard completa.
 
 ## Notazione
 
@@ -119,7 +120,8 @@ primary-expression = identifier
 postfix-expression = primary-expression,
                      { "++" | "--"
                      | "(", [ argument-list ], ")"
-                     | "[", expression, "]" } ;
+                     | "[", expression, "]"
+                     | ".", identifier } ;
 
 argument-list = expression, { ",", expression } ;
 ```
@@ -141,5 +143,9 @@ stessa sessione senza interrompere la digitazione.
 | `DDF104` | Tipo atteso |
 | `DDF105` | Identificatore atteso |
 
-La validità dei tipi, dei nomi, delle operazioni e dei flussi di controllo non è
-ancora verificata: appartiene alla futura analisi semantica.
+## Diagnostiche semantiche
+
+Il type checker verifica tipi primitivi, strutture, array, operatori, condizioni,
+chiamate e ritorni. Usa i codici `DDF301`–`DDF308` rispettivamente per
+incompatibilità, operatori, argomenti, ritorni, tipi/membri/indici, condizioni,
+ritorni mancanti e destinazioni di assegnazione non modificabili.

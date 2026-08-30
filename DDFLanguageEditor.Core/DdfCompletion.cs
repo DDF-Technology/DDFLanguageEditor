@@ -62,7 +62,8 @@ namespace DDFLanguageEditor.Core
             string source,
             int position,
             bool includeAll = false,
-            DdfLanguageDefinition language = null)
+            DdfLanguageDefinition language = null,
+            IEnumerable<DdfDocumentSymbol> externalSymbols = null)
         {
             source = source ?? string.Empty;
             if (position < 0 || position > source.Length) throw new ArgumentOutOfRangeException(nameof(position));
@@ -107,7 +108,20 @@ namespace DDFLanguageEditor.Core
                     candidates.Add(new DdfCompletionItem(literal, literal, DdfCompletionKind.Boolean, "valore booleano"));
                 }
 
+                foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
+                {
+                    candidates.Add(new DdfCompletionItem(
+                        standard.Name,
+                        standard.Name,
+                        DdfCompletionKind.Function,
+                        "funzione standard — " + standard.Signature));
+                }
+
                 AddVisibleSymbols(candidates, symbols, position);
+                if (externalSymbols != null)
+                {
+                    foreach (DdfDocumentSymbol symbol in externalSymbols) AddSymbol(candidates, symbol);
+                }
             }
 
             IEnumerable<DdfCompletionItem> filtered = candidates
