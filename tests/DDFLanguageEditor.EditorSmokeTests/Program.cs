@@ -75,6 +75,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(form.Controls.Find("panelBeta", true).Length == 0,
                     "La barra beta è ancora presente nella finestra principale.");
 
+                AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
@@ -1218,6 +1219,27 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
             Console.WriteLine("PASS toolbar a icone con 16 comandi principali");
+        }
+
+        private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
+        {
+            TabControl tabs = FindControl<TabControl>(form, "documentTabs");
+            Point tabsBottom = tabs.PointToScreen(new Point(0, tabs.ClientSize.Height));
+            Point editorTop = editor.PointToScreen(Point.Empty);
+            Require(editorTop.Y >= tabsBottom.Y,
+                "La barra delle schede copre la prima parte visibile del documento.");
+
+            const string multiline = "prima riga\nseconda riga\nterza riga";
+            editor.Text = string.Empty;
+            editor.Select(0, 0);
+            Clipboard.SetText(multiline);
+            InvokeProcessCmdKey(form, Keys.Control | Keys.V);
+            PumpMessages(120);
+            Require(editor.Text == multiline && editor.GetPositionFromCharIndex(0).Y >= 0,
+                "L'incolla multilinea perde o nasconde le prime righe nella scheda.");
+            editor.Clear();
+            editor.ClearUndo();
+            Console.WriteLine("PASS schede documento senza sovrapposizione e incolla multilinea integrale");
         }
 
         private static void AssertUnifiedLightTheme(MainForm form, RichTextBox editor, RichTextBox foldedView, RichTextBox gutter)

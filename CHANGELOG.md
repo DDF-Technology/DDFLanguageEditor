@@ -3,6 +3,7 @@
 ## 0.9.0.1 - 2026-08-30
 
 - add document tabs backed by independent editor controls and in-memory buffers;
+- keep the tab strip in a dedicated layout row so it cannot cover the first source lines;
 - preserve unsaved text, caret, selection, scroll and native Undo/Redo while switching files;
 - add dirty markers, close-tab actions, Save All and an aggregate exit confirmation;
 - keep workspace analysis synchronized with every open in-memory document;

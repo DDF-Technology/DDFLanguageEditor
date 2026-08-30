@@ -11,6 +11,7 @@ namespace DDF___Program_Language_Editor
     {
         private readonly OpenDocumentCollection openDocuments = new OpenDocumentCollection();
         private readonly Dictionary<string, DocumentView> documentViews = new Dictionary<string, DocumentView>();
+        private TableLayoutPanel documentLayout;
         private Panel editorHost;
         private TabControl documentTabs;
         private ToolStripMenuItem saveAllMenuItem;
@@ -32,11 +33,23 @@ namespace DDF___Program_Language_Editor
                 BackColor = richTextBoxMainEditor.BackColor,
                 Padding = new Padding(0)
             };
+            documentLayout = new TableLayoutPanel
+            {
+                Name = "documentLayout",
+                Dock = DockStyle.Fill,
+                BackColor = richTextBoxMainEditor.BackColor,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            documentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            documentLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 29F));
+            documentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             documentTabs = new TabControl
             {
                 Name = "documentTabs",
-                Dock = DockStyle.Top,
-                Height = 29,
+                Dock = DockStyle.Fill,
                 HotTrack = true,
                 Multiline = false,
                 DrawMode = TabDrawMode.OwnerDrawFixed,
@@ -59,9 +72,9 @@ namespace DDF___Program_Language_Editor
                 editorHost.Controls.Add(richTextBoxFoldedView);
                 editorHost.Controls.Add(richTextBoxMainEditor);
                 editorHost.Controls.Add(richTextBoxLineNumbers);
-                panelEditor.Controls.Add(editorHost);
-                panelEditor.Controls.Add(documentTabs);
-                documentTabs.BringToFront();
+                documentLayout.Controls.Add(documentTabs, 0, 0);
+                documentLayout.Controls.Add(editorHost, 0, 1);
+                panelEditor.Controls.Add(documentLayout);
             }
             finally
             {
