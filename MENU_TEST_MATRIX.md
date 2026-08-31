@@ -80,6 +80,7 @@ runtime posizionati nel sorgente.
 | --- | --- |
 | Comprimi blocco | comprime più blocchi dalla firma nella stessa proiezione di sola lettura |
 | Espandi tutto | ripristina il sorgente originale senza alterarne il contenuto |
+| Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
 
 Sono controllati anche testo e disponibilità contestuale dei due comandi, i
 colori, la colonna dei numeri di riga, l'espansione selettiva di un singolo
@@ -104,7 +105,7 @@ ritorno alla posizione precedente tramite Navigazione indietro.
 
 ## Barra strumenti
 
-La toolbar espone 37 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, completamento, correzioni rapide, selezione sintattica,
+La toolbar espone 38 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, Command Palette, completamento, correzioni rapide, selezione sintattica,
 riduzione e navigazione tra delimitatori. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
@@ -117,7 +118,7 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 44 scorciatoie dichiarate, incluse `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
+Lo smoke verifica le 45 scorciatoie dichiarate, incluse `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
 `F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell

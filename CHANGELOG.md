@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3.6 - 2026-09-01
+
+- add a searchable Command Palette through `Ctrl+Shift+P`, the View menu and a thirty-eighth toolbar icon;
+- derive commands automatically from the main menus so labels, categories, shortcuts, enabled state and handlers remain synchronized;
+- filter immediately across multiple title/category/shortcut terms with keyboard, mouse, Enter and Escape interaction;
+- keep unavailable actions visible but clearly marked and impossible to execute;
+- reuse original menu handlers instead of duplicating command behavior;
+- verify real filtering, state display, toolbar access and document formatting in the WinForms smoke;
+
 ## 0.9.3.5 - 2026-08-31
 
 - add a compact contextual breadcrumb between document tabs and the editor;

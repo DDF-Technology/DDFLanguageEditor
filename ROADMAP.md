@@ -47,7 +47,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
-| `0.9.3` | Ricerca e navigazione del workspace | In corso (`0.9.3.5` completata) |
+| `0.9.3` | Ricerca e navigazione del workspace | In corso (`0.9.3.6` completata) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
@@ -377,7 +377,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Aggiungere Vai a file, simbolo, riferimento, riga e ultima modifica (`0.9.3.3`).
 - [x] Introdurre cronologia di navigazione Indietro/Avanti tra file e posizioni (`0.9.3.4`).
 - [x] Mostrare breadcrumb cliccabile di file, funzione, struttura e blocco corrente (`0.9.3.5`).
-- [ ] Aggiungere una Command Palette ricercabile per tutte le azioni principali.
+- [x] Aggiungere una Command Palette ricercabile per tutte le azioni principali (`0.9.3.6`).
 - [ ] Supportare apertura mediante trascinamento di file e cartelle e workspace recenti.
 
 ## 0.9.4 — Personalizzazione, sessione e recovery

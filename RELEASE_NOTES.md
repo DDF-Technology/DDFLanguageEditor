@@ -1,6 +1,11 @@
-# DDFLanguageEditor 0.9.3.5
+# DDFLanguageEditor 0.9.3.6
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.6 adds a searchable Command Palette through `Ctrl+Shift+P`, the
+View menu and the toolbar. It derives actions from the current menus and shows
+their category, shortcut and live availability. Filtering is immediate and
+execution reuses each original menu handler, keeping future commands easy to add.
 
 Version 0.9.3.5 adds a compact contextual breadcrumb between document tabs and
 the editor. It follows the caret through the current file, structure, function

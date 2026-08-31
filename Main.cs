@@ -91,6 +91,7 @@ namespace DDF___Program_Language_Editor
             initializeWorkspaceSearch();
             initializeWorkspaceNavigation();
             initializeBreadcrumb();
+            initializeCommandPalette();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             initializeCompletion();
@@ -424,7 +425,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.3.5 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.3.6 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 48 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 49 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -83,6 +83,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertEditorPalette(editor);
                 SetSource(editor);
                 AssertContextualBreadcrumb(form, editor);
+                SetSource(editor);
+                AssertCommandPalette(form, editor);
                 SetSource(editor);
                 AssertSelectionStableDuringHighlight(editor);
                 AssertMouseGesturePreservesNativeSelection(form, editor);
@@ -189,6 +191,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "goToLastEditMenuItem", Keys.Control | Keys.Shift | Keys.Back },
                     { "navigateBackMenuItem", Keys.Alt | Keys.Left },
                     { "navigateForwardMenuItem", Keys.Alt | Keys.Right },
+                    { "commandPaletteMenuItem", Keys.Control | Keys.Shift | Keys.P },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
                     { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
@@ -215,7 +218,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
-                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
+                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem", "commandPaletteMenuItem"
                 };
                 foreach (string command in commands)
                 {
@@ -232,7 +235,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 44 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 45 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -249,7 +252,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.5") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.6") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -747,6 +750,49 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(editor.SelectionStart == returnPosition,
                 "Indietro non ripristina la posizione precedente al click sul breadcrumb.");
             Console.WriteLine("PASS breadcrumb cliccabile per file, funzione e blocchi correnti");
+        }
+
+        private static void AssertCommandPalette(MainForm form, RichTextBox editor)
+        {
+            const string source = "main() out int{ret 1;}";
+            editor.Text = source;
+            editor.Select(editor.TextLength, 0);
+            PumpMessages(220);
+            int dialogCount = 0;
+            SetPrivateField(form, "showCommandPaletteDialog", new Func<CommandPaletteForm, DialogResult>(dialog =>
+            {
+                dialogCount++;
+                Require(dialog.StartPosition == FormStartPosition.CenterScreen,
+                    "La Command Palette non si apre al centro dello schermo.");
+                TextBox query = FindControl<TextBox>(dialog, "commandPaletteQueryTextBox");
+                ListView results = FindControl<ListView>(dialog, "commandPaletteResultsListView");
+                Button execute = FindControl<Button>(dialog, "commandPaletteExecuteButton");
+
+                query.Text = "Arresta";
+                Require(results.Items.Count == 1 &&
+                        results.Items[0].SubItems[3].Text == "Non disponibile" && !execute.Enabled,
+                    "La palette non mostra chiaramente un comando indisponibile.");
+                query.Text = "Formatta documento";
+                Require(results.Items.Count == 1 && results.Items[0].SubItems[1].Text == "Modifica" &&
+                        !string.IsNullOrWhiteSpace(results.Items[0].SubItems[2].Text) && execute.Enabled,
+                    "La palette non filtra comando, categoria, scorciatoia e disponibilità.");
+                return DialogResult.OK;
+            }));
+
+            FindMenuItem(form, "commandPaletteMenuItem").PerformClick();
+            PumpMessages(220);
+            string expected = DdfFormatter.Format(source).Text;
+            Require(editor.Text == expected && dialogCount == 1,
+                "La Command Palette non riutilizza l'handler reale di Formatta documento.");
+
+            SetPrivateField(form, "showCommandPaletteDialog", new Func<CommandPaletteForm, DialogResult>(dialog =>
+            {
+                dialogCount++;
+                return DialogResult.Cancel;
+            }));
+            FindToolbarButton(form, "toolbarCommandPaletteButton").PerformClick();
+            Require(dialogCount == 2, "Il pulsante toolbar non apre la Command Palette.");
+            Console.WriteLine("PASS Command Palette filtrabile con stato, categorie, shortcut ed esecuzione reale");
         }
 
         private static void AssertWholeLibraryCutIsClean(RichTextBox editor, ListBox diagnostics)
@@ -1909,6 +1955,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton", "toolbarWorkspaceSearchButton", "toolbarWorkspaceReplaceButton",
+                "toolbarCommandPaletteButton",
                 "toolbarNavigateBackButton", "toolbarNavigateForwardButton",
                 "toolbarGoToFileButton", "toolbarGoToSymbolButton", "toolbarFindReferencesButton",
                 "toolbarGoToLineButton", "toolbarGoToLastEditButton",
@@ -1941,7 +1988,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 37 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 38 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -2035,6 +2082,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             };
             using (var navigation = new NavigationForm(emptySources, NavigationMode.File, 1, 1, 1, string.Empty))
                 assertTextControlsConfigured(navigation, false);
+            using (var commandPalette = new CommandPaletteForm(Array.Empty<CommandPaletteCommand>()))
+                assertTextControlsConfigured(commandPalette, false);
             editor.Focus();
             PumpMessages(40);
             Require(editor.Focused, "Lo smoke delle caselle di testo non ripristina il focus dell'editor.");

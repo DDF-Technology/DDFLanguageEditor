@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.3.5 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.3.6 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -26,6 +26,7 @@ evidenziazione delle regole note e indentazione assistita.
 - navigazione rapida unificata verso file, simboli, riferimenti semantici, riga/colonna e ultima modifica;
 - cronologia di navigazione Indietro/Avanti tra file e selezioni, indipendente da Undo/Redo;
 - breadcrumb contestuale cliccabile per file, struttura, funzione e blocchi di controllo annidati;
+- Command Palette con `Ctrl+Shift+P`, ricerca immediata, categorie, scorciatoie e disponibilità contestuale;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -39,7 +40,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 37 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, folding, breakpoint ed esecuzione;
+- barra a 38 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, Command Palette, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - palette inferiore ridimensionabile verticalmente, con altezza conservata tra pin e auto-hide;
@@ -88,6 +89,14 @@ ramo Avanti, come in un browser, senza perdere le modifiche non salvate.
 La riga breadcrumb tra le schede e il codice segue il cursore e mostra il percorso
 come `file.ddf › main() › if › while`; ogni segmento torna alla relativa
 dichiarazione o istruzione e partecipa alla stessa cronologia Indietro/Avanti.
+
+## Command Palette
+
+`Ctrl+Shift+P`, **Visualizza > Command Palette** o il relativo pulsante della
+toolbar aprono l'elenco ricercabile delle azioni principali. Ogni risultato
+mostra categoria, scorciatoia e disponibilità corrente. La ricerca accetta più
+termini, si usa con tastiera o mouse e richiama direttamente lo stesso comando
+dei menu, senza duplicarne il comportamento.
 
 ## Limiti della beta
 
@@ -139,7 +148,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 48 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 49 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -188,7 +197,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.3.5 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.3.6 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -220,6 +229,8 @@ Browser-style Back/Forward navigation restores document, selection and unsaved
 buffer position independently from text Undo/Redo.
 A clickable contextual breadcrumb follows the caret through the current file,
 structure, function and nested control-flow blocks and shares navigation history.
+A searchable Command Palette exposes current menu actions, categories, shortcuts
+and availability through `Ctrl+Shift+P` while reusing their original handlers.
 A runtime-independent type checker validates primitive, structure and array
 operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.
