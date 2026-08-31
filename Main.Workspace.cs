@@ -15,6 +15,7 @@ namespace DDF___Program_Language_Editor
         private TabPage workspaceTabPage;
         private TreeView treeViewWorkspace;
         private Label labelWorkspace;
+        private ToolStripMenuItem recentWorkspacesMenuItem;
 
         private void initializeWorkspace()
         {
@@ -79,6 +80,14 @@ namespace DDF___Program_Language_Editor
             panelOutline.Controls.Add(navigationTabs);
             navigationTabs.BringToFront();
             buttonOutlinePin.BringToFront();
+
+            recentWorkspacesMenuItem = new ToolStripMenuItem("Cartelle recenti")
+            {
+                Name = "recentWorkspacesMenuItem"
+            };
+            int closeWorkspaceIndex = fileMenuItem.DropDownItems.IndexOf(closeWorkspaceMenuItem);
+            fileMenuItem.DropDownItems.Insert(closeWorkspaceIndex + 1, recentWorkspacesMenuItem);
+            initializeWorkspaceDropTargets();
         }
 
         private void openWorkspaceMenuItem_Click(object sender, EventArgs e)
@@ -121,6 +130,7 @@ namespace DDF___Program_Language_Editor
                 navigationTabs.SelectedTab = workspaceTabPage;
                 applyHighlighting();
                 scheduleWorkspaceSearch();
+                addRecentWorkspace(workspaceIndex.RootPath);
                 return true;
             }
             catch (Exception exception) when (isWorkspaceException(exception))
@@ -274,6 +284,125 @@ namespace DDF___Program_Language_Editor
             return exception is IOException || exception is UnauthorizedAccessException ||
                    exception is ArgumentException || exception is NotSupportedException ||
                    exception is System.Security.SecurityException;
+        }
+
+        private void initializeWorkspaceDropTargets()
+        {
+            configureWorkspaceDropTarget(this);
+            configureWorkspaceDropTarget(panelEditor);
+            configureWorkspaceDropTarget(editorHost);
+            configureWorkspaceDropTarget(documentTabs);
+            configureWorkspaceDropTarget(richTextBoxMainEditor);
+            configureWorkspaceDropTarget(richTextBoxFoldedView);
+            configureWorkspaceDropTarget(richTextBoxLineNumbers);
+            configureWorkspaceDropTarget(navigationTabs);
+            configureWorkspaceDropTarget(treeViewWorkspace);
+        }
+
+        private void configureWorkspaceDropTarget(Control control)
+        {
+            if (control == null || control.AllowDrop) return;
+            control.AllowDrop = true;
+            control.DragEnter += workspaceDropTarget_DragEnter;
+            control.DragDrop += workspaceDropTarget_DragDrop;
+        }
+
+        private void workspaceDropTarget_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effect = canOpenDroppedPaths(getDroppedPaths(e.Data)) ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+
+        private void workspaceDropTarget_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] paths = getDroppedPaths(e.Data);
+            if (!canOpenDroppedPaths(paths)) return;
+            if (paths.Length == 1 && Directory.Exists(paths[0]))
+            {
+                openWorkspace(paths[0]);
+                return;
+            }
+
+            foreach (string path in paths) openDocument(path);
+        }
+
+        private static string[] getDroppedPaths(IDataObject data)
+        {
+            if (data == null || !data.GetDataPresent(DataFormats.FileDrop)) return Array.Empty<string>();
+            return data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+        }
+
+        private static bool canOpenDroppedPaths(IReadOnlyList<string> paths)
+        {
+            if (paths == null || paths.Count == 0) return false;
+            if (paths.Count == 1 && Directory.Exists(paths[0])) return true;
+            return paths.All(path => File.Exists(path) &&
+                string.Equals(Path.GetExtension(path), ".ddf", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void addRecentWorkspace(string path)
+        {
+            recentWorkspaces = new List<string>(RecentFileList.Add(recentWorkspaces, path));
+            persistRecentWorkspaces();
+            refreshRecentWorkspacesMenu();
+        }
+
+        private void refreshRecentWorkspacesMenu()
+        {
+            if (recentWorkspacesMenuItem == null || recentWorkspaces == null) return;
+            recentWorkspacesMenuItem.DropDownItems.Clear();
+            List<string> availableWorkspaces = recentWorkspaces.Where(Directory.Exists).ToList();
+            if (availableWorkspaces.Count != recentWorkspaces.Count)
+            {
+                recentWorkspaces = availableWorkspaces;
+                persistRecentWorkspaces();
+            }
+            int index = 1;
+            foreach (string path in availableWorkspaces)
+            {
+                var item = new ToolStripMenuItem
+                {
+                    Name = "recentWorkspaceMenuItem" + index,
+                    Text = "&" + index + " " + new DirectoryInfo(path).Name + " — " + path,
+                    Tag = path,
+                    ToolTipText = path
+                };
+                item.Click += recentWorkspaceMenuItem_Click;
+                recentWorkspacesMenuItem.DropDownItems.Add(item);
+                index++;
+            }
+
+            if (recentWorkspacesMenuItem.DropDownItems.Count == 0)
+                recentWorkspacesMenuItem.DropDownItems.Add(new ToolStripMenuItem("(nessuna cartella recente)") { Enabled = false });
+        }
+
+        private void recentWorkspaceMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = (sender as ToolStripMenuItem)?.Tag as string;
+            if (string.IsNullOrEmpty(path)) return;
+            if (Directory.Exists(path))
+            {
+                openWorkspace(path);
+                return;
+            }
+
+            recentWorkspaces.RemoveAll(item => string.Equals(item, path, StringComparison.OrdinalIgnoreCase));
+            persistRecentWorkspaces();
+            refreshRecentWorkspacesMenu();
+            MessageBox.Show(this, "La cartella recente non esiste più:\n" + path,
+                "Cartella non trovata", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void persistRecentWorkspaces()
+        {
+            if (recentWorkspaces == null || saveRecentWorkspacesSetting == null) return;
+            try
+            {
+                saveRecentWorkspacesSetting(RecentFileList.Serialize(recentWorkspaces));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                statusFileLabel.ToolTipText = "Impossibile memorizzare le cartelle recenti: " + exception.Message;
+            }
         }
     }
 }

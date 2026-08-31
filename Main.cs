@@ -27,6 +27,7 @@ namespace DDF___Program_Language_Editor
         private IReadOnlyList<DdfFoldingRange> foldingRanges = new List<DdfFoldingRange>();
         private readonly HashSet<int> collapsedFoldStarts = new HashSet<int>();
         private List<string> recentFiles;
+        private List<string> recentWorkspaces;
         private FindReplaceForm findReplaceForm;
         private AboutForm aboutForm;
         private readonly ToolTip symbolToolTip;
@@ -47,6 +48,7 @@ namespace DDF___Program_Language_Editor
         private Func<OpenFileDialog, DialogResult> showOpenFileDialog;
         private Func<SaveFileDialog, DialogResult> showSaveFileDialog;
         private Action<string> saveRecentFilesSetting;
+        private Action<string> saveRecentWorkspacesSetting;
         private Func<string, string> requestSymbolRename;
         private Func<FolderBrowserDialog, DialogResult> showWorkspaceDialog;
         private Func<string> requestRuntimeInput;
@@ -94,10 +96,12 @@ namespace DDF___Program_Language_Editor
             initializeCommandPalette();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
+            recentWorkspaces = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentWorkspaces()));
             initializeCompletion();
             showOpenFileDialog = dialog => dialog.ShowDialog(this);
             showSaveFileDialog = dialog => dialog.ShowDialog(this);
             saveRecentFilesSetting = AppSettingsStore.SaveRecentFiles;
+            saveRecentWorkspacesSetting = AppSettingsStore.SaveRecentWorkspaces;
             requestSymbolRename = showRenameSymbolDialog;
             showWorkspaceDialog = dialog => dialog.ShowDialog(this);
             requestRuntimeInput = showRuntimeInputDialog;
@@ -141,6 +145,7 @@ namespace DDF___Program_Language_Editor
         private void MainForm_Load(object sender, EventArgs e)
         {
             refreshRecentMenu();
+            refreshRecentWorkspacesMenu();
             updateDocumentUi();
             applyHighlighting();
             updateLineNumbers();
@@ -160,6 +165,7 @@ namespace DDF___Program_Language_Editor
             symbolToolTip.Hide(richTextBoxMainEditor);
             symbolToolTip.RemoveAll();
             persistRecentFiles();
+            persistRecentWorkspaces();
         }
 
         private void aboutMenuItem_Click(object sender, EventArgs e)
@@ -425,7 +431,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.3.6 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.3.7 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

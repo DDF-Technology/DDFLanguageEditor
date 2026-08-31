@@ -1,6 +1,11 @@
-# DDFLanguageEditor 0.9.3.6
+# DDFLanguageEditor 0.9.3.7
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.7 completes the workspace navigation milestone. One or more
+`.ddf` files can be dropped onto the editor and open in independent tabs; a
+dropped folder becomes the current workspace. Recently opened workspace folders
+are persisted in a dedicated File submenu, separately from recent documents.
 
 Version 0.9.3.6 adds a searchable Command Palette through `Ctrl+Shift+P`, the
 View menu and the toolbar. It derives actions from the current menus and shows

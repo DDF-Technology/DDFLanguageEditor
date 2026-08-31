@@ -1,4 +1,4 @@
-# Beta 0.9.3.6 limitations
+# Beta 0.9.3.7 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -28,6 +28,7 @@ This release is intended for interface and language-design evaluation only.
 - recursive folder workspace, shared global completion and cross-file definition navigation;
 - clickable file/structure/function/control-flow breadcrumb driven by the recoverable syntax tree;
 - searchable Command Palette generated from current menu actions, shortcuts and enabled state;
+- drag-and-drop opening for DDF files and workspace folders, with persisted recent workspaces;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;

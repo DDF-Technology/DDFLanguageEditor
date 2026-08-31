@@ -16,12 +16,16 @@ WinForms e vengono eseguiti da
 | Salva | aggiorna il file corrente e verifica il contenuto su disco |
 | Salva con nome | salva in un secondo percorso temporaneo e aggiorna il titolo |
 | File recenti | espone e riapre il percorso appena salvato |
+| Cartelle recenti | registra e riapre l'ultimo workspace valido separatamente dai documenti recenti |
 | Esci | chiude una finestra con documento pulito senza eccezioni residue |
 
 I selettori Apri/Salva sono sostituiti nello smoke da risposte deterministiche;
 nell'applicazione continuano a usare i dialoghi Windows. I file sono creati in
 una directory temporanea dedicata e rimossi al termine. Le impostazioni dei file
-recenti dell'utente non vengono salvate durante il test.
+e delle cartelle recenti dell'utente non vengono salvate durante il test. Lo smoke
+trascina inoltre un sorgente `.ddf` e una cartella sulle superfici dell'IDE,
+verificando apertura in scheda, aggiornamento del workspace e rifiuto dei file
+con estensione non supportata.
 
 ## Modifica
 

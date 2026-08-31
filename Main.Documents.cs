@@ -137,6 +137,7 @@ namespace DDF___Program_Language_Editor
             editor.KeyDown += richTextBoxMainEditor_KeyDown;
             editor.KeyPress += richTextBoxMainEditor_KeyPress;
             hookEditorMouseEvents(editor);
+            configureWorkspaceDropTarget(editor);
             editorHost.Controls.Add(editor);
             editor.BringToFront();
             return editor;

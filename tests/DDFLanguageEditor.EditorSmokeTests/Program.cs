@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 49 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 50 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -58,6 +58,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             using (var form = new MainForm())
             {
+                DisableRecentFilePersistence(form);
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
                 form.Location = visible ? new Point(80, 80) : new Point(-32000, -32000);
@@ -208,7 +209,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 {
                     "newMenuItem", "openMenuItem", "saveMenuItem", "saveAsMenuItem", "saveAllMenuItem", "closeDocumentMenuItem",
                     "openWorkspaceMenuItem", "closeWorkspaceMenuItem",
-                    "recentMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
+                    "recentMenuItem", "recentWorkspacesMenuItem", "exitMenuItem", "undoMenuItem", "redoMenuItem",
                     "cutMenuItem", "copyMenuItem", "pasteMenuItem", "selectAllMenuItem", "toggleLineCommentMenuItem",
                     "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
                     "expandSelectionMenuItem", "shrinkSelectionMenuItem", "matchingDelimiterMenuItem",
@@ -224,7 +225,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 {
                     ToolStripMenuItem item = FindMenuItem(form, command);
                     Require(item != null, "Comando di menu non trovato: " + command);
-                    Require(command == "recentMenuItem" || item.GetType().GetEvent("Click") != null,
+                    Require(command == "recentMenuItem" || command == "recentWorkspacesMenuItem" ||
+                            item.GetType().GetEvent("Click") != null,
                         "Il comando non espone l'evento Click: " + command);
                 }
 
@@ -252,7 +254,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.6") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.7") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -547,7 +549,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS menu File: documenti, cartella workspace, file recenti ed Esci");
+            Console.WriteLine("PASS menu File: documenti, cartella workspace, file/cartelle recenti ed Esci");
         }
 
         private static MainForm ShowSmokeForm(bool visible)
@@ -567,6 +569,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         private static void DisableRecentFilePersistence(MainForm form)
         {
             SetPrivateField(form, "saveRecentFilesSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "saveRecentWorkspacesSetting", new Action<string>(value => { }));
         }
 
         private static void RestoreClipboard(IDataObject originalClipboard)
@@ -1479,6 +1482,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 TreeView workspaceTree = FindControl<TreeView>(form, "treeViewWorkspace");
                 Require(workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("2 file"),
                     "Apri cartella non ha popolato l'explorer con i sorgenti DDF.");
+                ToolStripMenuItem recentWorkspace = FindMenuItem(form, "recentWorkspacesMenuItem").DropDownItems
+                    .OfType<ToolStripMenuItem>()
+                    .FirstOrDefault(item => string.Equals(item.Tag as string, directory, StringComparison.OrdinalIgnoreCase));
+                Require(recentWorkspace != null, "Cartelle recenti non contiene il workspace appena aperto.");
 
                 TreeNode mainNode = FindTreeNodeByTag(workspaceTree.Nodes, mainPath);
                 Require(mainNode != null, "Il file principale non è presente nell'explorer workspace.");
@@ -1694,7 +1701,48 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
                 Require(workspaceTree.Nodes.Count == 0 && !FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
                     "Chiudi cartella non ha svuotato lo stato workspace.");
-                Console.WriteLine("PASS workspace, navigazione rapida e cronologia Indietro/Avanti multi-file");
+                recentWorkspace = FindMenuItem(form, "recentWorkspacesMenuItem").DropDownItems
+                    .OfType<ToolStripMenuItem>()
+                    .First(item => string.Equals(item.Tag as string, directory, StringComparison.OrdinalIgnoreCase));
+                recentWorkspace.PerformClick();
+                Require(workspaceTree.Nodes.Count == 1 && FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
+                    "Cartelle recenti non riapre il workspace selezionato.");
+                FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+
+                string ignoredPath = Path.Combine(directory, "notes.txt");
+                File.WriteAllText(ignoredPath, "not a DDF source");
+                var invalidDropData = new DataObject();
+                invalidDropData.SetData(DataFormats.FileDrop, new[] { ignoredPath });
+                var invalidDrag = new DragEventArgs(invalidDropData, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.None);
+                InvokeHandler(form, "workspaceDropTarget_DragEnter", form, invalidDrag);
+                Require(invalidDrag.Effect == DragDropEffects.None, "Il drag-and-drop accetta file non DDF.");
+
+                string droppedPath = Path.Combine(directory, "dropped.ddf");
+                string secondDroppedPath = Path.Combine(directory, "second-dropped.ddf");
+                DdfDocumentFile.Save(droppedPath, "dropped() out int { ret 7; }");
+                DdfDocumentFile.Save(secondDroppedPath, "secondDropped() out int { ret 8; }");
+                var fileDropData = new DataObject();
+                fileDropData.SetData(DataFormats.FileDrop, new[] { droppedPath, secondDroppedPath });
+                var fileDrag = new DragEventArgs(fileDropData, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.None);
+                InvokeHandler(form, "workspaceDropTarget_DragEnter", form, fileDrag);
+                Require(fileDrag.Effect == DragDropEffects.Copy, "Il drag-and-drop non accetta un sorgente DDF.");
+                InvokeHandler(form, "workspaceDropTarget_DragDrop", form, fileDrag);
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                OpenDocumentCollection droppedDocuments = GetPrivateField<OpenDocumentCollection>(form, "openDocuments");
+                Require(editor.Text.Contains("secondDropped()") && form.Text.Contains("second-dropped.ddf") &&
+                        droppedDocuments.FindByPath(droppedPath) != null && droppedDocuments.FindByPath(secondDroppedPath) != null,
+                    "Il drop di più file DDF non li apre in schede indipendenti.");
+
+                var folderDropData = new DataObject();
+                folderDropData.SetData(DataFormats.FileDrop, new[] { directory });
+                var folderDrag = new DragEventArgs(folderDropData, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.None);
+                InvokeHandler(form, "workspaceDropTarget_DragEnter", form, folderDrag);
+                Require(folderDrag.Effect == DragDropEffects.Copy, "Il drag-and-drop non accetta una cartella workspace.");
+                InvokeHandler(form, "workspaceDropTarget_DragDrop", form, folderDrag);
+                Require(workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("4 file"),
+                    "Il drop della cartella non apre e aggiorna il workspace.");
+                FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+                Console.WriteLine("PASS workspace, navigazione, recenti e drag-and-drop di file/cartelle");
             }
             finally
             {

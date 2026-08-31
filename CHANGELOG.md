@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.3.7 - 2026-09-01
+
+- open one or more `.ddf` files by dropping them onto the editor, document tabs or workspace surfaces;
+- open a folder as the active workspace by drag-and-drop while rejecting unsupported files;
+- persist up to ten recent workspace folders separately from recent documents;
+- expose recent workspaces in the File menu and remove paths that disappear before activation;
+- preserve open tabs, unsaved buffers and per-file state when files are dropped;
+- complete the `0.9.3` workspace search and navigation milestone;
+- verify supported and rejected drops, recent workspace registration and real multi-document opening in the WinForms smoke;
+
 ## 0.9.3.6 - 2026-09-01
 
 - add a searchable Command Palette through `Ctrl+Shift+P`, the View menu and a thirty-eighth toolbar icon;

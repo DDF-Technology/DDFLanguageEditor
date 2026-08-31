@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.3.6 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.3.7 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -21,6 +21,7 @@ evidenziazione delle regole note e indentazione assistita.
 - formattazione automatica idempotente con `Ctrl+Shift+F`, separazione leggibile tra istruzioni e singolo Undo;
 - risoluzione documentale dei simboli, hover strutturato con commenti `///`, definizione con `F12` e rinomina scoped con `F2`;
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
+- apertura drag-and-drop di uno o più file `.ddf` o di una cartella workspace, con cartelle recenti persistenti;
 - ricerca asincrona di testo e simboli in tutto il workspace e nei buffer non salvati, con risultati navigabili;
 - sostituzione workspace con anteprima obbligatoria, scelta per occorrenza e un singolo Undo per ogni documento modificato;
 - navigazione rapida unificata verso file, simboli, riferimenti semantici, riga/colonna e ultima modifica;
@@ -148,7 +149,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 49 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 50 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -197,7 +198,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.3.6 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.3.7 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -221,6 +222,8 @@ Structured hover includes type, signature, source origin, declaration position,
 principal references and contiguous `///` documentation comments.
 A small-folder workspace indexes `.ddf` files recursively and extends completion
 and definition navigation across documents.
+Dropping `.ddf` files opens them in independent tabs, while dropping a folder
+opens it as the workspace and stores it in a dedicated recent-workspaces list.
 Workspace-wide text and symbol search runs in the background, prefers unsaved
 open buffers over disk snapshots and exposes navigable results.
 One light navigation palette filters files, symbols and semantic references,
