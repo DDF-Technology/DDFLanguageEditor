@@ -83,11 +83,6 @@ namespace DDF___Program_Language_Editor
         private void restoreSourceBackground(int position)
         {
             System.Drawing.Color color = richTextBoxMainEditor.BackColor;
-            if (lastParseResult != null && lastParseResult.Diagnostics.Any(diagnostic => position >= diagnostic.Start && position < diagnostic.End))
-            {
-                color = System.Drawing.Color.FromArgb(128, 48, 48);
-            }
-
             setCharacterBackground(position, color);
         }
 
@@ -371,6 +366,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxFoldedView.SelectAll();
                 richTextBoxFoldedView.SelectionColor = System.Drawing.Color.FromArgb(212, 212, 212);
                 richTextBoxFoldedView.SelectionBackColor = richTextBoxFoldedView.BackColor;
+                RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxFoldedView);
 
                 if (lastLexResult != null)
                 {
@@ -388,9 +384,9 @@ namespace DDF___Program_Language_Editor
                     }
                 }
 
-                if (lastParseResult != null)
+                if (activeDiagnostics != null)
                 {
-                    foreach (DdfDiagnostic diagnostic in lastParseResult.Diagnostics)
+                    foreach (DdfDiagnostic diagnostic in activeDiagnostics)
                     {
                         if (!projection.TryProjectSpan(diagnostic.Start, diagnostic.Length, out int start, out int length))
                         {
@@ -398,8 +394,7 @@ namespace DDF___Program_Language_Editor
                         }
 
                         richTextBoxFoldedView.Select(start, length);
-                        richTextBoxFoldedView.SelectionColor = System.Drawing.Color.FromArgb(241, 241, 241);
-                        richTextBoxFoldedView.SelectionBackColor = System.Drawing.Color.FromArgb(90, 29, 29);
+                        RichTextBoxDiagnosticDecoration.ApplySelection(richTextBoxFoldedView, diagnostic.Severity);
                     }
                 }
 

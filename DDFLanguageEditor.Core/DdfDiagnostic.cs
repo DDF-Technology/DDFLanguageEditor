@@ -3,9 +3,22 @@ using System.Globalization;
 
 namespace DDFLanguageEditor.Core
 {
+    public enum DdfDiagnosticSeverity
+    {
+        Warning,
+        Error
+    }
+
     public sealed class DdfDiagnostic
     {
-        public DdfDiagnostic(string code, string message, int start, int length, int line, int column)
+        public DdfDiagnostic(
+            string code,
+            string message,
+            int start,
+            int length,
+            int line,
+            int column,
+            DdfDiagnosticSeverity severity = DdfDiagnosticSeverity.Error)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -28,6 +41,7 @@ namespace DDFLanguageEditor.Core
             Length = length;
             Line = line;
             Column = column;
+            Severity = severity;
         }
 
         public string Code { get; }
@@ -43,6 +57,21 @@ namespace DDFLanguageEditor.Core
         public int Line { get; }
 
         public int Column { get; }
+
+        public DdfDiagnosticSeverity Severity { get; }
+
+        public string ToHoverText()
+        {
+            string severity = Severity == DdfDiagnosticSeverity.Warning ? "Avviso" : "Errore";
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                "{0} {1} — riga {2}, colonna {3}\n{4}",
+                severity,
+                Code,
+                Line,
+                Column,
+                Message);
+        }
 
         public override string ToString()
         {

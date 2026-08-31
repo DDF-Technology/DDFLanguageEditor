@@ -98,6 +98,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertSignatureHelp(form, editor);
                 AssertDocumentFormatting(form, editor);
                 AssertSemanticNavigationAndRename(form, editor);
+                AssertInlineDiagnostics(form, editor, diagnostics);
                 AssertTypeChecking(form, editor, diagnostics);
                 AssertWorkspaceNavigation(form, editor, diagnostics);
                 AssertProgramExecution(form, editor);
@@ -231,7 +232,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.5") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.6") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1430,6 +1431,48 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(typed != null && typed.Type.Name == "int",
                 "L'hover non espone il tipo calcolato del riferimento.");
             Console.WriteLine("PASS diagnostiche DDF3xx e hover con tipo calcolato");
+        }
+
+        private static void AssertInlineDiagnostics(MainForm form, RichTextBox editor, ListBox diagnostics)
+        {
+            const string valid = "main() out int { ret 1; }";
+            editor.Text = valid;
+            PumpMessages(220);
+            int literal = valid.IndexOf('1');
+            editor.Select(literal, 1);
+            editor.SelectedText = "missing";
+            editor.Select(4, 3);
+            int selectionStart = editor.SelectionStart;
+            int selectionLength = editor.SelectionLength;
+            PumpMessages(240);
+
+            DdfDiagnostic diagnostic = diagnostics.Items.Cast<DdfDiagnostic>()
+                .FirstOrDefault(item => item.Code == "DDF201");
+            Require(diagnostic != null, "La diagnostica inline DDF201 non è stata prodotta.");
+            Require(editor.SelectionStart == selectionStart && editor.SelectionLength == selectionLength,
+                "La decorazione diagnostica ha modificato la selezione.");
+            Require(editor.CanUndo, "La decorazione diagnostica ha cancellato la cronologia Undo.");
+            Require((byte)InvokePrivate(form, "getDiagnosticUnderlineTypeAt", diagnostic.Start) == 8,
+                "La diagnostica non usa la sottolineatura ondulata nativa.");
+            Require((byte)InvokePrivate(form, "getDiagnosticUnderlineColorAt", diagnostic.Start) == 5,
+                "La diagnostica di errore non usa il colore rosso nativo.");
+            editor.Select(diagnostic.Start, 1);
+            Require(editor.SelectionBackColor == editor.BackColor,
+                "La diagnostica altera ancora lo sfondo del sorgente.");
+
+            Point point = editor.GetPositionFromCharIndex(diagnostic.Start);
+            InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor, point);
+            DdfDiagnostic hovered = GetPrivateField<DdfDiagnostic>(form, "hoveredDiagnostic");
+            Require(ReferenceEquals(diagnostic, hovered) && hovered.ToHoverText().Contains(diagnostic.Message),
+                "L'hover diagnostico non espone il messaggio completo della palette.");
+
+            editor.Undo();
+            PumpMessages(240);
+            Require(editor.Text == valid, "Undo non ha ripristinato il testo dopo la diagnostica inline.");
+            Require(diagnostics.Items.Count == 0, "La decorazione rimossa ha lasciato diagnostiche nella palette.");
+            Require((byte)InvokePrivate(form, "getDiagnosticUnderlineTypeAt", literal) == 0,
+                "La sottolineatura diagnostica non è stata rimossa incrementalmente.");
+            Console.WriteLine("PASS diagnostiche inline ondulate, hover, selezione e Undo invariati");
         }
 
         private static TreeNode FindTreeNodeByTag(TreeNodeCollection nodes, string path)

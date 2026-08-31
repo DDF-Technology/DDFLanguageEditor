@@ -72,19 +72,29 @@ namespace DDF___Program_Language_Editor
             if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;
             if (lastSemanticModel == null || !string.Equals(lastAnalyzedText, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
             int position = richTextBoxMainEditor.GetCharIndexFromPosition(e.Location);
+            DdfDiagnostic diagnostic = activeDiagnostics.FirstOrDefault(item =>
+                position >= item.Start && position < item.End);
             DdfSymbolOccurrence occurrence = lastSemanticModel.FindOccurrence(position);
             DdfWorkspaceSymbol workspaceSymbol = occurrence == null ? getWorkspaceSymbolAtCaret(position) : null;
             DdfDocumentSymbol symbol = occurrence?.Symbol ?? workspaceSymbol?.Symbol;
             DdfTypedSpan typedSpan = lastTypeCheckResult?.FindTypeAt(position);
             DdfStandardFunction standardFunction = symbol == null ? getStandardFunctionAt(position) : null;
             if (ReferenceEquals(symbol, hoveredSymbol) && ReferenceEquals(typedSpan, hoveredTypedSpan) &&
-                ReferenceEquals(standardFunction, hoveredStandardFunction)) return;
+                ReferenceEquals(standardFunction, hoveredStandardFunction) &&
+                ReferenceEquals(diagnostic, hoveredDiagnostic)) return;
 
             hoveredSymbol = symbol;
             hoveredTypedSpan = typedSpan;
             hoveredStandardFunction = standardFunction;
+            hoveredDiagnostic = diagnostic;
             activeHoverInfo = null;
             symbolToolTip.Hide(richTextBoxMainEditor);
+            if (diagnostic != null)
+            {
+                symbolToolTip.Show(diagnostic.ToHoverText(),
+                    richTextBoxMainEditor, e.X + 14, e.Y + 18);
+                return;
+            }
             if (symbol == null && typedSpan == null && standardFunction == null) return;
 
             if (standardFunction != null)
@@ -138,6 +148,7 @@ namespace DDF___Program_Language_Editor
             hoveredSymbol = null;
             hoveredTypedSpan = null;
             hoveredStandardFunction = null;
+            hoveredDiagnostic = null;
             activeHoverInfo = null;
             if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;
             symbolToolTip.Hide(richTextBoxMainEditor);

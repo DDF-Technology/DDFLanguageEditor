@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.2.5
+# DDFLanguageEditor 0.9.2.6
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.6 replaces solid diagnostic backgrounds with native RichEdit
+wavy underlines. Syntax colors and the editor background remain readable, while
+hover displays severity, stable code, position and the complete message used by
+the Diagnostics palette. Decorations are refreshed incrementally and do not
+change source text, selection or the native Undo history. The diagnostic model
+also supports distinct warning and error presentation for future language rules.
 
 Version 0.9.2.5 replaces ad-hoc tooltip strings with a structured hover model.
 Hover now reports category, type, complete function signature, document origin,

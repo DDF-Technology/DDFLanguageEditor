@@ -203,6 +203,7 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.Select(formatStart, text.Length - formatStart);
                     richTextBoxMainEditor.SelectionColor = Color.FromArgb(212, 212, 212);
                     richTextBoxMainEditor.SelectionBackColor = richTextBoxMainEditor.BackColor;
+                    RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxMainEditor);
 
                     foreach (DdfToken token in update.Result.Tokens)
                     {
@@ -229,8 +230,7 @@ namespace DDF___Program_Language_Editor
                         int diagnosticStart = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
                         int diagnosticLength = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - diagnosticStart);
                         richTextBoxMainEditor.Select(diagnosticStart, diagnosticLength);
-                        richTextBoxMainEditor.SelectionColor = Color.FromArgb(241, 241, 241);
-                        richTextBoxMainEditor.SelectionBackColor = Color.FromArgb(90, 29, 29);
+                        RichTextBoxDiagnosticDecoration.ApplySelection(richTextBoxMainEditor, diagnostic.Severity);
                     }
 
                     formatSecondarySelections(formatStart);
@@ -611,6 +611,7 @@ namespace DDF___Program_Language_Editor
 
         private void updateDiagnostics(System.Collections.Generic.IReadOnlyList<DdfDiagnostic> diagnostics)
         {
+            activeDiagnostics = diagnostics ?? new List<DdfDiagnostic>();
             listBoxDiagnostics.BeginUpdate();
             try
             {
@@ -631,6 +632,37 @@ namespace DDF___Program_Language_Editor
                 : "Diagnostica sorgente — " + count + " problemi";
             panelDiagnostics.Visible = true;
             updateLineNumbers();
+        }
+
+        private byte getDiagnosticUnderlineTypeAt(int position)
+        {
+            return getDiagnosticUnderlineFormatAt(position, true);
+        }
+
+        private byte getDiagnosticUnderlineColorAt(int position)
+        {
+            return getDiagnosticUnderlineFormatAt(position, false);
+        }
+
+        private byte getDiagnosticUnderlineFormatAt(int position, bool readType)
+        {
+            if (position < 0 || position >= richTextBoxMainEditor.TextLength) return 0;
+            int selectionStart = richTextBoxMainEditor.SelectionStart;
+            int selectionLength = richTextBoxMainEditor.SelectionLength;
+            bool wasApplyingHighlighting = isApplyingHighlighting;
+            try
+            {
+                isApplyingHighlighting = true;
+                richTextBoxMainEditor.Select(position, 1);
+                return readType
+                    ? RichTextBoxDiagnosticDecoration.GetSelectionUnderlineType(richTextBoxMainEditor)
+                    : RichTextBoxDiagnosticDecoration.GetSelectionUnderlineColor(richTextBoxMainEditor);
+            }
+            finally
+            {
+                richTextBoxMainEditor.Select(selectionStart, selectionLength);
+                isApplyingHighlighting = wasApplyingHighlighting;
+            }
         }
 
         private void listBoxDiagnostics_DoubleClick(object sender, EventArgs e)

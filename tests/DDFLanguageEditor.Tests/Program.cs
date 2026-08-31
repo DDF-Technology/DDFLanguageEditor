@@ -45,6 +45,7 @@ namespace DDFLanguageEditor.Tests
             Run("replaces all matches", ReplacesAllMatches);
             Run("produces formal tokens", ProducesFormalTokens);
             Run("reports diagnostic positions", ReportsDiagnosticPositions);
+            Run("exposes diagnostic severity and hover text", ExposesDiagnosticSeverityAndHoverText);
             Run("matches full lexing after incremental edits", MatchesFullLexingAfterIncrementalEdits);
             Run("relexes across a shared inserted prefix", RelexesAcrossSharedInsertedPrefix);
             Run("survives deterministic dynamic editing", SurvivesDeterministicDynamicEditing);
@@ -515,6 +516,25 @@ namespace DDFLanguageEditor.Tests
             Equal("DDF001", diagnostic.Code);
             Equal(2, diagnostic.Line);
             Equal(3, diagnostic.Column);
+        }
+
+        private static void ExposesDiagnosticSeverityAndHoverText()
+        {
+            var error = new DdfDiagnostic("DDF999", "Errore di prova.", 2, 3, 4, 5);
+            Equal(DdfDiagnosticSeverity.Error, error.Severity);
+            Equal(true, error.ToHoverText().Contains("Errore DDF999"));
+            Equal(true, error.ToHoverText().Contains("riga 4, colonna 5"));
+
+            var warning = new DdfDiagnostic(
+                "DDF998",
+                "Avviso di prova.",
+                0,
+                1,
+                1,
+                1,
+                DdfDiagnosticSeverity.Warning);
+            Equal(DdfDiagnosticSeverity.Warning, warning.Severity);
+            Equal(true, warning.ToHoverText().StartsWith("Avviso DDF998", StringComparison.Ordinal));
         }
 
         private static void MatchesFullLexingAfterIncrementalEdits()

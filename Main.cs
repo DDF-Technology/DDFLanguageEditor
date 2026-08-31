@@ -32,7 +32,9 @@ namespace DDF___Program_Language_Editor
         private DdfDocumentSymbol hoveredSymbol;
         private DdfTypedSpan hoveredTypedSpan;
         private DdfStandardFunction hoveredStandardFunction;
+        private DdfDiagnostic hoveredDiagnostic;
         private DdfHoverInfo activeHoverInfo;
+        private IReadOnlyList<DdfDiagnostic> activeDiagnostics = new List<DdfDiagnostic>();
         private int diagnosticsFormatStart = int.MaxValue;
         private bool isApplyingHighlighting;
         private bool isUpdatingDelimiterHighlight;
@@ -409,7 +411,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.2.5 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.2.6 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

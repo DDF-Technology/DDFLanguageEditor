@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.6 - 2026-08-31
+
+- replace diagnostic background fills with native RichEdit wavy underlines;
+- preserve syntax colors, source selection and native Undo while diagnostics update incrementally;
+- show the complete diagnostic code, severity, position and message on editor hover;
+- keep source and folded views synchronized with the same diagnostic collection;
+- introduce extensible error/warning severity styling and expand coverage to 119 Core tests plus an inline-diagnostic WinForms smoke scenario;
+
 ## 0.9.2.5 - 2026-08-31
 
 - centralize structured hover data independently from the WinForms tooltip;
