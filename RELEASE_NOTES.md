@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.2.7
+# DDFLanguageEditor 0.9.2.8
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.8 corrects the insertion anchor used by missing-token fixes. The
+diagnostic underline still identifies the following token that exposed the
+syntax error, but punctuation is now inserted immediately after the previous
+valid token, even when spaces, comments or blank lines separate the two. Missing
+keywords also receive context-aware surrounding spaces.
 
 Version 0.9.2.7 introduces an extensible quick-fix pipeline. Built-in providers
 close unterminated strings, block comments and library directives, remove

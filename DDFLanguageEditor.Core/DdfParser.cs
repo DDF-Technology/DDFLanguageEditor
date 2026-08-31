@@ -452,14 +452,14 @@ namespace DDFLanguageEditor.Core
         private int MatchText(string expected)
         {
             if (TryMatchText(expected)) return PreviousEnd;
-            Report("DDF102", "Token '" + expected + "' atteso.");
+            Report("DDF102", "Token '" + expected + "' atteso.", PreviousEnd);
             return CurrentStart;
         }
 
         private int MatchKeyword(DdfKeywordRole role)
         {
             if (IsKeyword(role)) return NextToken().End;
-            Report("DDF102", "Parola chiave '" + GetKeywordText(role) + "' attesa.");
+            Report("DDF102", "Parola chiave '" + GetKeywordText(role) + "' attesa.", PreviousEnd);
             return CurrentStart;
         }
 
@@ -490,7 +490,7 @@ namespace DDFLanguageEditor.Core
             NextToken();
         }
 
-        private void Report(string code, string message)
+        private void Report(string code, string message, int? insertionPosition = null)
         {
             int sourcePosition = CurrentStart;
             int diagnosticStart = text.Length == 0 ? 0 : Math.Min(sourcePosition, text.Length - 1);
@@ -504,7 +504,7 @@ namespace DDFLanguageEditor.Core
                 line,
                 column,
                 DdfDiagnosticSeverity.Error,
-                sourcePosition));
+                insertionPosition ?? sourcePosition));
         }
 
         private void GetLineAndColumn(int sourcePosition, out int line, out int column)

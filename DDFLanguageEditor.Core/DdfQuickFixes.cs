@@ -173,7 +173,12 @@ namespace DDFLanguageEditor.Core
             int insertion = diagnostic.InsertionPosition.HasValue
                 ? Math.Min(source.Length, diagnostic.InsertionPosition.Value)
                 : (diagnostic.End >= source.Length ? source.Length : diagnostic.Start);
-            string replacement = IsWord(expected) ? expected + " " : expected;
+            string replacement = expected;
+            if (IsWord(expected))
+            {
+                if (insertion > 0 && !char.IsWhiteSpace(source[insertion - 1])) replacement = " " + replacement;
+                if (insertion < source.Length && !char.IsWhiteSpace(source[insertion])) replacement += " ";
+            }
             yield return new DdfQuickFix(
                 diagnostic,
                 "Inserisci " + (IsWord(expected) ? "la parola chiave '" : "il token '") + expected + "'",

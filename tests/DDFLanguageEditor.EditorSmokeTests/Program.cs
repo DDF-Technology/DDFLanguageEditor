@@ -234,7 +234,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.7") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.8") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1476,6 +1476,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(220);
             Require(editor.Text == badToken.Substring(0, badToken.Length - 1) && diagnostics.Items.Count == 0,
                 "La toolbar non rimuove il carattere non riconosciuto.");
+
+            const string missingSemicolon =
+                "main() out int\n{\n    int value << 1\n\n    ret value;\n}";
+            editor.Text = missingSemicolon;
+            int returnStart = missingSemicolon.IndexOf("ret", StringComparison.Ordinal);
+            editor.Select(returnStart, 0);
+            PumpMessages(220);
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.OemPeriod),
+                "Ctrl+. non gestisce il punto e virgola mancante.");
+            PumpMessages(220);
+            string expectedSemicolon = missingSemicolon.Insert(missingSemicolon.IndexOf('1') + 1, ";");
+            Require(editor.Text == expectedSemicolon,
+                "Il punto e virgola è stato inserito sul token sottolineato invece che alla fine dell'istruzione precedente.");
             Console.WriteLine("PASS correzioni rapide estensibili da menu, Ctrl+. e toolbar con Undo");
         }
 

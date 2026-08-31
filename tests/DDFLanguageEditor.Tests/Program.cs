@@ -48,6 +48,7 @@ namespace DDFLanguageEditor.Tests
             Run("exposes diagnostic severity and hover text", ExposesDiagnosticSeverityAndHoverText);
             Run("offers safe lexical quick fixes", OffersSafeLexicalQuickFixes);
             Run("inserts parser expected tokens", InsertsParserExpectedTokens);
+            Run("anchors missing tokens before intervening trivia", AnchorsMissingTokensBeforeTrivia);
             Run("accepts custom quick-fix providers", AcceptsCustomQuickFixProviders);
             Run("matches full lexing after incremental edits", MatchesFullLexingAfterIncrementalEdits);
             Run("relexes across a shared inserted prefix", RelexesAcrossSharedInsertedPrefix);
@@ -572,6 +573,18 @@ namespace DDFLanguageEditor.Tests
             IReadOnlyList<DdfDiagnostic> remaining = DdfParser.Parse(fixedSource).Diagnostics;
             if (remaining.Any(item => item.Code == "DDF102"))
                 throw new InvalidOperationException(fixedSource + " :: " + string.Join(" | ", remaining));
+        }
+
+        private static void AnchorsMissingTokensBeforeTrivia()
+        {
+            const string source = "main() out int\n{\n    int value << 1\n\n    ret value;\n}";
+            DdfDiagnostic diagnostic = DdfParser.Parse(source).Diagnostics.First(item =>
+                item.Code == "DDF102" && item.Message.Contains("';'"));
+            DdfQuickFix fix = DdfQuickFixService.CreateDefault().GetFixes(source, diagnostic).Single();
+            int expectedInsertion = source.IndexOf('1') + 1;
+            Equal(expectedInsertion, fix.Start);
+            Equal(';', ApplyQuickFix(source, fix)[expectedInsertion]);
+            Equal(true, diagnostic.Start > fix.Start);
         }
 
         private static void AcceptsCustomQuickFixProviders()

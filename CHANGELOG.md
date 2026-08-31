@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2.8 - 2026-08-31
+
+- anchor missing-token quick fixes after the previous valid token instead of on the token that exposed the parser error;
+- preserve intervening spaces, comments and blank lines when inserting punctuation on the preceding statement;
+- add context-aware spacing around missing keyword fixes;
+- cover the reported multiline semicolon scenario in Core and real WinForms smoke tests, bringing Core coverage to 123 tests;
+
 ## 0.9.2.7 - 2026-08-31
 
 - add an extensible provider-based quick-fix service independent from WinForms;
