@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.2.3
+# DDFLanguageEditor 0.9.2.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.4 adds context-aware snippets to statement completion. Templates
+cover functions, the `main` entry point, structures, conditional blocks and all
+current loop forms. Expansion follows the indentation of the insertion line;
+editable fields are selected in order with `Tab`, can be revisited with
+`Shift+Tab`, and the session closes with `Escape` or after its final caret.
+The complete template insertion remains one native Undo operation.
 
 Version 0.9.2.3 makes formatted DDF code easier to scan by inserting one blank
 line between consecutive instructions and independent control-flow contexts.

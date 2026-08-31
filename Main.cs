@@ -337,6 +337,7 @@ namespace DDF___Program_Language_Editor
         private void replaceEditorText(string content)
         {
             leaveFoldedView();
+            cancelSnippetSession(false);
             clearBreakpoints();
             isReplacingDocument = true;
             highlightTimer.Stop();
@@ -406,7 +407,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.2.3 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.2.4 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

@@ -10,6 +10,7 @@ namespace DDF___Program_Language_Editor
             leaveFoldedView();
             hideCompletion();
             hideSignatureHelp();
+            cancelSnippetSession(false);
             string source = richTextBoxMainEditor.Text;
             DdfFormatResult result = DdfFormatter.Format(source);
             if (string.Equals(source, result.Text, StringComparison.Ordinal))

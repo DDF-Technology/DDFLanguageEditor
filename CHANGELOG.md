@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.4 - 2026-08-31
+
+- add a central snippet catalog for `if`, `while`, `do`, `for`, functions, `main` and structures;
+- expose snippets only in statement completion context and respect alternative language catalogs;
+- expand templates relative to the current indentation and navigate editable fields with `Tab`/`Shift+Tab`;
+- preserve a single native Undo step for insertion and close the active session with `Escape`;
+- expand regression coverage to 115 Core tests plus a dynamic WinForms snippet scenario;
+
 ## 0.9.2.3 - 2026-08-31
 
 - insert one blank line between consecutive formatted statements and independent control-flow contexts;

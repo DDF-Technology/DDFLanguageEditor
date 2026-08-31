@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.2.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.2.4 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -17,6 +17,7 @@ evidenziazione delle regole note e indentazione assistita.
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
 - Signature Help automatica durante le chiamate, con firma, origine e parametro corrente evidenziato;
+- snippet contestuali per funzioni, `main`, strutture e controlli, con campi navigabili tramite `Tab` e `Shift+Tab`;
 - formattazione automatica idempotente con `Ctrl+Shift+F`, separazione leggibile tra istruzioni e singolo Undo;
 - risoluzione documentale dei simboli, hover informativo, definizione con `F12` e rinomina scoped con `F2`;
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
@@ -144,7 +145,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.2.3 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.2.4 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -157,6 +158,8 @@ local and workspace symbols by expected type, scope, usage and proximity, and
 shows category, type and origin automatically or with `Ctrl+Space`.
 Signature Help follows nested calls and highlights the current parameter for
 document, workspace and standard-library functions.
+Context-aware snippets expand functions, structures and control-flow blocks at
+the current indentation; `Tab` and `Shift+Tab` navigate their editable fields.
 The idempotent document formatter normalizes indentation, token spacing and
 blank-line separation with `Ctrl+Shift+F` while preserving protected token
 contents and Undo.

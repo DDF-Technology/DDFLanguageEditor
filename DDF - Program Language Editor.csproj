@@ -26,6 +26,7 @@
     <Compile Update="Main.Editor.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Completion.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.SignatureHelp.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.Snippets.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Folding.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Formatting.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Execution.cs" DependentUpon="Main.cs" />

@@ -40,6 +40,7 @@ namespace DDF___Program_Language_Editor
             leaveFoldedView();
             hideCompletion();
             hideSignatureHelp();
+            cancelSnippetSession(false);
             string newName = requestSymbolRename(occurrence.Symbol.Name);
             if (newName == null) return;
 

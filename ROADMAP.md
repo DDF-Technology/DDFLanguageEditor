@@ -46,7 +46,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
-| `0.9.2` | IntelliSense, snippet e feedback inline | In corso (`0.9.2.3` completata) |
+| `0.9.2` | IntelliSense, snippet e feedback inline | In corso (`0.9.2.4` completata) |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
@@ -360,7 +360,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Correggere la colorazione completa dopo Formatta documento, impedendo al verde dei commenti di propagarsi al codice (`0.9.2.1`).
 - [x] Separare visivamente istruzioni e contesti indipendenti durante la formattazione, senza spezzare `for` e `do/while` (`0.9.2.3`).
 - [x] Mostrare firma, origine e parametro corrente durante la scrittura di chiamate locali, workspace e standard (`0.9.2.2`).
-- [ ] Aggiungere snippet con campi navigabili per funzioni, controlli, cicli e strutture.
+- [x] Aggiungere snippet contestuali e indentati con campi navigabili per funzioni, controlli, cicli e strutture (`0.9.2.4`).
 - [ ] Arricchire hover con documentazione, firma, tipo, origine e riferimenti principali.
 - [ ] Mostrare diagnostiche inline senza alterare testo, selezione o cronologia Undo.
 - [ ] Definire correzioni rapide estensibili per gli errori DDF più comuni.

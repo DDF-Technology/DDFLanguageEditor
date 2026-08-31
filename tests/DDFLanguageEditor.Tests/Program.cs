@@ -116,6 +116,8 @@ namespace DDFLanguageEditor.Tests
             Run("recognizes type completion context", RecognizesTypeCompletionContext);
             Run("ranks frequently used symbols before nearby alternatives", RanksFrequentlyUsedSymbols);
             Run("exposes completion category type and origin", ExposesCompletionMetadata);
+            Run("offers snippets only in statement context", OffersSnippetsInStatementContext);
+            Run("expands snippets with indentation and ordered fields", ExpandsSnippetsWithIndentation);
             Run("shows the active local function parameter", ShowsActiveLocalFunctionParameter);
             Run("resolves standard function signature help", ResolvesStandardFunctionSignatureHelp);
             Run("tracks nested call signature help", TracksNestedCallSignatureHelp);
@@ -1265,8 +1267,9 @@ namespace DDFLanguageEditor.Tests
             DdfCompletionResult result = DdfCompletionService.GetCompletions("wh", 2);
             Equal(0, result.ReplacementStart);
             Equal(2, result.ReplacementLength);
-            SequenceEqual(new[] { "while" }, result.Items.Select(item => item.DisplayText));
-            Equal(DdfCompletionKind.Keyword, result.Items[0].Kind);
+            SequenceEqual(new[] { "while" }, result.Items
+                .Where(item => item.Kind == DdfCompletionKind.Keyword)
+                .Select(item => item.DisplayText));
         }
 
         private static void SuppressesCompletionInProtectedTokens()
@@ -1361,6 +1364,39 @@ namespace DDFLanguageEditor.Tests
             Equal("int", helper.TypeName);
             Equal("lib/helpers.ddf", helper.Origin);
             Equal(true, helper.ToString().Contains("ƒ") && helper.ToString().Contains("lib/helpers.ddf"));
+        }
+
+        private static void OffersSnippetsInStatementContext()
+        {
+            const string statement = "main() out int {\n    i";
+            DdfCompletionResult statementResult = DdfCompletionService.GetCompletions(statement, statement.Length);
+            DdfCompletionItem ifSnippet = statementResult.Items.Single(item =>
+                item.Kind == DdfCompletionKind.Snippet && item.Snippet.Prefix == "if");
+            Equal("if — blocco", ifSnippet.DisplayText);
+            Equal("snippet", ifSnippet.CategoryLabel);
+
+            const string expression = "main() out int { ret i";
+            DdfCompletionResult expressionResult = DdfCompletionService.GetCompletions(expression, expression.Length);
+            Equal(false, expressionResult.Items.Any(item => item.Kind == DdfCompletionKind.Snippet));
+        }
+
+        private static void ExpandsSnippetsWithIndentation()
+        {
+            DdfSnippetTemplate template = DdfSnippetCatalog.Templates.Single(item => item.Prefix == "if");
+            DdfSnippetExpansion expansion = DdfSnippetService.Expand(template, "    ");
+            const string expected =
+                "if(condition)\n" +
+                "    {\n" +
+                "        statement;\n" +
+                "    }";
+            Equal(expected, expansion.Text);
+            Equal(2, expansion.Placeholders.Count);
+            Equal("condition", expansion.Text.Substring(
+                expansion.Placeholders[0].Start, expansion.Placeholders[0].Length));
+            Equal("statement", expansion.Text.Substring(
+                expansion.Placeholders[1].Start, expansion.Placeholders[1].Length));
+            Equal(expansion.Text.Length, expansion.FinalCaret);
+            Equal("    ", DdfSnippetService.GetLineIndent("main()\n    if", 11));
         }
 
         private static void ShowsActiveLocalFunctionParameter()

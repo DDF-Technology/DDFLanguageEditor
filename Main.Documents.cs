@@ -192,6 +192,7 @@ namespace DDF___Program_Language_Editor
                 leaveFoldedView();
                 hideCompletion();
                 hideSignatureHelp();
+                cancelSnippetSession(false);
                 highlightTimer.Stop();
                 delimiterHighlightTimer.Stop();
                 if (currentView != null)

@@ -14,7 +14,8 @@ namespace DDFLanguageEditor.Core
         Parameter,
         Field,
         Variable,
-        Library
+        Library,
+        Snippet
     }
 
     public enum DdfCompletionContextKind
@@ -42,6 +43,19 @@ namespace DDFLanguageEditor.Core
             string typeName,
             string origin,
             int proximity)
+            : this(displayText, insertionText, kind, detail, typeName, origin, proximity, null)
+        {
+        }
+
+        public DdfCompletionItem(
+            string displayText,
+            string insertionText,
+            DdfCompletionKind kind,
+            string detail,
+            string typeName,
+            string origin,
+            int proximity,
+            DdfSnippetTemplate snippet)
         {
             if (string.IsNullOrWhiteSpace(displayText)) throw new ArgumentException("Display text is required.", nameof(displayText));
             if (string.IsNullOrEmpty(insertionText)) throw new ArgumentException("Insertion text is required.", nameof(insertionText));
@@ -52,6 +66,7 @@ namespace DDFLanguageEditor.Core
             TypeName = typeName ?? string.Empty;
             Origin = origin ?? string.Empty;
             Proximity = Math.Max(0, proximity);
+            Snippet = snippet;
         }
 
         public string DisplayText { get; }
@@ -61,6 +76,7 @@ namespace DDFLanguageEditor.Core
         public string TypeName { get; }
         public string Origin { get; }
         public int Proximity { get; }
+        public DdfSnippetTemplate Snippet { get; }
         public string CategoryLabel => DescribeKind(Kind);
         public string Glyph => KindGlyph(Kind);
 
@@ -83,6 +99,7 @@ namespace DDFLanguageEditor.Core
                 case DdfCompletionKind.Type: return "tipo";
                 case DdfCompletionKind.Keyword: return "parola chiave";
                 case DdfCompletionKind.Boolean: return "booleano";
+                case DdfCompletionKind.Snippet: return "snippet";
                 default: return "libreria";
             }
         }
@@ -99,6 +116,7 @@ namespace DDFLanguageEditor.Core
                 case DdfCompletionKind.Variable: return "v";
                 case DdfCompletionKind.Keyword: return "k";
                 case DdfCompletionKind.Boolean: return "b";
+                case DdfCompletionKind.Snippet: return "◇";
                 default: return "◈";
             }
         }
@@ -187,6 +205,21 @@ namespace DDFLanguageEditor.Core
                         "valore booleano", "bool", "linguaggio DDF", int.MaxValue));
                 }
 
+                foreach (DdfSnippetTemplate snippet in DdfSnippetCatalog.Templates)
+                {
+                    if (snippet.RequiresKeyword && !language.TryGetKeyword(snippet.Prefix, out DdfKeywordDefinition ignored))
+                        continue;
+                    candidates.Add(new DdfCompletionItem(
+                        snippet.DisplayText,
+                        snippet.Prefix,
+                        DdfCompletionKind.Snippet,
+                        snippet.Description,
+                        string.Empty,
+                        "snippet DDF",
+                        int.MaxValue,
+                        snippet));
+                }
+
                 foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
                 {
                     candidates.Add(new DdfCompletionItem(
@@ -209,7 +242,8 @@ namespace DDFLanguageEditor.Core
             }
 
             List<DdfCompletionItem> filtered = candidates
-                .Where(item => (includeAll || prefix.Length > 0) &&
+                .Where(item => (item.Kind != DdfCompletionKind.Snippet || context == DdfCompletionContextKind.Statement) &&
+                               (includeAll || prefix.Length > 0) &&
                                item.DisplayText.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 .GroupBy(item => item.DisplayText, StringComparer.Ordinal)
                 .Select(group => group.OrderBy(item => ContextRank(item, context, expectedType))
@@ -357,6 +391,7 @@ namespace DDFLanguageEditor.Core
                 return item.Kind == DdfCompletionKind.Field ? 0 : item.Kind == DdfCompletionKind.Function ? 1 : 20 + KindRank(item.Kind);
             if (context == DdfCompletionContextKind.Statement)
             {
+                if (item.Kind == DdfCompletionKind.Snippet) return 0;
                 if (item.Kind == DdfCompletionKind.Type || item.Kind == DdfCompletionKind.Structure) return 0;
                 if (item.Kind == DdfCompletionKind.Keyword && item.Detail == "controllo di flusso") return 1;
                 if (item.Kind == DdfCompletionKind.Function) return 3;
@@ -417,6 +452,7 @@ namespace DDFLanguageEditor.Core
                 case DdfCompletionKind.Variable: return 1;
                 case DdfCompletionKind.Field: return 2;
                 case DdfCompletionKind.Function: return 3;
+                case DdfCompletionKind.Snippet: return 3;
                 case DdfCompletionKind.Structure: return 4;
                 case DdfCompletionKind.Type: return 5;
                 case DdfCompletionKind.Keyword: return 6;

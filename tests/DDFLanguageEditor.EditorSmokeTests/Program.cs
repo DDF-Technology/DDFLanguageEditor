@@ -94,6 +94,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertPartialLibraryCutIsRecoverable(editor, diagnostics);
                 AssertRapidTransientEditsAreRecoverable(editor);
                 AssertContextualCompletion(form, editor);
+                AssertNavigableSnippets(form, editor);
                 AssertSignatureHelp(form, editor);
                 AssertDocumentFormatting(form, editor);
                 AssertSemanticNavigationAndRename(form, editor);
@@ -230,7 +231,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.4") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -900,6 +901,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     !string.IsNullOrEmpty(whileItem.Glyph),
                 "La voce di completamento non espone icona, categoria e origine.");
 
+            completion.SelectedItem = whileItem;
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
             PumpMessages(120);
             Require(editor.Text == "while" && editor.SelectionStart == "while".Length,
@@ -932,6 +934,46 @@ namespace DDFLanguageEditor.EditorSmokeTests
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
             Require(!completion.Visible, "Esc non ha chiuso il completamento.");
             Console.WriteLine("PASS completamento contestuale con Tab, Undo, Ctrl+Spazio ed Esc");
+        }
+
+        private static void AssertNavigableSnippets(MainForm form, RichTextBox editor)
+        {
+            const string source = "main() out int\n{\n    i\n}";
+            editor.Text = source;
+            editor.Select(source.IndexOf("i\n", StringComparison.Ordinal) + 1, 0);
+            editor.Focus();
+            PumpMessages(220);
+
+            ListBox completion = FindControl<ListBox>(form, "completionListBox");
+            DdfCompletionItem snippet = completion.Items.Cast<DdfCompletionItem>().Single(item =>
+                item.Kind == DdfCompletionKind.Snippet && item.Snippet.Prefix == "if");
+            completion.SelectedItem = snippet;
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            Require(editor.SelectedText == "condition", "Lo snippet non ha selezionato il primo campo.");
+            Require(editor.Text.Contains("    if(condition)\n    {\n        statement;\n    }"),
+                "Lo snippet non ha rispettato l'indentazione del contesto.");
+
+            editor.SelectedText = "value > 0";
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            Require(editor.SelectedText == "statement", "Tab non ha raggiunto il campo successivo dello snippet.");
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Shift | Keys.Tab));
+            Require(editor.SelectedText == "value > 0", "Shift+Tab non è tornato al campo modificato.");
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            editor.SelectedText = "value++";
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            Require(editor.SelectionLength == 0 && editor.Text.Contains("value++;"),
+                "L'ultimo Tab non ha concluso correttamente la sessione snippet.");
+
+            editor.Text = source;
+            editor.Select(source.IndexOf("i\n", StringComparison.Ordinal) + 1, 0);
+            PumpMessages(180);
+            completion.SelectedItem = completion.Items.Cast<DdfCompletionItem>().Single(item =>
+                item.Kind == DdfCompletionKind.Snippet && item.Snippet.Prefix == "if");
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            editor.Undo();
+            PumpMessages(120);
+            Require(editor.Text == source, "Undo non ha rimosso l'inserimento dello snippet in un solo passo.");
+            Console.WriteLine("PASS snippet indentati con campi Tab/Shift+Tab e singolo Undo");
         }
 
         private static void AssertSignatureHelp(MainForm form, RichTextBox editor)

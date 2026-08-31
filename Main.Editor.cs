@@ -120,6 +120,8 @@ namespace DDF___Program_Language_Editor
                 if (changedView != null)
                 {
                     string previousSource = changedView.Buffer.Source;
+                    if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
+                        updateSnippetSession(previousSource, changedEditor.Text);
                     if (changedView.Buffer.BreakpointLines.Count > 0)
                     {
                         DdfBreakpointRemapResult remap = DdfBreakpointService.Remap(
@@ -402,6 +404,11 @@ namespace DDF___Program_Language_Editor
                 }
             }
 
+            if (handleSnippetKeyDown(e))
+            {
+                return;
+            }
+
             if (handleCompletionKeyDown(e))
             {
                 return;
@@ -562,6 +569,7 @@ namespace DDF___Program_Language_Editor
                 view?.SelectionHistory.Clear();
                 if (view != null && view.MultiSelections.Count > 0)
                 {
+                    cancelSnippetSession(false);
                     view.MultiSelections.Clear();
                     diagnosticsFormatStart = 0;
                     highlightTimer.Stop();

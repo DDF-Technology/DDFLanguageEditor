@@ -82,6 +82,7 @@ namespace DDF___Program_Language_Editor
                 case DdfCompletionKind.Keyword: return Color.FromArgb(80, 90, 180);
                 case DdfCompletionKind.Boolean: return Color.FromArgb(145, 75, 150);
                 case DdfCompletionKind.Library: return Color.FromArgb(180, 100, 20);
+                case DdfCompletionKind.Snippet: return Color.FromArgb(125, 80, 165);
                 default: return Color.FromArgb(35, 100, 170);
             }
         }
@@ -232,6 +233,11 @@ namespace DDF___Program_Language_Editor
             int start = Math.Min(result.ReplacementStart, richTextBoxMainEditor.TextLength);
             int length = Math.Min(result.ReplacementLength, richTextBoxMainEditor.TextLength - start);
             hideCompletion();
+            if (item.Snippet != null)
+            {
+                insertSnippet(item.Snippet, start, length);
+                return;
+            }
             isApplyingCompletion = true;
             try
             {
