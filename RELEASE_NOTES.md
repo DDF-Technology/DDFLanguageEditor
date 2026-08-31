@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.3.0
+# DDFLanguageEditor 0.9.3.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.1 adds a horizontal splitter above the bottom palette. Dragging it
+resizes Diagnostics, Output and Search vertically while preserving a usable
+editor area. The chosen height survives pin and auto-hide transitions; the
+splitter disappears in compact mode and becomes draggable again only when the
+palette is pinned.
 
 Version 0.9.3.0 introduces workspace-wide text and declaration search. The new
 Search palette covers every indexed `.ddf` file and every open document,

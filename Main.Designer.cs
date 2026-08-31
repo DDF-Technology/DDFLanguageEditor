@@ -56,6 +56,7 @@ namespace DDF___Program_Language_Editor
             this.richTextBoxFoldedView = new System.Windows.Forms.RichTextBox();
             this.richTextBoxLineNumbers = new DDF___Program_Language_Editor.LineNumberGutter();
             this.splitterOutline = new System.Windows.Forms.Splitter();
+            this.splitterDiagnostics = new System.Windows.Forms.Splitter();
             this.panelOutline = new System.Windows.Forms.Panel();
             this.buttonOutlinePin = new System.Windows.Forms.Button();
             this.treeViewOutline = new System.Windows.Forms.TreeView();
@@ -431,6 +432,18 @@ namespace DDF___Program_Language_Editor
             this.splitterOutline.Size = new System.Drawing.Size(4, 711);
             this.splitterOutline.TabStop = false;
             //
+            // splitterDiagnostics
+            //
+            this.splitterDiagnostics.BackColor = System.Drawing.Color.FromArgb(204, 204, 204);
+            this.splitterDiagnostics.Cursor = System.Windows.Forms.Cursors.HSplit;
+            this.splitterDiagnostics.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.splitterDiagnostics.MinExtra = 240;
+            this.splitterDiagnostics.MinSize = 116;
+            this.splitterDiagnostics.Name = "splitterDiagnostics";
+            this.splitterDiagnostics.Size = new System.Drawing.Size(1027, 4);
+            this.splitterDiagnostics.TabStop = false;
+            this.splitterDiagnostics.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitterDiagnostics_SplitterMoved);
+            //
             // panelOutline
             //
             this.panelOutline.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
@@ -608,6 +621,7 @@ namespace DDF___Program_Language_Editor
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1027, 793);
             this.Controls.Add(this.panelEditor);
+            this.Controls.Add(this.splitterDiagnostics);
             this.Controls.Add(this.panelDiagnostics);
             this.Controls.Add(this.splitterOutline);
             this.Controls.Add(this.panelOutline);
@@ -618,7 +632,7 @@ namespace DDF___Program_Language_Editor
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.9.3.0 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.9.3.1 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
@@ -678,6 +692,7 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.RichTextBox richTextBoxFoldedView;
         private DDF___Program_Language_Editor.LineNumberGutter richTextBoxLineNumbers;
         private System.Windows.Forms.Splitter splitterOutline;
+        private System.Windows.Forms.Splitter splitterDiagnostics;
         private System.Windows.Forms.Panel panelOutline;
         private System.Windows.Forms.Button buttonOutlinePin;
         private System.Windows.Forms.TreeView treeViewOutline;

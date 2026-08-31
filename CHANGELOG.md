@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.3.1 - 2026-08-31
+
+- add a horizontal drag splitter between the code editor and the bottom palette;
+- preserve the user-selected palette height when switching between pinned and auto-hide modes;
+- hide and disable the splitter while the palette is compact, restoring it only when appropriate;
+- enforce a minimum editor area and a usable minimum palette height;
+- extend the WinForms smoke with resize, layout and remembered-height assertions;
+
 ## 0.9.3.0 - 2026-08-31
 
 - add cancellable text and declaration search across every workspace file and open document buffer;

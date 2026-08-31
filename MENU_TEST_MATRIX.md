@@ -85,7 +85,8 @@ l'avvio massimizzato, che la diagnostica resti visibile anche senza problemi e
 che la precedente barra beta non sia più presente nel layout. Verifica anche il
 gutter non selezionabile, l'allineamento a sinistra dei numeri di riga, la
 larghezza iniziale dell'Outline e le transizioni pinned/auto-hide delle due
-palette.
+palette. La palette inferiore viene inoltre ridimensionata tramite lo splitter
+orizzontale e deve ripristinare la stessa altezza dopo pin e auto-hide.
 
 ## Barra strumenti
 

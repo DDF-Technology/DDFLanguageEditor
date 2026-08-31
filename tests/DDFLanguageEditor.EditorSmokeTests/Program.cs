@@ -235,7 +235,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -631,6 +631,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Panel outlinePanel = FindControl<Panel>(form, "panelOutline");
             Panel diagnosticsPanelFromForm = FindControl<Panel>(form, "panelDiagnostics");
             Splitter outlineSplitter = FindControl<Splitter>(form, "splitterOutline");
+            Splitter diagnosticsSplitter = FindControl<Splitter>(form, "splitterDiagnostics");
             StatusStrip status = FindControl<StatusStrip>(form, "statusStripMain");
             ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
             TabControl navigation = FindControl<TabControl>(form, "navigationTabs");
@@ -644,6 +645,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "La palette destra non occupa tutta l'altezza utile della form.");
             Require(diagnosticsPanelFromForm.Right == outlineSplitter.Left && diagnosticsPanelFromForm.Width < form.ClientSize.Width,
                 "Diagnostica e Output non si adattano allo spazio lasciato dalla palette destra.");
+            Require(diagnosticsSplitter.Dock == DockStyle.Bottom && diagnosticsSplitter.Cursor == Cursors.HSplit &&
+                    diagnosticsSplitter.Bottom == diagnosticsPanelFromForm.Top,
+                "La palette inferiore non ha uno splitter orizzontale correttamente posizionato.");
+
+            diagnosticsPanelFromForm.Height = 210;
+            form.PerformLayout();
+            InvokeHandler(form, "splitterDiagnostics_SplitterMoved", diagnosticsSplitter,
+                new SplitterEventArgs(0, 0, 0, 0));
+            Require(Convert.ToInt32(GetPrivateField<object>(form, "diagnosticsExpandedHeight")) == 210,
+                "L'altezza impostata tramite splitter non viene memorizzata.");
 
             outlinePin.PerformClick();
             PumpMessages(20);
@@ -658,15 +669,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
             diagnosticsPin.PerformClick();
             PumpMessages(20);
-            Require(diagnosticsPanel.Height == 26 && diagnosticsPin.Text == "\uE70E",
+            Require(diagnosticsPanel.Height == 26 && diagnosticsPin.Text == "\uE70E" && !diagnosticsSplitter.Visible,
                 "La Diagnostica non entra nello stato auto-hide compatto.");
             InvokeHandler(form, "panelDiagnostics_MouseEnter", diagnosticsPanel, EventArgs.Empty);
-            Require(diagnosticsPanel.Height >= 116,
-                "La Diagnostica non si riapre durante l'auto-hide.");
+            Require(diagnosticsPanel.Height == 210 && diagnosticsSplitter.Visible && !diagnosticsSplitter.Enabled,
+                "La Diagnostica non ripristina l'altezza ridimensionata durante l'auto-hide.");
             diagnosticsPin.PerformClick();
-            Require(diagnosticsPin.Text == "\uE718" && diagnosticsPanel.Height >= 116,
+            Require(diagnosticsPin.Text == "\uE718" && diagnosticsPanel.Height == 210 && diagnosticsSplitter.Enabled,
                 "La Diagnostica non torna nello stato pinnato.");
-            Console.WriteLine("PASS gutter non selezionabile e palette pinnabili con auto-hide");
+            Console.WriteLine("PASS gutter non selezionabile e palette ridimensionabili, pinnabili con auto-hide");
         }
 
         private static void AssertSelectionStableDuringHighlight(RichTextBox editor)
@@ -1774,7 +1785,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "treeViewWorkspace", "treeViewOutline", "panelDiagnostics", "tabPageDiagnostics",
                 "tabPageOutput", "tabPageWorkspaceSearch", "workspaceSearchResultsListView",
                 "richTextBoxOutput", "listBoxDiagnostics", "buttonOutlinePin",
-                "buttonDiagnosticsPin", "statusStripMain", "completionListBox"
+                "buttonDiagnosticsPin", "splitterDiagnostics", "statusStripMain", "completionListBox"
             };
             foreach (string name in lightControls)
             {

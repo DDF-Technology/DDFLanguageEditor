@@ -149,14 +149,24 @@ namespace DDF___Program_Language_Editor
 
         private void expandDiagnosticsPalette()
         {
+            splitterDiagnostics.Visible = true;
+            splitterDiagnostics.Enabled = diagnosticsPinned;
             panelDiagnostics.Height = Math.Max(MinimumDiagnosticsExpandedHeight, diagnosticsExpandedHeight);
             buttonDiagnosticsPin.BringToFront();
         }
 
         private void collapseDiagnosticsPalette()
         {
+            splitterDiagnostics.Enabled = false;
+            splitterDiagnostics.Visible = false;
             panelDiagnostics.Height = DiagnosticsAutoHideHeight;
             buttonDiagnosticsPin.BringToFront();
+        }
+
+        private void splitterDiagnostics_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+            if (!diagnosticsPinned) return;
+            diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedHeight, panelDiagnostics.Height);
         }
 
         private void updatePaletteButtons()
