@@ -1,4 +1,4 @@
-# Beta 0.9.3.7 limitations
+# Beta 0.9.4.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -7,7 +7,7 @@ This release is intended for interface and language-design evaluation only.
 - local text editing;
 - visible line numbers;
 - experimental token and block highlighting;
-- four-space Tab, multiline indentation and assisted newline indentation;
+- configurable tabs/spaces, multiline indentation and assisted newline indentation;
 - UTF-8 `.ddf` open, save and recent-file workflows;
 - unsaved-change prompts, find/replace and document status information;
 - formal tokenization, incremental highlighting and lexical diagnostics;
@@ -29,6 +29,7 @@ This release is intended for interface and language-design evaluation only.
 - clickable file/structure/function/control-flow breadcrumb driven by the recoverable syntax tree;
 - searchable Command Palette generated from current menu actions, shortcuts and enabled state;
 - drag-and-drop opening for DDF files and workspace folders, with persisted recent workspaces;
+- persistent editor preferences for font, zoom, code theme, indentation, line endings and format-on-save;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;

@@ -81,10 +81,11 @@ namespace DDFLanguageEditor.Core
 
     public static class DdfSnippetService
     {
-        public static DdfSnippetExpansion Expand(DdfSnippetTemplate template, string baseIndent)
+        public static DdfSnippetExpansion Expand(DdfSnippetTemplate template, string baseIndent, string indentationUnit = "    ")
         {
             if (template == null) throw new ArgumentNullException(nameof(template));
             baseIndent = baseIndent ?? string.Empty;
+            if (string.IsNullOrEmpty(indentationUnit)) throw new ArgumentException("An indentation unit is required.", nameof(indentationUnit));
             var builder = new StringBuilder();
             var placeholders = new List<DdfSnippetPlaceholder>();
             int finalCaret = -1;
@@ -117,7 +118,16 @@ namespace DDFLanguageEditor.Core
 
                 char value = template.Body[position++];
                 builder.Append(value);
-                if (value == '\n' && position < template.Body.Length) builder.Append(baseIndent);
+                if (value == '\n' && position < template.Body.Length)
+                {
+                    builder.Append(baseIndent);
+                    if (position + 4 <= template.Body.Length &&
+                        string.Equals(template.Body.Substring(position, 4), "    ", StringComparison.Ordinal))
+                    {
+                        builder.Append(indentationUnit);
+                        position += 4;
+                    }
+                }
             }
 
             placeholders.Sort((left, right) => left.Index.CompareTo(right.Index));

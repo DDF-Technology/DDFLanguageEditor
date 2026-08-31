@@ -342,7 +342,7 @@ namespace DDF___Program_Language_Editor
                 using (RichTextBoxUpdateScope.Begin(richTextBoxMainEditor))
                 {
                     richTextBoxMainEditor.Select(formatStart, text.Length - formatStart);
-                    richTextBoxMainEditor.SelectionColor = Color.FromArgb(212, 212, 212);
+                    richTextBoxMainEditor.SelectionColor = editorDefaultForeground;
                     richTextBoxMainEditor.SelectionBackColor = richTextBoxMainEditor.BackColor;
                     RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxMainEditor);
 
@@ -541,8 +541,24 @@ namespace DDF___Program_Language_Editor
             });
         }
 
-        private static Color getColor(SyntaxKind kind)
+        private Color getColor(SyntaxKind kind)
         {
+            if (editorSettings?.Theme == EditorTheme.Light)
+            {
+                switch (kind)
+                {
+                    case SyntaxKind.Comment: return Color.FromArgb(0, 128, 0);
+                    case SyntaxKind.Library: return Color.FromArgb(121, 94, 38);
+                    case SyntaxKind.String: return Color.FromArgb(163, 21, 21);
+                    case SyntaxKind.Grammar: return Color.FromArgb(0, 0, 255);
+                    case SyntaxKind.Number: return Color.FromArgb(9, 134, 88);
+                    case SyntaxKind.DataType: return Color.FromArgb(38, 127, 153);
+                    case SyntaxKind.Function: return Color.FromArgb(121, 94, 38);
+                    case SyntaxKind.ControlFlow: return Color.FromArgb(175, 0, 219);
+                    case SyntaxKind.Error: return Color.FromArgb(200, 0, 0);
+                    default: return Color.FromArgb(32, 32, 32);
+                }
+            }
             switch (kind)
             {
                 case SyntaxKind.Comment:
@@ -586,7 +602,8 @@ namespace DDF___Program_Language_Editor
                     e.SuppressKeyPress = true;
                     e.Handled = true;
                     applyMultiEditorEdits(range => EditorEditing.CreateNewLineEdit(
-                        richTextBoxMainEditor.Text, range.Start, range.Length));
+                        richTextBoxMainEditor.Text, range.Start, range.Length,
+                        editorSettings.IndentSize, editorSettings.UseTabs));
                     return;
                 }
                 if (e.KeyCode == Keys.Back)
@@ -635,7 +652,9 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength,
-                    e.Shift));
+                    e.Shift,
+                    editorSettings.IndentSize,
+                    editorSettings.UseTabs));
             }
             else if (e.KeyCode == Keys.Enter)
             {
@@ -644,7 +663,9 @@ namespace DDF___Program_Language_Editor
                 applyEdit(EditorEditing.CreateNewLineEdit(
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
-                    richTextBoxMainEditor.SelectionLength));
+                    richTextBoxMainEditor.SelectionLength,
+                    editorSettings.IndentSize,
+                    editorSettings.UseTabs));
             }
             else if (e.KeyCode == Keys.Back && richTextBoxMainEditor.SelectionLength == 0)
             {

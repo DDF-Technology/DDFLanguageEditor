@@ -36,7 +36,8 @@ namespace DDFLanguageEditor.Core
             int selectionStart,
             int selectionLength,
             bool outdent,
-            int tabSize = DefaultTabSize)
+            int tabSize = DefaultTabSize,
+            bool useTabs = false)
         {
             ValidateSelection(text, selectionStart, selectionLength);
             if (tabSize <= 0)
@@ -46,28 +47,29 @@ namespace DDFLanguageEditor.Core
 
             if (!outdent && selectionLength == 0)
             {
-                string spaces = new string(' ', tabSize);
-                return new EditorEdit(selectionStart, 0, spaces, selectionStart + spaces.Length, 0);
+                string indentation = useTabs ? "\t" : new string(' ', tabSize);
+                return new EditorEdit(selectionStart, 0, indentation, selectionStart + indentation.Length, 0);
             }
 
             if (outdent && selectionLength == 0)
             {
                 int lineStart = FindLineStart(text, selectionStart);
-                int remove = CountLeadingSpaces(text, lineStart, tabSize);
+                int remove = CountLeadingIndentation(text, lineStart, tabSize, useTabs);
                 int caret = selectionStart <= lineStart + remove
                     ? Math.Max(lineStart, selectionStart - remove)
                     : selectionStart - remove;
                 return new EditorEdit(lineStart, remove, string.Empty, caret, 0);
             }
 
-            return CreateBlockIndentEdit(text, selectionStart, selectionLength, outdent, tabSize);
+            return CreateBlockIndentEdit(text, selectionStart, selectionLength, outdent, tabSize, useTabs);
         }
 
         public static EditorEdit CreateNewLineEdit(
             string text,
             int selectionStart,
             int selectionLength,
-            int tabSize = DefaultTabSize)
+            int tabSize = DefaultTabSize,
+            bool useTabs = false)
         {
             ValidateSelection(text, selectionStart, selectionLength);
             if (tabSize <= 0)
@@ -82,7 +84,7 @@ namespace DDFLanguageEditor.Core
             if (selectionLength == 0 && selectionStart > 0 && selectionStart < text.Length &&
                 text[selectionStart - 1] == '{' && text[selectionStart] == '}')
             {
-                string innerIndentation = indentation + new string(' ', tabSize);
+                string innerIndentation = indentation + (useTabs ? "\t" : new string(' ', tabSize));
                 string blockReplacement = "\n" + innerIndentation + "\n" + indentation;
                 return new EditorEdit(selectionStart, 0, blockReplacement,
                     selectionStart + 1 + innerIndentation.Length, 0);
@@ -90,7 +92,7 @@ namespace DDFLanguageEditor.Core
             if (trimmed.EndsWith("{", StringComparison.Ordinal) ||
                 trimmed.EndsWith("(", StringComparison.Ordinal))
             {
-                indentation += new string(' ', tabSize);
+                indentation += useTabs ? "\t" : new string(' ', tabSize);
             }
 
             string replacement = "\n" + indentation;
@@ -369,7 +371,8 @@ namespace DDFLanguageEditor.Core
             int selectionStart,
             int selectionLength,
             bool outdent,
-            int tabSize)
+            int tabSize,
+            bool useTabs)
         {
             int selectionEnd = selectionStart + selectionLength;
             int rangeStart = FindLineStart(text, selectionStart);
@@ -386,21 +389,21 @@ namespace DDFLanguageEditor.Core
 
             if (!outdent)
             {
-                string spaces = new string(' ', tabSize);
+                string spaces = useTabs ? "\t" : new string(' ', tabSize);
                 for (int i = lineStarts.Count - 1; i >= 0; i--)
                 {
                     replacement.Insert(lineStarts[i] - rangeStart, spaces);
                 }
 
-                int newStart = MapAfterInsertions(selectionStart, lineStarts, tabSize, true);
-                int newEnd = MapAfterInsertions(selectionEnd, lineStarts, tabSize, false);
+                int newStart = MapAfterInsertions(selectionStart, lineStarts, spaces.Length, true);
+                int newEnd = MapAfterInsertions(selectionEnd, lineStarts, spaces.Length, false);
                 return new EditorEdit(rangeStart, rangeEnd - rangeStart, replacement.ToString(), newStart, newEnd - newStart);
             }
 
             var removals = new List<Removal>();
             foreach (int lineStart in lineStarts)
             {
-                int remove = CountLeadingSpaces(text, lineStart, tabSize);
+                    int remove = CountLeadingIndentation(text, lineStart, tabSize, useTabs);
                 if (remove > 0)
                 {
                     removals.Add(new Removal(lineStart, remove));
@@ -472,6 +475,12 @@ namespace DDFLanguageEditor.Core
             }
 
             return count;
+        }
+
+        private static int CountLeadingIndentation(string text, int lineStart, int tabSize, bool useTabs)
+        {
+            if (useTabs && lineStart < text.Length && text[lineStart] == '\t') return 1;
+            return CountLeadingSpaces(text, lineStart, tabSize);
         }
 
         private static int FindLineStart(string text, int position)

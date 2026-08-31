@@ -12,7 +12,7 @@ namespace DDF___Program_Language_Editor
             hideSignatureHelp();
             cancelSnippetSession(false);
             string source = richTextBoxMainEditor.Text;
-            DdfFormatResult result = DdfFormatter.Format(source);
+            DdfFormatResult result = DdfFormatter.Format(source, null, editorSettings.IndentSize, editorSettings.UseTabs);
             if (string.Equals(source, result.Text, StringComparison.Ordinal))
             {
                 richTextBoxMainEditor.Focus();

@@ -364,7 +364,7 @@ namespace DDF___Program_Language_Editor
             using (RichTextBoxUpdateScope.Begin(richTextBoxFoldedView))
             {
                 richTextBoxFoldedView.SelectAll();
-                richTextBoxFoldedView.SelectionColor = System.Drawing.Color.FromArgb(212, 212, 212);
+                richTextBoxFoldedView.SelectionColor = editorDefaultForeground;
                 richTextBoxFoldedView.SelectionBackColor = richTextBoxFoldedView.BackColor;
                 RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxFoldedView);
 
@@ -401,8 +401,10 @@ namespace DDF___Program_Language_Editor
                 foreach (DdfFoldMarker marker in projection.Markers)
                 {
                     richTextBoxFoldedView.Select(marker.ProjectedStart, marker.ProjectedLength);
-                    richTextBoxFoldedView.SelectionColor = System.Drawing.Color.FromArgb(220, 220, 170);
-                    richTextBoxFoldedView.SelectionBackColor = System.Drawing.Color.FromArgb(38, 38, 50);
+                    richTextBoxFoldedView.SelectionColor = getColor(SyntaxKind.Function);
+                    richTextBoxFoldedView.SelectionBackColor = editorSettings.Theme == EditorTheme.Dark
+                        ? System.Drawing.Color.FromArgb(38, 38, 50)
+                        : System.Drawing.Color.FromArgb(230, 238, 248);
                 }
                 richTextBoxFoldedView.Select(
                     Math.Min(projection.MarkerStart + projection.MarkerLength, richTextBoxFoldedView.TextLength),

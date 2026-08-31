@@ -78,14 +78,15 @@ namespace DDFLanguageEditor.Core
         public static DdfFormatResult Format(
             string source,
             DdfLanguageDefinition language = null,
-            int indentSize = DefaultIndentSize)
+            int indentSize = DefaultIndentSize,
+            bool useTabs = false)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (indentSize <= 0) throw new ArgumentOutOfRangeException(nameof(indentSize));
             language = language ?? DdfLanguageCatalog.Default;
 
             DdfLexResult lexResult = DdfLexer.Lex(source, language);
-            var writer = new FormatWriter(indentSize);
+            var writer = new FormatWriter(indentSize, useTabs);
             IReadOnlyList<DdfToken> tokens = lexResult.Tokens;
             for (int index = 0; index < tokens.Count; index++)
             {
@@ -280,14 +281,16 @@ namespace DDFLanguageEditor.Core
             private readonly List<DdfFormatResult.PositionMapEntry> positions =
                 new List<DdfFormatResult.PositionMapEntry>();
             private readonly int indentSize;
+            private readonly bool useTabs;
             private readonly Stack<bool> doBlocks = new Stack<bool>();
             private int indentLevel;
             private bool atLineStart = true;
             private bool nextBlockIsDo;
 
-            public FormatWriter(int indentSize)
+            public FormatWriter(int indentSize, bool useTabs)
             {
                 this.indentSize = indentSize;
+                this.useTabs = useTabs;
             }
 
             public int ParenthesisDepth { get; set; }
@@ -363,7 +366,8 @@ namespace DDFLanguageEditor.Core
             private void EnsureIndent()
             {
                 if (!atLineStart) return;
-                builder.Append(' ', indentLevel * indentSize);
+                if (useTabs) builder.Append('\t', indentLevel);
+                else builder.Append(' ', indentLevel * indentSize);
                 atLineStart = false;
             }
         }

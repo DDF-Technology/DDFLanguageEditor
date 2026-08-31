@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4.0 - 2026-09-01
+
+- add a centered light Settings window through `Ctrl+,`, View, Command Palette and a thirty-ninth toolbar icon;
+- persist font family/size, zoom, dark or light code theme, tabs/spaces, indentation width, LF/CRLF and format-on-save;
+- apply visual preferences immediately to every open editor tab, folded view, gutter, completion and Signature Help;
+- drive Tab, Enter, multi-cursor indentation and the formatter from the same indentation preferences;
+- apply the selected line ending and optional formatting before writing a document without changing the in-memory buffer convention;
+- provide a one-click reset to stable defaults and tolerate missing or invalid persisted values;
+- isolate smoke preferences from the real user profile and verify persistence, reset, Tab formatting and CRLF output;
+
 ## 0.9.3.7 - 2026-09-01
 
 - open one or more `.ddf` files by dropping them onto the editor, document tabs or workspace surfaces;

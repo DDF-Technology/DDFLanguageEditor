@@ -40,6 +40,7 @@
     <Compile Update="Main.NavigationHistory.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Breadcrumb.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.CommandPalette.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.Settings.cs" DependentUpon="Main.cs" />
     <Compile Update="TextBoxEditingSupport.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Palettes.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Documents.cs" DependentUpon="Main.cs" />

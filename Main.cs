@@ -93,6 +93,7 @@ namespace DDF___Program_Language_Editor
             initializeWorkspaceSearch();
             initializeWorkspaceNavigation();
             initializeBreadcrumb();
+            initializeEditorSettings();
             initializeCommandPalette();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
@@ -105,6 +106,7 @@ namespace DDF___Program_Language_Editor
             requestSymbolRename = showRenameSymbolDialog;
             showWorkspaceDialog = dialog => dialog.ShowDialog(this);
             requestRuntimeInput = showRuntimeInputDialog;
+            applyEditorSettings();
             applyApplicationTheme();
             TextBoxEditingSupport.Apply(this);
         }
@@ -317,7 +319,8 @@ namespace DDF___Program_Language_Editor
 
             try
             {
-                DdfDocumentFile.Save(path, richTextBoxMainEditor.Text);
+                if (editorSettings.FormatOnSave) formatDocumentMenuItem_Click(this, EventArgs.Empty);
+                DdfDocumentFile.Save(path, editorSettings.ApplyLineEndings(richTextBoxMainEditor.Text));
                 documentSession.MarkSaved(path);
                 activeDocumentView.Buffer.UpdateSource(richTextBoxMainEditor.Text, false);
                 richTextBoxMainEditor.Modified = false;
@@ -431,7 +434,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.3.7 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.4.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

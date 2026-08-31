@@ -8,6 +8,7 @@ namespace DDF___Program_Language_Editor
     {
         private const string RecentFilesSettingsFileName = "recent-files.txt";
         private const string RecentWorkspacesSettingsFileName = "recent-workspaces.txt";
+        private const string EditorSettingsFileName = "editor-settings.txt";
 
         public static string LoadRecentFiles()
         {
@@ -51,6 +52,31 @@ namespace DDF___Program_Language_Editor
         public static void SaveRecentWorkspaces(string value)
         {
             Save(RecentWorkspacesSettingsFileName, value);
+        }
+
+        public static string LoadEditorSettings()
+        {
+            return Load(EditorSettingsFileName);
+        }
+
+        public static void SaveEditorSettings(string value)
+        {
+            Save(EditorSettingsFileName, value);
+        }
+
+        private static string Load(string fileName)
+        {
+            try
+            {
+                string path = GetSettingsPath(fileName);
+                return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8) : string.Empty;
+            }
+            catch (Exception exception) when (
+                exception is IOException || exception is UnauthorizedAccessException ||
+                exception is ArgumentException || exception is NotSupportedException)
+            {
+                return string.Empty;
+            }
         }
 
         private static void Save(string fileName, string value)

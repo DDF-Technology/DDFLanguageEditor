@@ -48,7 +48,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
 | `0.9.3` | Ricerca e navigazione del workspace | Completata (`0.9.3.0`–`0.9.3.7`) |
-| `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
+| `0.9.4` | Personalizzazione, sessione e recovery | In corso (`0.9.4.0` completata) |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
 | `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
@@ -382,7 +382,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 ## 0.9.4 — Personalizzazione, sessione e recovery
 
-- [ ] Salvare impostazioni per font, zoom, tema, tab/spazi, fine riga e formattazione.
+- [x] Salvare impostazioni per font, zoom, tema, tab/spazi, fine riga e formattazione (`0.9.4.0`).
 - [ ] Rendere configurabili le scorciatoie rilevando conflitti e mantenendo preset ripristinabili.
 - [ ] Aggiungere autosave opzionale e Hot Exit per conservare buffer non salvati.
 - [ ] Ripristinare workspace, schede, layout, cursori e breakpoint della sessione precedente.

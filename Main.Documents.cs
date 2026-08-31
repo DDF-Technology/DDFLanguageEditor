@@ -126,6 +126,7 @@ namespace DDF___Program_Language_Editor
                 ForeColor = richTextBoxMainEditor.ForeColor,
                 HideSelection = false,
                 Name = "documentEditor_" + id,
+                ZoomFactor = richTextBoxMainEditor.ZoomFactor,
                 WordWrap = false,
                 Visible = false,
                 ContextMenuStrip = editorContextMenu

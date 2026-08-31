@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 50 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 51 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -59,6 +59,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             using (var form = new MainForm())
             {
                 DisableRecentFilePersistence(form);
+                ResetEditorSettingsForSmoke(form);
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
                 form.Location = visible ? new Point(80, 80) : new Point(-32000, -32000);
@@ -79,6 +80,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
+                AssertEditorSettings(form, editor);
                 AssertTextBoxEditingSupport(form, editor);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
                 AssertEditorPalette(editor);
@@ -193,6 +195,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "navigateBackMenuItem", Keys.Alt | Keys.Left },
                     { "navigateForwardMenuItem", Keys.Alt | Keys.Right },
                     { "commandPaletteMenuItem", Keys.Control | Keys.Shift | Keys.P },
+                    { "settingsMenuItem", Keys.Control | Keys.Oemcomma },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
                     { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
@@ -219,7 +222,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
-                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem", "commandPaletteMenuItem"
+                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
                 };
                 foreach (string command in commands)
                 {
@@ -237,7 +240,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 45 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 46 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -254,7 +257,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.7") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -561,6 +564,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Location = visible ? new Point(80, 80) : new Point(-32000, -32000)
             };
             if (!visible) form.WindowState = FormWindowState.Normal;
+            DisableRecentFilePersistence(form);
+            ResetEditorSettingsForSmoke(form);
             form.Show();
             PumpMessages(100);
             return form;
@@ -570,6 +575,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             SetPrivateField(form, "saveRecentFilesSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveRecentWorkspacesSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
+        }
+
+        private static void ResetEditorSettingsForSmoke(MainForm form)
+        {
+            SetPrivateField(form, "editorSettings", EditorSettings.Default);
+            InvokePrivate(form, "applyEditorSettings");
         }
 
         private static void RestoreClipboard(IDataObject originalClipboard)
@@ -2003,7 +2015,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton", "toolbarWorkspaceSearchButton", "toolbarWorkspaceReplaceButton",
-                "toolbarCommandPaletteButton",
+                "toolbarCommandPaletteButton", "toolbarSettingsButton",
                 "toolbarNavigateBackButton", "toolbarNavigateForwardButton",
                 "toolbarGoToFileButton", "toolbarGoToSymbolButton", "toolbarFindReferencesButton",
                 "toolbarGoToLineButton", "toolbarGoToLastEditButton",
@@ -2036,7 +2048,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 38 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 39 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -2086,6 +2098,85 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Console.WriteLine("PASS tema chiaro uniforme con sola superficie editor scura");
         }
 
+        private static void AssertEditorSettings(MainForm form, RichTextBox editor)
+        {
+            string persisted = null;
+            int dialogCount = 0;
+            SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => persisted = value));
+            SetPrivateField(form, "showSettingsDialog", new Func<SettingsForm, DialogResult>(dialog =>
+            {
+                dialogCount++;
+                Require(dialog.StartPosition == FormStartPosition.CenterScreen && IsLight(dialog.BackColor),
+                    "Impostazioni non è chiara e centrata sullo schermo.");
+                FindControl<ComboBox>(dialog, "settingsFontComboBox").Text = "Consolas";
+                FindControl<NumericUpDown>(dialog, "settingsFontSizeNumeric").Value = 12M;
+                FindControl<NumericUpDown>(dialog, "settingsZoomNumeric").Value = 125M;
+                FindControl<ComboBox>(dialog, "settingsThemeComboBox").SelectedIndex = 1;
+                FindControl<ComboBox>(dialog, "settingsIndentStyleComboBox").SelectedIndex = 1;
+                FindControl<NumericUpDown>(dialog, "settingsIndentSizeNumeric").Value = 2M;
+                FindControl<ComboBox>(dialog, "settingsLineEndingComboBox").SelectedIndex = 1;
+                FindControl<CheckBox>(dialog, "settingsFormatOnSaveCheckBox").Checked = true;
+                return DialogResult.OK;
+            }));
+            FindMenuItem(form, "settingsMenuItem").PerformClick();
+            EditorSettings settings = GetPrivateField<EditorSettings>(form, "editorSettings");
+            Require(dialogCount == 1 && settings.UseTabs && settings.IndentSize == 2 && settings.FormatOnSave &&
+                    settings.LineEnding == EditorLineEnding.CrLf && persisted != null,
+                "Le preferenze scelte non vengono applicate e persistite.");
+            Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
+                "Font, zoom o tema non vengono applicati subito all'editor.");
+            Require(EditorSettings.Parse(persisted).Serialize() == settings.Serialize() &&
+                    settings.ApplyLineEndings("a\nb") == "a\r\nb",
+                "Serializzazione o fine riga CRLF delle preferenze non è stabile.");
+
+            editor.Text = string.Empty;
+            editor.Select(0, 0);
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Tab));
+            Require(editor.Text == "\t", "L'indentazione configurata a Tab inserisce ancora spazi.");
+            editor.Text = "main() out int{ret 1;}";
+            FindMenuItem(form, "formatDocumentMenuItem").PerformClick();
+            Require(editor.Text.Contains("\n\tret 1;", StringComparison.Ordinal),
+                "Il formatter non usa l'indentazione a Tab configurata.");
+
+            string settingsSavePath = Path.Combine(Path.GetTempPath(), "ddf-settings-" + Guid.NewGuid().ToString("N") + ".ddf");
+            try
+            {
+                editor.Text = "main() out int{ret 2;}";
+                SetPrivateField(form, "showSaveFileDialog", new Func<SaveFileDialog, DialogResult>(dialog =>
+                {
+                    dialog.FileName = settingsSavePath;
+                    return DialogResult.OK;
+                }));
+                Require((bool)InvokePrivate(form, "saveDocument", false),
+                    "Il salvataggio configurato non viene completato.");
+                string saved = File.ReadAllText(settingsSavePath);
+                Require(saved.Contains("\r\n\tret 2;", StringComparison.Ordinal),
+                    "Formatta al salvataggio, Tab o fine riga CRLF non vengono applicati al file.");
+            }
+            finally
+            {
+                if (File.Exists(settingsSavePath)) File.Delete(settingsSavePath);
+            }
+            GetPrivateField<DocumentSession>(form, "documentSession").SetUntitled();
+            InvokePrivate(form, "updateDocumentUi");
+
+            SetPrivateField(form, "showSettingsDialog", new Func<SettingsForm, DialogResult>(dialog =>
+            {
+                dialogCount++;
+                Require(FindControl<Button>(dialog, "settingsDefaultsButton") != null,
+                    "Il comando Predefiniti manca dalla finestra Impostazioni.");
+                dialog.ResetToDefaults();
+                return DialogResult.OK;
+            }));
+            FindToolbarButton(form, "toolbarSettingsButton").PerformClick();
+            settings = GetPrivateField<EditorSettings>(form, "editorSettings");
+            Require(dialogCount == 2 && !settings.UseTabs && settings.IndentSize == 4 &&
+                    settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
+                "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
+            SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
+            Console.WriteLine("PASS preferenze persistenti per font, zoom, tema, indentazione, fine riga e formatter");
+        }
+
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)
         {
             FindMenuItem(form, "workspaceSearchMenuItem").PerformClick();
@@ -2132,6 +2223,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 assertTextControlsConfigured(navigation, false);
             using (var commandPalette = new CommandPaletteForm(Array.Empty<CommandPaletteCommand>()))
                 assertTextControlsConfigured(commandPalette, false);
+            using (var settings = new SettingsForm(EditorSettings.Default))
+                assertTextControlsConfigured(settings, false);
             editor.Focus();
             PumpMessages(40);
             Require(editor.Focused, "Lo smoke delle caselle di testo non ripristina il focus dell'editor.");

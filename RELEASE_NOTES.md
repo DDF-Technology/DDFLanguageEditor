@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.3.7
+# DDFLanguageEditor 0.9.4.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.0 introduces persistent editor preferences. `Ctrl+,`, the View
+menu, Command Palette and toolbar open a centered Settings window for font,
+zoom, dark/light code surface, tabs or spaces, indentation width, LF/CRLF and
+optional format-on-save. Changes apply immediately to every open document and
+can be reset to tested defaults in one step.
 
 Version 0.9.3.7 completes the workspace navigation milestone. One or more
 `.ddf` files can be dropped onto the editor and open in independent tabs; a

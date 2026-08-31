@@ -111,15 +111,15 @@ namespace DDF___Program_Language_Editor
         {
             if (!outdent)
             {
-                string spaces = new string(' ', EditorEditing.DefaultTabSize);
+                string spaces = editorSettings.UseTabs ? "\t" : new string(' ', editorSettings.IndentSize);
                 return new EditorEdit(range.Start, 0, spaces,
                     range.Start + spaces.Length, range.Length);
             }
 
             int remove = 0;
-            while (remove < EditorEditing.DefaultTabSize && range.Start - remove - 1 >= 0 &&
-                   richTextBoxMainEditor.Text[range.Start - remove - 1] == ' ')
-                remove++;
+            if (editorSettings.UseTabs && range.Start > 0 && richTextBoxMainEditor.Text[range.Start - 1] == '\t') remove = 1;
+            else while (remove < editorSettings.IndentSize && range.Start - remove - 1 >= 0 &&
+                       richTextBoxMainEditor.Text[range.Start - remove - 1] == ' ') remove++;
             return new EditorEdit(range.Start - remove, remove, string.Empty,
                 range.Start - remove, range.Length);
         }

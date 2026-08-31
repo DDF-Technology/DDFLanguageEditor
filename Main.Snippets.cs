@@ -15,7 +15,8 @@ namespace DDF___Program_Language_Editor
             string source = richTextBoxMainEditor.Text;
             DdfSnippetExpansion expansion = DdfSnippetService.Expand(
                 template,
-                DdfSnippetService.GetLineIndent(source, start));
+                DdfSnippetService.GetLineIndent(source, start),
+                editorSettings.UseTabs ? "\t" : new string(' ', editorSettings.IndentSize));
 
             isApplyingCompletion = true;
             try

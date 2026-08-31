@@ -22,6 +22,7 @@ namespace DDFLanguageEditor.Tests
             Run("classifies unterminated block comments", ClassifiesUnterminatedBlockComments);
             Run("prefers longest operators", PrefersLongestOperators);
             Run("inserts four spaces for Tab", InsertsTab);
+            Run("uses configured tabs for editing and formatting", UsesConfiguredTabs);
             Run("indents and outdents multiline selections", IndentsAndOutdentsSelection);
             Run("indents after an opening block", IndentsAfterOpeningBlock);
             Run("replaces the selection on Enter", ReplacesSelectionOnEnter);
@@ -216,6 +217,25 @@ namespace DDFLanguageEditor.Tests
             EditorEdit edit = EditorEditing.CreateTabEdit("ab", 1, 0, false);
             Equal("a    b", Apply("ab", edit));
             Equal(5, edit.SelectionStart);
+        }
+
+        private static void UsesConfiguredTabs()
+        {
+            EditorEdit tab = EditorEditing.CreateTabEdit("ab", 1, 0, false, 2, true);
+            Equal("a\tb", Apply("ab", tab));
+            EditorEdit enter = EditorEditing.CreateNewLineEdit("if(true){", 9, 0, 2, true);
+            Equal("if(true){\n\t", Apply("if(true){", enter));
+            const string lines = "one\ntwo";
+            EditorEdit indent = EditorEditing.CreateTabEdit(lines, 0, lines.Length, false, 2, true);
+            string indented = Apply(lines, indent);
+            Equal("\tone\n\ttwo", indented);
+            Equal(lines, Apply(indented, EditorEditing.CreateTabEdit(
+                indented, indent.SelectionStart, indent.SelectionLength, true, 2, true)));
+            string formatted = DdfFormatter.Format("main()out int{ret 1;}", null, 2, true).Text;
+            Equal(true, formatted.Contains("\n\tret 1;"));
+            DdfSnippetExpansion snippet = DdfSnippetService.Expand(
+                DdfSnippetCatalog.Templates.Single(item => item.Prefix == "if"), string.Empty, "\t");
+            Equal(true, snippet.Text.Contains("\n\tstatement;"));
         }
 
         private static void IndentsAndOutdentsSelection()
