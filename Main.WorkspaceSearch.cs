@@ -520,6 +520,14 @@ namespace DDF___Program_Language_Editor
 
                 int selectionStart = Math.Min(view.Editor.SelectionStart, change.UpdatedSource.Length);
                 int selectionLength = Math.Min(view.Editor.SelectionLength, change.UpdatedSource.Length - selectionStart);
+                if (ReferenceEquals(view.Editor, richTextBoxMainEditor))
+                {
+                    // A complete RichEdit replacement inherits the character format at
+                    // position zero. When that position is a comment, the inserted source
+                    // initially becomes green. Force analysis to repaint from the start.
+                    incrementalLexer.Reset();
+                    diagnosticsFormatStart = 0;
+                }
                 view.Editor.SelectAll();
                 view.Editor.SelectedText = change.UpdatedSource;
                 view.Editor.Select(selectionStart, selectionLength);

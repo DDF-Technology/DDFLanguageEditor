@@ -1378,7 +1378,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 string mainPath = Path.Combine(directory, "main.ddf");
                 string helperPath = Path.Combine(directory, "lib", "helpers.ddf");
                 DdfDocumentFile.Save(mainPath, "main() out int { ret helper(); }");
-                DdfDocumentFile.Save(helperPath, "helper() out int { ret 1; }");
+                DdfDocumentFile.Save(helperPath, "// library declaration\nhelper() out int { ret 1; }");
 
                 SetPrivateField(form, "showWorkspaceDialog", new Func<FolderBrowserDialog, DialogResult>(dialog =>
                 {
@@ -1420,7 +1420,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 DdfHoverInfo workspaceHover = GetPrivateField<DdfHoverInfo>(form, "activeHoverInfo");
                 Require(workspaceHover != null && workspaceHover.Signature == "helper() out int" &&
                         workspaceHover.Origin.EndsWith("helpers.ddf", StringComparison.OrdinalIgnoreCase) &&
-                        workspaceHover.DeclarationLine == 1,
+                        workspaceHover.DeclarationLine == 2,
                     "L'hover workspace non mostra firma, origine e dichiarazione esterne.");
 
                 editor.Select(helperReference, 0);
@@ -1428,7 +1428,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindMenuItem(form, "goToDefinitionMenuItem").PerformClick();
                 PumpMessages(220);
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
-                Require(editor.SelectedText == "helper" && editor.Text.StartsWith("helper()", StringComparison.Ordinal),
+                Require(editor.SelectedText == "helper" && editor.Text.Contains("helper()"),
                     "F12 non ha aperto la definizione presente nell'altro documento.");
 
                 FindMenuItem(form, "workspaceSearchMenuItem").PerformClick();
@@ -1481,13 +1481,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La selezione delle singole sostituzioni non aggiorna il comando Applica.");
                 applyButton.PerformClick();
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                PumpMessages(280);
                 OpenDocumentCollection replacementDocuments = GetPrivateField<OpenDocumentCollection>(form, "openDocuments");
-                Require(editor.Text.StartsWith("renamed()", StringComparison.Ordinal) && editor.Text.Contains("unsaved-workspace-marker"),
+                Require(editor.Text.Contains("renamed()") && editor.Text.Contains("unsaved-workspace-marker"),
                     "La sostituzione selettiva non ha modificato soltanto il buffer scelto.");
                 Require(replacementDocuments.FindByPath(helperPath).Session.IsDirty &&
                         replacementDocuments.FindByPath(mainPath).Source.Contains("helper()") &&
                         !replacementDocuments.FindByPath(mainPath).Source.Contains("renamed()"),
                     "La sostituzione ha salvato automaticamente o modificato un'occorrenza esclusa.");
+                editor.Select(0, 2);
+                Require(editor.SelectionColor == Color.FromArgb(106, 153, 85),
+                    "La sostituzione workspace non ha mantenuto verde il commento iniziale.");
+                int replacementKeyword = editor.Text.IndexOf("int", StringComparison.Ordinal);
+                editor.Select(replacementKeyword, 3);
+                Require(editor.SelectionColor == Color.FromArgb(78, 201, 176),
+                    "La sostituzione workspace ha esteso il verde del commento al codice successivo.");
                 Require(editor.CanUndo, "La sostituzione workspace non è annullabile nel documento modificato.");
                 editor.Undo();
                 Require(editor.Text == sourceBeforeReplacement,

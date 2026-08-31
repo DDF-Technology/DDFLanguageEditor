@@ -6,6 +6,7 @@
 - require a fresh preview and allow every text occurrence to be selected independently;
 - reject the whole operation when any involved disk file or unsaved buffer changed after preview;
 - apply replacements only to open dirty buffers, never save automatically, and preserve one Undo action per modified document;
+- repaint replaced documents from the first character so an initial comment cannot propagate its green format into following code;
 - cover selective multi-file transformations in Core and exercise preview, application and Undo in the WinForms smoke;
 
 ## 0.9.3.1 - 2026-08-31

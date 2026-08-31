@@ -8,6 +8,8 @@ be included or excluded. Before applying anything, every source snapshot is
 validated again; one conflict cancels the complete operation. Changed files are
 opened as dirty buffers and are never saved automatically. Each modified
 document is restored by one Undo action.
+The editor repaints complete replacement buffers from their first character, so
+an initial comment cannot incorrectly extend its green formatting into the code.
 
 Version 0.9.3.1 adds a horizontal splitter above the bottom palette. Dragging it
 resizes Diagnostics, Output and Search vertically while preserving a usable
