@@ -11,6 +11,12 @@ namespace DDF___Program_Language_Editor
     {
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.OemPeriod))
+            {
+                applyFirstQuickFix();
+                return true;
+            }
+
             if (keyData == (Keys.Control | Keys.D))
             {
                 selectNextOccurrence();
@@ -586,6 +592,15 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)
         {
+            if (e.Button == MouseButtons.Right && !richTextBoxFoldedView.Visible)
+            {
+                int position = richTextBoxMainEditor.GetCharIndexFromPosition(e.Location);
+                int selectionEnd = richTextBoxMainEditor.SelectionStart + richTextBoxMainEditor.SelectionLength;
+                if (position < richTextBoxMainEditor.SelectionStart || position > selectionEnd)
+                    richTextBoxMainEditor.Select(position, 0);
+                return;
+            }
+
             if (e.Button != MouseButtons.Left)
             {
                 return;

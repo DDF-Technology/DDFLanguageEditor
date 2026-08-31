@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 38 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 39 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -99,6 +99,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertDocumentFormatting(form, editor);
                 AssertSemanticNavigationAndRename(form, editor);
                 AssertInlineDiagnostics(form, editor, diagnostics);
+                AssertQuickFixes(form, editor, diagnostics);
                 AssertTypeChecking(form, editor, diagnostics);
                 AssertWorkspaceNavigation(form, editor, diagnostics);
                 AssertProgramExecution(form, editor);
@@ -178,6 +179,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "replaceMenuItem", Keys.Control | Keys.H },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
+                    { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
                     { "goToDefinitionMenuItem", Keys.F12 },
                     { "renameSymbolMenuItem", Keys.F2 },
                     { "runProgramMenuItem", Keys.F5 },
@@ -196,7 +198,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
                     "expandSelectionMenuItem", "shrinkSelectionMenuItem", "matchingDelimiterMenuItem",
                     "selectNextOccurrenceMenuItem", "selectAllOccurrencesMenuItem",
-                    "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem",
+                    "findMenuItem", "replaceMenuItem", "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
                 };
@@ -215,7 +217,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 34 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 35 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -232,7 +234,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.6") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.7") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1207,7 +1209,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "contextPasteItem", "contextSelectAllItem", "contextFindItem", "contextRenameItem", "contextCommentItem",
                 "contextDuplicateLinesItem", "contextMoveLinesUpItem", "contextMoveLinesDownItem", "contextDeleteLinesItem",
                 "contextExpandSelectionItem", "contextShrinkSelectionItem", "contextMatchingDelimiterItem"
-                , "contextSelectNextOccurrenceItem", "contextSelectAllOccurrencesItem"
+                , "contextSelectNextOccurrenceItem", "contextSelectAllOccurrencesItem", "contextQuickFixItem"
             };
             foreach (string name in expectedItems)
                 Require(contextMenu.Items.OfType<ToolStripMenuItem>().Any(item => item.Name == name),
@@ -1433,6 +1435,50 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Console.WriteLine("PASS diagnostiche DDF3xx e hover con tipo calcolato");
         }
 
+        private static void AssertQuickFixes(MainForm form, RichTextBox editor, ListBox diagnostics)
+        {
+            const string unterminated = "main() out string { ret \"testo";
+            editor.Text = unterminated;
+            editor.Select(editor.TextLength - 1, 0);
+            PumpMessages(220);
+            Require(diagnostics.Items.Cast<DdfDiagnostic>().Any(item => item.Code == "DDF001"),
+                "La stringa non terminata non produce DDF001.");
+
+            ContextMenuStrip contextMenu = editor.ContextMenuStrip;
+            InvokeHandler(form, "editorContextMenu_Opening", contextMenu,
+                new System.ComponentModel.CancelEventArgs());
+            ToolStripMenuItem quickFixMenu = contextMenu.Items.OfType<ToolStripMenuItem>()
+                .Single(item => item.Name == "contextQuickFixItem");
+            ToolStripItem closeStringFix = quickFixMenu.DropDownItems.Cast<ToolStripItem>()
+                .FirstOrDefault(item => item.Text.Contains("Chiudi la stringa"));
+            Require(quickFixMenu.Enabled && closeStringFix != null,
+                "Il menu contestuale non propone la correzione DDF001.");
+            ((ToolStripMenuItem)closeStringFix).PerformClick();
+            PumpMessages(220);
+            Require(editor.Text == unterminated + "\"" &&
+                    !diagnostics.Items.Cast<DdfDiagnostic>().Any(item => item.Code == "DDF001"),
+                "La correzione contestuale non chiude la stringa.");
+            Require(editor.CanUndo, "La correzione rapida non è annullabile.");
+            editor.Undo();
+            PumpMessages(180);
+            Require(editor.Text == unterminated, "Undo non ripristina il sorgente prima della correzione.");
+
+            editor.Select(editor.TextLength - 1, 0);
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.OemPeriod), "Ctrl+. non viene gestito.");
+            PumpMessages(220);
+            Require(editor.Text == unterminated + "\"", "Ctrl+. non applica la prima correzione disponibile.");
+
+            const string badToken = "main() out int { ret 1; }§";
+            editor.Text = badToken;
+            editor.Select(editor.TextLength - 1, 0);
+            PumpMessages(220);
+            FindToolbarButton(form, "toolbarQuickFixButton").PerformClick();
+            PumpMessages(220);
+            Require(editor.Text == badToken.Substring(0, badToken.Length - 1) && diagnostics.Items.Count == 0,
+                "La toolbar non rimuove il carattere non riconosciuto.");
+            Console.WriteLine("PASS correzioni rapide estensibili da menu, Ctrl+. e toolbar con Undo");
+        }
+
         private static void AssertInlineDiagnostics(MainForm form, RichTextBox editor, ListBox diagnostics)
         {
             const string valid = "main() out int { ret 1; }";
@@ -1589,6 +1635,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton",
                 "toolbarCompletionButton",
+                "toolbarQuickFixButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
             foreach (string name in expected)
@@ -1616,7 +1663,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 27 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 28 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)

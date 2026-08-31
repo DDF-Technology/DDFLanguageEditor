@@ -18,7 +18,8 @@ namespace DDFLanguageEditor.Core
             int length,
             int line,
             int column,
-            DdfDiagnosticSeverity severity = DdfDiagnosticSeverity.Error)
+            DdfDiagnosticSeverity severity = DdfDiagnosticSeverity.Error,
+            int? insertionPosition = null)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -35,6 +36,11 @@ namespace DDFLanguageEditor.Core
                 throw new ArgumentOutOfRangeException(nameof(start));
             }
 
+            if (insertionPosition < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(insertionPosition));
+            }
+
             Code = code;
             Message = message;
             Start = start;
@@ -42,6 +48,7 @@ namespace DDFLanguageEditor.Core
             Line = line;
             Column = column;
             Severity = severity;
+            InsertionPosition = insertionPosition;
         }
 
         public string Code { get; }
@@ -59,6 +66,8 @@ namespace DDFLanguageEditor.Core
         public int Column { get; }
 
         public DdfDiagnosticSeverity Severity { get; }
+
+        public int? InsertionPosition { get; }
 
         public string ToHoverText()
         {

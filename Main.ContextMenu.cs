@@ -16,6 +16,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem matchingDelimiterMenuItem;
         private ToolStripMenuItem selectNextOccurrenceMenuItem;
         private ToolStripMenuItem selectAllOccurrencesMenuItem;
+        private ToolStripMenuItem quickFixMenuItem;
         private ContextMenuStrip editorContextMenu;
         private ToolStripMenuItem contextUndoItem;
         private ToolStripMenuItem contextRedoItem;
@@ -25,6 +26,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem contextSelectAllItem;
         private ToolStripMenuItem contextFindItem;
         private ToolStripMenuItem contextRenameItem;
+        private ToolStripMenuItem contextQuickFixItem;
         private ToolStripMenuItem contextCommentItem;
         private ToolStripMenuItem contextDuplicateLinesItem;
         private ToolStripMenuItem contextMoveLinesUpItem;
@@ -67,6 +69,12 @@ namespace DDF___Program_Language_Editor
             selectAllOccurrencesMenuItem = createEditingMenuItem("selectAllOccurrencesMenuItem", "Seleziona tutte le occorrenze", Keys.Control | Keys.Shift | Keys.L, selectAllOccurrencesMenuItem_Click);
             editMenuItem.DropDownItems.Insert(commentIndex + 9, selectNextOccurrenceMenuItem);
             editMenuItem.DropDownItems.Insert(commentIndex + 10, selectAllOccurrencesMenuItem);
+            quickFixMenuItem = createEditingMenuItem(
+                "quickFixMenuItem",
+                "Applica correzione rapida",
+                Keys.Control | Keys.OemPeriod,
+                quickFixMenuItem_Click);
+            editMenuItem.DropDownItems.Insert(commentIndex + 11, quickFixMenuItem);
 
             editorContextMenu = new ContextMenuStrip
             {
@@ -83,6 +91,7 @@ namespace DDF___Program_Language_Editor
             contextSelectAllItem = createContextItem("contextSelectAllItem", "Seleziona tutto", selectAllMenuItem_Click);
             contextFindItem = createContextItem("contextFindItem", "Trova...", findMenuItem_Click);
             contextRenameItem = createContextItem("contextRenameItem", "Rinomina simbolo...", renameSymbolMenuItem_Click);
+            contextQuickFixItem = createContextItem("contextQuickFixItem", "Correzioni rapide", null);
             contextCommentItem = createContextItem("contextCommentItem", "Commenta/decommenta riga", toggleLineCommentMenuItem_Click);
             contextDuplicateLinesItem = createContextItem("contextDuplicateLinesItem", "Duplica righe", duplicateLinesMenuItem_Click);
             contextMoveLinesUpItem = createContextItem("contextMoveLinesUpItem", "Sposta righe su", moveLinesUpMenuItem_Click);
@@ -97,7 +106,7 @@ namespace DDF___Program_Language_Editor
             {
                 contextUndoItem, contextRedoItem, new ToolStripSeparator(),
                 contextCutItem, contextCopyItem, contextPasteItem, contextSelectAllItem,
-                new ToolStripSeparator(), contextFindItem, contextRenameItem, contextCommentItem,
+                new ToolStripSeparator(), contextFindItem, contextQuickFixItem, contextRenameItem, contextCommentItem,
                 new ToolStripSeparator(), contextDuplicateLinesItem, contextMoveLinesUpItem,
                 contextMoveLinesDownItem, contextDeleteLinesItem, new ToolStripSeparator(),
                 contextExpandSelectionItem, contextShrinkSelectionItem, contextMatchingDelimiterItem,
@@ -115,7 +124,7 @@ namespace DDF___Program_Language_Editor
                 BackColor = AppTheme.Surface,
                 ForeColor = AppTheme.Text
             };
-            item.Click += handler;
+            if (handler != null) item.Click += handler;
             return item;
         }
 
@@ -136,6 +145,7 @@ namespace DDF___Program_Language_Editor
             contextPasteItem.Enabled = pasteMenuItem.Enabled;
             contextSelectAllItem.Enabled = selectAllMenuItem.Enabled;
             contextFindItem.Enabled = true;
+            populateQuickFixMenu(contextQuickFixItem);
             contextRenameItem.Enabled = renameSymbolMenuItem.Enabled;
             contextCommentItem.Enabled = !richTextBoxFoldedView.Visible;
             contextDuplicateLinesItem.Enabled = duplicateLinesMenuItem.Enabled;
@@ -163,5 +173,6 @@ namespace DDF___Program_Language_Editor
         private void matchingDelimiterMenuItem_Click(object sender, EventArgs e) => goToMatchingDelimiter();
         private void selectNextOccurrenceMenuItem_Click(object sender, EventArgs e) => selectNextOccurrence();
         private void selectAllOccurrencesMenuItem_Click(object sender, EventArgs e) => selectAllOccurrences();
+        private void quickFixMenuItem_Click(object sender, EventArgs e) => applyFirstQuickFix();
     }
 }

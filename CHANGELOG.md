@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.7 - 2026-08-31
+
+- add an extensible provider-based quick-fix service independent from WinForms;
+- close unterminated strings, comments and library directives, remove bad characters and insert parser-expected tokens;
+- preserve exact parser insertion positions so fixes before closing delimiters and at end of file remain correct;
+- expose fixes from the editor context menu, `Ctrl+.`, the Edit menu and a new toolbar button with native Undo;
+- expand regression coverage to 122 Core tests, 39 menu commands, 35 shortcuts and 28 toolbar actions;
+
 ## 0.9.2.6 - 2026-08-31
 
 - replace diagnostic background fills with native RichEdit wavy underlines;

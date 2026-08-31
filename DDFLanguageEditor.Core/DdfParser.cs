@@ -496,7 +496,15 @@ namespace DDFLanguageEditor.Core
             int diagnosticStart = text.Length == 0 ? 0 : Math.Min(sourcePosition, text.Length - 1);
             int length = Current == null ? 1 : Math.Max(1, Current.Length);
             GetLineAndColumn(sourcePosition, out int line, out int column);
-            diagnostics.Add(new DdfDiagnostic(code, message, diagnosticStart, length, line, column));
+            diagnostics.Add(new DdfDiagnostic(
+                code,
+                message,
+                diagnosticStart,
+                length,
+                line,
+                column,
+                DdfDiagnosticSeverity.Error,
+                sourcePosition));
         }
 
         private void GetLineAndColumn(int sourcePosition, out int line, out int column)

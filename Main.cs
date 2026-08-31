@@ -14,6 +14,7 @@ namespace DDF___Program_Language_Editor
         private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
         private DocumentSession documentSession;
         private readonly IncrementalDdfLexer incrementalLexer = new IncrementalDdfLexer();
+        private readonly DdfQuickFixService quickFixService = DdfQuickFixService.CreateDefault();
         private readonly Timer highlightTimer;
         private readonly Timer delimiterHighlightTimer;
         private DdfLexResult lastLexResult;
@@ -411,7 +412,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.2.6 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.2.7 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -447,6 +448,7 @@ namespace DDF___Program_Language_Editor
                 matchingDelimiterMenuItem.Enabled = false;
                 selectNextOccurrenceMenuItem.Enabled = false;
                 selectAllOccurrencesMenuItem.Enabled = false;
+                quickFixMenuItem.Enabled = false;
                 return;
             }
 
@@ -473,6 +475,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.SelectionLength).Count > 0;
             selectNextOccurrenceMenuItem.Enabled = hasOccurrences;
             selectAllOccurrencesMenuItem.Enabled = hasOccurrences;
+            quickFixMenuItem.Enabled = getQuickFixesAtCaret().Count > 0;
             updateEditingSelectionCommandState();
         }
 

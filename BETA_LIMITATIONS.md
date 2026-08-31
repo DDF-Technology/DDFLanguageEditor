@@ -1,4 +1,4 @@
-# Beta 0.9.2.6 limitations
+# Beta 0.9.2.7 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -20,6 +20,7 @@ This release is intended for interface and language-design evaluation only.
 - context-aware snippets with indentation, navigable fields and one-step insertion Undo;
 - structured hover with type, signature, origin, declaration, references and `///` documentation;
 - native inline diagnostic waves with full hover messages, without changing source colors, selection or Undo;
+- extensible quick fixes for unterminated constructs, bad characters and parser-expected tokens;
 - idempotent whole-document formatting with readable blank-line separation, caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;

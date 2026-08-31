@@ -46,6 +46,9 @@ namespace DDFLanguageEditor.Tests
             Run("produces formal tokens", ProducesFormalTokens);
             Run("reports diagnostic positions", ReportsDiagnosticPositions);
             Run("exposes diagnostic severity and hover text", ExposesDiagnosticSeverityAndHoverText);
+            Run("offers safe lexical quick fixes", OffersSafeLexicalQuickFixes);
+            Run("inserts parser expected tokens", InsertsParserExpectedTokens);
+            Run("accepts custom quick-fix providers", AcceptsCustomQuickFixProviders);
             Run("matches full lexing after incremental edits", MatchesFullLexingAfterIncrementalEdits);
             Run("relexes across a shared inserted prefix", RelexesAcrossSharedInsertedPrefix);
             Run("survives deterministic dynamic editing", SurvivesDeterministicDynamicEditing);
@@ -535,6 +538,55 @@ namespace DDFLanguageEditor.Tests
                 DdfDiagnosticSeverity.Warning);
             Equal(DdfDiagnosticSeverity.Warning, warning.Severity);
             Equal(true, warning.ToHoverText().StartsWith("Avviso DDF998", StringComparison.Ordinal));
+        }
+
+        private static void OffersSafeLexicalQuickFixes()
+        {
+            DdfQuickFixService service = DdfQuickFixService.CreateDefault();
+            var cases = new Dictionary<string, string>
+            {
+                { "\"testo", "\"testo\"" },
+                { "/* commento", "/* commento*/" },
+                { "@@'Console", "@@'Console'" },
+                { "int value; §", "int value; " }
+            };
+
+            foreach (KeyValuePair<string, string> item in cases)
+            {
+                DdfDiagnostic diagnostic = DdfLexer.Lex(item.Key).Diagnostics.Single();
+                DdfQuickFix fix = service.GetFixes(item.Key, diagnostic).Single();
+                Equal(item.Value, ApplyQuickFix(item.Key, fix));
+                Equal(diagnostic.Code, fix.Diagnostic.Code);
+            }
+        }
+
+        private static void InsertsParserExpectedTokens()
+        {
+            const string source = "main() out int { ret 1 }";
+            DdfParseResult parse = DdfParser.Parse(source);
+            DdfDiagnostic diagnostic = parse.Diagnostics.First(item =>
+                item.Code == "DDF102" && item.Message.Contains("';'"));
+            DdfQuickFix fix = DdfQuickFixService.CreateDefault().GetFixes(source, diagnostic).Single();
+            Equal("Inserisci il token ';'", fix.Title);
+            string fixedSource = ApplyQuickFix(source, fix);
+            IReadOnlyList<DdfDiagnostic> remaining = DdfParser.Parse(fixedSource).Diagnostics;
+            if (remaining.Any(item => item.Code == "DDF102"))
+                throw new InvalidOperationException(fixedSource + " :: " + string.Join(" | ", remaining));
+        }
+
+        private static void AcceptsCustomQuickFixProviders()
+        {
+            const string source = "value";
+            var diagnostic = new DdfDiagnostic("CUSTOM", "Custom diagnostic.", 0, 5, 1, 1);
+            var service = new DdfQuickFixService(new[] { new CustomQuickFixProvider() });
+            DdfQuickFix fix = service.GetFixesAt(source, new[] { diagnostic }, 2).Single();
+            Equal("Sostituisci con fixed", fix.Title);
+            Equal("fixed", ApplyQuickFix(source, fix));
+        }
+
+        private static string ApplyQuickFix(string source, DdfQuickFix fix)
+        {
+            return source.Remove(fix.Start, fix.Length).Insert(fix.Start, fix.Replacement);
         }
 
         private static void MatchesFullLexingAfterIncrementalEdits()
@@ -1885,6 +1937,15 @@ main() out int
             DdfExecutionResult result = DdfInterpreter.Execute("main() out int { ret toInt(\"abc\"); }");
             Equal(false, result.Succeeded);
             Equal("DDF408", result.Diagnostics.Single().Code);
+        }
+
+        private sealed class CustomQuickFixProvider : IDdfQuickFixProvider
+        {
+            public IEnumerable<DdfQuickFix> GetFixes(string source, DdfDiagnostic diagnostic)
+            {
+                if (diagnostic.Code == "CUSTOM")
+                    yield return new DdfQuickFix(diagnostic, "Sostituisci con fixed", 0, source.Length, "fixed", 5);
+            }
         }
 
         private static void Run(string name, Action test)

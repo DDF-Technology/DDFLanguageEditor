@@ -1,6 +1,14 @@
-# DDFLanguageEditor 0.9.2.6
+# DDFLanguageEditor 0.9.2.7
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.7 introduces an extensible quick-fix pipeline. Built-in providers
+close unterminated strings, block comments and library directives, remove
+unrecognized characters and insert tokens or keywords explicitly requested by
+the parser. Fixes are available from the editor context menu, `Ctrl+.`, the
+Edit menu and the icon bar, and each application remains one native Undo step.
+Parser diagnostics now retain their exact insertion point separately from the
+visible error span, keeping edits correct both before delimiters and at EOF.
 
 Version 0.9.2.6 replaces solid diagnostic backgrounds with native RichEdit
 wavy underlines. Syntax colors and the editor background remain readable, while

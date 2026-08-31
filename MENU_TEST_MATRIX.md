@@ -36,6 +36,7 @@ recenti dell'utente non vengono salvate durante il test.
 | Trova | apre la finestra, precompila la selezione e trova la ricorrenza seguente |
 | Sostituisci | verifica sostituzione corrente, sostituzione globale e chiusura |
 | Completamento | ordina suggerimenti per contesto/tipo/scope/frequenza/prossimità e mostra categoria, tipo e origine |
+| Correzione rapida | propone azioni contestuali da menu, `Ctrl+.` e toolbar, applicandole in un singolo Undo |
 | Formatta documento | normalizza il sorgente, conserva il cursore ed è annullabile in un passo |
 | Vai alla definizione | seleziona la dichiarazione risolta dal riferimento corrente |
 | Rinomina simbolo | modifica solo dichiarazione e riferimenti nello stesso ambito ed è annullabile |
@@ -87,7 +88,7 @@ palette.
 
 ## Barra strumenti
 
-La toolbar espone 27 pulsanti a icona con tooltip, compresi completamento, selezione sintattica,
+La toolbar espone 28 pulsanti a icona con tooltip, compresi completamento, correzioni rapide, selezione sintattica,
 riduzione e navigazione tra delimitatori. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
@@ -100,7 +101,7 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 34 scorciatoie dichiarate, incluse `F12` per la definizione,
+Lo smoke verifica le 35 scorciatoie dichiarate, incluse `Ctrl+.` per le correzioni, `F12` per la definizione,
 `F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
