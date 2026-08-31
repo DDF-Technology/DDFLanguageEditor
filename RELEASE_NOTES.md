@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.3.2
+# DDFLanguageEditor 0.9.3.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.3 adds one reusable navigation palette for files (`Ctrl+P`),
+symbols (`Ctrl+Shift+O`), semantic references (`Shift+F12`) and line/column
+positions (`Ctrl+G`). `Ctrl+Shift+Backspace` returns to the last edit in the
+active document. Workspace references exclude comments, strings and shadowing
+locals, while navigation preserves unsaved buffers and Undo history.
 
 Version 0.9.3.2 adds selective workspace replacement. `Ctrl+Alt+H`, the Edit
 menu and the toolbar open a mandatory preview where individual text matches can

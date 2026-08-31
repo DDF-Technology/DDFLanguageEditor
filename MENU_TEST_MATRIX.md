@@ -47,6 +47,11 @@ recenti dell'utente non vengono salvate durante il test.
 | Seleziona occorrenza successiva | aggiunge con `Ctrl+D` la prossima occorrenza tokenizzata |
 | Seleziona tutte le occorrenze | crea selezioni simultanee nel codice senza includere commenti o stringhe omonime |
 | Sostituisci nel workspace | genera l'anteprima, seleziona una sola occorrenza tra più file, modifica un buffer non salvato e lo ripristina con un Undo |
+| Vai a file | filtra e apre un file del workspace mantenendo i buffer non salvati |
+| Vai a simbolo | raggiunge una dichiarazione selezionata anche in un altro file |
+| Trova riferimenti | distingue dichiarazione e utilizzi semantici, ignorando commenti, stringhe e omonimi locali |
+| Vai a riga/colonna | interpreta `riga:colonna` e posiziona il cursore senza modificare il testo |
+| Vai all'ultima modifica | torna all'ultimo punto modificato della scheda attiva |
 
 Lo smoke conserva e ripristina il contenuto precedente degli appunti Windows.
 Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu e che
@@ -91,7 +96,7 @@ orizzontale e deve ripristinare la stessa altezza dopo pin e auto-hide.
 
 ## Barra strumenti
 
-La toolbar espone 30 pulsanti a icona con tooltip, compresi ricerca e sostituzione workspace, completamento, correzioni rapide, selezione sintattica,
+La toolbar espone 35 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, completamento, correzioni rapide, selezione sintattica,
 riduzione e navigazione tra delimitatori. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
@@ -104,7 +109,7 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 37 scorciatoie dichiarate, incluse `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
+Lo smoke verifica le 42 scorciatoie dichiarate, incluse `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
 `F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell

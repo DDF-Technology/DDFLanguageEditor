@@ -127,6 +127,7 @@ namespace DDF___Program_Language_Editor
             {
                 if (changedView != null)
                 {
+                    changedView.LastEditPosition = Math.Min(changedEditor.SelectionStart, changedEditor.TextLength);
                     string previousSource = changedView.Buffer.Source;
                     if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
                         updateSnippetSession(previousSource, changedEditor.Text);
@@ -339,6 +340,7 @@ namespace DDF___Program_Language_Editor
             updateFoldingRanges(snapshot.FoldingRanges);
             analysisAppliedVersion = version;
             refreshDelimiterHighlight();
+            updateNavigationCommandState();
         }
 
         private void cancelBackgroundAnalysis()
@@ -721,6 +723,7 @@ namespace DDF___Program_Language_Editor
             scheduleSignatureHelp();
             scheduleDelimiterHighlight();
             updateFoldingCommandState();
+            updateNavigationCommandState();
         }
 
         private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)

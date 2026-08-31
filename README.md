@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.3.2 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.3.3 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -23,6 +23,7 @@ evidenziazione delle regole note e indentazione assistita.
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
 - ricerca asincrona di testo e simboli in tutto il workspace e nei buffer non salvati, con risultati navigabili;
 - sostituzione workspace con anteprima obbligatoria, scelta per occorrenza e un singolo Undo per ogni documento modificato;
+- navigazione rapida unificata verso file, simboli, riferimenti semantici, riga/colonna e ultima modifica;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -36,7 +37,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 30 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, folding, breakpoint ed esecuzione;
+- barra a 35 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - palette inferiore ridimensionabile verticalmente, con altezza conservata tra pin e auto-hide;
@@ -70,6 +71,14 @@ generare l'anteprima. Ogni occorrenza può essere inclusa o esclusa prima di
 prima di modificare qualunque documento: in caso di conflitto non viene applicata
 alcuna sostituzione. I risultati finiscono sempre in schede aperte e non salvate,
 senza scrittura automatica su disco, e ogni documento si ripristina con un solo Undo.
+
+## Navigazione rapida
+
+La stessa palette chiara permette di filtrare e raggiungere file (`Ctrl+P`),
+simboli (`Ctrl+Shift+O`), riferimenti del simbolo corrente (`Shift+F12`) e una
+riga o colonna (`Ctrl+G`). `Ctrl+Shift+Backspace` torna invece alla posizione
+dell'ultima modifica nella scheda attiva. File e simboli comprendono i buffer
+non salvati; la sola navigazione non modifica il sorgente né la cronologia Undo.
 
 ## Limiti della beta
 
@@ -121,7 +130,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 41 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 46 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -170,7 +179,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.3.2 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.3.3 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -196,6 +205,8 @@ A small-folder workspace indexes `.ddf` files recursively and extends completion
 and definition navigation across documents.
 Workspace-wide text and symbol search runs in the background, prefers unsaved
 open buffers over disk snapshots and exposes navigable results.
+One light navigation palette filters files, symbols and semantic references,
+jumps to line/column positions and returns to the last edit without changing Undo.
 A runtime-independent type checker validates primitive, structure and array
 operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.

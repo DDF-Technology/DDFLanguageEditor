@@ -26,6 +26,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem contextSelectAllItem;
         private ToolStripMenuItem contextFindItem;
         private ToolStripMenuItem contextRenameItem;
+        private ToolStripMenuItem contextFindReferencesItem;
         private ToolStripMenuItem contextQuickFixItem;
         private ToolStripMenuItem contextCommentItem;
         private ToolStripMenuItem contextDuplicateLinesItem;
@@ -91,6 +92,7 @@ namespace DDF___Program_Language_Editor
             contextSelectAllItem = createContextItem("contextSelectAllItem", "Seleziona tutto", selectAllMenuItem_Click);
             contextFindItem = createContextItem("contextFindItem", "Trova...", findMenuItem_Click);
             contextRenameItem = createContextItem("contextRenameItem", "Rinomina simbolo...", renameSymbolMenuItem_Click);
+            contextFindReferencesItem = createContextItem("contextFindReferencesItem", "Trova riferimenti", findReferencesMenuItem_Click);
             contextQuickFixItem = createContextItem("contextQuickFixItem", "Correzioni rapide", null);
             contextCommentItem = createContextItem("contextCommentItem", "Commenta/decommenta riga", toggleLineCommentMenuItem_Click);
             contextDuplicateLinesItem = createContextItem("contextDuplicateLinesItem", "Duplica righe", duplicateLinesMenuItem_Click);
@@ -106,7 +108,7 @@ namespace DDF___Program_Language_Editor
             {
                 contextUndoItem, contextRedoItem, new ToolStripSeparator(),
                 contextCutItem, contextCopyItem, contextPasteItem, contextSelectAllItem,
-                new ToolStripSeparator(), contextFindItem, contextQuickFixItem, contextRenameItem, contextCommentItem,
+                new ToolStripSeparator(), contextFindItem, contextQuickFixItem, contextRenameItem, contextFindReferencesItem, contextCommentItem,
                 new ToolStripSeparator(), contextDuplicateLinesItem, contextMoveLinesUpItem,
                 contextMoveLinesDownItem, contextDeleteLinesItem, new ToolStripSeparator(),
                 contextExpandSelectionItem, contextShrinkSelectionItem, contextMatchingDelimiterItem,
@@ -147,6 +149,7 @@ namespace DDF___Program_Language_Editor
             contextFindItem.Enabled = true;
             populateQuickFixMenu(contextQuickFixItem);
             contextRenameItem.Enabled = renameSymbolMenuItem.Enabled;
+            contextFindReferencesItem.Enabled = findReferencesMenuItem.Enabled;
             contextCommentItem.Enabled = !richTextBoxFoldedView.Visible;
             contextDuplicateLinesItem.Enabled = duplicateLinesMenuItem.Enabled;
             contextMoveLinesUpItem.Enabled = moveLinesUpMenuItem.Enabled;

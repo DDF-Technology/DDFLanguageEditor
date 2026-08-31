@@ -83,6 +83,9 @@ namespace DDFLanguageEditor.Tests
             Run("searches text across workspace documents", SearchesTextAcrossWorkspaceDocuments);
             Run("searches nested workspace symbols", SearchesNestedWorkspaceSymbols);
             Run("creates selective workspace replacement changes", CreatesSelectiveWorkspaceReplacementChanges);
+            Run("lists workspace files and symbols for navigation", ListsWorkspaceFilesAndSymbolsForNavigation);
+            Run("finds semantic workspace references", FindsSemanticWorkspaceReferences);
+            Run("parses line and column navigation", ParsesLineAndColumnNavigation);
             Run("accepts semantically valid typed code", AcceptsSemanticallyValidTypedCode);
             Run("reports incompatible initializers and assignments", ReportsIncompatibleInitializersAndAssignments);
             Run("reports invalid typed operators and conditions", ReportsInvalidTypedOperatorsAndConditions);
@@ -1154,6 +1157,54 @@ namespace DDFLanguageEditor.Tests
             Equal("alpha beta", changes.Single(change => change.Document.Id == "one").UpdatedSource);
             Equal("beta", changes.Single(change => change.Document.Id == "two").UpdatedSource);
             Equal("alpha alpha  →  alpha beta", DdfWorkspaceSearchService.CreateReplacementPreview(matches[1], "beta"));
+        }
+
+        private static void ListsWorkspaceFilesAndSymbolsForNavigation()
+        {
+            var documents = new[]
+            {
+                new DdfWorkspaceSearchDocument("main", "main.ddf", "main.ddf", "main() out int { int value; ret value; }"),
+                new DdfWorkspaceSearchDocument("lib", "lib.ddf", "lib.ddf", "helper() out int { ret 1; }")
+            };
+            IReadOnlyList<DdfWorkspaceNavigationLocation> files = DdfWorkspaceNavigationService.ListFiles(documents);
+            IReadOnlyList<DdfWorkspaceNavigationLocation> symbols = DdfWorkspaceNavigationService.ListSymbols(documents);
+            Equal(2, files.Count);
+            Equal("lib.ddf", files[0].Name);
+            Equal(3, symbols.Count);
+            Equal(true, symbols.Any(item => item.Name == "helper" && item.Line == 1 && item.Column == 1));
+            Equal(true, symbols.Any(item => item.Name == "value" && item.SymbolKind == DdfSymbolKind.Variable));
+        }
+
+        private static void FindsSemanticWorkspaceReferences()
+        {
+            const string main = "main() out int { int external; external << 1; ret helper(); }";
+            const string library = "helper() out int { ret 1; } // helper ignored";
+            var documents = new[]
+            {
+                new DdfWorkspaceSearchDocument("main", "main.ddf", "main.ddf", main),
+                new DdfWorkspaceSearchDocument("lib", "lib.ddf", "lib.ddf", library)
+            };
+            IReadOnlyList<DdfWorkspaceNavigationLocation> global = DdfWorkspaceNavigationService.FindReferences(
+                documents, "lib", library.IndexOf("helper", StringComparison.Ordinal));
+            Equal(2, global.Count);
+            Equal(true, global.Any(item => item.Document.Id == "main" && item.Detail == "riferimento"));
+            Equal(true, global.Any(item => item.Document.Id == "lib" && item.Detail == "dichiarazione"));
+
+            int localStart = main.IndexOf("external", StringComparison.Ordinal);
+            IReadOnlyList<DdfWorkspaceNavigationLocation> local = DdfWorkspaceNavigationService.FindReferences(
+                documents, "main", localStart);
+            Equal(2, local.Count);
+            Equal(true, local.All(item => item.Document.Id == "main"));
+        }
+
+        private static void ParsesLineAndColumnNavigation()
+        {
+            Equal(true, DdfWorkspaceNavigationService.TryParseLineColumn("2:3", 3, out int line, out int column));
+            Equal(2, line);
+            Equal(3, column);
+            Equal(6, DdfWorkspaceNavigationService.GetPosition("one\ntwo\nthree", line, column));
+            False(DdfWorkspaceNavigationService.TryParseLineColumn("4", 3, out line, out column));
+            False(DdfWorkspaceNavigationService.TryParseLineColumn("2:0", 3, out line, out column));
         }
 
         private static void AcceptsSemanticallyValidTypedCode()

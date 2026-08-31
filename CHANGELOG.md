@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.3.3 - 2026-08-31
+
+- add one filterable light navigation palette for files, symbols, semantic references and line/column positions;
+- add per-document last-edit tracking and navigation without modifying source or Undo history;
+- resolve global references across workspace buffers while excluding comments, strings and shadowing local symbols;
+- expose navigation through five Edit commands, standard shortcuts, five toolbar icons and the editor context menu;
+- cover navigation indexing, reference identity, line parsing and real cross-file UI navigation in 133 Core tests and the WinForms smoke;
+
 ## 0.9.3.2 - 2026-08-31
 
 - add workspace-wide replacement through `Ctrl+Alt+H`, the Edit menu and a thirtieth toolbar icon;

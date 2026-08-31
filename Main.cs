@@ -89,6 +89,7 @@ namespace DDF___Program_Language_Editor
             initializeWorkspace();
             closeWorkspaceMenuItem.Enabled = false;
             initializeWorkspaceSearch();
+            initializeWorkspaceNavigation();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             initializeCompletion();
@@ -421,7 +422,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.3.2 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.3.3 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -458,6 +459,8 @@ namespace DDF___Program_Language_Editor
                 selectNextOccurrenceMenuItem.Enabled = false;
                 selectAllOccurrencesMenuItem.Enabled = false;
                 quickFixMenuItem.Enabled = false;
+                findReferencesMenuItem.Enabled = false;
+                goToLastEditMenuItem.Enabled = false;
                 return;
             }
 
@@ -485,6 +488,8 @@ namespace DDF___Program_Language_Editor
             selectNextOccurrenceMenuItem.Enabled = hasOccurrences;
             selectAllOccurrencesMenuItem.Enabled = hasOccurrences;
             quickFixMenuItem.Enabled = getQuickFixesAtCaret().Count > 0;
+            findReferencesMenuItem.Enabled = canFindReferences();
+            goToLastEditMenuItem.Enabled = activeDocumentView?.LastEditPosition != null;
             updateEditingSelectionCommandState();
         }
 
