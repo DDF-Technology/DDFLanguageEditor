@@ -231,7 +231,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.5") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1056,9 +1056,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
         private static void AssertSemanticNavigationAndRename(MainForm form, RichTextBox editor)
         {
             const string source =
-                "// semantic smoke\nfirst() out int { int value; ret value; } second() out int { int value; ret value; }";
+                "/// semantic smoke\nfirst() out int { int value; ret value; } second() out int { int value; ret value; }";
             const string renamed =
-                "// semantic smoke\nfirst() out int { int result; ret result; } second() out int { int value; ret value; }";
+                "/// semantic smoke\nfirst() out int { int result; ret result; } second() out int { int value; ret value; }";
             editor.Text = source;
             PumpMessages(220);
 
@@ -1080,6 +1080,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
             DdfDocumentSymbol hovered = GetPrivateField<DdfDocumentSymbol>(form, "hoveredSymbol");
             Require(hovered != null && hovered.Name == "value" && hovered.SelectionStart == declaration,
                 "L'hover non espone le informazioni del simbolo risolto.");
+            DdfHoverInfo variableHover = GetPrivateField<DdfHoverInfo>(form, "activeHoverInfo");
+            Require(variableHover != null && variableHover.TypeName == "int" &&
+                    variableHover.ReferenceCount == 1 && !string.IsNullOrEmpty(variableHover.Origin),
+                "L'hover strutturato non espone tipo, origine e riferimenti della variabile.");
+
+            int functionStart = source.IndexOf("first", StringComparison.Ordinal);
+            InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor,
+                editor.GetPositionFromCharIndex(functionStart));
+            DdfHoverInfo functionHover = GetPrivateField<DdfHoverInfo>(form, "activeHoverInfo");
+            Require(functionHover != null && functionHover.Signature == "first() out int" &&
+                    functionHover.Documentation == "semantic smoke" && functionHover.DeclarationLine == 2,
+                "L'hover della funzione non mostra firma, documentazione e dichiarazione.");
 
             editor.Select(reference, 0);
             SetPrivateField(form, "requestSymbolRename", new Func<string, string>(name => "result"));
@@ -1096,7 +1108,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Undo();
             PumpMessages(180);
             Require(editor.Text == source, "Undo non ha ripristinato il documento precedente alla rinomina.");
-            Console.WriteLine("PASS hover, Vai alla definizione e rinomina scoped con Undo");
+
+            const string standardSource = "main() out int { print(\"ok\"); ret 0; }";
+            editor.Text = standardSource;
+            PumpMessages(180);
+            int printStart = standardSource.IndexOf("print", StringComparison.Ordinal);
+            InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor,
+                editor.GetPositionFromCharIndex(printStart));
+            DdfHoverInfo standardHover = GetPrivateField<DdfHoverInfo>(form, "activeHoverInfo");
+            Require(standardHover != null && standardHover.Origin == "libreria standard" &&
+                    standardHover.Signature == "print(string) out void" &&
+                    standardHover.Documentation.Contains("Output"),
+                "L'hover non documenta le funzioni della libreria standard.");
+            Console.WriteLine("PASS hover strutturato, Vai alla definizione e rinomina scoped con Undo");
         }
 
         private static void AssertClosingBraceAlignment(MainForm form, RichTextBox editor)
@@ -1353,6 +1377,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         workspaceHelper.Origin.EndsWith("helpers.ddf", StringComparison.OrdinalIgnoreCase),
                     "Il completamento workspace non mostra tipo e file di origine del simbolo esterno.");
                 InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
+
+                InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor,
+                    editor.GetPositionFromCharIndex(helperReference));
+                DdfHoverInfo workspaceHover = GetPrivateField<DdfHoverInfo>(form, "activeHoverInfo");
+                Require(workspaceHover != null && workspaceHover.Signature == "helper() out int" &&
+                        workspaceHover.Origin.EndsWith("helpers.ddf", StringComparison.OrdinalIgnoreCase) &&
+                        workspaceHover.DeclarationLine == 1,
+                    "L'hover workspace non mostra firma, origine e dichiarazione esterne.");
+
                 editor.Select(helperReference, 0);
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
                 FindMenuItem(form, "goToDefinitionMenuItem").PerformClick();
@@ -1364,7 +1397,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
                 Require(workspaceTree.Nodes.Count == 0 && !FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
                     "Chiudi cartella non ha svuotato lo stato workspace.");
-                Console.WriteLine("PASS workspace multi-file, explorer, diagnostica condivisa e F12 tra documenti");
+                Console.WriteLine("PASS workspace multi-file, hover strutturato, diagnostica condivisa e F12 tra documenti");
             }
             finally
             {

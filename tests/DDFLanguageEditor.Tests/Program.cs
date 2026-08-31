@@ -123,6 +123,9 @@ namespace DDFLanguageEditor.Tests
             Run("tracks nested call signature help", TracksNestedCallSignatureHelp);
             Run("resolves workspace function signature help", ResolvesWorkspaceFunctionSignatureHelp);
             Run("suppresses signature help outside calls and declarations", SuppressesSignatureHelpOutsideCalls);
+            Run("builds structured hover information", BuildsStructuredHoverInformation);
+            Run("maps hover references from an independent symbol index", MapsHoverReferencesFromIndependentIndex);
+            Run("documents standard functions in hover", DocumentsStandardFunctionsInHover);
             Run("formats a complete DDF document", FormatsCompleteDocument);
             Run("formats idempotently", FormatsIdempotently);
             Run("preserves comments strings and libraries while formatting", PreservesProtectedTextWhileFormatting);
@@ -1467,6 +1470,50 @@ namespace DDFLanguageEditor.Tests
             int commentPosition = comment.IndexOf("3)", StringComparison.Ordinal);
             Equal<DdfSignatureHelpResult>(null,
                 DdfSignatureHelpService.GetSignatureHelp(comment, commentPosition));
+        }
+
+        private static void BuildsStructuredHoverInformation()
+        {
+            const string source =
+                "/// Somma due valori.\n" +
+                "/// Restituisce il risultato intero.\n" +
+                "sum(int left, int right) out int { ret left + right; }\n" +
+                "main() out int { sum(1, 2); ret sum(3, 4); }";
+            CompilationUnitSyntax root = DdfParser.Parse(source).Root;
+            DdfSemanticModel model = DdfSemanticModel.Create(source, root);
+            DdfDocumentSymbol symbol = model.FindOccurrence(source.IndexOf("sum(int", StringComparison.Ordinal)).Symbol;
+            DdfHoverInfo hover = DdfHoverService.CreateForSymbol(symbol, model, source, "math.ddf");
+            Equal("sum(int left, int right) out int", hover.Signature);
+            Equal("int", hover.TypeName);
+            Equal("math.ddf", hover.Origin);
+            Equal("Somma due valori. Restituisce il risultato intero.", hover.Documentation);
+            Equal(3, hover.DeclarationLine);
+            Equal(1, hover.DeclarationColumn);
+            Equal(2, hover.ReferenceCount);
+            Equal(true, hover.ToDisplayText().Contains("Riferimenti: 2") &&
+                        hover.ToDisplayText().Contains("Firma:"));
+        }
+
+        private static void MapsHoverReferencesFromIndependentIndex()
+        {
+            const string source = "value() out int { ret 1; } main() out int { ret value(); }";
+            CompilationUnitSyntax root = DdfParser.Parse(source).Root;
+            DdfDocumentSymbol independent = DdfSymbolIndex.Create(root).Symbols.First();
+            DdfSemanticModel model = DdfSemanticModel.Create(source, root);
+            DdfHoverInfo hover = DdfHoverService.CreateForSymbol(independent, model, source, "workspace/value.ddf");
+            Equal(1, hover.ReferenceCount);
+            Equal("workspace/value.ddf", hover.Origin);
+        }
+
+        private static void DocumentsStandardFunctionsInHover()
+        {
+            Equal(true, DdfRuntimeCatalog.TryGetStandardFunction("length", out DdfStandardFunction function));
+            DdfHoverInfo hover = DdfHoverService.CreateForStandardFunction(function);
+            Equal("length(string) out int", hover.Signature);
+            Equal("int", hover.TypeName);
+            Equal("libreria standard", hover.Origin);
+            Equal(true, hover.Documentation.Contains("caratteri"));
+            Equal(0, hover.ReferenceCount);
         }
 
         private static void FormatsCompleteDocument()

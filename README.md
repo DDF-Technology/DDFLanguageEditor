@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.2.4 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.2.5 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -19,7 +19,7 @@ evidenziazione delle regole note e indentazione assistita.
 - Signature Help automatica durante le chiamate, con firma, origine e parametro corrente evidenziato;
 - snippet contestuali per funzioni, `main`, strutture e controlli, con campi navigabili tramite `Tab` e `Shift+Tab`;
 - formattazione automatica idempotente con `Ctrl+Shift+F`, separazione leggibile tra istruzioni e singolo Undo;
-- risoluzione documentale dei simboli, hover informativo, definizione con `F12` e rinomina scoped con `F2`;
+- risoluzione documentale dei simboli, hover strutturato con commenti `///`, definizione con `F12` e rinomina scoped con `F2`;
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
@@ -145,7 +145,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.2.4 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.2.5 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -165,6 +165,8 @@ blank-line separation with `Ctrl+Shift+F` while preserving protected token
 contents and Undo.
 Document-local symbol resolution powers hover information, `F12` definition
 navigation and scope-safe rename with `F2`.
+Structured hover includes type, signature, source origin, declaration position,
+principal references and contiguous `///` documentation comments.
 A small-folder workspace indexes `.ddf` files recursively and extends completion
 and definition navigation across documents.
 A runtime-independent type checker validates primitive, structure and array

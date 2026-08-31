@@ -1,4 +1,4 @@
-# Beta 0.9.2.4 limitations
+# Beta 0.9.2.5 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -18,6 +18,7 @@ This release is intended for interface and language-design evaluation only.
 - structured completion rows with category glyph, type and local/workspace origin;
 - automatic signature help with the current parameter for local, workspace and standard functions;
 - context-aware snippets with indentation, navigable fields and one-step insertion Undo;
+- structured hover with type, signature, origin, declaration, references and `///` documentation;
 - idempotent whole-document formatting with readable blank-line separation, caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;

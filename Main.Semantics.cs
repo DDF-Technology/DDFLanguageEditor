@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
 
@@ -75,53 +76,71 @@ namespace DDF___Program_Language_Editor
             DdfWorkspaceSymbol workspaceSymbol = occurrence == null ? getWorkspaceSymbolAtCaret(position) : null;
             DdfDocumentSymbol symbol = occurrence?.Symbol ?? workspaceSymbol?.Symbol;
             DdfTypedSpan typedSpan = lastTypeCheckResult?.FindTypeAt(position);
-            if (ReferenceEquals(symbol, hoveredSymbol) && ReferenceEquals(typedSpan, hoveredTypedSpan)) return;
+            DdfStandardFunction standardFunction = symbol == null ? getStandardFunctionAt(position) : null;
+            if (ReferenceEquals(symbol, hoveredSymbol) && ReferenceEquals(typedSpan, hoveredTypedSpan) &&
+                ReferenceEquals(standardFunction, hoveredStandardFunction)) return;
 
             hoveredSymbol = symbol;
             hoveredTypedSpan = typedSpan;
+            hoveredStandardFunction = standardFunction;
+            activeHoverInfo = null;
             symbolToolTip.Hide(richTextBoxMainEditor);
-            if (symbol == null && typedSpan == null) return;
+            if (symbol == null && typedSpan == null && standardFunction == null) return;
 
-            if (symbol == null)
+            if (standardFunction != null)
             {
-                symbolToolTip.Show("Tipo: " + typedSpan.Type.DisplayName,
-                    richTextBoxMainEditor, e.X + 14, e.Y + 18);
-                return;
+                activeHoverInfo = DdfHoverService.CreateForStandardFunction(standardFunction);
+            }
+            else if (symbol != null && workspaceSymbol == null)
+            {
+                activeHoverInfo = DdfHoverService.CreateForSymbol(
+                    symbol,
+                    lastSemanticModel,
+                    richTextBoxMainEditor.Text,
+                    getCurrentDocumentOrigin(),
+                    typedSpan?.Type.DisplayName);
+            }
+            else if (workspaceSymbol != null)
+            {
+                DdfSemanticModel workspaceModel = DdfSemanticModel.Create(
+                    workspaceSymbol.Document.Source,
+                    workspaceSymbol.Document.Root);
+                activeHoverInfo = DdfHoverService.CreateForSymbol(
+                    workspaceSymbol.Symbol,
+                    workspaceModel,
+                    workspaceSymbol.Document.Source,
+                    workspaceSymbol.Document.RelativePath,
+                    typedSpan?.Type.DisplayName);
+            }
+            else
+            {
+                activeHoverInfo = DdfHoverService.CreateForType(typedSpan.Type.DisplayName);
             }
 
-            int line = richTextBoxMainEditor.GetLineFromCharIndex(symbol.SelectionStart) + 1;
-            string kind = getSymbolKindLabel(symbol.Kind);
-            string detail = string.IsNullOrEmpty(symbol.Detail) ? kind : kind + " · " + symbol.Detail;
-            if (typedSpan != null && detail.IndexOf(typedSpan.Type.DisplayName, StringComparison.Ordinal) < 0)
-            {
-                detail += "\nTipo: " + typedSpan.Type.DisplayName;
-            }
-            string location = workspaceSymbol == null
-                ? "Definito alla riga " + line
-                : "Definito in " + workspaceSymbol.Document.RelativePath;
-            symbolToolTip.Show(symbol.Name + "\n" + detail + "\n" + location,
+            symbolToolTip.Show(activeHoverInfo.ToDisplayText(),
                 richTextBoxMainEditor, e.X + 14, e.Y + 18);
+        }
+
+        private DdfStandardFunction getStandardFunctionAt(int position)
+        {
+            if (lastLexResult == null) return null;
+            DdfToken token = lastLexResult.Tokens.FirstOrDefault(item =>
+                item.Kind == DdfTokenKind.Identifier && position >= item.Start && position <= item.End);
+            if (token == null) return null;
+            string name = richTextBoxMainEditor.Text.Substring(token.Start, token.Length);
+            return DdfRuntimeCatalog.TryGetStandardFunction(name, out DdfStandardFunction function)
+                ? function
+                : null;
         }
 
         private void richTextBoxMainEditor_MouseLeave(object sender, EventArgs e)
         {
             hoveredSymbol = null;
             hoveredTypedSpan = null;
+            hoveredStandardFunction = null;
+            activeHoverInfo = null;
             if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;
             symbolToolTip.Hide(richTextBoxMainEditor);
-        }
-
-        private static string getSymbolKindLabel(DdfSymbolKind kind)
-        {
-            switch (kind)
-            {
-                case DdfSymbolKind.Library: return "libreria";
-                case DdfSymbolKind.Structure: return "struttura";
-                case DdfSymbolKind.Function: return "funzione";
-                case DdfSymbolKind.Parameter: return "parametro";
-                case DdfSymbolKind.Field: return "campo";
-                default: return "variabile";
-            }
         }
 
         private string showRenameSymbolDialog(string currentName)

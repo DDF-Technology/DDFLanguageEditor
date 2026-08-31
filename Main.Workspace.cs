@@ -210,6 +210,18 @@ namespace DDF___Program_Language_Editor
                 : workspaceIndex.GetExternalRoots(documentSession.CurrentPath);
         }
 
+        private string getCurrentDocumentOrigin()
+        {
+            if (workspaceIndex != null && documentSession.HasPath)
+            {
+                DdfWorkspaceDocument document = workspaceIndex.Documents.FirstOrDefault(item =>
+                    string.Equals(item.Path, documentSession.CurrentPath, StringComparison.OrdinalIgnoreCase));
+                if (document != null) return document.RelativePath;
+            }
+
+            return documentSession.DisplayName;
+        }
+
         private bool isResolvedByWorkspace(DdfDiagnostic diagnostic, string source)
         {
             if (workspaceIndex == null || diagnostic.Code != "DDF201" || diagnostic.Start + diagnostic.Length > source.Length) return false;

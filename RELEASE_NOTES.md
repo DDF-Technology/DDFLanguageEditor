@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.2.4
+# DDFLanguageEditor 0.9.2.5
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.5 replaces ad-hoc tooltip strings with a structured hover model.
+Hover now reports category, type, complete function signature, document origin,
+declaration line/column, reference count and the first reference positions.
+Contiguous comments beginning with `///` provide source documentation, while
+standard-library functions expose descriptions from the runtime catalog. The
+same model handles current-document, calculated-type and workspace symbols.
 
 Version 0.9.2.4 adds context-aware snippets to statement completion. Templates
 cover functions, the `main` entry point, structures, conditional blocks and all

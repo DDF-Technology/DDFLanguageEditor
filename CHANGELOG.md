@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.5 - 2026-08-31
+
+- centralize structured hover data independently from the WinForms tooltip;
+- show symbol category, calculated/declared type, DDF signature, document origin and declaration position;
+- count references and display their first source positions for local and workspace declarations;
+- extract contiguous `///` documentation and document every standard runtime function;
+- expand regression coverage to 118 Core tests plus local, standard and workspace hover smoke scenarios;
+
 ## 0.9.2.4 - 2026-08-31
 
 - add a central snippet catalog for `if`, `while`, `do`, `for`, functions, `main` and structures;
