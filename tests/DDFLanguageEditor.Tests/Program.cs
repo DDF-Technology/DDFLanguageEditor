@@ -116,6 +116,11 @@ namespace DDFLanguageEditor.Tests
             Run("recognizes type completion context", RecognizesTypeCompletionContext);
             Run("ranks frequently used symbols before nearby alternatives", RanksFrequentlyUsedSymbols);
             Run("exposes completion category type and origin", ExposesCompletionMetadata);
+            Run("shows the active local function parameter", ShowsActiveLocalFunctionParameter);
+            Run("resolves standard function signature help", ResolvesStandardFunctionSignatureHelp);
+            Run("tracks nested call signature help", TracksNestedCallSignatureHelp);
+            Run("resolves workspace function signature help", ResolvesWorkspaceFunctionSignatureHelp);
+            Run("suppresses signature help outside calls and declarations", SuppressesSignatureHelpOutsideCalls);
             Run("formats a complete DDF document", FormatsCompleteDocument);
             Run("formats idempotently", FormatsIdempotently);
             Run("preserves comments strings and libraries while formatting", PreservesProtectedTextWhileFormatting);
@@ -1355,6 +1360,76 @@ namespace DDFLanguageEditor.Tests
             Equal("int", helper.TypeName);
             Equal("lib/helpers.ddf", helper.Origin);
             Equal(true, helper.ToString().Contains("ƒ") && helper.ToString().Contains("lib/helpers.ddf"));
+        }
+
+        private static void ShowsActiveLocalFunctionParameter()
+        {
+            const string source =
+                "sum(int left, int right) out int { ret left + right; } " +
+                "main() out int { ret sum(1, ); }";
+            int position = source.IndexOf(", )", StringComparison.Ordinal) + 2;
+            DdfSignatureHelpResult result = DdfSignatureHelpService.GetSignatureHelp(source, position);
+            Equal(true, result != null);
+            Equal("sum(int left, int right) out int", result.Signature.Signature);
+            Equal("documento corrente", result.Signature.Origin);
+            Equal(1, result.ActiveParameter);
+            Equal("int right", result.ActiveParameterInformation.DisplayText);
+        }
+
+        private static void ResolvesStandardFunctionSignatureHelp()
+        {
+            const string source = "main() out int { print(\"a,b\"); ret 0; }";
+            int position = source.IndexOf("b\"", StringComparison.Ordinal) + 1;
+            DdfSignatureHelpResult result = DdfSignatureHelpService.GetSignatureHelp(source, position);
+            Equal(true, result != null);
+            Equal("print(string) out void", result.Signature.Signature);
+            Equal("libreria standard", result.Signature.Origin);
+            Equal(0, result.ActiveParameter);
+            Equal("string", result.ActiveParameterInformation.DisplayText);
+        }
+
+        private static void TracksNestedCallSignatureHelp()
+        {
+            const string source =
+                "inner(int first, int second) out int { ret first; } " +
+                "outer(int left, int right) out int { ret right; } " +
+                "main() out int { ret outer(inner(1, 2), 3); }";
+            int innerPosition = source.IndexOf("2),", StringComparison.Ordinal) + 1;
+            DdfSignatureHelpResult inner = DdfSignatureHelpService.GetSignatureHelp(source, innerPosition);
+            Equal("inner", inner.Signature.Name);
+            Equal(1, inner.ActiveParameter);
+
+            int outerPosition = source.IndexOf("), 3", StringComparison.Ordinal) + 3;
+            DdfSignatureHelpResult outer = DdfSignatureHelpService.GetSignatureHelp(source, outerPosition);
+            Equal("outer", outer.Signature.Name);
+            Equal(1, outer.ActiveParameter);
+        }
+
+        private static void ResolvesWorkspaceFunctionSignatureHelp()
+        {
+            const string source = "main() out int { ret helper(1, ); }";
+            CompilationUnitSyntax external = DdfParser.Parse(
+                "helper(int id, string name) out int { ret id; }").Root;
+            int position = source.IndexOf(", )", StringComparison.Ordinal) + 2;
+            DdfSignatureHelpResult result = DdfSignatureHelpService.GetSignatureHelp(
+                source, position, new[] { external });
+            Equal(true, result != null);
+            Equal("workspace", result.Signature.Origin);
+            Equal("string name", result.ActiveParameterInformation.DisplayText);
+        }
+
+        private static void SuppressesSignatureHelpOutsideCalls()
+        {
+            const string declaration = "sum(int left, int right) out int { ret left + right; }";
+            int declarationPosition = declaration.IndexOf("left", StringComparison.Ordinal);
+            Equal<DdfSignatureHelpResult>(null,
+                DdfSignatureHelpService.GetSignatureHelp(declaration, declarationPosition));
+            Equal<DdfSignatureHelpResult>(null,
+                DdfSignatureHelpService.GetSignatureHelp("main() out int { if(true) { ret 1; } }", 24));
+            const string comment = "main() out int { print(1); // print(2, 3)\n ret 0; }";
+            int commentPosition = comment.IndexOf("3)", StringComparison.Ordinal);
+            Equal<DdfSignatureHelpResult>(null,
+                DdfSignatureHelpService.GetSignatureHelp(comment, commentPosition));
         }
 
         private static void FormatsCompleteDocument()

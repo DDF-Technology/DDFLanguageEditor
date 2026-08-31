@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2.2 - 2026-08-31
+
+- show function signatures automatically while the caret is inside local, workspace or standard-library calls;
+- track the active parameter across nested calls while ignoring commas inside strings and comments;
+- expose signature origin and a bold current-parameter row without stealing editor focus;
+- expand regression coverage to 112 Core tests plus a dynamic WinForms Signature Help scenario;
+
 ## 0.9.2.1 - 2026-08-31
 
 - repaint the complete RichEdit buffer after document formatting so a leading comment cannot leak its green character format into unchanged code;

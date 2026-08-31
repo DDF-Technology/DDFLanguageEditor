@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.2.1
+# DDFLanguageEditor 0.9.2.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.2 adds automatic Signature Help for functions declared in the
+current document, indexed workspace documents and the standard runtime catalog.
+The popup shows the full DDF signature, its origin and a bold row for the active
+parameter. Nested calls are tracked independently, while commas in protected
+text do not advance the parameter index. Moving outside the call or pressing
+Escape closes the popup without taking focus from the editor.
 
 Version 0.9.2.1 fixes document formatting so the RichEdit control cannot extend
 the green character format of a leading comment into the following code. The

@@ -39,6 +39,7 @@ namespace DDF___Program_Language_Editor
                 completionTimer.Stop();
                 showCompletion(false);
             };
+            initializeSignatureHelp();
         }
 
         private void completionListBox_DrawItem(object sender, DrawItemEventArgs e)
@@ -97,6 +98,7 @@ namespace DDF___Program_Language_Editor
             if (completionTimer == null) return;
             completionTimer.Stop();
             completionTimer.Dispose();
+            disposeSignatureHelp();
         }
 
         private void scheduleCompletion()
@@ -162,10 +164,22 @@ namespace DDF___Program_Language_Editor
             completionListBox.Location = new Point(x, Math.Max(3, y));
             completionListBox.Visible = true;
             completionListBox.BringToFront();
+            positionSignatureHelp();
         }
 
         private bool handleCompletionKeyDown(KeyEventArgs e)
         {
+            if (e.KeyCode == Keys.Escape &&
+                ((completionListBox != null && completionListBox.Visible) ||
+                 (signatureHelpPanel != null && signatureHelpPanel.Visible)))
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                hideCompletion();
+                hideSignatureHelp();
+                return true;
+            }
+
             if (e.Control && e.KeyCode == Keys.Space)
             {
                 e.SuppressKeyPress = true;

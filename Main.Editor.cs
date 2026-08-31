@@ -144,6 +144,7 @@ namespace DDF___Program_Language_Editor
             highlightTimer.Stop();
             highlightTimer.Start();
             scheduleCompletion();
+            scheduleSignatureHelp();
         }
 
         private void highlightTimer_Tick(object sender, EventArgs e)
@@ -570,6 +571,7 @@ namespace DDF___Program_Language_Editor
 
             updateCaretPosition();
             hideCompletionIfCaretMoved();
+            scheduleSignatureHelp();
             scheduleDelimiterHighlight();
             updateFoldingCommandState();
         }
@@ -583,6 +585,7 @@ namespace DDF___Program_Language_Editor
 
             isMouseSelecting = true;
             hideCompletion();
+            hideSignatureHelp();
             delimiterHighlightTimer.Stop();
         }
 
@@ -594,6 +597,7 @@ namespace DDF___Program_Language_Editor
             }
 
             isMouseSelecting = false;
+            scheduleSignatureHelp();
             scheduleDelimiterHighlight();
         }
 

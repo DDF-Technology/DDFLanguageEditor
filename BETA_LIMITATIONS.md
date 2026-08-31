@@ -1,4 +1,4 @@
-# Beta 0.9.2.1 limitations
+# Beta 0.9.2.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -16,6 +16,7 @@ This release is intended for interface and language-design evaluation only.
 - matching delimiters and a source-preserving folded preview;
 - context-ranked completion using expected type, semantic scope, frequency and proximity;
 - structured completion rows with category glyph, type and local/workspace origin;
+- automatic signature help with the current parameter for local, workspace and standard functions;
 - idempotent whole-document formatting with caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;

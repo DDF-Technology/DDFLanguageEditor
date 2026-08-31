@@ -191,6 +191,7 @@ namespace DDF___Program_Language_Editor
                 DocumentView currentView = findDocumentView(richTextBoxMainEditor);
                 leaveFoldedView();
                 hideCompletion();
+                hideSignatureHelp();
                 highlightTimer.Stop();
                 delimiterHighlightTimer.Stop();
                 if (currentView != null)

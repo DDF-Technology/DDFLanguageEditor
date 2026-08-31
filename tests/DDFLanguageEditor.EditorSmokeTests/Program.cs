@@ -94,6 +94,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertPartialLibraryCutIsRecoverable(editor, diagnostics);
                 AssertRapidTransientEditsAreRecoverable(editor);
                 AssertContextualCompletion(form, editor);
+                AssertSignatureHelp(form, editor);
                 AssertDocumentFormatting(form, editor);
                 AssertSemanticNavigationAndRename(form, editor);
                 AssertTypeChecking(form, editor, diagnostics);
@@ -229,7 +230,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.2") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -931,6 +932,40 @@ namespace DDFLanguageEditor.EditorSmokeTests
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
             Require(!completion.Visible, "Esc non ha chiuso il completamento.");
             Console.WriteLine("PASS completamento contestuale con Tab, Undo, Ctrl+Spazio ed Esc");
+        }
+
+        private static void AssertSignatureHelp(MainForm form, RichTextBox editor)
+        {
+            const string source =
+                "combine(int count, string text) out int { ret count; }\n" +
+                "main() out int { ret combine(1, ); }";
+            editor.Text = source;
+            int secondParameter = source.IndexOf(", )", StringComparison.Ordinal) + 2;
+            editor.Select(secondParameter, 0);
+            editor.Focus();
+            PumpMessages(220);
+
+            Panel popup = FindControl<Panel>(form, "signatureHelpPanel");
+            Label signature = FindControl<Label>(form, "signatureHelpLabel");
+            Label parameter = FindControl<Label>(form, "signatureParameterLabel");
+            Require(popup.Visible, "La Signature Help non è apparsa dentro la chiamata.");
+            Require(signature.Text.Contains("combine(int count, string text) out int") &&
+                    signature.Text.Contains("documento corrente"),
+                "La Signature Help non mostra firma e origine della funzione.");
+            Require(parameter.Text.Contains("Parametro 2/2") && parameter.Text.Contains("string text") &&
+                    parameter.Font.Bold,
+                "La Signature Help non evidenzia il parametro corrente.");
+
+            editor.Select(source.LastIndexOf("}", StringComparison.Ordinal) + 1, 0);
+            PumpMessages(140);
+            Require(!popup.Visible, "La Signature Help è rimasta visibile fuori dalla chiamata.");
+
+            editor.Select(secondParameter, 0);
+            PumpMessages(140);
+            Require(popup.Visible, "La Signature Help non è riapparsa tornando nella chiamata.");
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
+            Require(!popup.Visible, "Esc non ha chiuso la Signature Help.");
+            Console.WriteLine("PASS Signature Help locale con parametro corrente, riposizionamento ed Esc");
         }
 
         private static void AssertDocumentFormatting(MainForm form, RichTextBox editor)
