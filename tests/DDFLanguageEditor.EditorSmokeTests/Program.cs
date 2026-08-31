@@ -234,7 +234,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.8") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.9") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1489,6 +1489,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
             string expectedSemicolon = missingSemicolon.Insert(missingSemicolon.IndexOf('1') + 1, ";");
             Require(editor.Text == expectedSemicolon,
                 "Il punto e virgola è stato inserito sul token sottolineato invece che alla fine dell'istruzione precedente.");
+
+            const string validNestedBlock =
+                "main() out int\n{\n    if(true)\n    {\n        ret 1;\n    }\n}";
+            string missingInnerBrace = validNestedBlock.Remove(
+                validNestedBlock.IndexOf("    }\n", StringComparison.Ordinal),
+                "    }\n".Length);
+            editor.Text = missingInnerBrace;
+            editor.Select(editor.Text.LastIndexOf('}'), 0);
+            PumpMessages(220);
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.OemPeriod),
+                "Ctrl+. non gestisce la graffa interna mancante.");
+            PumpMessages(220);
+            Require(editor.Text == validNestedBlock,
+                "La graffa mancante non è stata reinserita nel blocco e con l'indentazione corretti.");
             Console.WriteLine("PASS correzioni rapide estensibili da menu, Ctrl+. e toolbar con Undo");
         }
 

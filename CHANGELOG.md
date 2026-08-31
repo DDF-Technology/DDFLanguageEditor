@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.2.9 - 2026-08-31
+
+- attach the owning syntax context to missing-delimiter diagnostics;
+- reconstruct mandatory opening and closing braces on their own correctly indented lines;
+- use indentation-aware parser recovery so an outer closing brace is not consumed by an incomplete nested block;
+- retain generic token and keyword fixes while specializing structural delimiters independently from the UI;
+- cover removed function, inner-block and outer-block braces without making valid syntax indentation-sensitive in 126 Core tests and the dynamic WinForms smoke;
+
 ## 0.9.2.8 - 2026-08-31
 
 - anchor missing-token quick fixes after the previous valid token instead of on the token that exposed the parser error;

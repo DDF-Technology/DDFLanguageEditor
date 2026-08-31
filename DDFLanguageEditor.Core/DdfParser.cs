@@ -10,6 +10,7 @@ namespace DDFLanguageEditor.Core
         private readonly List<DdfToken> tokens;
         private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
         private int position;
+        private int activeBraceDepth;
 
         private DdfParser(string text, DdfLexResult lexResult, DdfLanguageDefinition language)
         {
@@ -94,7 +95,9 @@ namespace DDFLanguageEditor.Core
             NextToken();
             string name = MatchIdentifier(out int nameStart, out int nameLength);
             int openBraceStart = CurrentStart;
-            MatchText("{");
+            bool hasOpenBrace = IsText("{");
+            MatchText("{", start);
+            if (hasOpenBrace) activeBraceDepth++;
             var fields = new List<VariableDeclarationStatementSyntax>();
             while (Current != null && !IsText("}"))
             {
@@ -112,9 +115,8 @@ namespace DDFLanguageEditor.Core
                 EnsureProgress(before);
             }
 
-            bool hasCloseBrace = IsText("}");
-            int closeBraceStart = CurrentStart;
-            int end = MatchText("}");
+            int end = MatchClosingBrace(openBraceStart, hasOpenBrace, out int closeBraceStart, out bool hasCloseBrace);
+            if (hasOpenBrace) activeBraceDepth--;
             return new StructDeclarationSyntax(name, nameStart, nameLength, openBraceStart, closeBraceStart, hasCloseBrace, fields.AsReadOnly(), start, Math.Max(0, end - start));
         }
 
@@ -137,7 +139,7 @@ namespace DDFLanguageEditor.Core
             MatchText(")");
             MatchKeyword(DdfKeywordRole.ReturnTypeMarker);
             TypeReferenceSyntax returnType = ParseType();
-            BlockStatementSyntax body = ParseBlockStatement();
+            BlockStatementSyntax body = ParseBlockStatement(start);
             return new FunctionDeclarationSyntax(name, nameToken.Start, nameToken.Length, parameters.AsReadOnly(), returnType, body, start, Math.Max(0, body.End - start));
         }
 
@@ -180,10 +182,13 @@ namespace DDFLanguageEditor.Core
             return ParseExpressionStatement(true);
         }
 
-        private BlockStatementSyntax ParseBlockStatement()
+        private BlockStatementSyntax ParseBlockStatement(int? ownerStart = null)
         {
             int start = CurrentStart;
-            MatchText("{");
+            int openBraceStart = CurrentStart;
+            bool hasOpenBrace = IsText("{");
+            MatchText("{", ownerStart ?? start);
+            if (hasOpenBrace) activeBraceDepth++;
             var statements = new List<StatementSyntax>();
             while (Current != null && !IsText("}"))
             {
@@ -192,9 +197,8 @@ namespace DDFLanguageEditor.Core
                 EnsureProgress(before);
             }
 
-            bool hasCloseBrace = IsText("}");
-            int closeBraceStart = CurrentStart;
-            int end = MatchText("}");
+            int end = MatchClosingBrace(openBraceStart, hasOpenBrace, out int closeBraceStart, out bool hasCloseBrace);
+            if (hasOpenBrace) activeBraceDepth--;
             return new BlockStatementSyntax(statements.AsReadOnly(), closeBraceStart, hasCloseBrace, start, Math.Max(0, end - start));
         }
 
@@ -449,11 +453,60 @@ namespace DDFLanguageEditor.Core
             return string.Empty;
         }
 
-        private int MatchText(string expected)
+        private int MatchText(string expected, int? contextStart = null)
         {
             if (TryMatchText(expected)) return PreviousEnd;
-            Report("DDF102", "Token '" + expected + "' atteso.", PreviousEnd);
+            Report("DDF102", "Token '" + expected + "' atteso.", PreviousEnd, contextStart);
             return CurrentStart;
+        }
+
+        private int MatchClosingBrace(
+            int openBraceStart,
+            bool hasOpenBrace,
+            out int closeBraceStart,
+            out bool hasCloseBrace)
+        {
+            closeBraceStart = CurrentStart;
+            hasCloseBrace = IsText("}") &&
+                            (!hasOpenBrace || IsCompatibleClosingBrace(openBraceStart, CurrentStart));
+            if (hasCloseBrace) return NextToken().End;
+            Report(
+                "DDF102",
+                "Token '}' atteso.",
+                PreviousEnd,
+                hasOpenBrace ? (int?)openBraceStart : null);
+            return CurrentStart;
+        }
+
+        private bool IsCompatibleClosingBrace(int openBraceStart, int closeBraceStart)
+        {
+            if (CountRemainingClosingBraces() >= activeBraceDepth) return true;
+            int openLineStart = FindLineStart(openBraceStart);
+            int closeLineStart = FindLineStart(closeBraceStart);
+            if (openLineStart == closeLineStart) return true;
+            return CountIndentation(closeLineStart) >= CountIndentation(openLineStart);
+        }
+
+        private int CountRemainingClosingBraces()
+        {
+            int count = 0;
+            for (int index = position; index < tokens.Count; index++)
+                if (TokenText(tokens[index]) == "}") count++;
+            return count;
+        }
+
+        private int FindLineStart(int sourcePosition)
+        {
+            int start = Math.Min(sourcePosition, text.Length);
+            while (start > 0 && text[start - 1] != '\n') start--;
+            return start;
+        }
+
+        private int CountIndentation(int lineStart)
+        {
+            int position = lineStart;
+            while (position < text.Length && (text[position] == ' ' || text[position] == '\t')) position++;
+            return position - lineStart;
         }
 
         private int MatchKeyword(DdfKeywordRole role)
@@ -490,7 +543,11 @@ namespace DDFLanguageEditor.Core
             NextToken();
         }
 
-        private void Report(string code, string message, int? insertionPosition = null)
+        private void Report(
+            string code,
+            string message,
+            int? insertionPosition = null,
+            int? contextStart = null)
         {
             int sourcePosition = CurrentStart;
             int diagnosticStart = text.Length == 0 ? 0 : Math.Min(sourcePosition, text.Length - 1);
@@ -504,7 +561,8 @@ namespace DDFLanguageEditor.Core
                 line,
                 column,
                 DdfDiagnosticSeverity.Error,
-                insertionPosition ?? sourcePosition));
+                insertionPosition ?? sourcePosition,
+                contextStart));
         }
 
         private void GetLineAndColumn(int sourcePosition, out int line, out int column)

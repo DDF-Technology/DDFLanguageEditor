@@ -1,6 +1,14 @@
-# DDFLanguageEditor 0.9.2.8
+# DDFLanguageEditor 0.9.2.9
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.9 makes brace repair structural rather than cursor-relative.
+Missing-delimiter diagnostics now retain the owning syntax context. Quick fixes
+reconstruct mandatory opening and closing braces on correctly indented lines,
+including nested blocks. During recovery, the parser uses block indentation to
+avoid consuming an outer closing brace as the closure of an incomplete inner
+block. The same provider architecture remains available for future grammar
+rules without coupling them to WinForms.
 
 Version 0.9.2.8 corrects the insertion anchor used by missing-token fixes. The
 diagnostic underline still identifies the following token that exposed the

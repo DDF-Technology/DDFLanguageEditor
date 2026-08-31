@@ -173,6 +173,12 @@ namespace DDFLanguageEditor.Core
             int insertion = diagnostic.InsertionPosition.HasValue
                 ? Math.Min(source.Length, diagnostic.InsertionPosition.Value)
                 : (diagnostic.End >= source.Length ? source.Length : diagnostic.Start);
+            if (expected == "{" || expected == "}")
+            {
+                yield return CreateBraceFix(source, diagnostic, expected, insertion);
+                yield break;
+            }
+
             string replacement = expected;
             if (IsWord(expected))
             {
@@ -186,6 +192,98 @@ namespace DDFLanguageEditor.Core
                 0,
                 replacement,
                 insertion + replacement.Length);
+        }
+
+        private static DdfQuickFix CreateBraceFix(
+            string source,
+            DdfDiagnostic diagnostic,
+            string brace,
+            int parserInsertion)
+        {
+            string newLine = source.Contains("\r\n") ? "\r\n" : "\n";
+            int contextStart = Math.Min(
+                source.Length,
+                diagnostic.ContextStart ?? parserInsertion);
+            string indentation = GetLineIndentation(source, contextStart);
+            int currentStart = Math.Min(source.Length, diagnostic.Start);
+
+            if (brace == "{" && parserInsertion < currentStart &&
+                ContainsLineBreak(source, parserInsertion, currentStart))
+            {
+                int currentLineStart = FindLineStart(source, currentStart);
+                string replacement = indentation + "{" + newLine;
+                return new DdfQuickFix(
+                    diagnostic,
+                    "Apri il blocco con {",
+                    currentLineStart,
+                    0,
+                    replacement,
+                    currentLineStart + replacement.Length);
+            }
+
+            if (brace == "}" && parserInsertion < currentStart &&
+                ContainsLineBreak(source, parserInsertion, currentStart))
+            {
+                int currentLineStart = FindLineStart(source, currentStart);
+                string replacement = indentation + "}" + newLine;
+                return new DdfQuickFix(
+                    diagnostic,
+                    "Chiudi il blocco con }",
+                    currentLineStart,
+                    0,
+                    replacement,
+                    currentLineStart + replacement.Length);
+            }
+
+            if (brace == "}" && diagnostic.InsertionPosition.HasValue &&
+                diagnostic.InsertionPosition.Value >= parserInsertion &&
+                diagnostic.InsertionPosition.Value >= source.TrimEnd(' ', '\t', '\r', '\n').Length)
+            {
+                bool endsWithLineBreak = source.EndsWith("\n", StringComparison.Ordinal);
+                string replacement = (endsWithLineBreak ? string.Empty : newLine) + indentation + "}";
+                return new DdfQuickFix(
+                    diagnostic,
+                    "Chiudi il blocco con }",
+                    source.Length,
+                    0,
+                    replacement,
+                    source.Length + replacement.Length);
+            }
+
+            string inlineReplacement = brace;
+            if (parserInsertion > 0 && !char.IsWhiteSpace(source[parserInsertion - 1]))
+                inlineReplacement = " " + inlineReplacement;
+            if (parserInsertion < source.Length && !char.IsWhiteSpace(source[parserInsertion]))
+                inlineReplacement += " ";
+            return new DdfQuickFix(
+                diagnostic,
+                brace == "{" ? "Apri il blocco con {" : "Chiudi il blocco con }",
+                parserInsertion,
+                0,
+                inlineReplacement,
+                parserInsertion + inlineReplacement.Length);
+        }
+
+        private static int FindLineStart(string source, int position)
+        {
+            int start = Math.Min(position, source.Length);
+            while (start > 0 && source[start - 1] != '\n') start--;
+            return start;
+        }
+
+        private static string GetLineIndentation(string source, int position)
+        {
+            int start = FindLineStart(source, position);
+            int end = start;
+            while (end < source.Length && (source[end] == ' ' || source[end] == '\t')) end++;
+            return source.Substring(start, end - start);
+        }
+
+        private static bool ContainsLineBreak(string source, int start, int end)
+        {
+            for (int position = Math.Max(0, start); position < Math.Min(source.Length, end); position++)
+                if (source[position] == '\n') return true;
+            return false;
         }
 
         private static bool TryExtractExpectedText(string message, out string expected)

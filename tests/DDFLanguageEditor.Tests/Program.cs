@@ -49,6 +49,9 @@ namespace DDFLanguageEditor.Tests
             Run("offers safe lexical quick fixes", OffersSafeLexicalQuickFixes);
             Run("inserts parser expected tokens", InsertsParserExpectedTokens);
             Run("anchors missing tokens before intervening trivia", AnchorsMissingTokensBeforeTrivia);
+            Run("restores mandatory opening braces structurally", RestoresMandatoryOpeningBracesStructurally);
+            Run("restores nested closing braces structurally", RestoresNestedClosingBracesStructurally);
+            Run("keeps valid braces independent from indentation", KeepsValidBracesIndependentFromIndentation);
             Run("accepts custom quick-fix providers", AcceptsCustomQuickFixProviders);
             Run("matches full lexing after incremental edits", MatchesFullLexingAfterIncrementalEdits);
             Run("relexes across a shared inserted prefix", RelexesAcrossSharedInsertedPrefix);
@@ -585,6 +588,42 @@ namespace DDFLanguageEditor.Tests
             Equal(expectedInsertion, fix.Start);
             Equal(';', ApplyQuickFix(source, fix)[expectedInsertion]);
             Equal(true, diagnostic.Start > fix.Start);
+        }
+
+        private static void RestoresMandatoryOpeningBracesStructurally()
+        {
+            const string valid =
+                "main() out int\n{\n    int value << 1;\n    ret value;\n}";
+            string broken = valid.Remove(valid.IndexOf("{\n", StringComparison.Ordinal), 2);
+            DdfDiagnostic diagnostic = DdfParser.Parse(broken).Diagnostics.First(item =>
+                item.Code == "DDF102" && item.Message.Contains("'{'"));
+            DdfQuickFix fix = DdfQuickFixService.CreateDefault().GetFixes(broken, diagnostic).Single();
+            Equal(valid, ApplyQuickFix(broken, fix));
+            Equal(true, diagnostic.ContextStart.HasValue);
+        }
+
+        private static void RestoresNestedClosingBracesStructurally()
+        {
+            const string valid =
+                "main() out int\n{\n    if(true)\n    {\n        ret 1;\n    }\n}";
+            string brokenInner = valid.Remove(valid.IndexOf("    }\n", StringComparison.Ordinal), "    }\n".Length);
+            DdfDiagnostic innerDiagnostic = DdfParser.Parse(brokenInner).Diagnostics.First(item =>
+                item.Code == "DDF102" && item.Message.Contains("'}'"));
+            DdfQuickFix innerFix = DdfQuickFixService.CreateDefault().GetFixes(brokenInner, innerDiagnostic).Single();
+            Equal(valid, ApplyQuickFix(brokenInner, innerFix));
+
+            string brokenOuter = valid.Substring(0, valid.Length - 2);
+            DdfDiagnostic outerDiagnostic = DdfParser.Parse(brokenOuter).Diagnostics.First(item =>
+                item.Code == "DDF102" && item.Message.Contains("'}'"));
+            DdfQuickFix outerFix = DdfQuickFixService.CreateDefault().GetFixes(brokenOuter, outerDiagnostic).Single();
+            Equal(valid, ApplyQuickFix(brokenOuter, outerFix));
+        }
+
+        private static void KeepsValidBracesIndependentFromIndentation()
+        {
+            const string source =
+                "main() out int\n{\n    if(true)\n    {\n        ret 1;\n}\n}";
+            Equal(0, DdfParser.Parse(source).Diagnostics.Count);
         }
 
         private static void AcceptsCustomQuickFixProviders()

@@ -46,7 +46,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.0` | Breakpoint e pausa/continua | Completata |
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
-| `0.9.2` | IntelliSense, snippet e feedback inline | In corso (`0.9.2.8` completata) |
+| `0.9.2` | IntelliSense, snippet e feedback inline | In corso (`0.9.2.9` completata) |
 | `0.9.3` | Ricerca e navigazione del workspace | Pianificata |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
@@ -365,6 +365,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Mostrare diagnostiche inline ondulate, con hover sincronizzato alla palette, senza alterare testo, colori, selezione o cronologia Undo (`0.9.2.6`).
 - [x] Definire provider di correzioni rapide estensibili, accessibili da menu contestuale, `Ctrl+.` e icon bar, per gli errori DDF più comuni (`0.9.2.7`).
 - [x] Separare il token che segnala un errore dal punto reale di modifica, inserendo i token mancanti dopo l’ultima parte valida anche attraverso spazi e righe vuote (`0.9.2.8`).
+- [x] Rendere strutturale il ripristino delle graffe usando contesto del parser, annidamento e indentazione, senza confondere la chiusura di un blocco interno con quella esterna (`0.9.2.9`).
 - [ ] Eseguire analisi e completamento in background con cancellazione degli snapshot obsoleti.
 
 ## 0.9.3 — Ricerca e navigazione del workspace
