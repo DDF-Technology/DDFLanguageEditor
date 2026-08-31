@@ -1,6 +1,19 @@
-# DDFLanguageEditor 0.9.2.9
+# DDFLanguageEditor 0.9.2.10
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.10 moves document analysis and completion away from the UI thread.
+Requests are versioned and superseded work is cancelled; a result is marshalled
+back to WinForms only when both its source and request still match the active
+editor. Explicitly dismissed completion results cannot reappear later. Dynamic
+smoke coverage now exercises rapid transient edits and deliberately stale
+completion requests.
+
+Brace quick fixes remain intentionally conservative: when removing a brace
+leaves a different but grammatically valid single-statement construct, the
+parser has no certain diagnostic or original intent to reconstruct. That case
+is now documented as a manual-review limitation instead of receiving a
+speculative edit.
 
 Version 0.9.2.9 makes brace repair structural rather than cursor-relative.
 Missing-delimiter diagnostics now retain the owning syntax context. Quick fixes

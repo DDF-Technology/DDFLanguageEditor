@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
 
@@ -158,7 +160,7 @@ namespace DDF___Program_Language_Editor
         private void highlightTimer_Tick(object sender, EventArgs e)
         {
             highlightTimer.Stop();
-            applyHighlighting();
+            startBackgroundAnalysis();
         }
 
         private void applyHighlighting()
@@ -168,27 +170,102 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            int selectionStart = richTextBoxMainEditor.SelectionStart;
-            int selectionLength = richTextBoxMainEditor.SelectionLength;
+            cancelBackgroundAnalysis();
+            long version = ++analysisRequestVersion;
             string text = richTextBoxMainEditor.Text;
             DdfLexUpdate update = incrementalLexer.Update(text);
             DdfParseResult parseResult = DdfParser.Parse(text, update.Result);
-            validateBreakpoints(openDocuments.ActiveDocument, text, parseResult.Root);
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
-            if (documentSession.IsDirty)
-            {
-                updateWorkspaceDocument(documentSession.CurrentPath, text, parseResult.Root);
-            }
             DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
                 text,
                 parseResult.Root,
                 getWorkspaceTypeRoots());
-            var allDiagnostics = new List<DdfDiagnostic>(parseResult.Diagnostics);
-            foreach (DdfDiagnostic diagnostic in semanticModel.Diagnostics)
+            var snapshot = new EditorAnalysisSnapshot(
+                text,
+                update.Result,
+                parseResult,
+                semanticModel,
+                typeCheckResult,
+                DdfSymbolIndex.Create(parseResult.Root).Symbols,
+                DdfFoldingRangeProvider.Create(parseResult.Root, text));
+            applyAnalysisSnapshot(snapshot, update.RelexStart, version);
+        }
+
+        private async void startBackgroundAnalysis()
+        {
+            if (isApplyingHighlighting || IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed) return;
+
+            string text = richTextBoxMainEditor.Text;
+            IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
+            long version = ++analysisRequestVersion;
+            cancelBackgroundAnalysis();
+            var cancellation = new CancellationTokenSource();
+            analysisCancellation = cancellation;
+
+            try
+            {
+                EditorAnalysisSnapshot snapshot = await Task.Run(
+                    () => createAnalysisSnapshot(text, externalRoots, cancellation.Token),
+                    cancellation.Token);
+                if (cancellation.IsCancellationRequested || version != analysisRequestVersion) return;
+                postEditorCallback(() =>
+                {
+                    if (version != analysisRequestVersion || IsDisposed || Disposing ||
+                        richTextBoxMainEditor.IsDisposed ||
+                        !string.Equals(text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
+                    int formatStart = findChangedLineStart(lastAnalyzedText, text);
+                    incrementalLexer.Reset();
+                    applyAnalysisSnapshot(snapshot, formatStart, version);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer editor snapshot has superseded this request.
+            }
+            finally
+            {
+                if (ReferenceEquals(analysisCancellation, cancellation)) analysisCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+
+        private static EditorAnalysisSnapshot createAnalysisSnapshot(
+            string text,
+            IReadOnlyList<CompilationUnitSyntax> externalRoots,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfLexResult lexResult = DdfLexer.Lex(text);
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfParseResult parseResult = DdfParser.Parse(text, lexResult);
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(text, parseResult.Root, externalRoots);
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
+            IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parseResult.Root, text);
+            return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, symbols, folding);
+        }
+
+        private void applyAnalysisSnapshot(EditorAnalysisSnapshot snapshot, int changedStart, long version)
+        {
+            if (snapshot == null || version != analysisRequestVersion ||
+                !string.Equals(snapshot.Text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
+
+            int selectionStart = richTextBoxMainEditor.SelectionStart;
+            int selectionLength = richTextBoxMainEditor.SelectionLength;
+            string text = snapshot.Text;
+            validateBreakpoints(openDocuments.ActiveDocument, text, snapshot.ParseResult.Root);
+            if (documentSession.IsDirty)
+                updateWorkspaceDocument(documentSession.CurrentPath, text, snapshot.ParseResult.Root);
+
+            var allDiagnostics = new List<DdfDiagnostic>(snapshot.ParseResult.Diagnostics);
+            foreach (DdfDiagnostic diagnostic in snapshot.SemanticModel.Diagnostics)
             {
                 if (!isResolvedByWorkspace(diagnostic, text)) allDiagnostics.Add(diagnostic);
             }
-            allDiagnostics.AddRange(typeCheckResult.Diagnostics);
+            allDiagnostics.AddRange(snapshot.TypeCheckResult.Diagnostics);
             allDiagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
             int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue
@@ -196,7 +273,7 @@ namespace DDF___Program_Language_Editor
             int delimiterFormatStart = activeDelimiterMatch == null
                 ? int.MaxValue
                 : Math.Min(activeDelimiterMatch.OpenStart, activeDelimiterMatch.CloseStart);
-            int formatStart = Math.Min(update.RelexStart, Math.Min(diagnosticsFormatStart, Math.Min(currentDiagnosticStart, delimiterFormatStart)));
+            int formatStart = Math.Min(changedStart, Math.Min(diagnosticsFormatStart, Math.Min(currentDiagnosticStart, delimiterFormatStart)));
             formatStart = Math.Min(formatStart, text.Length);
             diagnosticsFormatStart = currentDiagnosticStart;
             activeDelimiterMatch = null;
@@ -211,7 +288,7 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.SelectionBackColor = richTextBoxMainEditor.BackColor;
                     RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxMainEditor);
 
-                    foreach (DdfToken token in update.Result.Tokens)
+                    foreach (DdfToken token in snapshot.LexResult.Tokens)
                     {
                         if (token.End <= formatStart)
                         {
@@ -252,14 +329,69 @@ namespace DDF___Program_Language_Editor
             }
 
             updateDiagnostics(allDiagnostics);
-            updateOutline(DdfSymbolIndex.Create(parseResult.Root).Symbols);
-            lastLexResult = update.Result;
+            updateOutline(snapshot.Symbols);
+            lastLexResult = snapshot.LexResult;
             lastAnalyzedText = text;
-            lastParseResult = parseResult;
-            lastSemanticModel = semanticModel;
-            lastTypeCheckResult = typeCheckResult;
-            updateFoldingRanges(DdfFoldingRangeProvider.Create(parseResult.Root, text));
+            lastParseResult = snapshot.ParseResult;
+            lastSemanticModel = snapshot.SemanticModel;
+            lastTypeCheckResult = snapshot.TypeCheckResult;
+            updateFoldingRanges(snapshot.FoldingRanges);
+            analysisAppliedVersion = version;
             refreshDelimiterHighlight();
+        }
+
+        private void cancelBackgroundAnalysis()
+        {
+            analysisCancellation?.Cancel();
+        }
+
+        private void postEditorCallback(Action callback)
+        {
+            if (callback == null || IsDisposed || Disposing || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke(callback);
+            }
+            catch (InvalidOperationException)
+            {
+                // The form handle was destroyed while the background request completed.
+            }
+        }
+
+        private static int findChangedLineStart(string previousText, string currentText)
+        {
+            previousText = previousText ?? string.Empty;
+            currentText = currentText ?? string.Empty;
+            int limit = Math.Min(previousText.Length, currentText.Length);
+            int position = 0;
+            while (position < limit && previousText[position] == currentText[position]) position++;
+            if (position >= currentText.Length) return currentText.Length;
+            int lineBreak = position == 0 ? -1 : currentText.LastIndexOf('\n', position - 1);
+            return lineBreak + 1;
+        }
+
+        private sealed class EditorAnalysisSnapshot
+        {
+            public EditorAnalysisSnapshot(string text, DdfLexResult lexResult, DdfParseResult parseResult,
+                DdfSemanticModel semanticModel, DdfTypeCheckResult typeCheckResult,
+                IReadOnlyList<DdfDocumentSymbol> symbols, IReadOnlyList<DdfFoldingRange> foldingRanges)
+            {
+                Text = text;
+                LexResult = lexResult;
+                ParseResult = parseResult;
+                SemanticModel = semanticModel;
+                TypeCheckResult = typeCheckResult;
+                Symbols = symbols;
+                FoldingRanges = foldingRanges;
+            }
+
+            public string Text { get; }
+            public DdfLexResult LexResult { get; }
+            public DdfParseResult ParseResult { get; }
+            public DdfSemanticModel SemanticModel { get; }
+            public DdfTypeCheckResult TypeCheckResult { get; }
+            public IReadOnlyList<DdfDocumentSymbol> Symbols { get; }
+            public IReadOnlyList<DdfFoldingRange> FoldingRanges { get; }
         }
 
         private void updateOutline(IReadOnlyList<DdfDocumentSymbol> symbols)

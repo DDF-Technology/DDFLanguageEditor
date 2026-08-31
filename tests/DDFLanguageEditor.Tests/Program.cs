@@ -116,6 +116,7 @@ namespace DDFLanguageEditor.Tests
             Run("creates a multi-range fold projection", CreatesMultiRangeFoldProjection);
             Run("completes catalog keywords by prefix", CompletesCatalogKeywordsByPrefix);
             Run("suppresses completion in comments and strings", SuppressesCompletionInProtectedTokens);
+            Run("cancels obsolete completion work", CancelsObsoleteCompletionWork);
             Run("offers only visible local symbols", OffersOnlyVisibleLocalSymbols);
             Run("completes known library names", CompletesKnownLibraryNames);
             Run("drives completion from an alternative catalog", DrivesCompletionFromAlternativeCatalog);
@@ -1404,6 +1405,18 @@ namespace DDFLanguageEditor.Tests
             Equal(0, DdfCompletionService.GetCompletions("// wh", 5).Items.Count);
             Equal(0, DdfCompletionService.GetCompletions("\"wh\"", 3).Items.Count);
             Equal(0, DdfCompletionService.GetCompletions("// @@'Con", 9).Items.Count);
+        }
+
+        private static void CancelsObsoleteCompletionWork()
+        {
+            using (var cancellation = new CancellationTokenSource())
+            {
+                cancellation.Cancel();
+                Throws<OperationCanceledException>(() => DdfCompletionService.GetCompletions(
+                    "main() out int { ret 0; }",
+                    4,
+                    cancellationToken: cancellation.Token));
+            }
         }
 
         private static void OffersOnlyVisibleLocalSymbols()

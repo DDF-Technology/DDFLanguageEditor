@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.2.10 - 2026-08-31
+
+- move lexical, syntactic, semantic and type analysis off the WinForms UI thread;
+- version every analysis request, cancel superseded work and apply results only when source and request still match;
+- compute completion asynchronously and prevent stale or explicitly dismissed popup results from reappearing;
+- marshal every completed snapshot back to the editor thread before touching WinForms controls;
+- document the ambiguity limit of brace quick fixes when the remaining source is still grammatically valid;
+- extend the dynamic smoke with rapid-edit analysis and stale-completion scenarios;
+
 ## 0.9.2.9 - 2026-08-31
 
 - attach the owning syntax context to missing-delimiter diagnostics;

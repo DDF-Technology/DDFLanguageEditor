@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.2.9 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.2.10 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -41,6 +41,7 @@ evidenziazione delle regole note e indentazione assistita.
 - diagnostiche inline ondulate con messaggio completo al passaggio del mouse, senza alterare testo, colori o Undo;
 - correzioni rapide estensibili da menu contestuale, `Ctrl+.` e toolbar per costrutti non terminati, caratteri non validi e token mancanti;
 - ripristino strutturale delle graffe nel blocco corretto, con indentazione coerente e recovery dei blocchi annidati;
+- analisi e completamento in background con richieste versionate e risultati obsoleti scartati;
 - numerazione delle righe visibili in un gutter non selezionabile;
 - Outline e Diagnostica pinnabili oppure richiudibili automaticamente;
 - conversione di Tab in quattro spazi;
@@ -56,8 +57,11 @@ evidenziazione delle regole note e indentazione assistita.
 
 - nessun compilatore, esecuzione passo-passo, ispezione variabili o runtime multi-file;
 - nessun overload, generico, conversione personalizzata o sistema di build/progetto;
-- la ri-lessicalizzazione riutilizza il prefisso invariato ma analizza ancora
-  dalla zona modificata fino alla fine del documento;
+- l'analisi in background mantiene reattiva l'interfaccia ma rielabora ancora
+  l'intero documento; non è ancora ottimizzata per sorgenti molto grandi;
+- una correzione rapida può ricostruire solo errori diagnosticabili: se la rimozione
+  di una graffa produce comunque una forma sintatticamente valida, l'intento originale
+  è ambiguo e il blocco va controllato manualmente;
 - la grammatica 0.4 copre un sottoinsieme sperimentale e può ancora cambiare;
 - la vista compressa mostra più blocchi contemporaneamente in sola lettura, mantenendo i
   colori dei token visibili e i numeri di riga originali; `⋯` indica le righe
@@ -148,7 +152,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.2.9 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.2.10 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

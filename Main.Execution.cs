@@ -53,7 +53,7 @@ namespace DDF___Program_Language_Editor
             runtimeDocumentId = openDocuments.ActiveDocument.Id;
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.9.2.9 Beta — avvio di main()");
+            appendOutput("DDF 0.9.2.10 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             debuggerSession = new DdfDebuggerSession { Paused = onDebuggerPaused };

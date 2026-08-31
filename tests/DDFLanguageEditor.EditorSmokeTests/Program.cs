@@ -92,7 +92,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertWholeLibraryCutIsClean(editor, diagnostics);
                 AssertUndoRestoresLibrary(editor);
                 AssertPartialLibraryCutIsRecoverable(editor, diagnostics);
-                AssertRapidTransientEditsAreRecoverable(editor);
+                AssertRapidTransientEditsAreRecoverable(form, editor);
                 AssertContextualCompletion(form, editor);
                 AssertNavigableSnippets(form, editor);
                 AssertSignatureHelp(form, editor);
@@ -234,7 +234,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.9") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.10") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -371,6 +371,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 editor.Text = string.Empty;
                 editor.Select(0, 0);
                 FindMenuItem(form, "completionMenuItem").PerformClick();
+                PumpMessages(180);
                 ListBox completion = FindControl<ListBox>(form, "completionListBox");
                 Require(completion.Visible && completion.Items.Count > 0,
                     "Il comando Completamento non ha mostrato i suggerimenti.");
@@ -864,7 +865,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Console.WriteLine("PASS taglio parziale recuperabile; diagnostiche attese=" + diagnostics.Items.Count);
         }
 
-        private static void AssertRapidTransientEditsAreRecoverable(RichTextBox editor)
+        private static void AssertRapidTransientEditsAreRecoverable(MainForm form, RichTextBox editor)
         {
             for (int index = 0; index < 80; index++)
             {
@@ -883,7 +884,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(220);
             Require(editor.SelectionStart >= 0 && editor.SelectionStart <= editor.TextLength,
                 "Il caret è uscito dai limiti durante le modifiche rapide.");
-            Console.WriteLine("PASS 80 modifiche transitorie rapide");
+            Require(GetPrivateField<string>(form, "lastAnalyzedText") == editor.Text,
+                "L'analisi in background ha applicato uno snapshot precedente al testo corrente.");
+            Require(Convert.ToInt64(GetPrivateField<object>(form, "analysisAppliedVersion")) ==
+                    Convert.ToInt64(GetPrivateField<object>(form, "analysisRequestVersion")),
+                "L'ultima analisi in background non ha sostituito le richieste obsolete.");
+            Console.WriteLine("PASS 80 modifiche transitorie rapide con snapshot obsoleti scartati");
         }
 
         private static void AssertContextualCompletion(MainForm form, RichTextBox editor)
@@ -919,6 +925,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Select(typedSource.IndexOf("ret  ", StringComparison.Ordinal) + 5, 0);
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
                 new KeyEventArgs(Keys.Control | Keys.Space));
+            PumpMessages(180);
             DdfCompletionResult typedResult = GetPrivateField<DdfCompletionResult>(form, "activeCompletionResult");
             Require(typedResult != null && typedResult.ExpectedType == "string" &&
                     typedResult.Context == DdfCompletionContextKind.Expression,
@@ -932,10 +939,23 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Text = string.Empty;
             editor.Select(0, 0);
             FindToolbarButton(form, "toolbarCompletionButton").PerformClick();
+            PumpMessages(180);
             Require(completion.Visible && completion.Items.Count > 0,
                 "La icon bar non ha mostrato l'elenco completo.");
             InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor, new KeyEventArgs(Keys.Escape));
             Require(!completion.Visible, "Esc non ha chiuso il completamento.");
+
+            editor.Text = "wh";
+            editor.Select(editor.TextLength, 0);
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
+                new KeyEventArgs(Keys.Control | Keys.Space));
+            editor.Text = "\"inside\"";
+            editor.Select(4, 0);
+            InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
+                new KeyEventArgs(Keys.Control | Keys.Space));
+            PumpMessages(220);
+            Require(!completion.Visible && GetPrivateField<DdfCompletionResult>(form, "activeCompletionResult") == null,
+                "Un completamento calcolato su uno snapshot obsoleto è rimasto visibile.");
             Console.WriteLine("PASS completamento contestuale con Tab, Undo, Ctrl+Spazio ed Esc");
         }
 
@@ -1373,6 +1393,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 editor.Select(helperReference + 3, 0);
                 InvokeHandler(form, "richTextBoxMainEditor_KeyDown", editor,
                     new KeyEventArgs(Keys.Control | Keys.Space));
+                PumpMessages(180);
                 ListBox completion = FindControl<ListBox>(form, "completionListBox");
                 DdfCompletionItem workspaceHelper = completion.Items.Cast<DdfCompletionItem>()
                     .SingleOrDefault(item => item.DisplayText == "helper");

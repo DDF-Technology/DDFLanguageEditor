@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace DDFLanguageEditor.Core
 {
@@ -152,13 +153,16 @@ namespace DDFLanguageEditor.Core
             DdfLanguageDefinition language = null,
             IEnumerable<DdfDocumentSymbol> externalSymbols = null,
             IEnumerable<DdfCompletionItem> externalItems = null,
-            IEnumerable<CompilationUnitSyntax> externalRoots = null)
+            IEnumerable<CompilationUnitSyntax> externalRoots = null,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             source = source ?? string.Empty;
             if (position < 0 || position > source.Length) throw new ArgumentOutOfRangeException(nameof(position));
             language = language ?? DdfLanguageCatalog.Default;
 
             DdfLexResult lexResult = DdfLexer.Lex(source, language);
+            cancellationToken.ThrowIfCancellationRequested();
             bool libraryContext = TryGetLibraryPrefix(source, position, out int prefixStart) &&
                                   IsLibraryDirectiveAt(lexResult, prefixStart - 3);
             if (!libraryContext)
@@ -174,8 +178,10 @@ namespace DDFLanguageEditor.Core
             }
 
             DdfParseResult parseResult = DdfParser.Parse(source, lexResult, language);
+            cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(source, parseResult.Root);
+            cancellationToken.ThrowIfCancellationRequested();
             string expectedType = libraryContext ? string.Empty :
                 DdfExpectedTypeService.GetExpectedType(source, parseResult.Root, prefixStart, externalRoots);
             DdfCompletionContextKind context = GetContext(source, prefixStart, libraryContext, expectedType, language);
@@ -189,6 +195,7 @@ namespace DDFLanguageEditor.Core
             {
                 foreach (DdfKeywordDefinition keyword in language.Keywords)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     candidates.Add(new DdfCompletionItem(
                         keyword.Text,
                         keyword.Text,
@@ -207,6 +214,7 @@ namespace DDFLanguageEditor.Core
 
                 foreach (DdfSnippetTemplate snippet in DdfSnippetCatalog.Templates)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (snippet.RequiresKeyword && !language.TryGetKeyword(snippet.Prefix, out DdfKeywordDefinition ignored))
                         continue;
                     candidates.Add(new DdfCompletionItem(
@@ -222,6 +230,7 @@ namespace DDFLanguageEditor.Core
 
                 foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     candidates.Add(new DdfCompletionItem(
                         standard.Name,
                         standard.Name,
@@ -233,14 +242,22 @@ namespace DDFLanguageEditor.Core
                 }
 
                 foreach (DdfDocumentSymbol symbol in semanticModel.GetVisibleSymbols(position))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
                     AddSymbol(candidates, symbol, "documento corrente", Math.Abs(position - symbol.SelectionStart));
+                }
                 if (externalSymbols != null)
                 {
-                    foreach (DdfDocumentSymbol symbol in externalSymbols) AddSymbol(candidates, symbol, "workspace", int.MaxValue - 1);
+                    foreach (DdfDocumentSymbol symbol in externalSymbols)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        AddSymbol(candidates, symbol, "workspace", int.MaxValue - 1);
+                    }
                 }
                 if (externalItems != null) candidates.AddRange(externalItems);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             List<DdfCompletionItem> filtered = candidates
                 .Where(item => (item.Kind != DdfCompletionKind.Snippet || context == DdfCompletionContextKind.Statement) &&
                                (includeAll || prefix.Length > 0) &&
@@ -257,6 +274,7 @@ namespace DDFLanguageEditor.Core
                 .ThenBy(item => item.DisplayText, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            cancellationToken.ThrowIfCancellationRequested();
             return new DdfCompletionResult(prefixStart, prefix.Length, filtered.AsReadOnly(), context, expectedType);
         }
 

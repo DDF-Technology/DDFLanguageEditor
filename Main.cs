@@ -37,6 +37,9 @@ namespace DDF___Program_Language_Editor
         private DdfHoverInfo activeHoverInfo;
         private IReadOnlyList<DdfDiagnostic> activeDiagnostics = new List<DdfDiagnostic>();
         private int diagnosticsFormatStart = int.MaxValue;
+        private System.Threading.CancellationTokenSource analysisCancellation;
+        private long analysisRequestVersion;
+        private long analysisAppliedVersion;
         private bool isApplyingHighlighting;
         private bool isUpdatingDelimiterHighlight;
         private bool isMouseSelecting;
@@ -109,6 +112,7 @@ namespace DDF___Program_Language_Editor
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             stopExecution();
+            cancelBackgroundAnalysis();
             highlightTimer.Stop();
             delimiterHighlightTimer.Stop();
             disposeCompletion();
@@ -117,6 +121,8 @@ namespace DDF___Program_Language_Editor
             symbolToolTip.Dispose();
             highlightTimer.Dispose();
             delimiterHighlightTimer.Dispose();
+            analysisCancellation?.Dispose();
+            analysisCancellation = null;
             base.OnFormClosed(e);
         }
 
@@ -412,7 +418,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.2.9 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.2.10 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

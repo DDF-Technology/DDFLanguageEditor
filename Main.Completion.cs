@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
 
@@ -8,9 +11,12 @@ namespace DDF___Program_Language_Editor
     public partial class MainForm
     {
         private ListBox completionListBox;
-        private Timer completionTimer;
+        private System.Windows.Forms.Timer completionTimer;
         private DdfCompletionResult activeCompletionResult;
         private bool isApplyingCompletion;
+        private CancellationTokenSource completionCancellation;
+        private long completionRequestVersion;
+        private long completionAppliedVersion;
 
         private void initializeCompletion()
         {
@@ -33,7 +39,7 @@ namespace DDF___Program_Language_Editor
             panelEditor.Controls.Add(completionListBox);
             completionListBox.BringToFront();
 
-            completionTimer = new Timer { Interval = 90 };
+            completionTimer = new System.Windows.Forms.Timer { Interval = 90 };
             completionTimer.Tick += (sender, args) =>
             {
                 completionTimer.Stop();
@@ -96,6 +102,7 @@ namespace DDF___Program_Language_Editor
 
         private void disposeCompletion()
         {
+            cancelPendingCompletion();
             if (completionTimer == null) return;
             completionTimer.Stop();
             completionTimer.Dispose();
@@ -116,8 +123,9 @@ namespace DDF___Program_Language_Editor
             completionTimer.Start();
         }
 
-        private void showCompletion(bool includeAll)
+        private async void showCompletion(bool includeAll)
         {
+            completionTimer?.Stop();
             if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed ||
                 richTextBoxFoldedView.Visible || richTextBoxMainEditor.SelectionLength > 0)
             {
@@ -125,18 +133,60 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            DdfCompletionResult result = DdfCompletionService.GetCompletions(
-                richTextBoxMainEditor.Text,
-                richTextBoxMainEditor.SelectionStart,
-                includeAll,
-                externalItems: getWorkspaceCompletionItems(),
-                externalRoots: getWorkspaceTypeRoots());
+            string source = richTextBoxMainEditor.Text;
+            int position = richTextBoxMainEditor.SelectionStart;
+            IReadOnlyList<DdfCompletionItem> externalItems = getWorkspaceCompletionItems();
+            IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
+            long version = ++completionRequestVersion;
+            cancelPendingCompletion();
+            var cancellation = new CancellationTokenSource();
+            completionCancellation = cancellation;
+            DdfCompletionResult result;
+            try
+            {
+                result = await Task.Run(() =>
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    DdfCompletionResult computed = DdfCompletionService.GetCompletions(
+                        source,
+                        position,
+                        includeAll,
+                        externalItems: externalItems,
+                        externalRoots: externalRoots,
+                        cancellationToken: cancellation.Token);
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    return computed;
+                }, cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            finally
+            {
+                if (ReferenceEquals(completionCancellation, cancellation)) completionCancellation = null;
+                cancellation.Dispose();
+            }
+
+            if (version != completionRequestVersion) return;
+            postEditorCallback(() => applyCompletionSnapshot(source, position, version, result));
+        }
+
+        private void applyCompletionSnapshot(string source, int position, long version, DdfCompletionResult result)
+        {
+            if (version != completionRequestVersion || IsDisposed || Disposing ||
+                richTextBoxMainEditor.IsDisposed || richTextBoxFoldedView.Visible ||
+                richTextBoxMainEditor.SelectionLength > 0 ||
+                richTextBoxMainEditor.SelectionStart != position ||
+                !string.Equals(source, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
+
             if (result.Items.Count == 0)
             {
                 hideCompletion();
                 return;
             }
 
+            completionAppliedVersion = version;
             activeCompletionResult = result;
             completionListBox.BeginUpdate();
             try
@@ -255,8 +305,15 @@ namespace DDF___Program_Language_Editor
         private void hideCompletion()
         {
             if (completionTimer != null) completionTimer.Stop();
+            completionRequestVersion++;
+            cancelPendingCompletion();
             if (completionListBox != null) completionListBox.Visible = false;
             activeCompletionResult = null;
+        }
+
+        private void cancelPendingCompletion()
+        {
+            completionCancellation?.Cancel();
         }
 
         private void hideCompletionIfCaretMoved()

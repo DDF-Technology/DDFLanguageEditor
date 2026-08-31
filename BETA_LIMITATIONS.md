@@ -1,4 +1,4 @@
-# Beta 0.9.2.9 limitations
+# Beta 0.9.2.10 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -22,6 +22,7 @@ This release is intended for interface and language-design evaluation only.
 - native inline diagnostic waves with full hover messages, without changing source colors, selection or Undo;
 - extensible quick fixes for unterminated constructs, bad characters and parser-expected tokens;
 - structural brace recovery using parser context, nesting and source indentation;
+- background analysis and completion with cancellation and rejection of obsolete snapshots;
 - idempotent whole-document formatting with readable blank-line separation, caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;
@@ -45,7 +46,7 @@ This release is intended for interface and language-design evaluation only.
 
 ## Not implemented
 
-- automatic recovery, snapshots or concurrent-edit conflict detection;
+- crash recovery or concurrent-edit conflict detection;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - compiler, bytecode VM, native runtime or full debugger;
 - complete standard library, non-interactive input streams or step-by-step execution;
@@ -63,6 +64,11 @@ but does not define imports, dependencies or compilation units.
 
 Formatting follows the implemented parser subset and intentionally does not
 repair invalid syntax or apply semantic style rules.
+
+Quick fixes only act on diagnostics the parser can identify unambiguously. If
+removing a brace leaves a different but still valid single-statement construct,
+there is no certain error location or original block intent to reconstruct; the
+result must be reviewed manually instead of applying a speculative edit.
 
 The first interpreter executes only the current document through `main`. It is
 bounded to 100,000 syntax-node instructions per run and does not yet load
