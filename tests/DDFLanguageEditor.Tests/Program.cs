@@ -82,6 +82,7 @@ namespace DDFLanguageEditor.Tests
             Run("completes symbols from another workspace document", CompletesSymbolsFromAnotherWorkspaceDocument);
             Run("searches text across workspace documents", SearchesTextAcrossWorkspaceDocuments);
             Run("searches nested workspace symbols", SearchesNestedWorkspaceSymbols);
+            Run("creates selective workspace replacement changes", CreatesSelectiveWorkspaceReplacementChanges);
             Run("accepts semantically valid typed code", AcceptsSemanticallyValidTypedCode);
             Run("reports incompatible initializers and assignments", ReportsIncompatibleInitializersAndAssignments);
             Run("reports invalid typed operators and conditions", ReportsInvalidTypedOperatorsAndConditions);
@@ -1136,6 +1137,23 @@ namespace DDFLanguageEditor.Tests
                 Throws<OperationCanceledException>(() => DdfWorkspaceSearchService.Search(
                     documents, "value", DdfWorkspaceSearchKind.Symbol, cancellationToken: cancellation.Token));
             }
+        }
+
+        private static void CreatesSelectiveWorkspaceReplacementChanges()
+        {
+            var documents = new[]
+            {
+                new DdfWorkspaceSearchDocument("one", "one.ddf", "one.ddf", "alpha alpha"),
+                new DdfWorkspaceSearchDocument("two", "two.ddf", "two.ddf", "alpha")
+            };
+            IReadOnlyList<DdfWorkspaceSearchResult> matches = DdfWorkspaceSearchService.Search(
+                documents, "alpha", DdfWorkspaceSearchKind.Text);
+            IReadOnlyList<DdfWorkspaceReplacementChange> changes = DdfWorkspaceSearchService.CreateReplacementChanges(
+                new[] { matches[1], matches[2] }, "beta");
+            Equal(2, changes.Count);
+            Equal("alpha beta", changes.Single(change => change.Document.Id == "one").UpdatedSource);
+            Equal("beta", changes.Single(change => change.Document.Id == "two").UpdatedSource);
+            Equal("alpha alpha  →  alpha beta", DdfWorkspaceSearchService.CreateReplacementPreview(matches[1], "beta"));
         }
 
         private static void AcceptsSemanticallyValidTypedCode()

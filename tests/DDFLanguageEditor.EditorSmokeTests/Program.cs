@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 40 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 41 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -178,6 +178,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "findMenuItem", Keys.Control | Keys.F },
                     { "replaceMenuItem", Keys.Control | Keys.H },
                     { "workspaceSearchMenuItem", Keys.Control | Keys.Alt | Keys.F },
+                    { "workspaceReplaceMenuItem", Keys.Control | Keys.Alt | Keys.H },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
                     { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
@@ -199,7 +200,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "duplicateLinesMenuItem", "moveLinesUpMenuItem", "moveLinesDownMenuItem", "deleteLinesMenuItem",
                     "expandSelectionMenuItem", "shrinkSelectionMenuItem", "matchingDelimiterMenuItem",
                     "selectNextOccurrenceMenuItem", "selectAllOccurrencesMenuItem",
-                    "findMenuItem", "replaceMenuItem", "workspaceSearchMenuItem", "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
+                    "findMenuItem", "replaceMenuItem", "workspaceSearchMenuItem", "workspaceReplaceMenuItem", "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
                 };
@@ -218,7 +219,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 36 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 37 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -235,7 +236,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.2") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1460,6 +1461,38 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(searchResults.Items.Count == 1 && searchResults.Items[0].SubItems[2].Text == "funzione",
                     "La ricerca simboli workspace non restituisce la dichiarazione tipizzata.");
 
+                string sourceBeforeReplacement = editor.Text;
+                FindMenuItem(form, "workspaceReplaceMenuItem").PerformClick();
+                TextBox replacementText = FindControl<TextBox>(form, "workspaceReplacementTextBox");
+                Button previewButton = FindControl<Button>(form, "workspaceReplacementPreviewButton");
+                Button applyButton = FindControl<Button>(form, "workspaceReplacementApplyButton");
+                searchText.Text = "helper";
+                replacementText.Text = "renamed";
+                previewButton.PerformClick();
+                PumpMessages(280);
+                Require(searchResults.CheckBoxes && searchResults.Items.Count == 2 &&
+                        searchResults.Items.Cast<ListViewItem>().All(item => item.Checked) &&
+                        searchResults.Items.Cast<ListViewItem>().All(item => item.SubItems[3].Text.Contains("→")),
+                    "L'anteprima di sostituzione non mostra le occorrenze selezionabili e il testo aggiornato.");
+                foreach (ListViewItem item in searchResults.Items)
+                    item.Checked = item.Text.IndexOf("helpers.ddf", StringComparison.OrdinalIgnoreCase) >= 0;
+                PumpMessages(80);
+                Require(applyButton.Enabled && searchResults.CheckedItems.Count == 1,
+                    "La selezione delle singole sostituzioni non aggiorna il comando Applica.");
+                applyButton.PerformClick();
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                OpenDocumentCollection replacementDocuments = GetPrivateField<OpenDocumentCollection>(form, "openDocuments");
+                Require(editor.Text.StartsWith("renamed()", StringComparison.Ordinal) && editor.Text.Contains("unsaved-workspace-marker"),
+                    "La sostituzione selettiva non ha modificato soltanto il buffer scelto.");
+                Require(replacementDocuments.FindByPath(helperPath).Session.IsDirty &&
+                        replacementDocuments.FindByPath(mainPath).Source.Contains("helper()") &&
+                        !replacementDocuments.FindByPath(mainPath).Source.Contains("renamed()"),
+                    "La sostituzione ha salvato automaticamente o modificato un'occorrenza esclusa.");
+                Require(editor.CanUndo, "La sostituzione workspace non è annullabile nel documento modificato.");
+                editor.Undo();
+                Require(editor.Text == sourceBeforeReplacement,
+                    "Un singolo Undo non ha ripristinato lo snapshot precedente alla sostituzione workspace.");
+
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
                 Require(workspaceTree.Nodes.Count == 0 && !FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
                     "Chiudi cartella non ha svuotato lo stato workspace.");
@@ -1723,7 +1756,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarDuplicateLinesButton", "toolbarMoveLinesUpButton", "toolbarMoveLinesDownButton", "toolbarDeleteLinesButton",
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
-                "toolbarFindButton", "toolbarWorkspaceSearchButton",
+                "toolbarFindButton", "toolbarWorkspaceSearchButton", "toolbarWorkspaceReplaceButton",
                 "toolbarCompletionButton",
                 "toolbarQuickFixButton",
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
@@ -1753,7 +1786,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 29 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 30 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)

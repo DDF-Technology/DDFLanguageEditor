@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.3.2 - 2026-08-31
+
+- add workspace-wide replacement through `Ctrl+Alt+H`, the Edit menu and a thirtieth toolbar icon;
+- require a fresh preview and allow every text occurrence to be selected independently;
+- reject the whole operation when any involved disk file or unsaved buffer changed after preview;
+- apply replacements only to open dirty buffers, never save automatically, and preserve one Undo action per modified document;
+- cover selective multi-file transformations in Core and exercise preview, application and Undo in the WinForms smoke;
+
 ## 0.9.3.1 - 2026-08-31
 
 - add a horizontal drag splitter between the code editor and the bottom palette;

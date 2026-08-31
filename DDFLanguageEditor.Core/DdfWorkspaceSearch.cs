@@ -53,6 +53,20 @@ namespace DDFLanguageEditor.Core
         public DdfSymbolKind? SymbolKind { get; }
     }
 
+    public sealed class DdfWorkspaceReplacementChange
+    {
+        internal DdfWorkspaceReplacementChange(DdfWorkspaceSearchDocument document, string updatedSource, int replacementCount)
+        {
+            Document = document;
+            UpdatedSource = updatedSource;
+            ReplacementCount = replacementCount;
+        }
+
+        public DdfWorkspaceSearchDocument Document { get; }
+        public string UpdatedSource { get; }
+        public int ReplacementCount { get; }
+    }
+
     public static class DdfWorkspaceSearchService
     {
         public static IReadOnlyList<DdfWorkspaceSearchResult> Search(
@@ -156,6 +170,63 @@ namespace DDFLanguageEditor.Core
                 else high = middle - 1;
             }
             return Math.Max(0, high);
+        }
+
+        public static IReadOnlyList<DdfWorkspaceReplacementChange> CreateReplacementChanges(
+            IEnumerable<DdfWorkspaceSearchResult> selectedResults,
+            string replacement,
+            CancellationToken cancellationToken = default)
+        {
+            if (selectedResults == null) throw new ArgumentNullException(nameof(selectedResults));
+            replacement = replacement ?? string.Empty;
+            var changes = new List<DdfWorkspaceReplacementChange>();
+            foreach (IGrouping<string, DdfWorkspaceSearchResult> group in selectedResults.GroupBy(
+                result => result.Document.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                List<DdfWorkspaceSearchResult> results = group.OrderBy(result => result.Start).ToList();
+                if (results.Count == 0) continue;
+                DdfWorkspaceSearchDocument document = results[0].Document;
+                int previousEnd = -1;
+                foreach (DdfWorkspaceSearchResult result in results)
+                {
+                    if (result.Kind != DdfWorkspaceSearchKind.Text ||
+                        !string.Equals(result.Document.Id, document.Id, StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(result.Document.Source, document.Source, StringComparison.Ordinal))
+                        throw new ArgumentException("I risultati selezionati non appartengono allo stesso snapshot testuale.", nameof(selectedResults));
+                    if (result.Start < previousEnd || result.Start < 0 || result.Length < 0 ||
+                        result.Start + result.Length > document.Source.Length)
+                        throw new ArgumentException("I risultati selezionati contengono intervalli sovrapposti o non validi.", nameof(selectedResults));
+                    previousEnd = result.Start + result.Length;
+                }
+
+                var builder = new System.Text.StringBuilder(document.Source.Length);
+                int sourcePosition = 0;
+                foreach (DdfWorkspaceSearchResult result in results)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    builder.Append(document.Source, sourcePosition, result.Start - sourcePosition);
+                    builder.Append(replacement);
+                    sourcePosition = result.Start + result.Length;
+                }
+                builder.Append(document.Source, sourcePosition, document.Source.Length - sourcePosition);
+                changes.Add(new DdfWorkspaceReplacementChange(document, builder.ToString(), results.Count));
+            }
+            return changes.AsReadOnly();
+        }
+
+        public static string CreateReplacementPreview(DdfWorkspaceSearchResult result, string replacement)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            replacement = replacement ?? string.Empty;
+            string source = result.Document.Source;
+            int lineStart = result.Start == 0 ? 0 : source.LastIndexOf('\n', result.Start - 1) + 1;
+            int lineEnd = source.IndexOf('\n', result.Start);
+            if (lineEnd < 0) lineEnd = source.Length;
+            string original = source.Substring(lineStart, lineEnd - lineStart).TrimEnd('\r').Trim();
+            string updated = source.Substring(lineStart, result.Start - lineStart) + replacement +
+                             source.Substring(result.Start + result.Length, lineEnd - result.Start - result.Length);
+            return original + "  →  " + updated.TrimEnd('\r').Trim();
         }
     }
 }

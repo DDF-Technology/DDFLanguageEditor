@@ -1,4 +1,4 @@
-# Beta 0.9.3.1 limitations
+# Beta 0.9.3.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 

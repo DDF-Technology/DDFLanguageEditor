@@ -47,7 +47,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.0.1` | Editing multidocumento e breakpoint per file | Completata |
 | `0.9.1` | Comodità e gesti di scrittura | Completata (`0.9.1.0`–`0.9.1.3`) |
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
-| `0.9.3` | Ricerca e navigazione del workspace | In corso (`0.9.3.1` completata) |
+| `0.9.3` | Ricerca e navigazione del workspace | In corso (`0.9.3.2` completata) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Pianificata |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
@@ -373,7 +373,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 - [x] Cercare testo e simboli in tutti i buffer e file del workspace, privilegiando le modifiche non salvate e navigando dai risultati (`0.9.3.0`).
 - [x] Rendere ridimensionabile verticalmente la palette inferiore e conservarne l'altezza attraverso pin e auto-hide (`0.9.3.1`).
-- [ ] Sostituire nel workspace con anteprima selettiva e singola operazione annullabile per documento.
+- [x] Sostituire nel workspace con anteprima selettiva e singola operazione annullabile per documento (`0.9.3.2`).
 - [ ] Aggiungere Vai a file, simbolo, riferimento, riga e ultima modifica.
 - [ ] Introdurre cronologia di navigazione Indietro/Avanti tra file e posizioni.
 - [ ] Mostrare breadcrumb di file, funzione, struttura e blocco corrente.

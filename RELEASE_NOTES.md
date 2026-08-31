@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.3.1
+# DDFLanguageEditor 0.9.3.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.2 adds selective workspace replacement. `Ctrl+Alt+H`, the Edit
+menu and the toolbar open a mandatory preview where individual text matches can
+be included or excluded. Before applying anything, every source snapshot is
+validated again; one conflict cancels the complete operation. Changed files are
+opened as dirty buffers and are never saved automatically. Each modified
+document is restored by one Undo action.
 
 Version 0.9.3.1 adds a horizontal splitter above the bottom palette. Dragging it
 resizes Diagnostics, Output and Search vertically while preserving a usable
