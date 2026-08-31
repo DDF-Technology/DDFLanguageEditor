@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.3.3
+# DDFLanguageEditor 0.9.3.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.4 adds browser-style navigation history. `Alt+Left` and
+`Alt+Right` restore document, position and selection across workspace jumps
+without touching text Undo/Redo or unsaved buffers. Definitions, references,
+search results, quick navigation, Outline, diagnostics, breakpoints and runtime
+targets share the same bounded history. Invalid targets are skipped safely and
+a new jump after Back clears the Forward branch.
 
 Version 0.9.3.3 adds one reusable navigation palette for files (`Ctrl+P`),
 symbols (`Ctrl+Shift+O`), semantic references (`Shift+F12`) and line/column

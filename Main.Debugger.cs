@@ -134,11 +134,15 @@ namespace DDF___Program_Language_Editor
         {
             var item = listBoxBreakpoints.SelectedItem as BreakpointListItem;
             if (item == null || !documentViews.TryGetValue(item.DocumentId, out DocumentView view)) return;
-            activateDocument(view);
-            int index = richTextBoxMainEditor.GetFirstCharIndexFromLine(Math.Max(0, item.Line - 1));
-            richTextBoxMainEditor.Select(Math.Max(0, index), 0);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                activateDocument(view);
+                int index = richTextBoxMainEditor.GetFirstCharIndexFromLine(Math.Max(0, item.Line - 1));
+                richTextBoxMainEditor.Select(Math.Max(0, index), 0);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private sealed class BreakpointListItem

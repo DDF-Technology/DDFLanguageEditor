@@ -45,7 +45,11 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.SelectionStart);
             if (!target.HasValue) return;
             activeDocumentView?.SelectionHistory.Clear();
-            selectSyntacticRange(target.Value, 0);
+            navigateWithHistory(() =>
+            {
+                selectSyntacticRange(target.Value, 0);
+                return true;
+            });
         }
 
         private void selectSyntacticRange(int start, int length)

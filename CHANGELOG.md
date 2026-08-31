@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3.4 - 2026-08-31
+
+- add browser-style Back and Forward navigation across documents, positions and selections;
+- record successful jumps from definitions, references, workspace search, quick navigation, Outline, diagnostics, breakpoints, runtime output, files and matching delimiters;
+- preserve unsaved buffers and text Undo/Redo while restoring navigation locations;
+- reopen available disk documents, skip invalid targets safely and clear Forward history after a new branch;
+- expose `Alt+Left` / `Alt+Right`, two Edit commands and two toolbar icons;
+- verify cross-file Back/Forward, dirty-buffer preservation and forward-branch invalidation in the WinForms smoke;
+
 ## 0.9.3.3 - 2026-08-31
 
 - add one filterable light navigation palette for files, symbols, semantic references and line/column positions;

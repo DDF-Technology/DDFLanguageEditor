@@ -27,10 +27,14 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            leaveFoldedView();
-            richTextBoxMainEditor.Select(occurrence.Symbol.SelectionStart, occurrence.Symbol.SelectionLength);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                leaveFoldedView();
+                richTextBoxMainEditor.Select(occurrence.Symbol.SelectionStart, occurrence.Symbol.SelectionLength);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private void renameSymbolMenuItem_Click(object sender, EventArgs e)

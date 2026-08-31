@@ -53,7 +53,7 @@ namespace DDF___Program_Language_Editor
             runtimeDocumentId = openDocuments.ActiveDocument.Id;
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.9.3.3 Beta — avvio di main()");
+            appendOutput("DDF 0.9.3.4 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             debuggerSession = new DdfDebuggerSession { Paused = onDebuggerPaused };
@@ -201,14 +201,18 @@ namespace DDF___Program_Language_Editor
 
         private void navigateToRuntimeSpan(int start, int length)
         {
-            if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
-                activateDocument(runtimeView);
-            leaveFoldedView();
-            int safeStart = Math.Min(Math.Max(0, start), richTextBoxMainEditor.TextLength);
-            int safeLength = Math.Min(Math.Max(1, length), richTextBoxMainEditor.TextLength - safeStart);
-            richTextBoxMainEditor.Select(safeStart, safeLength);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
+                    activateDocument(runtimeView);
+                leaveFoldedView();
+                int safeStart = Math.Min(Math.Max(0, start), richTextBoxMainEditor.TextLength);
+                int safeLength = Math.Min(Math.Max(1, length), richTextBoxMainEditor.TextLength - safeStart);
+                richTextBoxMainEditor.Select(safeStart, safeLength);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private void stopExecution()

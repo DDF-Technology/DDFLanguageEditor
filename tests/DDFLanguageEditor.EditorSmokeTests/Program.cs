@@ -44,7 +44,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 46 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 48 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -185,6 +185,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "findReferencesMenuItem", Keys.Shift | Keys.F12 },
                     { "goToLineMenuItem", Keys.Control | Keys.G },
                     { "goToLastEditMenuItem", Keys.Control | Keys.Shift | Keys.Back },
+                    { "navigateBackMenuItem", Keys.Alt | Keys.Left },
+                    { "navigateForwardMenuItem", Keys.Alt | Keys.Right },
                     { "completionMenuItem", Keys.Control | Keys.Space },
                     { "formatDocumentMenuItem", Keys.Control | Keys.Shift | Keys.F },
                     { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
@@ -208,6 +210,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "selectNextOccurrenceMenuItem", "selectAllOccurrencesMenuItem",
                     "findMenuItem", "replaceMenuItem", "workspaceSearchMenuItem", "workspaceReplaceMenuItem",
                     "goToFileMenuItem", "goToSymbolMenuItem", "findReferencesMenuItem", "goToLineMenuItem", "goToLastEditMenuItem",
+                    "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem"
@@ -227,7 +230,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 42 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 44 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -244,7 +247,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.4") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -280,7 +283,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 editor.Select(0, 5);
                 FindMenuItem(form, "copyMenuItem").Enabled = false;
                 InvokeProcessCmdKey(form, Keys.Control | Keys.C);
-                Require(GetClipboardTextWithRetry() == "alpha",
+                Require(ClipboardTextEqualsWithRetry("alpha"),
                     "Ctrl+C dipende ancora dallo stato obsoleto della voce di menu.");
                 FindMenuItem(form, "cutMenuItem").Enabled = false;
                 InvokeProcessCmdKey(form, Keys.Control | Keys.X);
@@ -305,7 +308,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(FindMenuItem(form, "pasteMenuItem").Enabled, "Incolla non è abilitato con testo negli appunti.");
 
                 FindMenuItem(form, "copyMenuItem").PerformClick();
-                Require(GetClipboardTextWithRetry() == "alpha", "Copia non ha trasferito la selezione negli appunti.");
+                Require(ClipboardTextEqualsWithRetry("alpha"), "Copia non ha trasferito la selezione negli appunti.");
                 FindMenuItem(form, "cutMenuItem").PerformClick();
                 Require(editor.Text == " beta alpha", "Taglia non ha rimosso la selezione.");
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
@@ -572,14 +575,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
         }
 
-        private static string GetClipboardTextWithRetry()
+        private static bool ClipboardTextEqualsWithRetry(string expected)
         {
             for (int attempt = 0; attempt < 10; attempt++)
             {
                 try
                 {
                     string text = Clipboard.GetText();
-                    if (!string.IsNullOrEmpty(text)) return text;
+                    if (string.Equals(text, expected, StringComparison.Ordinal)) return true;
                 }
                 catch (ExternalException)
                 {
@@ -588,7 +591,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpMessages(20);
             }
 
-            return string.Empty;
+            return false;
         }
 
         private static void SetSource(RichTextBox editor)
@@ -1570,10 +1573,50 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(editor.SelectionStart == lastEditPosition,
                     "Vai all'ultima modifica non ripristina la posizione dell'ultimo edit.");
 
+                string mainSourceWithUnsavedEdit = editor.Text;
+                SetPrivateField(form, "showNavigationDialog", new Func<NavigationForm, DialogResult>(dialog =>
+                {
+                    ListView results = FindControl<ListView>(dialog, "navigationResultsListView");
+                    FindControl<TextBox>(dialog, "navigationQueryTextBox").Text = "helper";
+                    Require(results.Items.Count >= 1, "La cronologia non può preparare il salto cross-file.");
+                    return DialogResult.OK;
+                }));
+                FindMenuItem(form, "goToSymbolMenuItem").PerformClick();
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                Require(editor.SelectedText == "helper" && editor.Text.Contains("library declaration"),
+                    "Il salto usato dalla cronologia non ha raggiunto helpers.ddf.");
+                Require(FindMenuItem(form, "navigateBackMenuItem").Enabled,
+                    "Navigazione indietro non viene abilitata dopo un salto.");
+
+                FindMenuItem(form, "navigateBackMenuItem").PerformClick();
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                Require(editor.Text == mainSourceWithUnsavedEdit && editor.SelectionStart == lastEditPosition && editor.CanUndo,
+                    "Indietro non ripristina file, posizione e buffer non salvato.");
+                Require(FindToolbarButton(form, "toolbarNavigateForwardButton").Enabled,
+                    "Navigazione avanti non viene abilitata dopo Indietro.");
+
+                FindToolbarButton(form, "toolbarNavigateForwardButton").PerformClick();
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                Require(editor.SelectedText == "helper" && editor.Text.Contains("library declaration"),
+                    "Avanti dalla toolbar non ripristina la destinazione cross-file.");
+                FindToolbarButton(form, "toolbarNavigateBackButton").PerformClick();
+                editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                Require(editor.Text == mainSourceWithUnsavedEdit && editor.SelectionStart == lastEditPosition,
+                    "Un secondo Indietro non torna al buffer sorgente.");
+
+                SetPrivateField(form, "showNavigationDialog", new Func<NavigationForm, DialogResult>(dialog =>
+                {
+                    FindControl<TextBox>(dialog, "navigationQueryTextBox").Text = "1:1";
+                    return DialogResult.OK;
+                }));
+                FindMenuItem(form, "goToLineMenuItem").PerformClick();
+                Require(editor.SelectionStart == 0 && !FindMenuItem(form, "navigateForwardMenuItem").Enabled,
+                    "Un nuovo salto dopo Indietro non elimina correttamente la cronologia Avanti.");
+
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
                 Require(workspaceTree.Nodes.Count == 0 && !FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
                     "Chiudi cartella non ha svuotato lo stato workspace.");
-                Console.WriteLine("PASS workspace multi-file, ricerca/sostituzione e navigazione rapida completa");
+                Console.WriteLine("PASS workspace, navigazione rapida e cronologia Indietro/Avanti multi-file");
             }
             finally
             {
@@ -1834,6 +1877,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarExpandSelectionButton", "toolbarShrinkSelectionButton", "toolbarMatchingDelimiterButton",
                 "toolbarSelectNextOccurrenceButton", "toolbarSelectAllOccurrencesButton",
                 "toolbarFindButton", "toolbarWorkspaceSearchButton", "toolbarWorkspaceReplaceButton",
+                "toolbarNavigateBackButton", "toolbarNavigateForwardButton",
                 "toolbarGoToFileButton", "toolbarGoToSymbolButton", "toolbarFindReferencesButton",
                 "toolbarGoToLineButton", "toolbarGoToLastEditButton",
                 "toolbarCompletionButton",
@@ -1865,7 +1909,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 35 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 37 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -1927,7 +1971,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(search.Focused, "La casella di ricerca workspace non riceve il focus.");
 
             Clipboard.SetText("clipboard-before-copy");
-            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.C) && Clipboard.GetText() == "alpha",
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.C) && ClipboardTextEqualsWithRetry("alpha"),
                 "Ctrl+C nella ricerca workspace viene ancora inviato all'editor.");
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.X) && search.Text == " beta",
                 "Ctrl+X non taglia la selezione nella casella di testo focalizzata.");
@@ -1959,6 +2003,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             };
             using (var navigation = new NavigationForm(emptySources, NavigationMode.File, 1, 1, 1, string.Empty))
                 assertTextControlsConfigured(navigation, false);
+            editor.Focus();
+            PumpMessages(40);
+            Require(editor.Focused, "Lo smoke delle caselle di testo non ripristina il focus dell'editor.");
             Console.WriteLine("PASS taglia/copia/incolla/seleziona tutto in tutte le caselle di testo");
         }
 

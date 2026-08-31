@@ -175,7 +175,7 @@ namespace DDF___Program_Language_Editor
             string path = e.Node.Tag as string;
             if (path == null || !File.Exists(path)) return;
             if (!prepareWorkspaceDocumentSwitch(path)) return;
-            openDocument(path);
+            navigateWithHistory(() => openDocument(path));
         }
 
         private void updateWorkspaceDocument(string path, string source)
@@ -247,6 +247,11 @@ namespace DDF___Program_Language_Editor
         private bool navigateToWorkspaceSymbol(DdfWorkspaceSymbol definition)
         {
             if (definition == null) return false;
+            return navigateWithHistory(() => navigateToWorkspaceSymbolCore(definition));
+        }
+
+        private bool navigateToWorkspaceSymbolCore(DdfWorkspaceSymbol definition)
+        {
             if (!string.Equals(documentSession.CurrentPath, definition.Document.Path, StringComparison.OrdinalIgnoreCase))
             {
                 if (!prepareWorkspaceDocumentSwitch(definition.Document.Path) || !openDocument(definition.Document.Path)) return false;

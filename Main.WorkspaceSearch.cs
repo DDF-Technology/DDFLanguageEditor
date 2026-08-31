@@ -568,12 +568,16 @@ namespace DDF___Program_Language_Editor
             if (workspaceSearchResultsListView.SelectedItems.Count == 0) return;
             var result = workspaceSearchResultsListView.SelectedItems[0].Tag as DdfWorkspaceSearchResult;
             if (result == null) return;
+            navigateWithHistory(() => navigateToWorkspaceSearchResultCore(result));
+        }
 
+        private bool navigateToWorkspaceSearchResultCore(DdfWorkspaceSearchResult result)
+        {
             OpenDocumentBuffer openBuffer = openDocuments.Documents.FirstOrDefault(document => document.Id == result.Document.Id);
             if (openBuffer != null)
                 activateDocument(documentViews[openBuffer.Id]);
             else if (!string.IsNullOrEmpty(result.Document.Path) && !openDocument(result.Document.Path))
-                return;
+                return false;
 
             int safeStart = Math.Min(result.Start, richTextBoxMainEditor.TextLength);
             int safeLength = Math.Min(result.Length, richTextBoxMainEditor.TextLength - safeStart);
@@ -582,12 +586,13 @@ namespace DDF___Program_Language_Editor
                     result.Document.Source.Substring(result.Start, result.Length), StringComparison.Ordinal))
             {
                 scheduleWorkspaceSearch();
-                return;
+                return false;
             }
             leaveFoldedView();
             richTextBoxMainEditor.Select(safeStart, safeLength);
             richTextBoxMainEditor.ScrollToCaret();
             richTextBoxMainEditor.Focus();
+            return true;
         }
 
         private void disposeWorkspaceSearch()

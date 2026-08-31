@@ -527,13 +527,16 @@ namespace DDF___Program_Language_Editor
             var symbol = e.Node.Tag as DdfDocumentSymbol;
             if (symbol == null) return;
 
-            leaveFoldedView();
-
-            int start = Math.Min(symbol.SelectionStart, richTextBoxMainEditor.TextLength);
-            int length = Math.Min(symbol.SelectionLength, richTextBoxMainEditor.TextLength - start);
-            richTextBoxMainEditor.Select(start, length);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                leaveFoldedView();
+                int start = Math.Min(symbol.SelectionStart, richTextBoxMainEditor.TextLength);
+                int length = Math.Min(symbol.SelectionLength, richTextBoxMainEditor.TextLength - start);
+                richTextBoxMainEditor.Select(start, length);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private static Color getColor(SyntaxKind kind)
@@ -879,11 +882,15 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            int start = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
-            int length = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - start);
-            richTextBoxMainEditor.Select(start, length);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                int start = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
+                int length = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - start);
+                richTextBoxMainEditor.Select(start, length);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private void updateCaretPosition()

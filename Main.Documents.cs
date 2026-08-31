@@ -342,6 +342,7 @@ namespace DDF___Program_Language_Editor
                 activateDocument(documentViews[openDocuments.ActiveDocument.Id]);
             }
             scheduleWorkspaceSearch();
+            updateNavigationHistoryCommandState();
             return true;
         }
 

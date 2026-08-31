@@ -59,6 +59,7 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Insert(toolbarIndex, toolbarGoToLastEditButton);
 
             showNavigationDialog = dialog => dialog.ShowDialog(this);
+            initializeNavigationHistory();
         }
 
         private static ToolStripMenuItem createNavigationMenuItem(
@@ -128,6 +129,11 @@ namespace DDF___Program_Language_Editor
         private bool navigateToNavigationLocation(DdfWorkspaceNavigationLocation location)
         {
             if (location == null) return false;
+            return navigateWithHistory(() => navigateToNavigationLocationCore(location));
+        }
+
+        private bool navigateToNavigationLocationCore(DdfWorkspaceNavigationLocation location)
+        {
             OpenDocumentBuffer buffer = openDocuments.Documents.FirstOrDefault(document =>
                 string.Equals(document.Id, location.Document.Id, StringComparison.OrdinalIgnoreCase));
             if (buffer != null)
@@ -148,20 +154,28 @@ namespace DDF___Program_Language_Editor
 
         private void navigateToLine(int line, int column)
         {
-            int position = DdfWorkspaceNavigationService.GetPosition(richTextBoxMainEditor.Text, line, column);
-            richTextBoxMainEditor.Select(position, 0);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                int position = DdfWorkspaceNavigationService.GetPosition(richTextBoxMainEditor.Text, line, column);
+                richTextBoxMainEditor.Select(position, 0);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private void goToLastEditMenuItem_Click(object sender, EventArgs e)
         {
             DocumentView view = activeDocumentView;
             if (view?.LastEditPosition == null) return;
-            int position = Math.Min(view.LastEditPosition.Value, richTextBoxMainEditor.TextLength);
-            richTextBoxMainEditor.Select(position, 0);
-            richTextBoxMainEditor.ScrollToCaret();
-            richTextBoxMainEditor.Focus();
+            navigateWithHistory(() =>
+            {
+                int position = Math.Min(view.LastEditPosition.Value, richTextBoxMainEditor.TextLength);
+                richTextBoxMainEditor.Select(position, 0);
+                richTextBoxMainEditor.ScrollToCaret();
+                richTextBoxMainEditor.Focus();
+                return true;
+            });
         }
 
         private bool canFindReferences()
