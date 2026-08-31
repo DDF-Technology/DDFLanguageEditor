@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.3.4 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.3.5 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -25,6 +25,7 @@ evidenziazione delle regole note e indentazione assistita.
 - sostituzione workspace con anteprima obbligatoria, scelta per occorrenza e un singolo Undo per ogni documento modificato;
 - navigazione rapida unificata verso file, simboli, riferimenti semantici, riga/colonna e ultima modifica;
 - cronologia di navigazione Indietro/Avanti tra file e selezioni, indipendente da Undo/Redo;
+- breadcrumb contestuale cliccabile per file, struttura, funzione e blocchi di controllo annidati;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -84,6 +85,9 @@ non salvati; la sola navigazione non modifica il sorgente né la cronologia Undo
 `Alt+Sinistra` e `Alt+Destra` percorrono la cronologia dei salti conservando file,
 posizione e selezione. Un nuovo salto dopo essere tornati indietro elimina il
 ramo Avanti, come in un browser, senza perdere le modifiche non salvate.
+La riga breadcrumb tra le schede e il codice segue il cursore e mostra il percorso
+come `file.ddf › main() › if › while`; ogni segmento torna alla relativa
+dichiarazione o istruzione e partecipa alla stessa cronologia Indietro/Avanti.
 
 ## Limiti della beta
 
@@ -184,7 +188,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.3.4 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.3.5 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -214,6 +218,8 @@ One light navigation palette filters files, symbols and semantic references,
 jumps to line/column positions and returns to the last edit without changing Undo.
 Browser-style Back/Forward navigation restores document, selection and unsaved
 buffer position independently from text Undo/Redo.
+A clickable contextual breadcrumb follows the caret through the current file,
+structure, function and nested control-flow blocks and shares navigation history.
 A runtime-independent type checker validates primitive, structure and array
 operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.

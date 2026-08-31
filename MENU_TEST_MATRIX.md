@@ -98,6 +98,9 @@ gutter non selezionabile, l'allineamento a sinistra dei numeri di riga, la
 larghezza iniziale dell'Outline e le transizioni pinned/auto-hide delle due
 palette. La palette inferiore viene inoltre ridimensionata tramite lo splitter
 orizzontale e deve ripristinare la stessa altezza dopo pin e auto-hide.
+Il breadcrumb viene verificato sul form reale con file, funzione e blocchi
+annidati; il click su un segmento deve selezionare il costrutto e consentire il
+ritorno alla posizione precedente tramite Navigazione indietro.
 
 ## Barra strumenti
 

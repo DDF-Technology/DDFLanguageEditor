@@ -68,6 +68,8 @@ namespace DDFLanguageEditor.Tests
             Run("drives parsing from syntax roles", DrivesParsingFromSyntaxRoles);
             Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
             Run("indexes document symbols hierarchically", IndexesDocumentSymbolsHierarchically);
+            Run("builds contextual breadcrumb paths", BuildsContextualBreadcrumbPaths);
+            Run("keeps breadcrumb paths usable for incomplete code", KeepsBreadcrumbPathsUsableForIncompleteCode);
             Run("keeps exact symbol selection spans", KeepsExactSymbolSelectionSpans);
             Run("indexes incomplete documents safely", IndexesIncompleteDocumentsSafely);
             Run("resolves symbol declarations and references", ResolvesSymbolDeclarationsAndReferences);
@@ -954,6 +956,39 @@ namespace DDFLanguageEditor.Tests
             Equal("main", source.Substring(function.SelectionStart, function.SelectionLength));
             Equal("argument", source.Substring(function.Children[0].SelectionStart, function.Children[0].SelectionLength));
             Equal("local", source.Substring(function.Children[1].SelectionStart, function.Children[1].SelectionLength));
+        }
+
+        private static void BuildsContextualBreadcrumbPaths()
+        {
+            const string source =
+                "struct Point { int x; }\n" +
+                "main() out int { if(true) { while(false) { ret 1; } } }";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(0, parseResult.Diagnostics.Count);
+
+            IReadOnlyList<DdfBreadcrumbItem> structurePath = DdfBreadcrumbService.GetPath(
+                parseResult.Root, source.IndexOf("x;", StringComparison.Ordinal));
+            SequenceEqual(new[] { "Point" }, structurePath.Select(item => item.Label));
+            Equal(DdfBreadcrumbKind.Structure, structurePath[0].Kind);
+
+            int returnPosition = source.IndexOf("ret 1", StringComparison.Ordinal);
+            IReadOnlyList<DdfBreadcrumbItem> controlPath = DdfBreadcrumbService.GetPath(parseResult.Root, returnPosition);
+            SequenceEqual(new[] { "main()", "if", "while" }, controlPath.Select(item => item.Label));
+            SequenceEqual(
+                new[] { DdfBreadcrumbKind.Function, DdfBreadcrumbKind.If, DdfBreadcrumbKind.While },
+                controlPath.Select(item => item.Kind));
+            Equal("main", source.Substring(controlPath[0].SelectionStart, controlPath[0].SelectionLength));
+            Equal("if", source.Substring(controlPath[1].SelectionStart, controlPath[1].SelectionLength));
+            Equal("while", source.Substring(controlPath[2].SelectionStart, controlPath[2].SelectionLength));
+        }
+
+        private static void KeepsBreadcrumbPathsUsableForIncompleteCode()
+        {
+            const string source = "main() out int { do { if(true) { ret 1;";
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            Equal(true, parseResult.SyntaxDiagnostics.Count > 0);
+            IReadOnlyList<DdfBreadcrumbItem> path = DdfBreadcrumbService.GetPath(parseResult.Root, source.Length);
+            SequenceEqual(new[] { "main()", "do…while", "if" }, path.Select(item => item.Label));
         }
 
         private static void IndexesIncompleteDocumentsSafely()

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3.5 - 2026-08-31
+
+- add a compact contextual breadcrumb between document tabs and the editor;
+- derive structure, function and nested `if`/`while`/`do…while`/`for` paths from the recoverable AST;
+- make every segment navigable while preserving unsaved buffers, text Undo and Back/Forward history;
+- update file names after Save As and refresh context after edits, caret moves, tab changes and programmatic jumps;
+- avoid redundant control reconstruction while the caret remains in the same syntax context;
+- cover complete and incomplete syntax paths in 135 Core tests and verify clickable WinForms navigation dynamically;
+
 ## 0.9.3.4 - 2026-08-31
 
 - add browser-style Back and Forward navigation across documents, positions and selections;

@@ -90,6 +90,7 @@ namespace DDF___Program_Language_Editor
             closeWorkspaceMenuItem.Enabled = false;
             initializeWorkspaceSearch();
             initializeWorkspaceNavigation();
+            initializeBreadcrumb();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             initializeCompletion();
@@ -423,7 +424,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.3.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.3.5 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -433,6 +434,7 @@ namespace DDF___Program_Language_Editor
             if (toolbarSaveAllButton != null) toolbarSaveAllButton.Enabled = saveAllMenuItem.Enabled;
             if (toolbarCloseDocumentButton != null) toolbarCloseDocumentButton.Enabled = closeDocumentMenuItem.Enabled;
             updateDocumentTab(activeDocumentView);
+            updateBreadcrumb();
         }
 
         private void editMenuItem_DropDownOpening(object sender, EventArgs e)

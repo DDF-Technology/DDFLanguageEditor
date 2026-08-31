@@ -223,6 +223,7 @@ namespace DDF___Program_Language_Editor
             updateLineNumbers();
             refreshBreakpointsPalette();
             updateCaretPosition();
+            updateBreadcrumb();
             richTextBoxMainEditor.Focus();
         }
 

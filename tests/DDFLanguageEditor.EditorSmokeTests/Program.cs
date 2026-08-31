@@ -82,6 +82,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
                 AssertEditorPalette(editor);
                 SetSource(editor);
+                AssertContextualBreadcrumb(form, editor);
+                SetSource(editor);
                 AssertSelectionStableDuringHighlight(editor);
                 AssertMouseGesturePreservesNativeSelection(form, editor);
                 AssertClosingBraceAlignment(form, editor);
@@ -247,7 +249,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.3.5") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -471,6 +473,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     FindMenuItem(form, "saveAsMenuItem").PerformClick();
                     Require(File.Exists(saveAsPath) && File.ReadAllText(saveAsPath).EndsWith("// save as", StringComparison.Ordinal),
                         "Salva con nome non ha scritto il percorso scelto.");
+                    Require(FindControl<Button>(form, "breadcrumbFileButton").Text == "salvato-con-nome.ddf",
+                        "Il breadcrumb non aggiorna il nome del file dopo Salva con nome.");
 
                     editor.Select(editor.GetFirstCharIndexFromLine(2), 0);
                     FindMenuItem(form, "toggleBreakpointMenuItem").PerformClick();
@@ -715,6 +719,34 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(selectionNotifications <= 1,
                 "La ricolorazione ha generato " + selectionNotifications + " notifiche di selezione interne.");
             Console.WriteLine("PASS selezione stabile; notifiche interne=" + selectionNotifications);
+        }
+
+        private static void AssertContextualBreadcrumb(MainForm form, RichTextBox editor)
+        {
+            const string source =
+                "main() out int\n{\n" +
+                "    if(true)\n    {\n" +
+                "        while(false)\n        {\n" +
+                "            ret 1;\n        }\n    }\n}";
+            editor.Text = source;
+            int returnPosition = source.IndexOf("ret 1", StringComparison.Ordinal);
+            editor.Select(returnPosition, 0);
+            PumpMessages(260);
+
+            FlowLayoutPanel breadcrumb = FindControl<FlowLayoutPanel>(form, "breadcrumbPanel");
+            string[] labels = breadcrumb.Controls.OfType<Button>().Select(button => button.Text).ToArray();
+            Require(labels.SequenceEqual(new[] { "Senza titolo.ddf", "main()", "if", "while" }),
+                "Il breadcrumb non rappresenta file, funzione e blocchi annidati: " + string.Join(" > ", labels));
+
+            Button ifButton = FindControl<Button>(form, "breadcrumbItemButton1");
+            ifButton.PerformClick();
+            Require(editor.SelectedText == "if", "Il segmento if del breadcrumb non è navigabile.");
+            Require(FindMenuItem(form, "navigateBackMenuItem").Enabled,
+                "Il click sul breadcrumb non alimenta la cronologia di navigazione.");
+            FindMenuItem(form, "navigateBackMenuItem").PerformClick();
+            Require(editor.SelectionStart == returnPosition,
+                "Indietro non ripristina la posizione precedente al click sul breadcrumb.");
+            Console.WriteLine("PASS breadcrumb cliccabile per file, funzione e blocchi correnti");
         }
 
         private static void AssertWholeLibraryCutIsClean(RichTextBox editor, ListBox diagnostics)
@@ -1937,7 +1969,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             string[] lightControls =
             {
-                "toolStripMain", "panelOutline", "navigationTabs", "workspaceTabPage", "outlineTabPage",
+                "toolStripMain", "breadcrumbPanel", "panelOutline", "navigationTabs", "workspaceTabPage", "outlineTabPage",
                 "treeViewWorkspace", "treeViewOutline", "panelDiagnostics", "tabPageDiagnostics",
                 "tabPageOutput", "tabPageWorkspaceSearch", "workspaceSearchResultsListView",
                 "richTextBoxOutput", "listBoxDiagnostics", "buttonOutlinePin",

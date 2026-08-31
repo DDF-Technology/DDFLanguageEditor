@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.3.4
+# DDFLanguageEditor 0.9.3.5
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.5 adds a compact contextual breadcrumb between document tabs and
+the editor. It follows the caret through the current file, structure, function
+and nested `if`, `while`, `do…while` and `for` blocks. Segments are clickable,
+work with recoverable incomplete syntax and feed the existing Back/Forward
+history without changing source text or Undo.
 
 Version 0.9.3.4 adds browser-style navigation history. `Alt+Left` and
 `Alt+Right` restore document, position and selection across workspace jumps

@@ -123,17 +123,18 @@ namespace DDF___Program_Language_Editor
             }
             if (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.Insert))
             {
-                textBox.Copy();
+                if (textBox.SelectionLength > 0) trySetClipboardText(textBox.SelectedText);
                 return true;
             }
             if (keyData == (Keys.Control | Keys.X) || keyData == (Keys.Shift | Keys.Delete))
             {
-                if (!textBox.ReadOnly) textBox.Cut();
+                if (!textBox.ReadOnly && textBox.SelectionLength > 0 && trySetClipboardText(textBox.SelectedText))
+                    textBox.SelectedText = string.Empty;
                 return true;
             }
             if (keyData == (Keys.Control | Keys.V) || keyData == (Keys.Shift | Keys.Insert))
             {
-                if (!textBox.ReadOnly) textBox.Paste();
+                if (!textBox.ReadOnly && tryGetClipboardText(out string text)) textBox.SelectedText = text;
                 return true;
             }
             if (keyData == (Keys.Control | Keys.Z))
@@ -394,6 +395,7 @@ namespace DDF___Program_Language_Editor
             lastTypeCheckResult = snapshot.TypeCheckResult;
             updateFoldingRanges(snapshot.FoldingRanges);
             analysisAppliedVersion = version;
+            updateBreadcrumb();
             refreshDelimiterHighlight();
             updateNavigationCommandState();
         }
@@ -782,6 +784,7 @@ namespace DDF___Program_Language_Editor
             scheduleDelimiterHighlight();
             updateFoldingCommandState();
             updateNavigationCommandState();
+            updateBreadcrumb();
         }
 
         private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)
