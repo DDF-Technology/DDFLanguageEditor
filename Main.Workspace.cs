@@ -101,6 +101,7 @@ namespace DDF___Program_Language_Editor
             labelWorkspace.Text = "WORKSPACE — nessuna cartella";
             closeWorkspaceMenuItem.Enabled = false;
             applyHighlighting();
+            scheduleWorkspaceSearch();
         }
 
         private bool openWorkspace(string rootPath)
@@ -119,6 +120,7 @@ namespace DDF___Program_Language_Editor
                 closeWorkspaceMenuItem.Enabled = true;
                 navigationTabs.SelectedTab = workspaceTabPage;
                 applyHighlighting();
+                scheduleWorkspaceSearch();
                 return true;
             }
             catch (Exception exception) when (isWorkspaceException(exception))

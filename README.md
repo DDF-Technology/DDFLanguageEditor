@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.2.10 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.3.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -21,6 +21,7 @@ evidenziazione delle regole note e indentazione assistita.
 - formattazione automatica idempotente con `Ctrl+Shift+F`, separazione leggibile tra istruzioni e singolo Undo;
 - risoluzione documentale dei simboli, hover strutturato con commenti `///`, definizione con `F12` e rinomina scoped con `F2`;
 - workspace di cartella con explorer, completamento condiviso e navigazione `F12` tra file;
+- ricerca asincrona di testo e simboli in tutto il workspace e nei buffer non salvati, con risultati navigabili;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -34,7 +35,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 28 icone per i principali comandi File, Modifica, IntelliSense, correzioni, navigazione, folding, breakpoint ed esecuzione;
+- barra a 29 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - diagnostica lessicale, sintattica e semantica con pannello navigabile;
@@ -52,6 +53,14 @@ evidenziazione delle regole note e indentazione assistita.
 - trova, sostituisci, scorciatoie standard e barra di stato;
 - editor locale senza rete, account o telemetria;
 - bozza storica della sintassi in `DDF - Program Language Spec.txt`.
+
+## Ricerca nel workspace
+
+Premere `Ctrl+Alt+F` oppure usare **Modifica > Trova nel workspace**. La palette
+**Ricerca** permette di scegliere tra testo e dichiarazioni di simboli, attivare
+il confronto maiuscole/minuscole e aprire un risultato con doppio clic o `Invio`.
+La ricerca comprende anche le schede senza percorso e usa sempre il contenuto
+non salvato dei buffer aperti al posto della precedente copia su disco.
 
 ## Limiti della beta
 
@@ -103,7 +112,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 39 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 40 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
 eseguito:
 
@@ -152,7 +161,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.2.10 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.3.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -176,6 +185,8 @@ Structured hover includes type, signature, source origin, declaration position,
 principal references and contiguous `///` documentation comments.
 A small-folder workspace indexes `.ddf` files recursively and extends completion
 and definition navigation across documents.
+Workspace-wide text and symbol search runs in the background, prefers unsaved
+open buffers over disk snapshots and exposes navigable results.
 A runtime-independent type checker validates primitive, structure and array
 operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.

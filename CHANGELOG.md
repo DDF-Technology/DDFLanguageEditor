@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3.0 - 2026-08-31
+
+- add cancellable text and declaration search across every workspace file and open document buffer;
+- prefer unsaved in-memory source over the indexed disk snapshot for the same path;
+- add a live Search palette with text/symbol mode, case sensitivity, result previews and keyboard or mouse navigation;
+- expose Find in Workspace through `Ctrl+Alt+F`, the Edit menu and a twenty-ninth toolbar icon;
+- refresh active searches after source changes while discarding obsolete result snapshots;
+- cover line/column mapping, nested symbols, cancellation and real multi-file unsaved-buffer navigation in 129 Core tests and the WinForms smoke;
+
 ## 0.9.2.10 - 2026-08-31
 
 - move lexical, syntactic, semantic and type analysis off the WinForms UI thread;

@@ -80,6 +80,8 @@ namespace DDFLanguageEditor.Tests
             Run("indexes DDF workspace documents recursively", IndexesDdfWorkspaceDocumentsRecursively);
             Run("updates an in-memory workspace document", UpdatesInMemoryWorkspaceDocument);
             Run("completes symbols from another workspace document", CompletesSymbolsFromAnotherWorkspaceDocument);
+            Run("searches text across workspace documents", SearchesTextAcrossWorkspaceDocuments);
+            Run("searches nested workspace symbols", SearchesNestedWorkspaceSymbols);
             Run("accepts semantically valid typed code", AcceptsSemanticallyValidTypedCode);
             Run("reports incompatible initializers and assignments", ReportsIncompatibleInitializersAndAssignments);
             Run("reports invalid typed operators and conditions", ReportsInvalidTypedOperatorsAndConditions);
@@ -1094,6 +1096,46 @@ namespace DDFLanguageEditor.Tests
                 3,
                 externalSymbols: external);
             Equal(true, completion.Items.Any(item => item.DisplayText == "helper" && item.Kind == DdfCompletionKind.Function));
+        }
+
+        private static void SearchesTextAcrossWorkspaceDocuments()
+        {
+            var documents = new[]
+            {
+                new DdfWorkspaceSearchDocument("one", "one.ddf", "one.ddf", "alpha\nBeta alpha"),
+                new DdfWorkspaceSearchDocument("two", "two.ddf", "two.ddf", "ALPHA")
+            };
+            IReadOnlyList<DdfWorkspaceSearchResult> insensitive = DdfWorkspaceSearchService.Search(
+                documents, "alpha", DdfWorkspaceSearchKind.Text);
+            Equal(3, insensitive.Count);
+            Equal(1, insensitive[0].Line);
+            Equal(1, insensitive[0].Column);
+            Equal(2, insensitive[1].Line);
+            Equal(6, insensitive[1].Column);
+            Equal("Beta alpha", insensitive[1].Preview);
+            Equal(2, DdfWorkspaceSearchService.Search(
+                documents, "alpha", DdfWorkspaceSearchKind.Text, true).Count);
+        }
+
+        private static void SearchesNestedWorkspaceSymbols()
+        {
+            const string source = "helper(int value) out int { int localValue; ret value; }";
+            var documents = new[]
+            {
+                new DdfWorkspaceSearchDocument("buffer-1", null, "Senza titolo.ddf", source)
+            };
+            IReadOnlyList<DdfWorkspaceSearchResult> results = DdfWorkspaceSearchService.Search(
+                documents, "value", DdfWorkspaceSearchKind.Symbol);
+            Equal(2, results.Count);
+            Equal(true, results.Any(result => result.SymbolKind == DdfSymbolKind.Parameter));
+            Equal(true, results.Any(result => result.SymbolKind == DdfSymbolKind.Variable));
+
+            using (var cancellation = new CancellationTokenSource())
+            {
+                cancellation.Cancel();
+                Throws<OperationCanceledException>(() => DdfWorkspaceSearchService.Search(
+                    documents, "value", DdfWorkspaceSearchKind.Symbol, cancellationToken: cancellation.Token));
+            }
         }
 
         private static void AcceptsSemanticallyValidTypedCode()

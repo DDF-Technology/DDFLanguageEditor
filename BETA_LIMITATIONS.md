@@ -1,4 +1,4 @@
-# Beta 0.9.2.10 limitations
+# Beta 0.9.3.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -26,6 +26,7 @@ This release is intended for interface and language-design evaluation only.
 - idempotent whole-document formatting with readable blank-line separation, caret mapping and one-step Undo;
 - document-local symbol resolution, hover, definition navigation and scoped rename;
 - recursive folder workspace, shared global completion and cross-file definition navigation;
+- cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
 - Run/Stop commands, cooperative cancellation, instruction limit and Output palette;

@@ -167,6 +167,7 @@ namespace DDF___Program_Language_Editor
             OpenDocumentBuffer buffer = openDocuments.CreateUntitled();
             DocumentView view = addDocumentView(buffer);
             activateDocument(view);
+            scheduleWorkspaceSearch();
         }
 
         private bool activateOpenDocument(string path)
@@ -340,6 +341,7 @@ namespace DDF___Program_Language_Editor
             {
                 activateDocument(documentViews[openDocuments.ActiveDocument.Id]);
             }
+            scheduleWorkspaceSearch();
             return true;
         }
 

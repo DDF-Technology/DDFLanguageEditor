@@ -1,6 +1,18 @@
-# DDFLanguageEditor 0.9.2.10
+# DDFLanguageEditor 0.9.3.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.3.0 introduces workspace-wide text and declaration search. The new
+Search palette covers every indexed `.ddf` file and every open document,
+including untitled buffers. Unsaved buffer content takes precedence over the
+copy indexed from disk. Results show file, line, column, kind and source preview
+and navigate on double-click or `Enter`.
+
+Search runs in the background with cooperative cancellation and versioned
+snapshots. Editing a document refreshes an active query, while superseded
+results are rejected. Text/symbol mode, case sensitivity, `Ctrl+Alt+F`, the
+Edit menu and a new toolbar icon expose the feature without changing the
+document or its Undo history.
 
 Version 0.9.2.10 moves document analysis and completion away from the UI thread.
 Requests are versioned and superseded work is cancelled; a result is marshalled

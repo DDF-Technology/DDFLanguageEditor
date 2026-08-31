@@ -88,6 +88,7 @@ namespace DDF___Program_Language_Editor
             richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
             initializeWorkspace();
             closeWorkspaceMenuItem.Enabled = false;
+            initializeWorkspaceSearch();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             initializeCompletion();
@@ -116,6 +117,7 @@ namespace DDF___Program_Language_Editor
             highlightTimer.Stop();
             delimiterHighlightTimer.Stop();
             disposeCompletion();
+            disposeWorkspaceSearch();
             disposePaletteBehavior();
             editorContextMenu?.Dispose();
             symbolToolTip.Dispose();
@@ -265,6 +267,7 @@ namespace DDF___Program_Language_Editor
                 updateWorkspaceDocument(path, content);
                 addRecentFile(path);
                 updateDocumentUi();
+                scheduleWorkspaceSearch();
                 richTextBoxMainEditor.Focus();
                 return true;
             }
@@ -418,7 +421,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.2.10 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.3.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

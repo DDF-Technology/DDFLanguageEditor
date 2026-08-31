@@ -155,6 +155,7 @@ namespace DDF___Program_Language_Editor
             highlightTimer.Start();
             scheduleCompletion();
             scheduleSignatureHelp();
+            scheduleWorkspaceSearch();
         }
 
         private void highlightTimer_Tick(object sender, EventArgs e)
