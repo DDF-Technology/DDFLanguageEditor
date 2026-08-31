@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2.3 - 2026-08-31
+
+- insert one blank line between consecutive formatted statements and independent control-flow contexts;
+- avoid blank lines inside `for` headers and immediately before closing braces;
+- retain `do { ... } while (...);` as one visual context and preserve inline comment attachment;
+- expand regression coverage to 113 Core tests plus the dynamic formatting smoke;
+
 ## 0.9.2.2 - 2026-08-31
 
 - show function signatures automatically while the caret is inside local, workspace or standard-library calls;

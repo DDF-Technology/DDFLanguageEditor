@@ -1,6 +1,11 @@
-# DDFLanguageEditor 0.9.2.2
+# DDFLanguageEditor 0.9.2.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.2.3 makes formatted DDF code easier to scan by inserting one blank
+line between consecutive instructions and independent control-flow contexts.
+The formatter keeps `for` headers compact, avoids empty lines immediately before
+closing braces, preserves inline comments and treats `do/while` as one context.
 
 Version 0.9.2.2 adds automatic Signature Help for functions declared in the
 current document, indexed workspace documents and the standard runtime catalog.

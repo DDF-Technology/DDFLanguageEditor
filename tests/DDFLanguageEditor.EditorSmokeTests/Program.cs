@@ -230,7 +230,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.2") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.2.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -976,6 +976,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "main() out int\n" +
                 "{\n" +
                 "    int value << 1 + 2;\n" +
+                "\n" +
                 "    ret value;\n" +
                 "}";
             editor.Text = source;

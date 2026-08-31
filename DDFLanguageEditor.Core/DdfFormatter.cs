@@ -107,25 +107,32 @@ namespace DDFLanguageEditor.Core
 
                 if (token.Kind == DdfTokenKind.LineComment)
                 {
-                    if (IsSameSourceLine(source, previous, token)) writer.ReopenPreviousLine();
+                    bool inline = IsSameSourceLine(source, previous, token);
+                    if (inline) writer.ReopenPreviousLine();
                     writer.Space();
                     writer.WriteToken(token, text);
-                    writer.NewLine();
+                    if (inline && next != null && nextText != "}") writer.BlankLine();
+                    else writer.NewLine();
                     continue;
                 }
 
                 if (token.Kind == DdfTokenKind.BlockComment)
                 {
-                    if (IsSameSourceLine(source, previous, token)) writer.ReopenPreviousLine();
+                    bool inline = IsSameSourceLine(source, previous, token);
+                    if (inline) writer.ReopenPreviousLine();
                     writer.Space();
                     writer.WriteToken(token, text);
-                    writer.NewLine();
+                    if (inline && next != null && nextText != "}") writer.BlankLine();
+                    else writer.NewLine();
                     continue;
                 }
 
                 if (token.Kind == DdfTokenKind.Punctuation)
                 {
-                    FormatPunctuation(writer, token, text, nextText);
+                    bool nextIsInlineComment = next != null &&
+                        (next.Kind == DdfTokenKind.LineComment || next.Kind == DdfTokenKind.BlockComment) &&
+                        IsSameSourceLine(source, token, next);
+                    FormatPunctuation(writer, token, text, nextText, nextIsInlineComment);
                     continue;
                 }
 
@@ -135,6 +142,9 @@ namespace DDFLanguageEditor.Core
                     continue;
                 }
 
+                if (language.TryGetKeyword(text, out DdfKeywordDefinition keyword) &&
+                    keyword.Role == DdfKeywordRole.Do)
+                    writer.MarkNextBlockAsDo();
                 if (NeedsWordSeparator(previous, previousText, language)) writer.Space();
                 writer.WriteToken(token, text);
             }
@@ -142,27 +152,36 @@ namespace DDFLanguageEditor.Core
             return writer.Complete(source.Length);
         }
 
-        private static void FormatPunctuation(FormatWriter writer, DdfToken token, string text, string nextText)
+        private static void FormatPunctuation(
+            FormatWriter writer,
+            DdfToken token,
+            string text,
+            string nextText,
+            bool nextIsInlineComment)
         {
             switch (text)
             {
                 case "{":
                     writer.NewLine();
                     writer.WriteToken(token, text);
-                    writer.IncreaseIndent();
+                    writer.OpenBlock();
                     writer.NewLine();
                     break;
                 case "}":
-                    writer.DecreaseIndent();
+                    bool closesDoBlock = writer.CloseBlock();
                     writer.NewLine();
                     writer.WriteToken(token, text);
-                    if (!string.Equals(nextText, ";", StringComparison.Ordinal)) writer.NewLine();
+                    if (string.Equals(nextText, ";", StringComparison.Ordinal)) break;
+                    if (closesDoBlock && string.Equals(nextText, "while", StringComparison.Ordinal)) writer.Space();
+                    else if (string.Equals(nextText, "}", StringComparison.Ordinal) || nextIsInlineComment) writer.NewLine();
+                    else writer.BlankLine();
                     break;
                 case ";":
                     writer.TrimTrailingSpace();
                     writer.WriteToken(token, text);
                     if (writer.ParenthesisDepth > 0) writer.Space();
-                    else writer.NewLine();
+                    else if (string.Equals(nextText, "}", StringComparison.Ordinal) || nextIsInlineComment) writer.NewLine();
+                    else writer.BlankLine();
                     break;
                 case ",":
                     writer.TrimTrailingSpace();
@@ -261,8 +280,10 @@ namespace DDFLanguageEditor.Core
             private readonly List<DdfFormatResult.PositionMapEntry> positions =
                 new List<DdfFormatResult.PositionMapEntry>();
             private readonly int indentSize;
+            private readonly Stack<bool> doBlocks = new Stack<bool>();
             private int indentLevel;
             private bool atLineStart = true;
+            private bool nextBlockIsDo;
 
             public FormatWriter(int indentSize)
             {
@@ -271,14 +292,22 @@ namespace DDFLanguageEditor.Core
 
             public int ParenthesisDepth { get; set; }
 
-            public void IncreaseIndent()
+            public void MarkNextBlockAsDo()
             {
+                nextBlockIsDo = true;
+            }
+
+            public void OpenBlock()
+            {
+                doBlocks.Push(nextBlockIsDo);
+                nextBlockIsDo = false;
                 indentLevel++;
             }
 
-            public void DecreaseIndent()
+            public bool CloseBlock()
             {
                 indentLevel = Math.Max(0, indentLevel - 1);
+                return doBlocks.Count > 0 && doBlocks.Pop();
             }
 
             public void WriteToken(DdfToken token, string text)

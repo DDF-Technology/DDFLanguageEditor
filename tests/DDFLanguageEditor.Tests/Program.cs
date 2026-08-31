@@ -128,6 +128,7 @@ namespace DDFLanguageEditor.Tests
             Run("maps the caret through formatting", MapsCaretThroughFormatting);
             Run("drives formatting from an alternative catalog", DrivesFormattingFromAlternativeCatalog);
             Run("formats control flow calls and arrays", FormatsControlFlowCallsAndArrays);
+            Run("separates formatted statements and contexts", SeparatesFormattedStatementsAndContexts);
 
             if (Failures.Count == 0)
             {
@@ -1440,6 +1441,7 @@ namespace DDFLanguageEditor.Tests
                 "main() out int\n" +
                 "{\n" +
                 "    int value << 1 + 2 * 3;\n" +
+                "\n" +
                 "    ret value;\n" +
                 "}";
             Equal(expected, DdfFormatter.Format(source).Text);
@@ -1447,7 +1449,7 @@ namespace DDFLanguageEditor.Tests
 
         private static void FormatsIdempotently()
         {
-            const string source = "main() out int\n{\n    int value << 1;\n    ret value;\n}";
+            const string source = "main() out int\n{\n    int value << 1;\n\n    ret value;\n}";
             string once = DdfFormatter.Format(source).Text;
             Equal(source, once);
             Equal(once, DdfFormatter.Format(once).Text);
@@ -1492,6 +1494,7 @@ namespace DDFLanguageEditor.Tests
                 "main() returns whole\n" +
                 "{\n" +
                 "    whole value := 1 %% 2;\n" +
+                "\n" +
                 "    give value;\n" +
                 "}";
             Equal(expected, DdfFormatter.Format(source, CreateAlternativeLanguage()).Text);
@@ -1505,6 +1508,7 @@ namespace DDFLanguageEditor.Tests
                 "main() out int\n" +
                 "{\n" +
                 "    int[3] values;\n" +
+                "\n" +
                 "    for(int index; index < 3; index++)\n" +
                 "    {\n" +
                 "        if(true)\n" +
@@ -1512,7 +1516,40 @@ namespace DDFLanguageEditor.Tests
                 "            values[index] << call(index, 2);\n" +
                 "        }\n" +
                 "    }\n" +
+                "\n" +
                 "    ret 0;\n" +
+                "}";
+            string formatted = DdfFormatter.Format(source).Text;
+            Equal(expected, formatted);
+            Equal(formatted, DdfFormatter.Format(formatted).Text);
+        }
+
+        private static void SeparatesFormattedStatementsAndContexts()
+        {
+            const string source =
+                "main()out int{int value<<0;if(value<1){value++;}while(value<2){value++;}" +
+                "do{value++;}while(value<3);ret value;}";
+            const string expected =
+                "main() out int\n" +
+                "{\n" +
+                "    int value << 0;\n" +
+                "\n" +
+                "    if(value < 1)\n" +
+                "    {\n" +
+                "        value++;\n" +
+                "    }\n" +
+                "\n" +
+                "    while(value < 2)\n" +
+                "    {\n" +
+                "        value++;\n" +
+                "    }\n" +
+                "\n" +
+                "    do\n" +
+                "    {\n" +
+                "        value++;\n" +
+                "    } while(value < 3);\n" +
+                "\n" +
+                "    ret value;\n" +
                 "}";
             string formatted = DdfFormatter.Format(source).Text;
             Equal(expected, formatted);
