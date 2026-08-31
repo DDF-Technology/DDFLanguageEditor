@@ -6,6 +6,8 @@
 - add per-document last-edit tracking and navigation without modifying source or Undo history;
 - resolve global references across workspace buffers while excluding comments, strings and shadowing local symbols;
 - expose navigation through five Edit commands, standard shortcuts, five toolbar icons and the editor context menu;
+- route standard cut/copy/paste/select-all/undo shortcuts to every focused text box instead of always mutating the code editor;
+- add a consistent editing context menu to workspace fields, dialogs and read-only text surfaces where copying is allowed;
 - cover navigation indexing, reference identity, line parsing and real cross-file UI navigation in 133 Core tests and the WinForms smoke;
 
 ## 0.9.3.2 - 2026-08-31

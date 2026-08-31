@@ -57,6 +57,9 @@ Lo smoke conserva e ripristina il contenuto precedente degli appunti Windows.
 Verifica inoltre gli stati abilitati/disabilitati all'apertura del menu e che
 `Ctrl+X`, `Ctrl+C` e `Ctrl+V` usino lo stato corrente dell'editor anche quando
 le corrispondenti voci di menu erano rimaste disabilitate.
+Lo smoke enumera inoltre tutte le caselle della form principale e dei popup:
+le scorciatoie standard devono agire sul controllo focalizzato, ogni casella
+deve avere il menu contestuale di modifica e il gutter deve restare escluso.
 
 ## Esegui
 

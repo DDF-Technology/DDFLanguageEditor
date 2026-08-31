@@ -167,6 +167,7 @@ namespace DDF___Program_Language_Editor
                 navigationQueryTextBox.Text = referenceName ?? string.Empty;
             refreshResults();
             AppTheme.ApplyLight(this);
+            TextBoxEditingSupport.Apply(this);
         }
 
         public NavigationMode SelectedMode => ((ModeOption)navigationModeComboBox.SelectedItem).Mode;

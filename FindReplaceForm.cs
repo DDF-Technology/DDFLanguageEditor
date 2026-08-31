@@ -155,6 +155,7 @@ namespace DDF___Program_Language_Editor
             AcceptButton = findNextButton;
             CancelButton = closeButton;
             AppTheme.ApplyLight(this);
+            TextBoxEditingSupport.Apply(this);
         }
 
         public void SetReplaceMode(bool enabled)

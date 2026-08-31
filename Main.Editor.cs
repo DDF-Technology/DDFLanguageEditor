@@ -13,6 +13,13 @@ namespace DDF___Program_Language_Editor
     {
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            TextBoxBase focusedTextBox = findFocusedTextBox(this);
+            if (focusedTextBox != null && !isEditorTextControl(focusedTextBox))
+            {
+                if (handleStandardTextShortcut(focusedTextBox, keyData)) return true;
+                return base.ProcessCmdKey(ref message, keyData);
+            }
+
             if (keyData == (Keys.Control | Keys.OemPeriod))
             {
                 applyFirstQuickFix();
@@ -105,6 +112,54 @@ namespace DDF___Program_Language_Editor
             }
 
             return base.ProcessCmdKey(ref message, keyData);
+        }
+
+        private bool handleStandardTextShortcut(TextBoxBase textBox, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.A))
+            {
+                textBox.SelectAll();
+                return true;
+            }
+            if (keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.Insert))
+            {
+                textBox.Copy();
+                return true;
+            }
+            if (keyData == (Keys.Control | Keys.X) || keyData == (Keys.Shift | Keys.Delete))
+            {
+                if (!textBox.ReadOnly) textBox.Cut();
+                return true;
+            }
+            if (keyData == (Keys.Control | Keys.V) || keyData == (Keys.Shift | Keys.Insert))
+            {
+                if (!textBox.ReadOnly) textBox.Paste();
+                return true;
+            }
+            if (keyData == (Keys.Control | Keys.Z))
+            {
+                if (!textBox.ReadOnly && textBox.CanUndo) textBox.Undo();
+                return true;
+            }
+            return false;
+        }
+
+        private bool isEditorTextControl(TextBoxBase control)
+        {
+            return ReferenceEquals(control, richTextBoxMainEditor) ||
+                   ReferenceEquals(control, richTextBoxFoldedView);
+        }
+
+        private static TextBoxBase findFocusedTextBox(Control root)
+        {
+            if (root is TextBoxBase textBox && textBox.Focused) return textBox;
+            foreach (Control child in root.Controls)
+            {
+                if (!child.ContainsFocus && !child.Focused) continue;
+                TextBoxBase found = findFocusedTextBox(child);
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private void richTextBox_TextChanged(object sender, EventArgs e)

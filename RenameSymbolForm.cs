@@ -52,6 +52,7 @@ namespace DDF___Program_Language_Editor
             CancelButton = cancel;
             Shown += (sender, args) => { nameTextBox.SelectAll(); nameTextBox.Focus(); };
             AppTheme.ApplyLight(this);
+            TextBoxEditingSupport.Apply(this);
         }
 
         public string SymbolName => nameTextBox.Text.Trim();

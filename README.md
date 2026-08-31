@@ -54,6 +54,7 @@ evidenziazione delle regole note e indentazione assistita.
 - creazione, apertura e salvataggio di sorgenti `.ddf` in UTF-8;
 - protezione delle modifiche non salvate e file recenti;
 - trova, sostituisci, scorciatoie standard e barra di stato;
+- taglia, copia, incolla, annulla e seleziona tutto instradati alla casella di testo focalizzata, con menu contestuale coerente anche nei popup;
 - editor locale senza rete, account o telemetria;
 - bozza storica della sintassi in `DDF - Program Language Spec.txt`.
 

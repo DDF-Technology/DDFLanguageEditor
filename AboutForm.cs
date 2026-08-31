@@ -161,6 +161,7 @@ namespace DDF___Program_Language_Editor
             Controls.Add(licenseTextBox);
             Controls.Add(closeButton);
             AppTheme.ApplyLight(this);
+            TextBoxEditingSupport.Apply(this);
         }
 
         private static string GetInformationalVersion()

@@ -78,6 +78,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
+                AssertTextBoxEditingSupport(form, editor);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
                 AssertEditorPalette(editor);
                 SetSource(editor);
@@ -1912,6 +1913,82 @@ namespace DDFLanguageEditor.EditorSmokeTests
                                   FindControl<Button>(form, "buttonOutlinePin").BackColor) >= 80,
                 "L'icona pin non è visibile sul tema chiaro.");
             Console.WriteLine("PASS tema chiaro uniforme con sola superficie editor scura");
+        }
+
+        private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)
+        {
+            FindMenuItem(form, "workspaceSearchMenuItem").PerformClick();
+            TextBox search = FindControl<TextBox>(form, "workspaceSearchTextBox");
+            editor.Text = "editor-sentinel";
+            search.Text = "alpha beta";
+            search.Select(0, 5);
+            search.Focus();
+            PumpMessages(40);
+            Require(search.Focused, "La casella di ricerca workspace non riceve il focus.");
+
+            Clipboard.SetText("clipboard-before-copy");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.C) && Clipboard.GetText() == "alpha",
+                "Ctrl+C nella ricerca workspace viene ancora inviato all'editor.");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.X) && search.Text == " beta",
+                "Ctrl+X non taglia la selezione nella casella di testo focalizzata.");
+            Clipboard.SetText("gamma");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.V) && search.Text == "gamma beta",
+                "Ctrl+V non incolla nella casella di testo focalizzata.");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.A) && search.SelectionLength == search.TextLength,
+                "Ctrl+A non seleziona il contenuto della casella focalizzata.");
+            Require(editor.Text == "editor-sentinel",
+                "Le scorciatoie di una casella di testo hanno modificato il sorgente dell'editor.");
+
+            assertTextControlsConfigured(form, true);
+            Assembly assembly = typeof(MainForm).Assembly;
+            Type findType = assembly.GetType("DDF___Program_Language_Editor.FindReplaceForm", true);
+            Type renameType = assembly.GetType("DDF___Program_Language_Editor.RenameSymbolForm", true);
+            Type inputType = assembly.GetType("DDF___Program_Language_Editor.RuntimeInputForm", true);
+            Type aboutType = assembly.GetType("DDF___Program_Language_Editor.AboutForm", true);
+            using (var find = (Form)Activator.CreateInstance(findType, editor)) assertTextControlsConfigured(find, false);
+            using (var rename = (Form)Activator.CreateInstance(renameType, "value")) assertTextControlsConfigured(rename, false);
+            using (var input = (Form)Activator.CreateInstance(inputType)) assertTextControlsConfigured(input, false);
+            using (var about = (Form)Activator.CreateInstance(aboutType)) assertTextControlsConfigured(about, false);
+
+            var emptySources = new Dictionary<NavigationMode, IReadOnlyList<DdfWorkspaceNavigationLocation>>
+            {
+                { NavigationMode.File, Array.Empty<DdfWorkspaceNavigationLocation>() },
+                { NavigationMode.Symbol, Array.Empty<DdfWorkspaceNavigationLocation>() },
+                { NavigationMode.Reference, Array.Empty<DdfWorkspaceNavigationLocation>() },
+                { NavigationMode.Line, Array.Empty<DdfWorkspaceNavigationLocation>() }
+            };
+            using (var navigation = new NavigationForm(emptySources, NavigationMode.File, 1, 1, 1, string.Empty))
+                assertTextControlsConfigured(navigation, false);
+            Console.WriteLine("PASS taglia/copia/incolla/seleziona tutto in tutte le caselle di testo");
+        }
+
+        private static void assertTextControlsConfigured(Form form, bool mainForm)
+        {
+            foreach (TextBoxBase textBox in enumerateControls(form).OfType<TextBoxBase>())
+            {
+                if (textBox.Name == "richTextBoxLineNumbers")
+                {
+                    Require(!textBox.ShortcutsEnabled, "Il gutter ha riacquistato scorciatoie di modifica.");
+                    continue;
+                }
+                Require(textBox.ShortcutsEnabled,
+                    "Scorciatoie standard disabilitate nella casella: " + textBox.Name + ".");
+                Require(textBox.ContextMenuStrip != null,
+                    "Menu contestuale di modifica mancante nella casella: " + textBox.Name + ".");
+                if (mainForm && textBox.Name == "richTextBoxMainEditor") continue;
+                Require(textBox.ContextMenuStrip.Items.OfType<ToolStripMenuItem>()
+                        .Any(item => item.Name == "standardTextCopyItem"),
+                    "Il menu contestuale non espone Copia nella casella: " + textBox.Name + ".");
+            }
+        }
+
+        private static IEnumerable<Control> enumerateControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control nested in enumerateControls(child)) yield return nested;
+            }
         }
 
         private static bool IsLight(Color color)

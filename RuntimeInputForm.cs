@@ -55,6 +55,7 @@ namespace DDF___Program_Language_Editor
             AcceptButton = ok;
             CancelButton = cancel;
             AppTheme.ApplyLight(this);
+            TextBoxEditingSupport.Apply(this);
         }
 
         public string InputText => inputTextBox.Text;

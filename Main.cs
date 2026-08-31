@@ -100,6 +100,7 @@ namespace DDF___Program_Language_Editor
             showWorkspaceDialog = dialog => dialog.ShowDialog(this);
             requestRuntimeInput = showRuntimeInputDialog;
             applyApplicationTheme();
+            TextBoxEditingSupport.Apply(this);
         }
 
         private void applyApplicationTheme()

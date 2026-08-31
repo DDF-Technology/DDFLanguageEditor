@@ -7,6 +7,10 @@ symbols (`Ctrl+Shift+O`), semantic references (`Shift+F12`) and line/column
 positions (`Ctrl+G`). `Ctrl+Shift+Backspace` returns to the last edit in the
 active document. Workspace references exclude comments, strings and shadowing
 locals, while navigation preserves unsaved buffers and Undo history.
+Standard editing shortcuts now follow the focused text box throughout the main
+window and every dialog. Search, replacement, navigation, rename and runtime
+input fields support cut, copy, paste, undo and select all; read-only text keeps
+copy/select operations, and each field exposes a consistent context menu.
 
 Version 0.9.3.2 adds selective workspace replacement. `Ctrl+Alt+H`, the Edit
 menu and the toolbar open a mandatory preview where individual text matches can
