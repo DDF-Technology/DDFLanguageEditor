@@ -85,7 +85,7 @@ runtime posizionati nel sorgente.
 | Comprimi blocco | comprime più blocchi dalla firma nella stessa proiezione di sola lettura |
 | Espandi tutto | ripristina il sorgente originale senza alterarne il contenuto |
 | Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
-| Impostazioni | applica e persiste font, zoom, tema, indentazione, fine riga e formatter, con ripristino predefiniti |
+| Impostazioni | applica e persiste editor e scorciatoie, rileva conflitti e ripristina il preset predefinito |
 
 Sono controllati anche testo e disponibilità contestuale dei due comandi, i
 colori, la colonna dei numeri di riga, l'espansione selettiva di un singolo
@@ -116,6 +116,8 @@ accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Eseg
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette
 chiara e che soltanto editor, folding e gutter conservino lo sfondo scuro.
+Verifica inoltre che le scorciatoie personalizzate rilevino i conflitti, siano
+persistenti e aggiornino menu, toolbar, Command Palette ed esecuzione reale.
 Verifica inoltre la nuova icona incorporata, la centratura delle form secondarie
 e il docking senza sovrapposizioni tra palette destra e pannello inferiore.
 Il popup Trova/Sostituisci viene inoltre controllato per allineamento della

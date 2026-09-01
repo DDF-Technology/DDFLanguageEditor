@@ -60,6 +60,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 DisableRecentFilePersistence(form);
                 ResetEditorSettingsForSmoke(form);
+                ResetShortcutSettingsForSmoke(form);
                 ResetPaletteLayoutForSmoke(form);
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
@@ -258,7 +259,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.2") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -567,6 +568,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             if (!visible) form.WindowState = FormWindowState.Normal;
             DisableRecentFilePersistence(form);
             ResetEditorSettingsForSmoke(form);
+            ResetShortcutSettingsForSmoke(form);
             ResetPaletteLayoutForSmoke(form);
             form.Show();
             PumpMessages(100);
@@ -578,6 +580,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "saveRecentFilesSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveRecentWorkspacesSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
         }
 
@@ -585,6 +588,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             SetPrivateField(form, "editorSettings", EditorSettings.Default);
             InvokePrivate(form, "applyEditorSettings");
+        }
+
+        private static void ResetShortcutSettingsForSmoke(MainForm form)
+        {
+            IReadOnlyList<ShortcutCommandDefinition> definitions =
+                GetPrivateField<IReadOnlyList<ShortcutCommandDefinition>>(form, "shortcutDefinitions");
+            SetPrivateField(form, "shortcutSettings", ShortcutSettings.Default(definitions));
+            SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
+            InvokePrivate(form, "applyShortcutSettings");
         }
 
         private static void ResetPaletteLayoutForSmoke(MainForm form)
@@ -1404,7 +1416,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Clipboard.SetText("    if(true)\r\n    {\r\n        ret 1;\r\n    }");
             InvokeProcessCmdKey(form, Keys.Control | Keys.V);
             Require(editor.Text == "main()\n{\n    if(true)\n    {\n        ret 1;\n    }\n}",
-                "L'incolla multilinea non adatta il rientro al blocco corrente.");
+                "L'incolla multilinea non adatta il rientro al blocco corrente: " + editor.Text.Replace("\n", "\\n"));
             Console.WriteLine("PASS coppie automatiche, Invio/Backspace, commenti e menu contestuale");
         }
 
@@ -2127,8 +2139,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
         private static void AssertEditorSettings(MainForm form, RichTextBox editor)
         {
             string persisted = null;
+            string persistedShortcuts = null;
             int dialogCount = 0;
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => persisted = value));
+            SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => persistedShortcuts = value));
             SetPrivateField(form, "showSettingsDialog", new Func<SettingsForm, DialogResult>(dialog =>
             {
                 dialogCount++;
@@ -2142,18 +2156,42 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<NumericUpDown>(dialog, "settingsIndentSizeNumeric").Value = 2M;
                 FindControl<ComboBox>(dialog, "settingsLineEndingComboBox").SelectedIndex = 1;
                 FindControl<CheckBox>(dialog, "settingsFormatOnSaveCheckBox").Checked = true;
+                Require(FindControl<DataGridView>(dialog, "settingsShortcutGrid").Rows.Count >= 46,
+                    "La scheda Scorciatoie non elenca i comandi configurabili.");
+                Require(!dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.F, out string conflict) &&
+                        conflict.Contains("Trova", StringComparison.OrdinalIgnoreCase),
+                    "Un conflitto di scorciatoia non viene rilevato e spiegato.");
+                Require(dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.Alt | Keys.D, out conflict),
+                    "Una scorciatoia valida e libera non viene accettata: " + conflict);
                 return DialogResult.OK;
             }));
             FindMenuItem(form, "settingsMenuItem").PerformClick();
             EditorSettings settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 1 && settings.UseTabs && settings.IndentSize == 2 && settings.FormatOnSave &&
-                    settings.LineEnding == EditorLineEnding.CrLf && persisted != null,
+                    settings.LineEnding == EditorLineEnding.CrLf && persisted != null && persistedShortcuts != null,
                 "Le preferenze scelte non vengono applicate e persistite.");
             Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
                 "Font, zoom o tema non vengono applicati subito all'editor.");
             Require(EditorSettings.Parse(persisted).Serialize() == settings.Serialize() &&
                     settings.ApplyLineEndings("a\nb") == "a\r\nb",
                 "Serializzazione o fine riga CRLF delle preferenze non è stabile.");
+            Require(FindMenuItem(form, "duplicateLinesMenuItem").ShortcutKeys == (Keys.Control | Keys.Alt | Keys.D) &&
+                    FindToolbarButton(form, "toolbarDuplicateLinesButton").ToolTipText.Contains("Ctrl+Alt+D", StringComparison.OrdinalIgnoreCase),
+                "Menu e tooltip toolbar non riflettono la scorciatoia personalizzata.");
+            IReadOnlyList<ShortcutCommandDefinition> shortcutDefinitions =
+                GetPrivateField<IReadOnlyList<ShortcutCommandDefinition>>(form, "shortcutDefinitions");
+            ShortcutSettings parsedShortcuts = ShortcutSettings.Parse(persistedShortcuts, shortcutDefinitions);
+            Require(parsedShortcuts.Get("duplicateLinesMenuItem") == (Keys.Control | Keys.Alt | Keys.D),
+                "La scorciatoia personalizzata non viene serializzata in modo stabile.");
+            var paletteCommands = (IReadOnlyList<CommandPaletteCommand>)InvokePrivate(form, "createCommandPaletteCommands");
+            Require(paletteCommands.Any(command => command.Title == "Duplica righe" &&
+                    command.ShortcutText.Contains("Ctrl+Alt+D", StringComparison.OrdinalIgnoreCase)),
+                "La Command Palette non riflette la scorciatoia personalizzata.");
+
+            editor.Text = "value << 1;";
+            editor.Select(0, 0);
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.Alt | Keys.D) && editor.Lines.Length == 2,
+                "La scorciatoia personalizzata non esegue il comando reale nell'editor.");
 
             editor.Text = string.Empty;
             editor.Select(0, 0);
@@ -2200,7 +2238,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
-            Console.WriteLine("PASS preferenze persistenti per font, zoom, tema, indentazione, fine riga e formatter");
+            SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
+            Console.WriteLine("PASS preferenze e scorciatoie persistenti con conflitti, preset e superfici sincronizzate");
         }
 
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)

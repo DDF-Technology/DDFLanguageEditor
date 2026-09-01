@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.4.1 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.4.2 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -29,6 +29,7 @@ evidenziazione delle regole note e indentazione assistita.
 - breadcrumb contestuale cliccabile per file, struttura, funzione e blocchi di controllo annidati;
 - Command Palette con `Ctrl+Shift+P`, ricerca immediata, categorie, scorciatoie e disponibilità contestuale;
 - preferenze persistenti con `Ctrl+,` per font, zoom, tema del codice, tab/spazi, ampiezza, LF/CRLF e formattazione al salvataggio;
+- scorciatoie configurabili dalla relativa scheda delle Impostazioni, con conflitti espliciti, rimozione e preset ripristinabile;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -199,7 +200,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.4.1 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.4.2 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -237,6 +238,9 @@ A searchable Command Palette exposes current menu actions, categories, shortcuts
 and availability through `Ctrl+Shift+P` while reusing their original handlers.
 Persistent settings opened with `Ctrl+,` configure font, zoom, code theme,
 indentation, saved line endings and optional format-on-save across open tabs.
+The Shortcuts tab configures every current menu command, rejects conflicts,
+synchronizes menus, toolbar hints and the Command Palette, and restores a tested
+default preset on demand.
 The right and bottom palette dimensions and their pinned/auto-hide states are
 also restored across application launches.
 A runtime-independent type checker validates primitive, structure and array

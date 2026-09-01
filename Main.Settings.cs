@@ -34,13 +34,16 @@ namespace DDF___Program_Language_Editor
 
         private void settingsMenuItem_Click(object sender, EventArgs e)
         {
-            using (var dialog = new SettingsForm(editorSettings))
+            using (var dialog = new SettingsForm(editorSettings, shortcutDefinitions, shortcutSettings))
             {
                 if (showSettingsDialog(dialog) != DialogResult.OK) return;
                 editorSettings = dialog.SelectedSettings;
+                shortcutSettings = dialog.SelectedShortcuts;
             }
             persistEditorSettings();
+            persistShortcutSettings();
             applyEditorSettings();
+            applyShortcutSettings();
         }
 
         private void persistEditorSettings()

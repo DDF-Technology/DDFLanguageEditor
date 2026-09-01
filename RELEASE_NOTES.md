@@ -1,6 +1,12 @@
-# DDFLanguageEditor 0.9.4.1
+# DDFLanguageEditor 0.9.4.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.2 adds a Shortcuts tab to Settings. Every current menu command can
+receive a persistent Ctrl/Alt combination or function key, or be left
+unassigned. Conflicts are rejected with the name of the existing command, while
+Predefiniti restores the tested preset. Menu labels, Command Palette entries,
+toolbar tooltips and editor-specific handlers update together after Apply.
 
 Version 0.9.4.1 makes the IDE layout persistent too. The preferred width of the
 right Outline/workspace palette, the height of the bottom Diagnostics/Output

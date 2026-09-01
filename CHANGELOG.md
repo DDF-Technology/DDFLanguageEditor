@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4.2 - 2026-09-01
+
+- add a dedicated Shortcuts tab to the centered Settings window with every current menu command grouped by category;
+- capture custom combinations, allow commands to be unassigned and reject unsafe bare typing keys;
+- detect conflicts before assignment and identify the command already using the requested combination;
+- persist the complete shortcut profile and restore the tested default preset in one step;
+- synchronize live shortcuts across menus, the Command Palette, toolbar tooltips and editor-specific command routing;
+- preserve the Italian keyboard-layout alias for the default line-comment shortcut without keeping it after customization;
+- verify conflicts, serialization, reset, synchronized surfaces and real execution through the WinForms smoke gate;
+
 ## 0.9.4.1 - 2026-09-01
 
 - persist the preferred width of the right Outline/workspace palette and the height of the bottom Diagnostics/Output palette;

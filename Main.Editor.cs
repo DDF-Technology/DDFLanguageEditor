@@ -20,25 +20,25 @@ namespace DDF___Program_Language_Editor
                 return base.ProcessCmdKey(ref message, keyData);
             }
 
-            if (keyData == (Keys.Control | Keys.OemPeriod))
+            if (matchesShortcut(quickFixMenuItem, keyData))
             {
                 applyFirstQuickFix();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.D))
+            if (matchesShortcut(selectNextOccurrenceMenuItem, keyData))
             {
                 selectNextOccurrence();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.Shift | Keys.L))
+            if (matchesShortcut(selectAllOccurrencesMenuItem, keyData))
             {
                 selectAllOccurrences();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.Shift | Keys.D))
+            if (matchesShortcut(duplicateLinesMenuItem, keyData))
             {
                 duplicateLines();
                 return true;
@@ -50,66 +50,69 @@ namespace DDF___Program_Language_Editor
                 return true;
             }
 
-            if (keyData == (Keys.Shift | Keys.Alt | Keys.Right))
+            if (matchesShortcut(expandSelectionMenuItem, keyData))
             {
                 expandSyntacticSelection();
                 return true;
             }
 
-            if (keyData == (Keys.Shift | Keys.Alt | Keys.Left))
+            if (matchesShortcut(shrinkSelectionMenuItem, keyData))
             {
                 shrinkSyntacticSelection();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.Shift | Keys.OemPipe))
+            if (matchesShortcut(matchingDelimiterMenuItem, keyData))
             {
                 goToMatchingDelimiter();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.C))
+            if (matchesShortcut(copyMenuItem, keyData))
             {
                 copySelectionToClipboard();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.X))
+            if (matchesShortcut(cutMenuItem, keyData))
             {
                 cutSelectionToClipboard();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.V))
+            if (matchesShortcut(pasteMenuItem, keyData))
             {
                 pasteTextFromClipboard();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.OemQuestion) ||
-                keyData == (Keys.Control | Keys.Shift | Keys.D7))
+            if (matchesShortcut(toggleLineCommentMenuItem, keyData) ||
+                (toggleLineCommentMenuItem.ShortcutKeys == (Keys.Control | Keys.OemQuestion) &&
+                 keyData == (Keys.Control | Keys.Shift | Keys.D7)))
             {
                 toggleLineComment();
                 return true;
             }
 
-            if (keyData == (Keys.Alt | Keys.Up))
+            if (matchesShortcut(moveLinesUpMenuItem, keyData))
             {
                 moveLines(true);
                 return true;
             }
 
-            if (keyData == (Keys.Alt | Keys.Down))
+            if (matchesShortcut(moveLinesDownMenuItem, keyData))
             {
                 moveLines(false);
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.Shift | Keys.K))
+            if (matchesShortcut(deleteLinesMenuItem, keyData))
             {
                 deleteLines();
                 return true;
             }
+
+            if (shouldSuppressDisplacedNativeShortcut(keyData)) return true;
 
             return base.ProcessCmdKey(ref message, keyData);
         }

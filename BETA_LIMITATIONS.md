@@ -1,4 +1,4 @@
-# Beta 0.9.4.1 limitations
+# Beta 0.9.4.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -31,6 +31,7 @@ This release is intended for interface and language-design evaluation only.
 - drag-and-drop opening for DDF files and workspace folders, with persisted recent workspaces;
 - persistent editor preferences for font, zoom, code theme, indentation, line endings and format-on-save;
 - persistent right and bottom palette dimensions and pinned/auto-hide state;
+- persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
