@@ -149,13 +149,40 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokePrivate(form, "applyHighlighting");
                 PumpMessages(40);
 
+                Control gutter = FindControl<RichTextBox>(form, "richTextBoxLineNumbers");
+                int initialOutlineRenders = GetPrivateValue<int>(form, "outlineRenderCount");
+                int initialDiagnosticsRenders = GetPrivateValue<int>(form, "diagnosticsRenderCount");
+                int middlePosition = editor.GetFirstCharIndexFromLine(EditorPerformanceBudgets.ReferenceDocumentLines / 2);
+                editor.Select(middlePosition, 0);
+                editor.ScrollToCaret();
+                PumpMessages(20);
+                int initialGutterUpdates = GetPropertyValue<int>(gutter, "ContentUpdateCount");
+                int firstVisibleLine = editor.GetLineFromCharIndex(
+                    editor.GetCharIndexFromPosition(new Point(1, 1)));
+                int invalidations = 0;
+                editor.Invalidated += (sender, args) => invalidations++;
+                InvokePrivate(form, "applyHighlighting");
+                int firstVisibleLineAfterHighlight = editor.GetLineFromCharIndex(
+                    editor.GetCharIndexFromPosition(new Point(1, 1)));
+                for (int index = 0; index < 20; index++) InvokePrivate(form, "updateLineNumbers");
+                Require(GetPropertyValue<int>(gutter, "ContentUpdateCount") == initialGutterUpdates &&
+                        GetPrivateValue<int>(form, "outlineRenderCount") == initialOutlineRenders &&
+                        GetPrivateValue<int>(form, "diagnosticsRenderCount") == initialDiagnosticsRenders,
+                    "Analisi e gutter identici ricostruiscono ancora controlli UI invariati.");
+                Require(invalidations <= 2 && firstVisibleLineAfterHighlight == firstVisibleLine,
+                    "La colorazione identica provoca ridisegni multipli o sposta la viewport.");
+
                 var inputSamples = new List<double>();
                 editor.Select(editor.TextLength, 0);
+                PumpMessages(20);
+                int gutterUpdatesBeforeInput = GetPropertyValue<int>(gutter, "ContentUpdateCount");
                 for (int index = 0; index < EditorPerformanceBudgets.InteractiveSampleCount; index++)
                 {
                     inputSamples.Add(MeasureMilliseconds(() => editor.SelectedText = " "));
                     StopInteractiveTimers(form);
                 }
+                Require(GetPropertyValue<int>(gutter, "ContentUpdateCount") == gutterUpdatesBeforeInput,
+                    "La digitazione senza variazioni di riga ridisegna ancora il gutter.");
                 AssertPerformanceBudget(EditorPerformanceBudgets.Input, inputSamples);
 
                 var selectionSamples = new List<double>();
@@ -168,6 +195,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertPerformanceBudget(EditorPerformanceBudgets.Selection, selectionSamples);
 
                 var scrollSamples = new List<double>();
+                int gutterUpdatesBeforeScroll = GetPropertyValue<int>(gutter, "ContentUpdateCount");
                 for (int index = 0; index < EditorPerformanceBudgets.InteractiveSampleCount; index++)
                 {
                     int line = (EditorPerformanceBudgets.ReferenceDocumentLines - 1) * index /
@@ -180,6 +208,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         InvokeHandler(form, "richTextBoxMainEditor_VScroll", editor, EventArgs.Empty);
                     }));
                 }
+                Require(GetPropertyValue<int>(gutter, "ContentUpdateCount") > gutterUpdatesBeforeScroll,
+                    "Lo smoke dello scroll non ha attraversato viewport differenti.");
                 AssertPerformanceBudget(EditorPerformanceBudgets.Scroll, scrollSamples);
 
                 var highlightSamples = new List<double>();
@@ -380,7 +410,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -2665,6 +2695,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             return field.GetValue(target) as T;
+        }
+
+        private static T GetPrivateValue<T>(object target, string fieldName)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null) throw new InvalidOperationException("Campo privato non trovato: " + fieldName);
+            return (T)field.GetValue(target);
+        }
+
+        private static T GetPropertyValue<T>(object target, string propertyName)
+        {
+            PropertyInfo property = target.GetType().GetProperty(propertyName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property == null) throw new InvalidOperationException("Proprietà non trovata: " + propertyName);
+            return (T)property.GetValue(target);
         }
 
         private static void InvokeMouseMoveHandler(Form form, string methodName, Control sender, Point location)

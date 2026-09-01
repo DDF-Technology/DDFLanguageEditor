@@ -239,6 +239,8 @@ namespace DDF___Program_Language_Editor
             lastAnalyzedText = string.Empty;
             activeDelimiterMatch = null;
             diagnosticsFormatStart = int.MaxValue;
+            outlineRenderSignature = null;
+            diagnosticsRenderSignature = null;
             collapsedFoldStarts.Clear();
             foldingRanges = new List<DdfFoldingRange>();
         }

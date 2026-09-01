@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.5.1 - 2026-09-01
+
+- cache gutter text and source-line mappings so unchanged typing, analysis and layout requests do not rebuild the line-number control;
+- update changed gutter content under one lightweight native redraw suspension instead of exposing intermediate selection/format states;
+- preserve the exact RichEdit scroll position while syntax colors and diagnostic decorations temporarily select token ranges;
+- fingerprint Outline symbols and diagnostics so identical analysis snapshots do not clear, repopulate or expand their controls;
+- invalidate the editor once after a formatting transaction rather than once per token or diagnostic;
+- add smoke assertions for stable viewport, bounded editor invalidations and unchanged gutter/Outline/Diagnostics render counts;
+- retain all 0.9.5.0 p95 targets after the rendering changes, including input, selection and scroll below 16 ms;
+
 ## 0.9.5.0 - 2026-09-01
 
 - define explicit p95 responsiveness targets and separate regression ceilings for editor input, selection, scroll/gutter, full highlighting and popup opening;

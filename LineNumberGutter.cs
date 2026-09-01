@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace DDF___Program_Language_Editor
@@ -12,6 +14,7 @@ namespace DDF___Program_Language_Editor
         private const int WmLeftButtonDown = 0x0201;
         private const int WmLeftButtonDoubleClick = 0x0203;
         private const int WmRightButtonDown = 0x0204;
+        private const int WmSetRedraw = 0x000B;
         private IReadOnlyList<int> displayedSourceLines = new int[0];
 
         public event EventHandler<LineNumberClickEventArgs> LineClicked;
@@ -29,9 +32,43 @@ namespace DDF___Program_Language_Editor
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Control TargetControl { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public int ContentUpdateCount { get; private set; }
+
         public void SetDisplayedSourceLines(IReadOnlyList<int> sourceLines)
         {
-            displayedSourceLines = sourceLines ?? new int[0];
+            displayedSourceLines = sourceLines?.ToArray() ?? new int[0];
+        }
+
+        public bool UpdateDisplayedLines(string value, IReadOnlyList<int> sourceLines)
+        {
+            value = value ?? string.Empty;
+            sourceLines = sourceLines ?? new int[0];
+            if (string.Equals(Text, value, StringComparison.Ordinal) &&
+                displayedSourceLines.SequenceEqual(sourceLines)) return false;
+
+            bool canSuspendRedraw = IsHandleCreated && !IsDisposed;
+            if (canSuspendRedraw) SendMessage(Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
+            try
+            {
+                Text = value;
+                SelectAll();
+                SelectionAlignment = HorizontalAlignment.Left;
+                SelectionIndent = 1;
+                Select(0, 0);
+            }
+            finally
+            {
+                if (canSuspendRedraw && IsHandleCreated && !IsDisposed)
+                {
+                    SendMessage(Handle, WmSetRedraw, new IntPtr(1), IntPtr.Zero);
+                    Invalidate();
+                }
+            }
+            displayedSourceLines = sourceLines.ToArray();
+            ContentUpdateCount++;
+            return true;
         }
 
         protected override void WndProc(ref Message message)
@@ -61,6 +98,9 @@ namespace DDF___Program_Language_Editor
         {
             if (TargetControl != null && !TargetControl.IsDisposed) TargetControl.Focus();
         }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
     }
 
     internal sealed class LineNumberClickEventArgs : EventArgs

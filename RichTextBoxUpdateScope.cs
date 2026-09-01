@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -10,12 +11,16 @@ namespace DDF___Program_Language_Editor
         private const int EmGetEventMask = 0x0400 + 59;
         private const int EmGetOleInterface = 0x0400 + 60;
         private const int EmSetEventMask = 0x0400 + 69;
+        private const int EmGetScrollPos = 0x0400 + 221;
+        private const int EmSetScrollPos = 0x0400 + 222;
         private const int TomSuspend = -9999995;
         private const int TomResume = -9999994;
 
         private readonly RichTextBox editor;
         private readonly IntPtr eventMask;
         private readonly ITextDocument textDocument;
+        private readonly Point scrollPosition;
+        private readonly bool hasScrollPosition;
         private readonly bool isActive;
         private bool isDisposed;
 
@@ -28,6 +33,9 @@ namespace DDF___Program_Language_Editor
             }
 
             eventMask = SendMessage(editor.Handle, EmGetEventMask, IntPtr.Zero, IntPtr.Zero);
+            Point currentScrollPosition = Point.Empty;
+            hasScrollPosition = SendMessage(editor.Handle, EmGetScrollPos, IntPtr.Zero, ref currentScrollPosition) != IntPtr.Zero;
+            scrollPosition = currentScrollPosition;
             SendMessage(editor.Handle, EmSetEventMask, IntPtr.Zero, IntPtr.Zero);
             SendMessage(editor.Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
             textDocument = TryGetTextDocument(editor.Handle);
@@ -56,6 +64,11 @@ namespace DDF___Program_Language_Editor
             try
             {
                 textDocument?.Undo(TomResume, IntPtr.Zero);
+                if (hasScrollPosition)
+                {
+                    Point originalScrollPosition = scrollPosition;
+                    SendMessage(editor.Handle, EmSetScrollPos, IntPtr.Zero, ref originalScrollPosition);
+                }
             }
             finally
             {
@@ -98,6 +111,9 @@ namespace DDF___Program_Language_Editor
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, out IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, ref Point lParam);
 
         [ComImport]
         [Guid("8CC497C0-A1DF-11CE-8098-00AA0047BE5D")]

@@ -1,6 +1,15 @@
-# DDFLanguageEditor 0.9.5.0
+# DDFLanguageEditor 0.9.5.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.1 removes avoidable redraw work from the main editing loop. The
+line-number gutter now changes atomically only when its visible content or source
+mapping actually changes. Outline and Diagnostics reuse identical analysis
+snapshots instead of rebuilding their trees and lists. Syntax formatting keeps
+the original native RichEdit viewport while token selections are applied under
+one redraw transaction. Dynamic smoke tests count renders and invalidations and
+verify that repeated analysis neither moves the viewport nor touches unchanged
+controls.
 
 Version 0.9.5.0 starts the fluidity, accessibility and refinement milestone with
 a measurable responsiveness contract. Dynamic WinForms smoke tests now measure

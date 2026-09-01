@@ -11,6 +11,11 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
+        private string outlineRenderSignature;
+        private string diagnosticsRenderSignature;
+        private int outlineRenderCount;
+        private int diagnosticsRenderCount;
+
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
             TextBoxBase focusedTextBox = findFocusedTextBox(this);
@@ -461,6 +466,10 @@ namespace DDF___Program_Language_Editor
 
         private void updateOutline(IReadOnlyList<DdfDocumentSymbol> symbols)
         {
+            string signature = createOutlineRenderSignature(symbols);
+            if (string.Equals(outlineRenderSignature, signature, StringComparison.Ordinal)) return;
+            outlineRenderSignature = signature;
+            outlineRenderCount++;
             treeViewOutline.BeginUpdate();
             try
             {
@@ -489,6 +498,27 @@ namespace DDF___Program_Language_Editor
 
             int count = countSymbols(symbols);
             labelOutline.Text = count == 1 ? "OUTLINE — 1 simbolo" : "OUTLINE — " + count + " simboli";
+        }
+
+        private static string createOutlineRenderSignature(IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
+            var signature = new StringBuilder();
+            appendOutlineRenderSignature(signature, symbols ?? Array.Empty<DdfDocumentSymbol>());
+            return signature.ToString();
+        }
+
+        private static void appendOutlineRenderSignature(StringBuilder signature,
+            IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
+            foreach (DdfDocumentSymbol symbol in symbols)
+            {
+                signature.Append((int)symbol.Kind).Append(':').Append(symbol.Start).Append(':')
+                    .Append(symbol.Length).Append(':').Append(symbol.SelectionStart).Append(':')
+                    .Append(symbol.SelectionLength).Append(':').Append(symbol.Name).Append(':')
+                    .Append(symbol.Detail).Append('|');
+                appendOutlineRenderSignature(signature, symbol.Children);
+                signature.Append(';');
+            }
         }
 
         private static TreeNode createOutlineNode(DdfDocumentSymbol symbol)
@@ -850,6 +880,10 @@ namespace DDF___Program_Language_Editor
         private void updateDiagnostics(System.Collections.Generic.IReadOnlyList<DdfDiagnostic> diagnostics)
         {
             activeDiagnostics = diagnostics ?? new List<DdfDiagnostic>();
+            string signature = createDiagnosticsRenderSignature(activeDiagnostics);
+            if (string.Equals(diagnosticsRenderSignature, signature, StringComparison.Ordinal)) return;
+            diagnosticsRenderSignature = signature;
+            diagnosticsRenderCount++;
             listBoxDiagnostics.BeginUpdate();
             try
             {
@@ -870,6 +904,19 @@ namespace DDF___Program_Language_Editor
                 : "Diagnostica sorgente — " + count + " problemi";
             panelDiagnostics.Visible = true;
             updateLineNumbers();
+        }
+
+        private static string createDiagnosticsRenderSignature(IReadOnlyList<DdfDiagnostic> diagnostics)
+        {
+            var signature = new StringBuilder();
+            foreach (DdfDiagnostic diagnostic in diagnostics)
+            {
+                signature.Append(diagnostic.Code).Append(':').Append((int)diagnostic.Severity).Append(':')
+                    .Append(diagnostic.Start).Append(':').Append(diagnostic.Length).Append(':')
+                    .Append(diagnostic.Line).Append(':').Append(diagnostic.Column).Append(':')
+                    .Append(diagnostic.Message).Append('|');
+            }
+            return signature.ToString();
         }
 
         private byte getDiagnosticUnderlineTypeAt(int position)
@@ -972,17 +1019,8 @@ namespace DDF___Program_Language_Editor
                 lineNumbers.Append(formatLineNumber(sourceLine)).Append('\n');
             }
 
-            richTextBoxLineNumbers.SetDisplayedSourceLines(sourceLines);
-
             string value = lineNumbers.ToString();
-            if (!string.Equals(richTextBoxLineNumbers.Text, value, StringComparison.Ordinal))
-            {
-                richTextBoxLineNumbers.Text = value;
-                richTextBoxLineNumbers.SelectAll();
-                richTextBoxLineNumbers.SelectionAlignment = HorizontalAlignment.Left;
-                richTextBoxLineNumbers.SelectionIndent = 1;
-                richTextBoxLineNumbers.Select(0, 0);
-            }
+            richTextBoxLineNumbers.UpdateDisplayedLines(value, sourceLines);
         }
     }
 }

@@ -286,17 +286,8 @@ namespace DDF___Program_Language_Editor
                 lineNumbers.Append('\n');
             }
 
-            richTextBoxLineNumbers.SetDisplayedSourceLines(sourceLines);
-
             string value = lineNumbers.ToString();
-            if (!string.Equals(richTextBoxLineNumbers.Text, value, StringComparison.Ordinal))
-            {
-                richTextBoxLineNumbers.Text = value;
-                richTextBoxLineNumbers.SelectAll();
-                richTextBoxLineNumbers.SelectionAlignment = HorizontalAlignment.Left;
-                richTextBoxLineNumbers.SelectionIndent = 1;
-                richTextBoxLineNumbers.Select(0, 0);
-            }
+            richTextBoxLineNumbers.UpdateDisplayedLines(value, sourceLines);
         }
 
         private DdfFoldingRange findFoldingRangeAtCaret()
