@@ -187,6 +187,7 @@ namespace DDF___Program_Language_Editor
                 if (changedView != null)
                 {
                     changedView.LastEditPosition = Math.Min(changedEditor.SelectionStart, changedEditor.TextLength);
+                    changedView.LastEditUtc = getUtcNow?.Invoke() ?? DateTime.UtcNow;
                     string previousSource = changedView.Buffer.Source;
                     if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
                         updateSnippetSession(previousSource, changedEditor.Text);

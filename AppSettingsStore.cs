@@ -11,6 +11,7 @@ namespace DDF___Program_Language_Editor
         private const string EditorSettingsFileName = "editor-settings.txt";
         private const string PaletteLayoutSettingsFileName = "palette-layout.txt";
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
+        private const string HotExitSnapshotFileName = "hot-exit.json";
 
         public static string LoadRecentFiles()
         {
@@ -86,6 +87,22 @@ namespace DDF___Program_Language_Editor
             Save(ShortcutSettingsFileName, value);
         }
 
+        public static string LoadHotExitSnapshot()
+        {
+            return Load(HotExitSnapshotFileName);
+        }
+
+        public static void SaveHotExitSnapshot(string value)
+        {
+            Save(HotExitSnapshotFileName, value);
+        }
+
+        public static void ClearHotExitSnapshot()
+        {
+            string path = GetSettingsPath(HotExitSnapshotFileName);
+            if (File.Exists(path)) File.Delete(path);
+        }
+
         private static string Load(string fileName)
         {
             try
@@ -105,7 +122,17 @@ namespace DDF___Program_Language_Editor
         {
             string path = GetSettingsPath(fileName);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllText(path, value ?? string.Empty, new UTF8Encoding(false));
+            string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporaryPath, value ?? string.Empty, new UTF8Encoding(false));
+                if (File.Exists(path)) File.Copy(temporaryPath, path, true);
+                else File.Move(temporaryPath, path);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
         }
 
         private static string GetSettingsPath(string fileName)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.4.3 - 2026-09-01
+
+- add opt-in autosave for modified documents that already have a file path, with a configurable one-to-300-second idle delay;
+- keep autosave unobtrusive by preserving the editor buffer and avoiding formatter-driven caret changes;
+- add opt-in Hot Exit that stores dirty named and untitled buffers without showing close prompts;
+- restore source, dirty state, selection and document breakpoints automatically on the next launch;
+- write application settings and Hot Exit data through temporary files before replacing their destination;
+- fall back to the normal save confirmation when Hot Exit storage fails, avoiding silent data loss;
+- keep autosave and Hot Exit disabled in the default preset and document the external-change limitation;
+- isolate the real user cache in smoke tests and verify idle autosave plus a complete Hot Exit round trip;
+
 ## 0.9.4.2 - 2026-09-01
 
 - add a dedicated Shortcuts tab to the centered Settings window with every current menu command grouped by category;

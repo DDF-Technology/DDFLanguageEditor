@@ -259,7 +259,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.2") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -582,12 +582,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "loadHotExitSnapshotSetting", new Func<string>(() => string.Empty));
+            SetPrivateField(form, "saveHotExitSnapshotSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "clearHotExitSnapshotSetting", new Action(() => { }));
         }
 
         private static void ResetEditorSettingsForSmoke(MainForm form)
         {
             SetPrivateField(form, "editorSettings", EditorSettings.Default);
             InvokePrivate(form, "applyEditorSettings");
+            InvokePrivate(form, "updateAutoSaveBehavior");
         }
 
         private static void ResetShortcutSettingsForSmoke(MainForm form)
@@ -2156,6 +2160,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<NumericUpDown>(dialog, "settingsIndentSizeNumeric").Value = 2M;
                 FindControl<ComboBox>(dialog, "settingsLineEndingComboBox").SelectedIndex = 1;
                 FindControl<CheckBox>(dialog, "settingsFormatOnSaveCheckBox").Checked = true;
+                FindControl<CheckBox>(dialog, "settingsAutoSaveCheckBox").Checked = true;
+                FindControl<NumericUpDown>(dialog, "settingsAutoSaveDelayNumeric").Value = 1M;
+                FindControl<CheckBox>(dialog, "settingsHotExitCheckBox").Checked = true;
                 Require(FindControl<DataGridView>(dialog, "settingsShortcutGrid").Rows.Count >= 46,
                     "La scheda Scorciatoie non elenca i comandi configurabili.");
                 Require(!dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.F, out string conflict) &&
@@ -2168,6 +2175,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             FindMenuItem(form, "settingsMenuItem").PerformClick();
             EditorSettings settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 1 && settings.UseTabs && settings.IndentSize == 2 && settings.FormatOnSave &&
+                    settings.AutoSaveEnabled && settings.AutoSaveDelaySeconds == 1 && settings.HotExitEnabled &&
                     settings.LineEnding == EditorLineEnding.CrLf && persisted != null && persistedShortcuts != null,
                 "Le preferenze scelte non vengono applicate e persistite.");
             Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
@@ -2216,6 +2224,33 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 string saved = File.ReadAllText(settingsSavePath);
                 Require(saved.Contains("\r\n\tret 2;", StringComparison.Ordinal),
                     "Formatta al salvataggio, Tab o fine riga CRLF non vengono applicati al file.");
+
+                DateTime fakeNow = new DateTime(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc);
+                SetPrivateField(form, "getUtcNow", new Func<DateTime>(() => fakeNow));
+                editor.Text = "main() out int { ret 3; }";
+                fakeNow = fakeNow.AddSeconds(2);
+                InvokeHandler(form, "autoSaveTimer_Tick", form, EventArgs.Empty);
+                saved = File.ReadAllText(settingsSavePath);
+                Require(saved.Contains("ret 3;", StringComparison.Ordinal) &&
+                        !GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "L'autosave non salva il file dopo il ritardo configurato o non aggiorna lo stato dirty.");
+
+                string hotExitData = null;
+                bool hotExitCleared = false;
+                editor.Text = "main() out int {\n\tret 4;\n}";
+                editor.Select(editor.Text.IndexOf("ret", StringComparison.Ordinal), 3);
+                SetPrivateField(form, "saveHotExitSnapshotSetting", new Action<string>(value => hotExitData = value));
+                SetPrivateField(form, "clearHotExitSnapshotSetting", new Action(() => hotExitCleared = true));
+                Require((bool)InvokePrivate(form, "prepareHotExit") && HotExitSnapshot.Parse(hotExitData)?.Documents.Count == 1,
+                    "Hot Exit non serializza il buffer modificato.");
+
+                SetPrivateField(form, "loadHotExitSnapshotSetting", new Func<string>(() => hotExitData));
+                editor.Text = string.Empty;
+                GetPrivateField<DocumentSession>(form, "documentSession").MarkSaved(settingsSavePath);
+                InvokePrivate(form, "restoreHotExitBuffers");
+                Require(editor.Text.Contains("ret 4;", StringComparison.Ordinal) && editor.SelectedText == "ret" &&
+                        GetPrivateField<DocumentSession>(form, "documentSession").IsDirty && hotExitCleared,
+                    "Hot Exit non ripristina contenuto, selezione e stato dirty oppure non consuma lo snapshot.");
             }
             finally
             {
@@ -2235,11 +2270,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             FindToolbarButton(form, "toolbarSettingsButton").PerformClick();
             settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 2 && !settings.UseTabs && settings.IndentSize == 4 &&
+                    !settings.AutoSaveEnabled && !settings.HotExitEnabled &&
                     settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
-            Console.WriteLine("PASS preferenze e scorciatoie persistenti con conflitti, preset e superfici sincronizzate");
+            Console.WriteLine("PASS preferenze, scorciatoie, autosave e Hot Exit persistenti con ripristino sicuro");
         }
 
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)

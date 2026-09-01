@@ -1,4 +1,4 @@
-# Beta 0.9.4.2 limitations
+# Beta 0.9.4.3 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -32,6 +32,7 @@ This release is intended for interface and language-design evaluation only.
 - persistent editor preferences for font, zoom, code theme, indentation, line endings and format-on-save;
 - persistent right and bottom palette dimensions and pinned/auto-hide state;
 - persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
+- optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
@@ -55,6 +56,7 @@ This release is intended for interface and language-design evaluation only.
 ## Not implemented
 
 - crash recovery or concurrent-edit conflict detection;
+- autosave does not yet detect external file changes before writing;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - compiler, bytecode VM, native runtime or full debugger;
 - complete standard library, non-interactive input streams or step-by-step execution;

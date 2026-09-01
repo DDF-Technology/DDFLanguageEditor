@@ -22,14 +22,24 @@ namespace DDF___Program_Language_Editor
         public const float DefaultFontSize = 10F;
         public const int DefaultZoomPercent = 100;
         public const int DefaultIndentSize = 4;
+        public const int DefaultAutoSaveDelaySeconds = 5;
 
         public EditorSettings(string fontFamily, float fontSize, int zoomPercent, EditorTheme theme,
             bool useTabs, int indentSize, EditorLineEnding lineEnding, bool formatOnSave)
+            : this(fontFamily, fontSize, zoomPercent, theme, useTabs, indentSize, lineEnding,
+                formatOnSave, false, DefaultAutoSaveDelaySeconds, false)
+        {
+        }
+
+        public EditorSettings(string fontFamily, float fontSize, int zoomPercent, EditorTheme theme,
+            bool useTabs, int indentSize, EditorLineEnding lineEnding, bool formatOnSave,
+            bool autoSaveEnabled, int autoSaveDelaySeconds, bool hotExitEnabled)
         {
             if (string.IsNullOrWhiteSpace(fontFamily)) throw new ArgumentException("A font family is required.", nameof(fontFamily));
             if (fontSize < 8F || fontSize > 32F) throw new ArgumentOutOfRangeException(nameof(fontSize));
             if (zoomPercent < 50 || zoomPercent > 200) throw new ArgumentOutOfRangeException(nameof(zoomPercent));
             if (indentSize < 1 || indentSize > 8) throw new ArgumentOutOfRangeException(nameof(indentSize));
+            if (autoSaveDelaySeconds < 1 || autoSaveDelaySeconds > 300) throw new ArgumentOutOfRangeException(nameof(autoSaveDelaySeconds));
             FontFamily = fontFamily.Trim();
             FontSize = fontSize;
             ZoomPercent = zoomPercent;
@@ -38,6 +48,9 @@ namespace DDF___Program_Language_Editor
             IndentSize = indentSize;
             LineEnding = lineEnding;
             FormatOnSave = formatOnSave;
+            AutoSaveEnabled = autoSaveEnabled;
+            AutoSaveDelaySeconds = autoSaveDelaySeconds;
+            HotExitEnabled = hotExitEnabled;
         }
 
         public string FontFamily { get; }
@@ -48,6 +61,9 @@ namespace DDF___Program_Language_Editor
         public int IndentSize { get; }
         public EditorLineEnding LineEnding { get; }
         public bool FormatOnSave { get; }
+        public bool AutoSaveEnabled { get; }
+        public int AutoSaveDelaySeconds { get; }
+        public bool HotExitEnabled { get; }
 
         public static EditorSettings Default => new EditorSettings(DefaultFontFamily, DefaultFontSize,
             DefaultZoomPercent, EditorTheme.Dark, false, DefaultIndentSize, EditorLineEnding.Lf, false);
@@ -68,9 +84,13 @@ namespace DDF___Program_Language_Editor
             int indent = parseInt(values, "indentSize", defaults.IndentSize, 1, 8);
             bool tabs = parseBool(values, "useTabs", defaults.UseTabs);
             bool formatOnSave = parseBool(values, "formatOnSave", defaults.FormatOnSave);
+            bool autoSaveEnabled = parseBool(values, "autoSaveEnabled", defaults.AutoSaveEnabled);
+            int autoSaveDelaySeconds = parseInt(values, "autoSaveDelaySeconds", defaults.AutoSaveDelaySeconds, 1, 300);
+            bool hotExitEnabled = parseBool(values, "hotExitEnabled", defaults.HotExitEnabled);
             EditorTheme theme = parseEnum(values, "theme", defaults.Theme);
             EditorLineEnding lineEnding = parseEnum(values, "lineEnding", defaults.LineEnding);
-            return new EditorSettings(font, fontSize, zoom, theme, tabs, indent, lineEnding, formatOnSave);
+            return new EditorSettings(font, fontSize, zoom, theme, tabs, indent, lineEnding, formatOnSave,
+                autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled);
         }
 
         public string Serialize()
@@ -84,7 +104,10 @@ namespace DDF___Program_Language_Editor
                 "useTabs=" + UseTabs,
                 "indentSize=" + IndentSize,
                 "lineEnding=" + LineEnding,
-                "formatOnSave=" + FormatOnSave
+                "formatOnSave=" + FormatOnSave,
+                "autoSaveEnabled=" + AutoSaveEnabled,
+                "autoSaveDelaySeconds=" + AutoSaveDelaySeconds,
+                "hotExitEnabled=" + HotExitEnabled
             });
         }
 

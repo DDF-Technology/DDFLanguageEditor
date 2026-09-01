@@ -16,6 +16,9 @@ namespace DDF___Program_Language_Editor
         private readonly NumericUpDown settingsIndentSizeNumeric;
         private readonly ComboBox settingsLineEndingComboBox;
         private readonly CheckBox settingsFormatOnSaveCheckBox;
+        private readonly CheckBox settingsAutoSaveCheckBox;
+        private readonly NumericUpDown settingsAutoSaveDelayNumeric;
+        private readonly CheckBox settingsHotExitCheckBox;
         private readonly DataGridView settingsShortcutGrid;
         private readonly TextBox settingsShortcutTextBox;
         private readonly Label settingsShortcutStatusLabel;
@@ -56,6 +59,11 @@ namespace DDF___Program_Language_Editor
             settingsIndentSizeNumeric = createNumeric("settingsIndentSizeNumeric", 1, 8, settings.IndentSize, 1);
             settingsLineEndingComboBox = createChoice("settingsLineEndingComboBox", new[] { "LF", "CRLF" }, settings.LineEnding == EditorLineEnding.Lf ? 0 : 1);
             settingsFormatOnSaveCheckBox = new CheckBox { Name = "settingsFormatOnSaveCheckBox", Text = "Formatta automaticamente prima di salvare", Checked = settings.FormatOnSave, Dock = DockStyle.Fill };
+            settingsAutoSaveCheckBox = new CheckBox { Name = "settingsAutoSaveCheckBox", Text = "Salva automaticamente i file modificati", Checked = settings.AutoSaveEnabled, Dock = DockStyle.Fill };
+            settingsAutoSaveDelayNumeric = createNumeric("settingsAutoSaveDelayNumeric", 1, 300, settings.AutoSaveDelaySeconds, 1);
+            settingsAutoSaveDelayNumeric.Enabled = settings.AutoSaveEnabled;
+            settingsAutoSaveCheckBox.CheckedChanged += (sender, args) => settingsAutoSaveDelayNumeric.Enabled = settingsAutoSaveCheckBox.Checked;
+            settingsHotExitCheckBox = new CheckBox { Name = "settingsHotExitCheckBox", Text = "Conserva i buffer non salvati alla chiusura (Hot Exit)", Checked = settings.HotExitEnabled, Dock = DockStyle.Fill };
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
@@ -109,7 +117,10 @@ namespace DDF___Program_Language_Editor
             settingsThemeComboBox.SelectedIndex == 1 ? EditorTheme.Light : EditorTheme.Dark,
             settingsIndentStyleComboBox.SelectedIndex == 1, (int)settingsIndentSizeNumeric.Value,
             settingsLineEndingComboBox.SelectedIndex == 1 ? EditorLineEnding.CrLf : EditorLineEnding.Lf,
-            settingsFormatOnSaveCheckBox.Checked);
+            settingsFormatOnSaveCheckBox.Checked,
+            settingsAutoSaveCheckBox.Checked,
+            (int)settingsAutoSaveDelayNumeric.Value,
+            settingsHotExitCheckBox.Checked);
 
         public ShortcutSettings SelectedShortcuts => new ShortcutSettings(shortcutDefinitions, shortcutValues);
 
@@ -138,10 +149,10 @@ namespace DDF___Program_Language_Editor
         private TabPage createEditorTab()
         {
             var page = new TabPage("Editor") { Name = "settingsEditorTab", Padding = new Padding(6) };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 9, Padding = new Padding(18) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 12, Padding = new Padding(18) };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int index = 0; index < 8; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39F));
+            for (int index = 0; index < 11; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             addRow(layout, 0, "Font del codice", settingsFontComboBox);
             addRow(layout, 1, "Dimensione font", settingsFontSizeNumeric);
@@ -151,6 +162,9 @@ namespace DDF___Program_Language_Editor
             addRow(layout, 5, "Ampiezza indentazione", settingsIndentSizeNumeric);
             addRow(layout, 6, "Fine riga al salvataggio", settingsLineEndingComboBox);
             addRow(layout, 7, "Formatter", settingsFormatOnSaveCheckBox);
+            addRow(layout, 8, "Autosave", settingsAutoSaveCheckBox);
+            addRow(layout, 9, "Ritardo autosave (secondi)", settingsAutoSaveDelayNumeric);
+            addRow(layout, 10, "Hot Exit", settingsHotExitCheckBox);
             page.Controls.Add(layout);
             return page;
         }
@@ -231,6 +245,10 @@ namespace DDF___Program_Language_Editor
             settingsIndentSizeNumeric.Value = settings.IndentSize;
             settingsLineEndingComboBox.SelectedIndex = settings.LineEnding == EditorLineEnding.Lf ? 0 : 1;
             settingsFormatOnSaveCheckBox.Checked = settings.FormatOnSave;
+            settingsAutoSaveCheckBox.Checked = settings.AutoSaveEnabled;
+            settingsAutoSaveDelayNumeric.Value = settings.AutoSaveDelaySeconds;
+            settingsAutoSaveDelayNumeric.Enabled = settings.AutoSaveEnabled;
+            settingsHotExitCheckBox.Checked = settings.HotExitEnabled;
         }
 
         private static NumericUpDown createNumeric(string name, decimal minimum, decimal maximum, decimal value, decimal increment) =>

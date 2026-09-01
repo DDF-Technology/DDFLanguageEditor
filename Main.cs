@@ -96,6 +96,7 @@ namespace DDF___Program_Language_Editor
             initializeEditorSettings();
             initializeCommandPalette();
             initializeShortcutSettings();
+            initializeAutoSaveAndHotExit();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             recentWorkspaces = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentWorkspaces()));
@@ -130,6 +131,7 @@ namespace DDF___Program_Language_Editor
             disposeCompletion();
             disposeWorkspaceSearch();
             disposePaletteBehavior();
+            disposeAutoSaveAndHotExit();
             editorContextMenu?.Dispose();
             symbolToolTip.Dispose();
             highlightTimer.Dispose();
@@ -147,6 +149,7 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            restoreHotExitBuffers();
             applyPersistedPaletteLayout();
             refreshRecentMenu();
             refreshRecentWorkspacesMenu();
@@ -159,7 +162,8 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (!confirmAllDocumentChanges())
+            bool hotExitPrepared = editorSettings?.HotExitEnabled == true && prepareHotExit();
+            if (!hotExitPrepared && !confirmAllDocumentChanges())
             {
                 e.Cancel = true;
                 return;
@@ -437,7 +441,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.4.2 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.4.3 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

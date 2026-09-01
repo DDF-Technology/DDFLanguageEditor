@@ -44,6 +44,7 @@ namespace DDF___Program_Language_Editor
             persistShortcutSettings();
             applyEditorSettings();
             applyShortcutSettings();
+            updateAutoSaveBehavior();
         }
 
         private void persistEditorSettings()

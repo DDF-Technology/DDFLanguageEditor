@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.4.2
+# DDFLanguageEditor 0.9.4.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.3 adds two opt-in safeguards to Settings. Autosave writes modified
+documents that already have a path after a configurable idle delay. Hot Exit
+stores dirty named and untitled buffers when the application closes, then
+restores their content, selection, dirty state and breakpoints on the next
+launch. Both features are off by default; a failed Hot Exit write falls back to
+the normal save confirmation instead of discarding changes.
 
 Version 0.9.4.2 adds a Shortcuts tab to Settings. Every current menu command can
 receive a persistent Ctrl/Alt combination or function key, or be left
