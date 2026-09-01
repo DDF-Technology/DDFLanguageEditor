@@ -259,7 +259,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.5") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -588,6 +588,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "loadWorkspaceSessionSetting", new Func<string>(() => string.Empty));
             SetPrivateField(form, "saveWorkspaceSessionSetting", new Action<string>(value => { }));
             SetPrivateField(form, "clearWorkspaceSessionSetting", new Action(() => { }));
+            SetPrivateField(form, "loadCrashRecoverySetting", new Func<string>(() => string.Empty));
+            SetPrivateField(form, "saveCrashRecoverySetting", new Action<string>(value => { }));
+            SetPrivateField(form, "clearCrashRecoverySetting", new Action(() => { }));
         }
 
         private static void ResetEditorSettingsForSmoke(MainForm form)
@@ -595,6 +598,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "editorSettings", EditorSettings.Default);
             InvokePrivate(form, "applyEditorSettings");
             InvokePrivate(form, "updateAutoSaveBehavior");
+            InvokePrivate(form, "updateCrashRecoveryBehavior");
         }
 
         private static void ResetShortcutSettingsForSmoke(MainForm form)
@@ -2167,6 +2171,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<NumericUpDown>(dialog, "settingsAutoSaveDelayNumeric").Value = 1M;
                 FindControl<CheckBox>(dialog, "settingsHotExitCheckBox").Checked = true;
                 FindControl<CheckBox>(dialog, "settingsRestoreSessionCheckBox").Checked = true;
+                FindControl<CheckBox>(dialog, "settingsCrashRecoveryCheckBox").Checked = true;
                 Require(FindControl<DataGridView>(dialog, "settingsShortcutGrid").Rows.Count >= 46,
                     "La scheda Scorciatoie non elenca i comandi configurabili.");
                 Require(!dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.F, out string conflict) &&
@@ -2181,6 +2186,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(dialogCount == 1 && settings.UseTabs && settings.IndentSize == 2 && settings.FormatOnSave &&
                     settings.AutoSaveEnabled && settings.AutoSaveDelaySeconds == 1 && settings.HotExitEnabled &&
                     settings.RestoreSessionEnabled &&
+                    settings.CrashRecoveryEnabled &&
                     settings.LineEnding == EditorLineEnding.CrLf && persisted != null && persistedShortcuts != null,
                 "Le preferenze scelte non vengono applicate e persistite.");
             Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
@@ -2279,6 +2285,37 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(editor.Text.Contains("ret 4;", StringComparison.Ordinal) && editor.SelectedText == "ret" &&
                         GetPrivateField<DocumentSession>(form, "documentSession").IsDirty && hotExitCleared,
                     "Hot Exit non ripristina contenuto, selezione e stato dirty oppure non consuma lo snapshot.");
+
+                string recoveryData = null;
+                bool recoveryCleared = false;
+                editor.Text = "main() out int {\n\tret 5;\n}";
+                int recoverySelection = editor.Text.IndexOf("ret", StringComparison.Ordinal);
+                editor.Select(recoverySelection, 3);
+                SetPrivateField(form, "saveCrashRecoverySetting", new Action<string>(value => recoveryData = value));
+                SetPrivateField(form, "clearCrashRecoverySetting", new Action(() => recoveryCleared = true));
+                InvokeHandler(form, "crashRecoveryTimer_Tick", form, EventArgs.Empty);
+                CrashRecoverySnapshot recovery = CrashRecoverySnapshot.Parse(recoveryData);
+                Require(recovery?.Documents.Single().Source.Contains("ret 5;", StringComparison.Ordinal) == true &&
+                        recovery.Documents[0].SessionDocumentIndex == 0,
+                    "Il journal di recovery non conserva il buffer sporco e la scheda di origine.");
+
+                SetPrivateField(form, "loadCrashRecoverySetting", new Func<string>(() => recoveryData));
+                SetPrivateField(form, "showRecoveryDialog", new Func<RecoveryForm, DialogResult>(dialog =>
+                {
+                    Require(dialog.StartPosition == FormStartPosition.CenterScreen && IsLight(dialog.BackColor) &&
+                            FindControl<ListView>(dialog, "recoveryDocumentsListView").Items.Count == 1,
+                        "Il popup Recovery non è chiaro, centrato o non elenca i buffer recuperabili.");
+                    Require(FindControl<Label>(dialog, "recoveryMessageLabel").Text.Contains("non sovrascriverà", StringComparison.OrdinalIgnoreCase),
+                        "Il popup Recovery non chiarisce il comportamento non distruttivo.");
+                    return DialogResult.Yes;
+                }));
+                editor.Text = string.Empty;
+                GetPrivateField<DocumentSession>(form, "documentSession").MarkSaved(settingsSavePath);
+                Require((bool)InvokePrivate(form, "restoreCrashRecoveryBuffers") &&
+                        editor.Text.Contains("ret 5;", StringComparison.Ordinal) && editor.SelectedText == "ret" &&
+                        GetPrivateField<DocumentSession>(form, "documentSession").IsDirty && recoveryCleared &&
+                        !File.ReadAllText(settingsSavePath).Contains("ret 5;", StringComparison.Ordinal),
+                    "Recovery non ripristina il buffer come dirty oppure sovrascrive il file originale.");
             }
             finally
             {
@@ -2300,11 +2337,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 2 && !settings.UseTabs && settings.IndentSize == 4 &&
                     !settings.AutoSaveEnabled && !settings.HotExitEnabled && settings.RestoreSessionEnabled &&
+                    settings.CrashRecoveryEnabled &&
                     settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
-            Console.WriteLine("PASS preferenze, scorciatoie, autosave, Hot Exit e sessione persistenti con ripristino sicuro");
+            Console.WriteLine("PASS preferenze, sessione e recovery non distruttivo con autosave e Hot Exit");
         }
 
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.4.5 - 2026-09-01
+
+- add an enabled-by-default five-second recovery journal for dirty named and untitled buffers;
+- update recovery data only when document content or saved/closed state changes and remove it after a regular close;
+- detect a leftover journal on startup and show a centered light recovery dialog with document names, sizes and timestamp;
+- let the user restore, discard or postpone recovery without silently choosing on their behalf;
+- restore recovered content as dirty editor buffers without writing or overwriting the associated files;
+- coordinate recovered tabs with the previous-session index, including multiple untitled documents;
+- allow recovery journaling to be disabled independently from autosave, Hot Exit and session restoration;
+- verify the complete journal/dialog/restore round trip and assert that the original disk file remains unchanged;
+
 ## 0.9.4.4 - 2026-09-01
 
 - persist the current workspace, ordered document tabs, active tab, selections and document breakpoints on clean application close;

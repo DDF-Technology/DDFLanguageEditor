@@ -13,6 +13,7 @@ namespace DDF___Program_Language_Editor
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
         private const string HotExitSnapshotFileName = "hot-exit.json";
         private const string WorkspaceSessionFileName = "workspace-session.json";
+        private const string CrashRecoveryFileName = "crash-recovery.json";
 
         public static string LoadRecentFiles()
         {
@@ -117,6 +118,22 @@ namespace DDF___Program_Language_Editor
         public static void ClearWorkspaceSession()
         {
             string path = GetSettingsPath(WorkspaceSessionFileName);
+            if (File.Exists(path)) File.Delete(path);
+        }
+
+        public static string LoadCrashRecovery()
+        {
+            return Load(CrashRecoveryFileName);
+        }
+
+        public static void SaveCrashRecovery(string value)
+        {
+            Save(CrashRecoveryFileName, value);
+        }
+
+        public static void ClearCrashRecovery()
+        {
+            string path = GetSettingsPath(CrashRecoveryFileName);
             if (File.Exists(path)) File.Delete(path);
         }
 

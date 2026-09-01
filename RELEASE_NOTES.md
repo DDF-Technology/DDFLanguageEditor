@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.4.4
+# DDFLanguageEditor 0.9.4.5
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.5 adds local recovery after an unexpected termination. While
+documents are dirty, an enabled-by-default journal is refreshed every five
+seconds. A leftover journal opens a centered dialog on the next launch, listing
+the recoverable documents and allowing Restore, Discard or Later. Restore opens
+the recovered source as modified buffers and never writes to the original files.
+The journal is removed after a regular close and can be disabled independently.
 
 Version 0.9.4.4 restores the previous coding session by default. The active
 workspace, ordered tabs, active document, selections and per-document

@@ -70,6 +70,7 @@ namespace DDF___Program_Language_Editor
                 DdfDocumentFile.Save(path, editorSettings.ApplyLineEndings(source));
                 view.Buffer.UpdateSource(source, false);
                 view.Buffer.MarkSaved(path);
+                markCrashRecoveryChanged();
                 view.Editor.Modified = false;
                 view.LastEditUtc = null;
                 updateWorkspaceDocument(path, source);

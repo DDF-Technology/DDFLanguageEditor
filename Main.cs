@@ -98,6 +98,7 @@ namespace DDF___Program_Language_Editor
             initializeShortcutSettings();
             initializeAutoSaveAndHotExit();
             initializeWorkspaceSessionPersistence();
+            initializeCrashRecovery();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             recentWorkspaces = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentWorkspaces()));
@@ -133,6 +134,7 @@ namespace DDF___Program_Language_Editor
             disposeWorkspaceSearch();
             disposePaletteBehavior();
             disposeAutoSaveAndHotExit();
+            disposeCrashRecovery();
             editorContextMenu?.Dispose();
             symbolToolTip.Dispose();
             highlightTimer.Dispose();
@@ -151,7 +153,7 @@ namespace DDF___Program_Language_Editor
         private void MainForm_Load(object sender, EventArgs e)
         {
             restoreWorkspaceSession();
-            restoreHotExitBuffers();
+            if (!restoreCrashRecoveryBuffers()) restoreHotExitBuffers();
             applyPersistedPaletteLayout();
             refreshRecentMenu();
             refreshRecentWorkspacesMenu();
@@ -178,6 +180,7 @@ namespace DDF___Program_Language_Editor
             persistRecentWorkspaces();
             persistPaletteLayout();
             persistWorkspaceSession();
+            clearCrashRecoverySafely();
         }
 
         private void aboutMenuItem_Click(object sender, EventArgs e)
@@ -332,6 +335,7 @@ namespace DDF___Program_Language_Editor
                 if (editorSettings.FormatOnSave) formatDocumentMenuItem_Click(this, EventArgs.Empty);
                 DdfDocumentFile.Save(path, editorSettings.ApplyLineEndings(richTextBoxMainEditor.Text));
                 documentSession.MarkSaved(path);
+                markCrashRecoveryChanged();
                 activeDocumentView.Buffer.UpdateSource(richTextBoxMainEditor.Text, false);
                 richTextBoxMainEditor.Modified = false;
                 addRecentFile(path);
@@ -444,7 +448,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.4.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.4.5 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

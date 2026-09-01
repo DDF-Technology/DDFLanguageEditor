@@ -85,7 +85,7 @@ runtime posizionati nel sorgente.
 | Comprimi blocco | comprime più blocchi dalla firma nella stessa proiezione di sola lettura |
 | Espandi tutto | ripristina il sorgente originale senza alterarne il contenuto |
 | Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
-| Impostazioni | applica e persiste editor, scorciatoie, autosave, Hot Exit e ripristino sessione, con preset predefinito |
+| Impostazioni | applica editor, scorciatoie, autosave, Hot Exit, sessione e recovery locale, con preset predefinito |
 
 Sono controllati anche testo e disponibilità contestuale dei due comandi, i
 colori, la colonna dei numeri di riga, l'espansione selettiva di un singolo
@@ -123,6 +123,8 @@ Exit deve serializzare e ripristinare contenuto, selezione e stato dirty senza
 accedere ai dati reali del profilo utente.
 Lo snapshot di sessione viene verificato ricaricando realmente un file temporaneo
 dal disco e recuperando selezione e breakpoint, separatamente dal contenuto Hot Exit.
+Il recovery simula una chiusura inattesa, controlla il popup con le tre scelte e
+ripristina il buffer come modificato verificando che il file originale non cambi.
 Verifica inoltre la nuova icona incorporata, la centratura delle form secondarie
 e il docking senza sovrapposizioni tra palette destra e pannello inferiore.
 Il popup Trova/Sostituisci viene inoltre controllato per allineamento della

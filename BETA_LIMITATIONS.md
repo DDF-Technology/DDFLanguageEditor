@@ -1,4 +1,4 @@
-# Beta 0.9.4.4 limitations
+# Beta 0.9.4.5 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -34,6 +34,7 @@ This release is intended for interface and language-design evaluation only.
 - persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
 - optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;
 - previous-session restoration for workspace, ordered tabs, active document, selections and breakpoints;
+- opt-out local crash-recovery journal with explicit restore, discard or postpone choice;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
@@ -56,7 +57,7 @@ This release is intended for interface and language-design evaluation only.
 
 ## Not implemented
 
-- crash recovery or concurrent-edit conflict detection;
+- concurrent-edit conflict detection or multi-instance recovery coordination;
 - autosave does not yet detect external file changes before writing;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - compiler, bytecode VM, native runtime or full debugger;
