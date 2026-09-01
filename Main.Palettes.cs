@@ -17,14 +17,20 @@ namespace DDF___Program_Language_Editor
         private bool diagnosticsPinned = true;
         private int outlineExpandedWidth = MinimumOutlineExpandedWidth;
         private int diagnosticsExpandedHeight = MinimumDiagnosticsExpandedHeight;
+        private Action<string> savePaletteLayoutSetting;
 
         private void initializePaletteBehavior()
         {
-            outlineExpandedWidth = Math.Max(MinimumOutlineExpandedWidth, panelOutline.Width);
-            diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedHeight, panelDiagnostics.Height);
+            PaletteLayoutSettings layout = PaletteLayoutSettings.Parse(AppSettingsStore.LoadPaletteLayout());
+            outlineExpandedWidth = layout.OutlineWidth;
+            diagnosticsExpandedHeight = layout.DiagnosticsHeight;
+            outlinePinned = layout.OutlinePinned;
+            diagnosticsPinned = layout.DiagnosticsPinned;
+            savePaletteLayoutSetting = AppSettingsStore.SavePaletteLayout;
 
             buttonOutlinePin.Click += buttonOutlinePin_Click;
             buttonDiagnosticsPin.Click += buttonDiagnosticsPin_Click;
+            splitterOutline.SplitterMoved += splitterOutline_SplitterMoved;
             attachMouseEnter(panelOutline, panelOutline_MouseEnter);
             attachMouseEnter(panelDiagnostics, panelDiagnostics_MouseEnter);
 
@@ -40,6 +46,15 @@ namespace DDF___Program_Language_Editor
 
             buttonOutlinePin.BringToFront();
             buttonDiagnosticsPin.BringToFront();
+            updatePaletteButtons();
+        }
+
+        private void applyPersistedPaletteLayout()
+        {
+            if (outlinePinned) expandOutlinePalette();
+            else collapseOutlinePalette();
+            if (diagnosticsPinned) expandDiagnosticsPalette();
+            else collapseDiagnosticsPalette();
             updatePaletteButtons();
         }
 
@@ -83,6 +98,7 @@ namespace DDF___Program_Language_Editor
             }
 
             updatePaletteButtons();
+            persistPaletteLayout();
         }
 
         private void buttonDiagnosticsPin_Click(object sender, EventArgs e)
@@ -100,6 +116,7 @@ namespace DDF___Program_Language_Editor
             }
 
             updatePaletteButtons();
+            persistPaletteLayout();
         }
 
         private void panelOutline_MouseEnter(object sender, EventArgs e)
@@ -135,7 +152,9 @@ namespace DDF___Program_Language_Editor
 
         private void expandOutlinePalette()
         {
-            panelOutline.Width = Math.Max(MinimumOutlineExpandedWidth, outlineExpandedWidth);
+            int maximum = Math.Max(MinimumOutlineExpandedWidth,
+                ClientSize.Width - splitterOutline.Width - splitterOutline.MinExtra);
+            panelOutline.Width = Math.Min(maximum, Math.Max(MinimumOutlineExpandedWidth, outlineExpandedWidth));
             splitterOutline.Enabled = outlinePinned;
             buttonOutlinePin.BringToFront();
         }
@@ -151,7 +170,9 @@ namespace DDF___Program_Language_Editor
         {
             splitterDiagnostics.Visible = true;
             splitterDiagnostics.Enabled = diagnosticsPinned;
-            panelDiagnostics.Height = Math.Max(MinimumDiagnosticsExpandedHeight, diagnosticsExpandedHeight);
+            int maximum = Math.Max(MinimumDiagnosticsExpandedHeight,
+                ClientSize.Height - splitterDiagnostics.MinExtra);
+            panelDiagnostics.Height = Math.Min(maximum, Math.Max(MinimumDiagnosticsExpandedHeight, diagnosticsExpandedHeight));
             buttonDiagnosticsPin.BringToFront();
         }
 
@@ -167,6 +188,28 @@ namespace DDF___Program_Language_Editor
         {
             if (!diagnosticsPinned) return;
             diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedHeight, panelDiagnostics.Height);
+            persistPaletteLayout();
+        }
+
+        private void splitterOutline_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+            if (!outlinePinned) return;
+            outlineExpandedWidth = Math.Max(MinimumOutlineExpandedWidth, panelOutline.Width);
+            persistPaletteLayout();
+        }
+
+        private void persistPaletteLayout()
+        {
+            if (savePaletteLayoutSetting == null) return;
+            try
+            {
+                savePaletteLayoutSetting(new PaletteLayoutSettings(
+                    outlineExpandedWidth, diagnosticsExpandedHeight, outlinePinned, diagnosticsPinned).Serialize());
+            }
+            catch (Exception exception) when (exception is System.IO.IOException || exception is UnauthorizedAccessException)
+            {
+                statusFileLabel.ToolTipText = "Impossibile memorizzare il layout delle palette: " + exception.Message;
+            }
         }
 
         private void updatePaletteButtons()

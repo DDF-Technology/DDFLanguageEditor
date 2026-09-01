@@ -9,6 +9,7 @@ namespace DDF___Program_Language_Editor
         private const string RecentFilesSettingsFileName = "recent-files.txt";
         private const string RecentWorkspacesSettingsFileName = "recent-workspaces.txt";
         private const string EditorSettingsFileName = "editor-settings.txt";
+        private const string PaletteLayoutSettingsFileName = "palette-layout.txt";
 
         public static string LoadRecentFiles()
         {
@@ -62,6 +63,16 @@ namespace DDF___Program_Language_Editor
         public static void SaveEditorSettings(string value)
         {
             Save(EditorSettingsFileName, value);
+        }
+
+        public static string LoadPaletteLayout()
+        {
+            return Load(PaletteLayoutSettingsFileName);
+        }
+
+        public static void SavePaletteLayout(string value)
+        {
+            Save(PaletteLayoutSettingsFileName, value);
         }
 
         private static string Load(string fileName)

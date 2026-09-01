@@ -60,6 +60,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 DisableRecentFilePersistence(form);
                 ResetEditorSettingsForSmoke(form);
+                ResetPaletteLayoutForSmoke(form);
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
                 form.Location = visible ? new Point(80, 80) : new Point(-32000, -32000);
@@ -257,7 +258,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -566,6 +567,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             if (!visible) form.WindowState = FormWindowState.Normal;
             DisableRecentFilePersistence(form);
             ResetEditorSettingsForSmoke(form);
+            ResetPaletteLayoutForSmoke(form);
             form.Show();
             PumpMessages(100);
             return form;
@@ -576,12 +578,22 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "saveRecentFilesSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveRecentWorkspacesSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
         }
 
         private static void ResetEditorSettingsForSmoke(MainForm form)
         {
             SetPrivateField(form, "editorSettings", EditorSettings.Default);
             InvokePrivate(form, "applyEditorSettings");
+        }
+
+        private static void ResetPaletteLayoutForSmoke(MainForm form)
+        {
+            SetPrivateField(form, "outlineExpandedWidth", 300);
+            SetPrivateField(form, "diagnosticsExpandedHeight", 116);
+            SetPrivateField(form, "outlinePinned", true);
+            SetPrivateField(form, "diagnosticsPinned", true);
+            SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
         }
 
         private static void RestoreClipboard(IDataObject originalClipboard)
@@ -671,6 +683,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             TabControl navigation = FindControl<TabControl>(form, "navigationTabs");
             Button outlinePin = FindControl<Button>(form, "buttonOutlinePin");
             Button diagnosticsPin = FindControl<Button>(form, "buttonDiagnosticsPin");
+            string persistedLayout = null;
+            SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => persistedLayout = value));
             Require(outlinePanel.Width >= 300 && outlinePanel.Width <= 310,
                 "La palette destra non misura i 300 px previsti all'avvio: " + outlinePanel.Width + " px.");
             Require(navigation.Appearance == TabAppearance.Normal,
@@ -682,6 +696,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(diagnosticsSplitter.Dock == DockStyle.Bottom && diagnosticsSplitter.Cursor == Cursors.HSplit &&
                     diagnosticsSplitter.Bottom == diagnosticsPanelFromForm.Top,
                 "La palette inferiore non ha uno splitter orizzontale correttamente posizionato.");
+
+            outlinePanel.Width = 340;
+            form.PerformLayout();
+            InvokeHandler(form, "splitterOutline_SplitterMoved", outlineSplitter,
+                new SplitterEventArgs(0, 0, 0, 0));
+            Require(Convert.ToInt32(GetPrivateField<object>(form, "outlineExpandedWidth")) == 340,
+                "La larghezza impostata tramite splitter non viene memorizzata.");
 
             diagnosticsPanelFromForm.Height = 210;
             form.PerformLayout();
@@ -711,7 +732,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             diagnosticsPin.PerformClick();
             Require(diagnosticsPin.Text == "\uE718" && diagnosticsPanel.Height == 210 && diagnosticsSplitter.Enabled,
                 "La Diagnostica non torna nello stato pinnato.");
-            Console.WriteLine("PASS gutter non selezionabile e palette ridimensionabili, pinnabili con auto-hide");
+            PaletteLayoutSettings persisted = PaletteLayoutSettings.Parse(persistedLayout);
+            Require(persisted.OutlineWidth == 340 && persisted.DiagnosticsHeight == 210 &&
+                    persisted.OutlinePinned && persisted.DiagnosticsPinned,
+                "Dimensioni o stato pin delle palette non vengono serializzati correttamente.");
+            SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
+            Console.WriteLine("PASS gutter e palette con dimensioni e pin persistenti tra gli avvii");
         }
 
         private static void AssertSelectionStableDuringHighlight(RichTextBox editor)

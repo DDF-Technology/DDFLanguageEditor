@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.4.0 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.4.1 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -45,7 +45,7 @@ evidenziazione delle regole note e indentazione assistita.
 - barra a 39 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, Command Palette, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
-- palette inferiore ridimensionabile verticalmente, con altezza conservata tra pin e auto-hide;
+- dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
 - diagnostica lessicale, sintattica e semantica con pannello navigabile;
 - diagnostiche inline ondulate con messaggio completo al passaggio del mouse, senza alterare testo, colori o Undo;
 - correzioni rapide estensibili da menu contestuale, `Ctrl+.` e toolbar per costrutti non terminati, caratteri non validi e token mancanti;
@@ -199,7 +199,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.4.0 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.4.1 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -237,6 +237,8 @@ A searchable Command Palette exposes current menu actions, categories, shortcuts
 and availability through `Ctrl+Shift+P` while reusing their original handlers.
 Persistent settings opened with `Ctrl+,` configure font, zoom, code theme,
 indentation, saved line endings and optional format-on-save across open tabs.
+The right and bottom palette dimensions and their pinned/auto-hide states are
+also restored across application launches.
 A runtime-independent type checker validates primitive, structure and array
 operations, function calls and returns, with `DDF3xx` diagnostics.
 The historical language specification is an unstable design draft.

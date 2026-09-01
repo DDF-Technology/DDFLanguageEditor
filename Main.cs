@@ -146,6 +146,7 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            applyPersistedPaletteLayout();
             refreshRecentMenu();
             refreshRecentWorkspacesMenu();
             updateDocumentUi();
@@ -168,6 +169,7 @@ namespace DDF___Program_Language_Editor
             symbolToolTip.RemoveAll();
             persistRecentFiles();
             persistRecentWorkspaces();
+            persistPaletteLayout();
         }
 
         private void aboutMenuItem_Click(object sender, EventArgs e)
@@ -434,7 +436,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.4.0 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.4.1 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

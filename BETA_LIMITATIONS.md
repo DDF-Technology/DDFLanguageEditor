@@ -1,4 +1,4 @@
-# Beta 0.9.4.0 limitations
+# Beta 0.9.4.1 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -30,6 +30,7 @@ This release is intended for interface and language-design evaluation only.
 - searchable Command Palette generated from current menu actions, shortcuts and enabled state;
 - drag-and-drop opening for DDF files and workspace folders, with persisted recent workspaces;
 - persistent editor preferences for font, zoom, code theme, indentation, line endings and format-on-save;
+- persistent right and bottom palette dimensions and pinned/auto-hide state;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
@@ -38,7 +39,7 @@ This release is intended for interface and language-design evaluation only.
 - minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
 - native input dialog and a toolbar for the primary editor commands;
 - unified light application chrome with a dark code editor, folded view and gutter;
-- vertically resizable bottom palette with remembered pinned/auto-hide height;
+- vertically resizable bottom palette and horizontally resizable right palette;
 - SDK-style projects targeting .NET 10 and modern Windows Forms bootstrap/DPI behavior;
 - unresolved-name and duplicate-declaration diagnostics;
 - dependency-free regression tests for the editor core;

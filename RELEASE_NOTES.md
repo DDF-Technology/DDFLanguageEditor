@@ -1,6 +1,11 @@
-# DDFLanguageEditor 0.9.4.0
+# DDFLanguageEditor 0.9.4.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.1 makes the IDE layout persistent too. The preferred width of the
+right Outline/workspace palette, the height of the bottom Diagnostics/Output
+palette and both pinned/auto-hide states are restored on the next launch. A
+smaller temporary window does not overwrite the user's preferred dimensions.
 
 Version 0.9.4.0 introduces persistent editor preferences. `Ctrl+,`, the View
 menu, Command Palette and toolbar open a centered Settings window for font,

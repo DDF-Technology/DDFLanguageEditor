@@ -632,7 +632,7 @@ namespace DDF___Program_Language_Editor
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.9.4.0 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.9.4.1 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);

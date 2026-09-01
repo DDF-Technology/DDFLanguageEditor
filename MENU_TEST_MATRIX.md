@@ -102,8 +102,8 @@ l'avvio massimizzato, che la diagnostica resti visibile anche senza problemi e
 che la precedente barra beta non sia più presente nel layout. Verifica anche il
 gutter non selezionabile, l'allineamento a sinistra dei numeri di riga, la
 larghezza iniziale dell'Outline e le transizioni pinned/auto-hide delle due
-palette. La palette inferiore viene inoltre ridimensionata tramite lo splitter
-orizzontale e deve ripristinare la stessa altezza dopo pin e auto-hide.
+palette. Entrambe vengono ridimensionate tramite i rispettivi splitter; larghezza,
+altezza e stato pin vengono serializzati per il ripristino al successivo avvio.
 Il breadcrumb viene verificato sul form reale con file, funzione e blocchi
 annidati; il click su un segmento deve selezionare il costrutto e consentire il
 ritorno alla posizione precedente tramite Navigazione indietro.

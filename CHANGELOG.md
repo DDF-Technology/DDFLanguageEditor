@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.4.1 - 2026-09-01
+
+- persist the preferred width of the right Outline/workspace palette and the height of the bottom Diagnostics/Output palette;
+- restore the pinned or auto-hide state of both palettes at application startup;
+- preserve preferred dimensions when the current window is temporarily too small to display them in full;
+- tolerate missing, invalid or out-of-range layout values and fall back to usable defaults;
+- verify real splitter changes, pin transitions and serialized layout through the WinForms smoke gate;
+
 ## 0.9.4.0 - 2026-09-01
 
 - add a centered light Settings window through `Ctrl+,`, View, Command Palette and a thirty-ninth toolbar icon;
