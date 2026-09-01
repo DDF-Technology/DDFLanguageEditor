@@ -49,7 +49,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
 | `0.9.3` | Ricerca e navigazione del workspace | Completata (`0.9.3.0`–`0.9.3.7`) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Completata (`0.9.4.6`) |
-| `0.9.5` | Fluidità, accessibilità e rifinitura | Pianificata |
+| `0.9.5` | Fluidità, accessibilità e rifinitura | In corso (`0.9.5.0` completata) |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
 | `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
 | `0.11.0` | Runtime multi-file del workspace | Pianificata |
@@ -392,7 +392,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 ## 0.9.5 — Fluidità, accessibilità e rifinitura
 
-- [ ] Definire budget misurabili per input, selezione, scroll, colorazione e apertura dei popup.
+- [x] Definire budget misurabili per input, selezione, scroll, colorazione e apertura dei popup (`0.9.5.0`).
 - [ ] Evitare flickering e aggiornamenti completi durante le operazioni incrementali.
 - [ ] Mantenere reattivi documenti e workspace di dimensioni realistiche con lavoro cancellabile in background.
 - [ ] Aggiungere evidenza della riga corrente, spazi invisibili, guide di indentazione e word wrap configurabile.

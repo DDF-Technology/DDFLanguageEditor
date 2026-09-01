@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.4.6 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.5.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -34,6 +34,7 @@ evidenziazione delle regole note e indentazione assistita.
 - ripristino della sessione precedente con workspace, ordine e selezione delle schede, cursori e breakpoint;
 - recovery locale dopo chiusure inattese, con scelta esplicita e ripristino non distruttivo dei buffer;
 - rilevamento delle modifiche esterne con confronto affiancato, ricarica, conservazione del buffer e blocco pre-salvataggio;
+- budget prestazionali p95 automatizzati per input, selezione, scroll, colorazione completa e apertura popup;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -156,7 +157,8 @@ Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
 inoltre tutti i 51 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
-copertura è descritta in `MENU_TEST_MATRIX.md`. Per osservarlo mentre viene
+copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
+in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:
 
 ```powershell
@@ -187,6 +189,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
+- `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
 - `DDF - Program Language Spec.txt`: specifica storica in bozza;
 - `Properties/`: metadati e risorse dell'applicazione .NET 10.
@@ -204,7 +207,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.4.6 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.5.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

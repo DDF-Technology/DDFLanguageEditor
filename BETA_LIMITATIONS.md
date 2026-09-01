@@ -1,4 +1,4 @@
-# Beta 0.9.4.6 limitations
+# Beta 0.9.5.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -36,6 +36,7 @@ This release is intended for interface and language-design evaluation only.
 - previous-session restoration for workspace, ordered tabs, active document, selections and breakpoints;
 - opt-out local crash-recovery journal with explicit restore, discard or postpone choice;
 - periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
+- repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;

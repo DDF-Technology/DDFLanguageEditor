@@ -1,6 +1,15 @@
-# DDFLanguageEditor 0.9.4.6
+# DDFLanguageEditor 0.9.5.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.0 starts the fluidity, accessibility and refinement milestone with
+a measurable responsiveness contract. Dynamic WinForms smoke tests now measure
+p95 latency for input, selection, scroll/gutter updates, full highlighting and
+Command Palette opening against a deterministic 500-line DDF document. Tight
+product targets are reported separately from more tolerant automated regression
+ceilings, so loaded development machines remain usable without hiding material
+slowdowns. The workloads and interpretation rules are documented in
+`EDITOR_PERFORMANCE_BUDGETS.md`.
 
 Version 0.9.4.6 completes the personalization, session and recovery milestone.
 Each named tab now tracks its last known disk content and detects edits,

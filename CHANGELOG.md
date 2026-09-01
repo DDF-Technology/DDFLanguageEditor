@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5.0 - 2026-09-01
+
+- define explicit p95 responsiveness targets and separate regression ceilings for editor input, selection, scroll/gutter, full highlighting and popup opening;
+- establish one generated, deterministic 500-line DDF workload and fixed interactive sample counts;
+- add a reusable budget catalog with percentile calculation and documented workload metadata;
+- measure real WinForms input, selection, viewport/gutter work, complete synchronous analysis/color application and Command Palette first-show layout;
+- fail the dynamic smoke suite when a scenario exceeds its environment-tolerant ceiling while reporting whether the tighter product target is met;
+- document measurement conditions, interpretation and the rule that ceilings cannot be loosened merely to hide regressions;
+
 ## 0.9.4.6 - 2026-09-01
 
 - track the last known disk content independently for every named document tab;

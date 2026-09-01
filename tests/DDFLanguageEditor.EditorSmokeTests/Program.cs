@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using DDF___Program_Language_Editor;
@@ -37,6 +38,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             try
             {
                 RunEditorScenarios(visible);
+                AssertPerformanceBudgets(visible);
                 RunMenuScenarios(visible);
                 if (UiExceptions.Count > 0)
                 {
@@ -132,6 +134,125 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 RestoreClipboard(originalClipboard);
             }
+        }
+
+        private static void AssertPerformanceBudgets(bool visible)
+        {
+            using (var form = ShowSmokeForm(visible))
+            {
+                RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                string source = CreatePerformanceSource();
+                editor.Text = source;
+                editor.Select(0, 0);
+                StopInteractiveTimers(form);
+                InvokePrivate(form, "resetActiveAnalysis");
+                InvokePrivate(form, "applyHighlighting");
+                PumpMessages(40);
+
+                var inputSamples = new List<double>();
+                editor.Select(editor.TextLength, 0);
+                for (int index = 0; index < EditorPerformanceBudgets.InteractiveSampleCount; index++)
+                {
+                    inputSamples.Add(MeasureMilliseconds(() => editor.SelectedText = " "));
+                    StopInteractiveTimers(form);
+                }
+                AssertPerformanceBudget(EditorPerformanceBudgets.Input, inputSamples);
+
+                var selectionSamples = new List<double>();
+                for (int index = 0; index < EditorPerformanceBudgets.InteractiveSampleCount; index++)
+                {
+                    int position = (int)((long)(source.Length - 1) * index /
+                        Math.Max(1, EditorPerformanceBudgets.InteractiveSampleCount - 1));
+                    selectionSamples.Add(MeasureMilliseconds(() => editor.Select(position, Math.Min(3, editor.TextLength - position))));
+                }
+                AssertPerformanceBudget(EditorPerformanceBudgets.Selection, selectionSamples);
+
+                var scrollSamples = new List<double>();
+                for (int index = 0; index < EditorPerformanceBudgets.InteractiveSampleCount; index++)
+                {
+                    int line = (EditorPerformanceBudgets.ReferenceDocumentLines - 1) * index /
+                        Math.Max(1, EditorPerformanceBudgets.InteractiveSampleCount - 1);
+                    int position = Math.Max(0, editor.GetFirstCharIndexFromLine(line));
+                    scrollSamples.Add(MeasureMilliseconds(() =>
+                    {
+                        editor.Select(position, 0);
+                        editor.ScrollToCaret();
+                        InvokeHandler(form, "richTextBoxMainEditor_VScroll", editor, EventArgs.Empty);
+                    }));
+                }
+                AssertPerformanceBudget(EditorPerformanceBudgets.Scroll, scrollSamples);
+
+                var highlightSamples = new List<double>();
+                for (int index = 0; index < 3; index++)
+                {
+                    InvokePrivate(form, "resetActiveAnalysis");
+                    highlightSamples.Add(MeasureMilliseconds(() => InvokePrivate(form, "applyHighlighting")));
+                }
+                AssertPerformanceBudget(EditorPerformanceBudgets.Highlighting, highlightSamples);
+
+                IReadOnlyList<CommandPaletteCommand> commands =
+                    (IReadOnlyList<CommandPaletteCommand>)InvokePrivate(form, "createCommandPaletteCommands");
+                var popupSamples = new List<double>();
+                for (int index = 0; index < 5; index++)
+                {
+                    using (var dialog = new CommandPaletteForm(commands))
+                    {
+                        dialog.StartPosition = FormStartPosition.Manual;
+                        dialog.Location = visible ? new Point(120, 120) : new Point(-32000, -32000);
+                        popupSamples.Add(MeasureMilliseconds(() =>
+                        {
+                            dialog.Show(form);
+                            Application.DoEvents();
+                        }));
+                        dialog.Close();
+                    }
+                }
+                AssertPerformanceBudget(EditorPerformanceBudgets.Popup, popupSamples);
+            }
+        }
+
+        private static string CreatePerformanceSource()
+        {
+            var source = new StringBuilder();
+            source.AppendLine("main() out int");
+            source.AppendLine("{");
+            source.AppendLine("    int value << 0;");
+            for (int line = 0; line < EditorPerformanceBudgets.ReferenceDocumentLines - 5; line++)
+                source.AppendLine("    value << value + 1;");
+            source.AppendLine("    ret value;");
+            source.Append("}");
+            Require(source.ToString().Count(character => character == '\n') + 1 ==
+                    EditorPerformanceBudgets.ReferenceDocumentLines,
+                "Il dataset prestazionale non contiene il numero di righe dichiarato.");
+            return source.ToString();
+        }
+
+        private static void StopInteractiveTimers(MainForm form)
+        {
+            GetPrivateField<System.Windows.Forms.Timer>(form, "highlightTimer")?.Stop();
+            GetPrivateField<System.Windows.Forms.Timer>(form, "delimiterHighlightTimer")?.Stop();
+            GetPrivateField<System.Windows.Forms.Timer>(form, "completionTimer")?.Stop();
+            GetPrivateField<System.Windows.Forms.Timer>(form, "signatureHelpTimer")?.Stop();
+            GetPrivateField<System.Windows.Forms.Timer>(form, "workspaceSearchTimer")?.Stop();
+        }
+
+        private static double MeasureMilliseconds(Action action)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            action();
+            stopwatch.Stop();
+            return stopwatch.Elapsed.TotalMilliseconds;
+        }
+
+        private static void AssertPerformanceBudget(EditorPerformanceBudget budget, IReadOnlyList<double> samples)
+        {
+            double p95 = EditorPerformanceBudget.Percentile95(samples);
+            Require(budget.IsWithinSmokeCeiling(samples),
+                budget.DisplayName + " supera il ceiling smoke: p95=" + p95.ToString("0.0") +
+                " ms, limite=" + budget.SmokeCeilingP95Milliseconds.ToString("0") + " ms.");
+            string targetState = p95 <= budget.TargetP95Milliseconds ? "target" : "da ottimizzare";
+            Console.WriteLine("PASS budget " + budget.DisplayName + ": p95=" + p95.ToString("0.0") +
+                " ms (" + targetState + ", target " + budget.TargetP95Milliseconds.ToString("0") + " ms)");
         }
 
         private static void AssertMenuStructureAndShortcuts(bool visible)
@@ -259,7 +380,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.6") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
