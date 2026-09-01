@@ -1,6 +1,19 @@
-# DDFLanguageEditor 0.9.5.1
+# DDFLanguageEditor 0.9.5.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.2 moves folder indexing off the WinForms input thread. Workspace
+loads are cancellable and versioned, so opening or closing another folder
+supersedes unfinished work and an obsolete result can never replace the current
+workspace. Open buffers are reconciled again when the result reaches the UI,
+preserving edits made while indexing was running. Typing in a workspace document
+now updates a lightweight source snapshot immediately and leaves parsing and
+symbol rebuilding to the existing cancellable background analysis.
+
+The performance contract now includes a deterministic 40-file workspace and a
+2,000-line active document. Dynamic smoke tests verify UI heartbeat during a
+blocked load, cancellation of the older request, rejection of stale analysis,
+bounded dispatch time and responsive editing under this realistic workload.
 
 Version 0.9.5.1 removes avoidable redraw work from the main editing loop. The
 line-number gutter now changes atomically only when its visible content or source

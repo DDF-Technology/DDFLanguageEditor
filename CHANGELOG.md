@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5.2 - 2026-09-01
+
+- load folder workspaces on cancellable, versioned background tasks while keeping tree updates on the UI thread;
+- discard superseded workspace results and preserve the newest open-buffer source when a load completes;
+- update workspace source snapshots without synchronously reparsing the document on every keystroke;
+- define realistic responsiveness budgets for a 40-file workspace and a 2,000-line active document;
+- extend dynamic smoke coverage with UI-heartbeat, cancellation, stale-analysis and large-input scenarios;
+- retain all established 0.9.5 p95 targets and pass 138 dependency-free core tests plus all 51 WinForms menu commands;
+
 ## 0.9.5.1 - 2026-09-01
 
 - cache gutter text and source-line mappings so unchanged typing, analysis and layout requests do not rebuild the line-number control;

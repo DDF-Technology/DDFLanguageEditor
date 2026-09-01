@@ -1,4 +1,4 @@
-# Beta 0.9.5.1 limitations
+# Beta 0.9.5.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -38,6 +38,7 @@ This release is intended for interface and language-design evaluation only.
 - periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
 - repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
+- cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace DDFLanguageEditor.Core
 {
@@ -48,13 +49,27 @@ namespace DDFLanguageEditor.Core
 
         public static DdfWorkspaceIndex Load(string rootPath)
         {
+            return Load(rootPath, CancellationToken.None);
+        }
+
+        public static DdfWorkspaceIndex Load(string rootPath, CancellationToken cancellationToken)
+        {
             string normalizedRoot = NormalizeRoot(rootPath);
+            cancellationToken.ThrowIfCancellationRequested();
             var documents = new List<DdfWorkspaceDocument>();
-            foreach (string path in Directory.EnumerateFiles(normalizedRoot, "*.ddf", SearchOption.AllDirectories)
-                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+            var paths = new List<string>();
+            foreach (string path in Directory.EnumerateFiles(normalizedRoot, "*.ddf", SearchOption.AllDirectories))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                paths.Add(path);
+            }
+            paths.Sort(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in paths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 string fullPath = Path.GetFullPath(path);
                 documents.Add(CreateDocument(normalizedRoot, fullPath, DdfDocumentFile.Load(fullPath)));
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             return new DdfWorkspaceIndex(normalizedRoot, documents.AsReadOnly());
@@ -63,6 +78,21 @@ namespace DDFLanguageEditor.Core
         public DdfWorkspaceIndex WithDocument(string path, string source)
         {
             return WithDocument(path, source, DdfParser.Parse(source ?? string.Empty).Root);
+        }
+
+        public DdfWorkspaceIndex WithDocumentSource(string path, string source)
+        {
+            if (path == null) throw new ArgumentNullException(nameof(path));
+            string fullPath = Path.GetFullPath(path);
+            DdfWorkspaceDocument existing = Documents.FirstOrDefault(document =>
+                string.Equals(document.Path, fullPath, StringComparison.OrdinalIgnoreCase));
+            if (existing == null) return this;
+
+            var updated = new DdfWorkspaceDocument(existing.Path, existing.RelativePath, source ?? string.Empty,
+                existing.Root, existing.Symbols);
+            var documents = Documents.Select(document => ReferenceEquals(document, existing) ? updated : document)
+                .ToList();
+            return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly());
         }
 
         public DdfWorkspaceIndex WithDocument(string path, string source, CompilationUnitSyntax root)

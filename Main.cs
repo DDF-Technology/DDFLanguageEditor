@@ -133,6 +133,7 @@ namespace DDF___Program_Language_Editor
             delimiterHighlightTimer.Stop();
             disposeCompletion();
             disposeWorkspaceSearch();
+            disposeWorkspaceLoading();
             disposePaletteBehavior();
             disposeAutoSaveAndHotExit();
             disposeCrashRecovery();
@@ -453,7 +454,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.5.1 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.5.2 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

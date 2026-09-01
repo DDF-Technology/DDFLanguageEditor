@@ -28,6 +28,9 @@ the measurement output and becomes optimization work for the following steps.
 | Scroll and gutter | 30 viewport/gutter updates through 500 lines | 16 ms | 180 ms |
 | Full highlighting | lexer, parser, semantics, types, outline, diagnostics and formatting for 500 lines | 250 ms | 5000 ms |
 | Popup opening | create, lay out and first-show the complete Command Palette | 100 ms | 1000 ms |
+| Large-document analysis dispatch | schedule cancellable analysis for 2,000 DDF lines | 16 ms | 120 ms |
+| Workspace-load dispatch | start or supersede indexing of 40 files × 100 lines | 50 ms | 250 ms |
+| Large workspace input | 20 insertions in 2,000 lines with 40 indexed files | 16 ms | 120 ms |
 
 ## Interpretation
 

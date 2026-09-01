@@ -39,6 +39,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 RunEditorScenarios(visible);
                 AssertPerformanceBudgets(visible);
+                AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                 RunMenuScenarios(visible);
                 if (UiExceptions.Count > 0)
                 {
@@ -243,16 +244,137 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static string CreatePerformanceSource()
         {
+            return CreateGeneratedSource(EditorPerformanceBudgets.ReferenceDocumentLines, "main");
+        }
+
+        private static void AssertLargeDocumentAndWorkspaceResponsiveness(bool visible)
+        {
+            string firstDirectory = Path.Combine(Path.GetTempPath(), "ddf-workspace-obsolete-" + Guid.NewGuid().ToString("N"));
+            string targetDirectory = Path.Combine(Path.GetTempPath(), "ddf-workspace-large-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(firstDirectory);
+            Directory.CreateDirectory(targetDirectory);
+            try
+            {
+                DdfDocumentFile.Save(Path.Combine(firstDirectory, "blocked.ddf"),
+                    CreateGeneratedSource(EditorPerformanceBudgets.RealisticWorkspaceLinesPerDocument, "blocked"));
+                for (int index = 0; index < EditorPerformanceBudgets.RealisticWorkspaceDocuments; index++)
+                {
+                    string path = Path.Combine(targetDirectory, "module" + index.ToString("D2") + ".ddf");
+                    DdfDocumentFile.Save(path, CreateGeneratedSource(
+                        EditorPerformanceBudgets.RealisticWorkspaceLinesPerDocument, "function" + index.ToString("D2")));
+                }
+
+                using (var form = ShowSmokeForm(visible))
+                using (var firstStarted = new ManualResetEventSlim(false))
+                {
+                    int firstCancelled = 0;
+                    SetPrivateField(form, "loadWorkspaceIndex",
+                        new Func<string, CancellationToken, DdfWorkspaceIndex>((path, token) =>
+                        {
+                            if (string.Equals(Path.GetFullPath(path), Path.GetFullPath(firstDirectory),
+                                StringComparison.OrdinalIgnoreCase))
+                            {
+                                firstStarted.Set();
+                                try
+                                {
+                                    while (true)
+                                    {
+                                        token.ThrowIfCancellationRequested();
+                                        Thread.Sleep(5);
+                                    }
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    Interlocked.Exchange(ref firstCancelled, 1);
+                                    throw;
+                                }
+                            }
+                            return DdfWorkspaceIndex.Load(path, token);
+                        }));
+
+                    bool firstAccepted = false;
+                    var workspaceDispatchSamples = new List<double>
+                    {
+                        MeasureMilliseconds(() => firstAccepted = (bool)InvokePrivate(form, "openWorkspace", firstDirectory))
+                    };
+                    Require(firstAccepted, "Il primo workspace realistico non viene accettato.");
+                    PumpUntil(() => firstStarted.IsSet, 3000,
+                        "Il caricamento workspace in background non è stato avviato.");
+                    bool heartbeat = false;
+                    form.BeginInvoke(new Action(() => heartbeat = true));
+                    PumpUntil(() => heartbeat, 1000,
+                        "Il thread UI non resta reattivo durante l'indicizzazione workspace.");
+
+                    bool targetAccepted = false;
+                    workspaceDispatchSamples.Add(MeasureMilliseconds(() =>
+                        targetAccepted = (bool)InvokePrivate(form, "openWorkspace", targetDirectory)));
+                    Require(targetAccepted, "Il workspace sostitutivo non viene accettato.");
+                    PumpUntil(() => Volatile.Read(ref firstCancelled) == 1, 3000,
+                        "Una richiesta workspace obsoleta non viene cancellata.");
+                    Label workspaceLabel = FindControl<Label>(form, "labelWorkspace");
+                    PumpUntil(() => workspaceLabel.Text.Contains(
+                            EditorPerformanceBudgets.RealisticWorkspaceDocuments + " file", StringComparison.Ordinal),
+                        12000, "Il workspace realistico non completa l'indicizzazione.");
+                    DdfWorkspaceIndex workspace = GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex");
+                    Require(workspace != null &&
+                            string.Equals(workspace.RootPath, Path.GetFullPath(targetDirectory), StringComparison.OrdinalIgnoreCase) &&
+                            workspace.Documents.Count == EditorPerformanceBudgets.RealisticWorkspaceDocuments &&
+                            GetPrivateValue<long>(form, "workspaceLoadAppliedVersion") ==
+                            GetPrivateValue<long>(form, "workspaceLoadRequestVersion"),
+                        "Un risultato workspace obsoleto sostituisce ancora la richiesta più recente.");
+                    AssertPerformanceBudget(EditorPerformanceBudgets.WorkspaceLoadDispatch, workspaceDispatchSamples);
+
+                    string activePath = Path.Combine(targetDirectory, "module00.ddf");
+                    Require((bool)InvokePrivate(form, "openDocument", activePath),
+                        "Il documento del workspace realistico non viene aperto.");
+                    RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    string largeSource = CreateGeneratedSource(EditorPerformanceBudgets.RealisticDocumentLines, "main");
+                    editor.Text = largeSource;
+                    editor.Select(editor.TextLength, 0);
+                    StopInteractiveTimers(form);
+                    var largeInputSamples = new List<double>();
+                    for (int index = 0; index < 20; index++)
+                    {
+                        largeInputSamples.Add(MeasureMilliseconds(() => editor.SelectedText = " "));
+                        StopInteractiveTimers(form);
+                    }
+                    AssertPerformanceBudget(EditorPerformanceBudgets.LargeWorkspaceInput, largeInputSamples);
+
+                    var analysisDispatchSamples = new List<double>();
+                    analysisDispatchSamples.Add(MeasureMilliseconds(() => InvokePrivate(form, "startBackgroundAnalysis")));
+                    long obsoleteAnalysisVersion = GetPrivateValue<long>(form, "analysisRequestVersion");
+                    editor.Text = Source;
+                    StopInteractiveTimers(form);
+                    analysisDispatchSamples.Add(MeasureMilliseconds(() => InvokePrivate(form, "startBackgroundAnalysis")));
+                    long currentAnalysisVersion = GetPrivateValue<long>(form, "analysisRequestVersion");
+                    Require(currentAnalysisVersion > obsoleteAnalysisVersion,
+                        "La nuova analisi non supera la versione del documento grande obsoleto.");
+                    PumpUntil(() => GetPrivateValue<long>(form, "analysisAppliedVersion") == currentAnalysisVersion &&
+                                    string.Equals(GetPrivateValue<string>(form, "lastAnalyzedText"), Source,
+                                        StringComparison.Ordinal),
+                        12000, "L'analisi corrente non sostituisce lo snapshot grande cancellato.");
+                    AssertPerformanceBudget(EditorPerformanceBudgets.BackgroundAnalysisDispatch, analysisDispatchSamples);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(firstDirectory)) Directory.Delete(firstDirectory, true);
+                if (Directory.Exists(targetDirectory)) Directory.Delete(targetDirectory, true);
+            }
+        }
+
+        private static string CreateGeneratedSource(int lineCount, string functionName)
+        {
+            if (lineCount < 5) throw new ArgumentOutOfRangeException(nameof(lineCount));
             var source = new StringBuilder();
-            source.AppendLine("main() out int");
+            source.AppendLine(functionName + "() out int");
             source.AppendLine("{");
             source.AppendLine("    int value << 0;");
-            for (int line = 0; line < EditorPerformanceBudgets.ReferenceDocumentLines - 5; line++)
+            for (int line = 0; line < lineCount - 5; line++)
                 source.AppendLine("    value << value + 1;");
             source.AppendLine("    ret value;");
             source.Append("}");
-            Require(source.ToString().Count(character => character == '\n') + 1 ==
-                    EditorPerformanceBudgets.ReferenceDocumentLines,
+            Require(source.ToString().Count(character => character == '\n') + 1 == lineCount,
                 "Il dataset prestazionale non contiene il numero di righe dichiarato.");
             return source.ToString();
         }
@@ -410,7 +532,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.1") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.2") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1691,9 +1813,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     return DialogResult.OK;
                 }));
                 FindMenuItem(form, "openWorkspaceMenuItem").PerformClick();
-                PumpMessages(160);
                 TreeView workspaceTree = FindControl<TreeView>(form, "treeViewWorkspace");
-                Require(workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("2 file"),
+                PumpUntil(
+                    () => workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("2 file"),
+                    5000,
                     "Apri cartella non ha popolato l'explorer con i sorgenti DDF.");
                 ToolStripMenuItem recentWorkspace = FindMenuItem(form, "recentWorkspacesMenuItem").DropDownItems
                     .OfType<ToolStripMenuItem>()
@@ -1918,7 +2041,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     .OfType<ToolStripMenuItem>()
                     .First(item => string.Equals(item.Tag as string, directory, StringComparison.OrdinalIgnoreCase));
                 recentWorkspace.PerformClick();
-                Require(workspaceTree.Nodes.Count == 1 && FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
+                PumpUntil(
+                    () => workspaceTree.Nodes.Count == 1 && FindMenuItem(form, "closeWorkspaceMenuItem").Enabled,
+                    5000,
                     "Cartelle recenti non riapre il workspace selezionato.");
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
 
@@ -1952,7 +2077,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokeHandler(form, "workspaceDropTarget_DragEnter", form, folderDrag);
                 Require(folderDrag.Effect == DragDropEffects.Copy, "Il drag-and-drop non accetta una cartella workspace.");
                 InvokeHandler(form, "workspaceDropTarget_DragDrop", form, folderDrag);
-                Require(workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("4 file"),
+                PumpUntil(
+                    () => workspaceTree.Nodes.Count == 1 && FindControl<Label>(form, "labelWorkspace").Text.Contains("4 file"),
+                    5000,
                     "Il drop della cartella non apre e aggiorna il workspace.");
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
                 Console.WriteLine("PASS workspace, navigazione, recenti e drag-and-drop di file/cartelle");
@@ -2790,6 +2917,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Application.DoEvents();
                 Thread.Sleep(5);
             }
+        }
+
+        private static void PumpUntil(Func<bool> condition, int timeoutMilliseconds, string failureMessage)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (!condition() && stopwatch.ElapsedMilliseconds < timeoutMilliseconds)
+            {
+                Application.DoEvents();
+                Thread.Sleep(5);
+            }
+            Require(condition(), failureMessage);
         }
 
         private static void Require(bool condition, string message)

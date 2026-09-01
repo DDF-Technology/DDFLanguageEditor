@@ -82,6 +82,8 @@ namespace DDFLanguageEditor.Tests
             Run("renames structure declarations and type references", RenamesStructureDeclarationsAndTypeReferences);
             Run("indexes DDF workspace documents recursively", IndexesDdfWorkspaceDocumentsRecursively);
             Run("updates an in-memory workspace document", UpdatesInMemoryWorkspaceDocument);
+            Run("updates workspace source without synchronous parsing", UpdatesWorkspaceSourceWithoutParsing);
+            Run("honors workspace indexing cancellation", HonorsWorkspaceIndexingCancellation);
             Run("completes symbols from another workspace document", CompletesSymbolsFromAnotherWorkspaceDocument);
             Run("searches text across workspace documents", SearchesTextAcrossWorkspaceDocuments);
             Run("searches nested workspace symbols", SearchesNestedWorkspaceSymbols);
@@ -1139,6 +1141,48 @@ namespace DDFLanguageEditor.Tests
                     .WithDocument(path, "newName() out int { ret 0; }");
                 Equal(0, workspace.FindDefinitions("oldName").Count);
                 Equal(1, workspace.FindDefinitions("newName").Count);
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void UpdatesWorkspaceSourceWithoutParsing()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "ddf-workspace-source-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "main.ddf");
+                DdfDocumentFile.Save(path, "oldName() out int { ret 0; }");
+                DdfWorkspaceIndex original = DdfWorkspaceIndex.Load(directory);
+                DdfWorkspaceIndex sourceOnly = original.WithDocumentSource(path, "newName() out int { ret 1; }");
+                Equal(true, sourceOnly.Documents.Single().Source.Contains("newName"));
+                Equal(1, sourceOnly.FindDefinitions("oldName").Count);
+                Equal(0, sourceOnly.FindDefinitions("newName").Count);
+                DdfWorkspaceIndex analyzed = sourceOnly.WithDocument(path, sourceOnly.Documents.Single().Source);
+                Equal(0, analyzed.FindDefinitions("oldName").Count);
+                Equal(1, analyzed.FindDefinitions("newName").Count);
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void HonorsWorkspaceIndexingCancellation()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "ddf-workspace-cancel-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(directory);
+                DdfDocumentFile.Save(Path.Combine(directory, "main.ddf"), "main() out int { ret 0; }");
+                using (var cancellation = new CancellationTokenSource())
+                {
+                    cancellation.Cancel();
+                    Throws<OperationCanceledException>(() => DdfWorkspaceIndex.Load(directory, cancellation.Token));
+                }
             }
             finally
             {

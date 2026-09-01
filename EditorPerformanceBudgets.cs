@@ -40,6 +40,9 @@ namespace DDF___Program_Language_Editor
     {
         public const int ReferenceDocumentLines = 500;
         public const int InteractiveSampleCount = 30;
+        public const int RealisticDocumentLines = 2000;
+        public const int RealisticWorkspaceDocuments = 40;
+        public const int RealisticWorkspaceLinesPerDocument = 100;
 
         public static readonly EditorPerformanceBudget Input = new EditorPerformanceBudget(
             "input", "Input editor", 16D, 120D,
@@ -61,13 +64,28 @@ namespace DDF___Program_Language_Editor
             "popup", "Apertura popup", 100D, 1000D,
             "creazione, layout e prima visualizzazione della Command Palette completa");
 
+        public static readonly EditorPerformanceBudget BackgroundAnalysisDispatch = new EditorPerformanceBudget(
+            "analysis-dispatch", "Dispatch analisi grande documento", 16D, 120D,
+            "avvio cancellabile dell'analisi di un documento DDF di 2000 righe");
+
+        public static readonly EditorPerformanceBudget WorkspaceLoadDispatch = new EditorPerformanceBudget(
+            "workspace-dispatch", "Dispatch caricamento workspace", 50D, 250D,
+            "avvio e sostituzione del caricamento di 40 file DDF da 100 righe");
+
+        public static readonly EditorPerformanceBudget LargeWorkspaceInput = new EditorPerformanceBudget(
+            "large-workspace-input", "Input documento/workspace realistico", 16D, 120D,
+            "20 inserimenti in 2000 righe con un workspace indicizzato di 40 file");
+
         public static IReadOnlyList<EditorPerformanceBudget> All { get; } = new[]
         {
             Input,
             Selection,
             Scroll,
             Highlighting,
-            Popup
+            Popup,
+            BackgroundAnalysisDispatch,
+            WorkspaceLoadDispatch,
+            LargeWorkspaceInput
         };
     }
 }

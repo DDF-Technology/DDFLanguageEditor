@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
 
@@ -16,6 +18,10 @@ namespace DDF___Program_Language_Editor
         private TreeView treeViewWorkspace;
         private Label labelWorkspace;
         private ToolStripMenuItem recentWorkspacesMenuItem;
+        private CancellationTokenSource workspaceLoadCancellation;
+        private long workspaceLoadRequestVersion;
+        private long workspaceLoadAppliedVersion;
+        private Func<string, CancellationToken, DdfWorkspaceIndex> loadWorkspaceIndex;
 
         private void initializeWorkspace()
         {
@@ -87,6 +93,7 @@ namespace DDF___Program_Language_Editor
             };
             int closeWorkspaceIndex = fileMenuItem.DropDownItems.IndexOf(closeWorkspaceMenuItem);
             fileMenuItem.DropDownItems.Insert(closeWorkspaceIndex + 1, recentWorkspacesMenuItem);
+            loadWorkspaceIndex = DdfWorkspaceIndex.Load;
             initializeWorkspaceDropTargets();
         }
 
@@ -105,6 +112,7 @@ namespace DDF___Program_Language_Editor
 
         private void closeWorkspaceMenuItem_Click(object sender, EventArgs e)
         {
+            cancelWorkspaceLoad();
             workspaceIndex = null;
             treeViewWorkspace.Nodes.Clear();
             labelWorkspace.Text = "WORKSPACE — nessuna cartella";
@@ -117,20 +125,9 @@ namespace DDF___Program_Language_Editor
         {
             try
             {
-                workspaceIndex = DdfWorkspaceIndex.Load(rootPath);
-                foreach (OpenDocumentBuffer document in openDocuments.Documents)
-                {
-                    if (document.Session.HasPath && workspaceIndex.ContainsPath(document.Session.CurrentPath))
-                    {
-                        workspaceIndex = workspaceIndex.WithDocument(document.Session.CurrentPath, document.Source);
-                    }
-                }
-                populateWorkspaceTree();
-                closeWorkspaceMenuItem.Enabled = true;
-                navigationTabs.SelectedTab = workspaceTabPage;
-                applyHighlighting();
-                scheduleWorkspaceSearch();
-                addRecentWorkspace(workspaceIndex.RootPath);
+                string normalizedRoot = Path.GetFullPath(rootPath);
+                if (!Directory.Exists(normalizedRoot)) throw new DirectoryNotFoundException(normalizedRoot);
+                startWorkspaceLoad(normalizedRoot);
                 return true;
             }
             catch (Exception exception) when (isWorkspaceException(exception))
@@ -138,6 +135,94 @@ namespace DDF___Program_Language_Editor
                 MessageBox.Show(this, exception.Message, "Impossibile aprire la cartella", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
+        }
+
+        private async void startWorkspaceLoad(string rootPath)
+        {
+            long version = ++workspaceLoadRequestVersion;
+            workspaceLoadCancellation?.Cancel();
+            var cancellation = new CancellationTokenSource();
+            workspaceLoadCancellation = cancellation;
+            var openBuffers = openDocuments.Documents
+                .Where(document => document.Session.HasPath)
+                .Select(document => new WorkspaceBufferSnapshot(document.Session.CurrentPath, document.Source))
+                .ToList();
+            labelWorkspace.Text = "WORKSPACE — caricamento...";
+            closeWorkspaceMenuItem.Enabled = true;
+            navigationTabs.SelectedTab = workspaceTabPage;
+
+            try
+            {
+                DdfWorkspaceIndex loaded = await Task.Run(() =>
+                {
+                    DdfWorkspaceIndex index = loadWorkspaceIndex(rootPath, cancellation.Token);
+                    foreach (WorkspaceBufferSnapshot buffer in openBuffers)
+                    {
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        if (index.ContainsPath(buffer.Path)) index = index.WithDocument(buffer.Path, buffer.Source);
+                    }
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    return index;
+                }, cancellation.Token);
+                if (cancellation.IsCancellationRequested || version != workspaceLoadRequestVersion) return;
+                postEditorCallback(() => applyLoadedWorkspace(version, loaded));
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer workspace request or an explicit close superseded this load.
+            }
+            catch (Exception exception) when (isWorkspaceException(exception))
+            {
+                string message = exception.Message;
+                postEditorCallback(() => showWorkspaceLoadError(version, message));
+            }
+            finally
+            {
+                if (ReferenceEquals(workspaceLoadCancellation, cancellation)) workspaceLoadCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+
+        private void applyLoadedWorkspace(long version, DdfWorkspaceIndex loaded)
+        {
+            if (version != workspaceLoadRequestVersion || loaded == null || IsDisposed || Disposing) return;
+            foreach (OpenDocumentBuffer document in openDocuments.Documents.Where(item => item.Session.HasPath))
+            {
+                if (loaded.ContainsPath(document.Session.CurrentPath))
+                    loaded = loaded.WithDocumentSource(document.Session.CurrentPath, document.Source);
+            }
+            workspaceIndex = loaded;
+            workspaceLoadAppliedVersion = version;
+            populateWorkspaceTree();
+            navigationTabs.SelectedTab = workspaceTabPage;
+            highlightTimer.Stop();
+            startBackgroundAnalysis();
+            scheduleWorkspaceSearch();
+            addRecentWorkspace(workspaceIndex.RootPath);
+        }
+
+        private void showWorkspaceLoadError(long version, string message)
+        {
+            if (version != workspaceLoadRequestVersion || IsDisposed || Disposing) return;
+            labelWorkspace.Text = workspaceIndex == null
+                ? "WORKSPACE — nessuna cartella"
+                : "WORKSPACE — " + workspaceIndex.Documents.Count + " file";
+            closeWorkspaceMenuItem.Enabled = workspaceIndex != null;
+            MessageBox.Show(this, message, "Impossibile aprire la cartella",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private void cancelWorkspaceLoad()
+        {
+            workspaceLoadRequestVersion++;
+            workspaceLoadCancellation?.Cancel();
+        }
+
+        private void disposeWorkspaceLoading()
+        {
+            cancelWorkspaceLoad();
+            workspaceLoadCancellation?.Dispose();
+            workspaceLoadCancellation = null;
         }
 
         private void populateWorkspaceTree()
@@ -191,7 +276,7 @@ namespace DDF___Program_Language_Editor
         private void updateWorkspaceDocument(string path, string source)
         {
             if (workspaceIndex == null || string.IsNullOrEmpty(path) || !workspaceIndex.ContainsPath(path)) return;
-            workspaceIndex = workspaceIndex.WithDocument(path, source);
+            workspaceIndex = workspaceIndex.WithDocumentSource(path, source);
         }
 
         private void updateWorkspaceDocument(string path, string source, CompilationUnitSyntax root)
@@ -403,6 +488,18 @@ namespace DDF___Program_Language_Editor
             {
                 statusFileLabel.ToolTipText = "Impossibile memorizzare le cartelle recenti: " + exception.Message;
             }
+        }
+
+        private sealed class WorkspaceBufferSnapshot
+        {
+            public WorkspaceBufferSnapshot(string path, string source)
+            {
+                Path = path;
+                Source = source ?? string.Empty;
+            }
+
+            public string Path { get; }
+            public string Source { get; }
         }
     }
 }
