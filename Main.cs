@@ -97,6 +97,7 @@ namespace DDF___Program_Language_Editor
             initializeCommandPalette();
             initializeShortcutSettings();
             initializeAutoSaveAndHotExit();
+            initializeWorkspaceSessionPersistence();
             initializePaletteBehavior();
             recentFiles = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentFiles()));
             recentWorkspaces = new List<string>(RecentFileList.Parse(AppSettingsStore.LoadRecentWorkspaces()));
@@ -149,6 +150,7 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            restoreWorkspaceSession();
             restoreHotExitBuffers();
             applyPersistedPaletteLayout();
             refreshRecentMenu();
@@ -175,6 +177,7 @@ namespace DDF___Program_Language_Editor
             persistRecentFiles();
             persistRecentWorkspaces();
             persistPaletteLayout();
+            persistWorkspaceSession();
         }
 
         private void aboutMenuItem_Click(object sender, EventArgs e)
@@ -441,7 +444,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.4.3 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.4.4 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

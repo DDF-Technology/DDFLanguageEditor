@@ -1,6 +1,13 @@
-# DDFLanguageEditor 0.9.4.3
+# DDFLanguageEditor 0.9.4.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.4 restores the previous coding session by default. The active
+workspace, ordered tabs, active document, selections and per-document
+breakpoints are persisted at close. Clean named documents are reloaded from
+disk, while Hot Exit overlays only dirty content onto its exact tab, including
+when several untitled documents are open. Session restoration can be disabled
+from Settings without disabling autosave or Hot Exit.
 
 Version 0.9.4.3 adds two opt-in safeguards to Settings. Autosave writes modified
 documents that already have a path after a configurable idle delay. Hot Exit

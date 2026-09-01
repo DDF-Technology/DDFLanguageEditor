@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.4.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.4.4 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -31,6 +31,7 @@ evidenziazione delle regole note e indentazione assistita.
 - preferenze persistenti con `Ctrl+,` per font, zoom, tema del codice, tab/spazi, ampiezza, LF/CRLF e formattazione al salvataggio;
 - scorciatoie configurabili dalla relativa scheda delle Impostazioni, con conflitti espliciti, rimozione e preset ripristinabile;
 - autosave opzionale con ritardo configurabile per i file già salvati e Hot Exit per recuperare i buffer sporchi al riavvio;
+- ripristino della sessione precedente con workspace, ordine e selezione delle schede, cursori e breakpoint;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
@@ -201,7 +202,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.4.3 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.4.4 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -245,6 +246,9 @@ default preset on demand.
 Optional idle autosave handles documents that already have a path. Hot Exit
 preserves dirty named and untitled buffers across application restarts, including
 their selection and breakpoints. Both safeguards are disabled by default.
+Session restoration is enabled by default and reopens the workspace, ordered
+tabs, active document, selections and breakpoints while keeping clean documents
+backed by their current disk content.
 The right and bottom palette dimensions and their pinned/auto-hide states are
 also restored across application launches.
 A runtime-independent type checker validates primitive, structure and array

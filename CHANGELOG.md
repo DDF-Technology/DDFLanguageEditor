@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.4.4 - 2026-09-01
+
+- persist the current workspace, ordered document tabs, active tab, selections and document breakpoints on clean application close;
+- restore named documents from their files and recreate untitled tabs at the next launch;
+- overlay dirty Hot Exit content onto its exact restored tab while leaving clean documents disk-backed;
+- preserve the active clean tab when dirty buffers are recovered and disambiguate multiple untitled documents by session index;
+- skip missing document paths without preventing the remaining session or workspace from opening;
+- add an enabled-by-default Settings option to disable session restoration and clear its stored snapshot;
+- isolate real session data in smoke runs and verify an actual disk reload with selection and breakpoint recovery;
+
 ## 0.9.4.3 - 2026-09-01
 
 - add opt-in autosave for modified documents that already have a file path, with a configurable one-to-300-second idle delay;

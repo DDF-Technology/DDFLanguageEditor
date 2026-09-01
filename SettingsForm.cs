@@ -19,6 +19,7 @@ namespace DDF___Program_Language_Editor
         private readonly CheckBox settingsAutoSaveCheckBox;
         private readonly NumericUpDown settingsAutoSaveDelayNumeric;
         private readonly CheckBox settingsHotExitCheckBox;
+        private readonly CheckBox settingsRestoreSessionCheckBox;
         private readonly DataGridView settingsShortcutGrid;
         private readonly TextBox settingsShortcutTextBox;
         private readonly Label settingsShortcutStatusLabel;
@@ -64,6 +65,7 @@ namespace DDF___Program_Language_Editor
             settingsAutoSaveDelayNumeric.Enabled = settings.AutoSaveEnabled;
             settingsAutoSaveCheckBox.CheckedChanged += (sender, args) => settingsAutoSaveDelayNumeric.Enabled = settingsAutoSaveCheckBox.Checked;
             settingsHotExitCheckBox = new CheckBox { Name = "settingsHotExitCheckBox", Text = "Conserva i buffer non salvati alla chiusura (Hot Exit)", Checked = settings.HotExitEnabled, Dock = DockStyle.Fill };
+            settingsRestoreSessionCheckBox = new CheckBox { Name = "settingsRestoreSessionCheckBox", Text = "Riapri workspace e schede dell'ultima sessione", Checked = settings.RestoreSessionEnabled, Dock = DockStyle.Fill };
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
@@ -120,7 +122,8 @@ namespace DDF___Program_Language_Editor
             settingsFormatOnSaveCheckBox.Checked,
             settingsAutoSaveCheckBox.Checked,
             (int)settingsAutoSaveDelayNumeric.Value,
-            settingsHotExitCheckBox.Checked);
+            settingsHotExitCheckBox.Checked,
+            settingsRestoreSessionCheckBox.Checked);
 
         public ShortcutSettings SelectedShortcuts => new ShortcutSettings(shortcutDefinitions, shortcutValues);
 
@@ -149,10 +152,10 @@ namespace DDF___Program_Language_Editor
         private TabPage createEditorTab()
         {
             var page = new TabPage("Editor") { Name = "settingsEditorTab", Padding = new Padding(6) };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 12, Padding = new Padding(18) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 13, Padding = new Padding(18) };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int index = 0; index < 11; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            for (int index = 0; index < 12; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             addRow(layout, 0, "Font del codice", settingsFontComboBox);
             addRow(layout, 1, "Dimensione font", settingsFontSizeNumeric);
@@ -165,6 +168,7 @@ namespace DDF___Program_Language_Editor
             addRow(layout, 8, "Autosave", settingsAutoSaveCheckBox);
             addRow(layout, 9, "Ritardo autosave (secondi)", settingsAutoSaveDelayNumeric);
             addRow(layout, 10, "Hot Exit", settingsHotExitCheckBox);
+            addRow(layout, 11, "Sessione", settingsRestoreSessionCheckBox);
             page.Controls.Add(layout);
             return page;
         }
@@ -249,6 +253,7 @@ namespace DDF___Program_Language_Editor
             settingsAutoSaveDelayNumeric.Value = settings.AutoSaveDelaySeconds;
             settingsAutoSaveDelayNumeric.Enabled = settings.AutoSaveEnabled;
             settingsHotExitCheckBox.Checked = settings.HotExitEnabled;
+            settingsRestoreSessionCheckBox.Checked = settings.RestoreSessionEnabled;
         }
 
         private static NumericUpDown createNumeric(string name, decimal minimum, decimal maximum, decimal value, decimal increment) =>

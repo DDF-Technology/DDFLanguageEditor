@@ -27,13 +27,13 @@ namespace DDF___Program_Language_Editor
         public EditorSettings(string fontFamily, float fontSize, int zoomPercent, EditorTheme theme,
             bool useTabs, int indentSize, EditorLineEnding lineEnding, bool formatOnSave)
             : this(fontFamily, fontSize, zoomPercent, theme, useTabs, indentSize, lineEnding,
-                formatOnSave, false, DefaultAutoSaveDelaySeconds, false)
+                formatOnSave, false, DefaultAutoSaveDelaySeconds, false, true)
         {
         }
 
         public EditorSettings(string fontFamily, float fontSize, int zoomPercent, EditorTheme theme,
             bool useTabs, int indentSize, EditorLineEnding lineEnding, bool formatOnSave,
-            bool autoSaveEnabled, int autoSaveDelaySeconds, bool hotExitEnabled)
+            bool autoSaveEnabled, int autoSaveDelaySeconds, bool hotExitEnabled, bool restoreSessionEnabled)
         {
             if (string.IsNullOrWhiteSpace(fontFamily)) throw new ArgumentException("A font family is required.", nameof(fontFamily));
             if (fontSize < 8F || fontSize > 32F) throw new ArgumentOutOfRangeException(nameof(fontSize));
@@ -51,6 +51,7 @@ namespace DDF___Program_Language_Editor
             AutoSaveEnabled = autoSaveEnabled;
             AutoSaveDelaySeconds = autoSaveDelaySeconds;
             HotExitEnabled = hotExitEnabled;
+            RestoreSessionEnabled = restoreSessionEnabled;
         }
 
         public string FontFamily { get; }
@@ -64,6 +65,7 @@ namespace DDF___Program_Language_Editor
         public bool AutoSaveEnabled { get; }
         public int AutoSaveDelaySeconds { get; }
         public bool HotExitEnabled { get; }
+        public bool RestoreSessionEnabled { get; }
 
         public static EditorSettings Default => new EditorSettings(DefaultFontFamily, DefaultFontSize,
             DefaultZoomPercent, EditorTheme.Dark, false, DefaultIndentSize, EditorLineEnding.Lf, false);
@@ -87,10 +89,11 @@ namespace DDF___Program_Language_Editor
             bool autoSaveEnabled = parseBool(values, "autoSaveEnabled", defaults.AutoSaveEnabled);
             int autoSaveDelaySeconds = parseInt(values, "autoSaveDelaySeconds", defaults.AutoSaveDelaySeconds, 1, 300);
             bool hotExitEnabled = parseBool(values, "hotExitEnabled", defaults.HotExitEnabled);
+            bool restoreSessionEnabled = parseBool(values, "restoreSessionEnabled", defaults.RestoreSessionEnabled);
             EditorTheme theme = parseEnum(values, "theme", defaults.Theme);
             EditorLineEnding lineEnding = parseEnum(values, "lineEnding", defaults.LineEnding);
             return new EditorSettings(font, fontSize, zoom, theme, tabs, indent, lineEnding, formatOnSave,
-                autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled);
+                autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled, restoreSessionEnabled);
         }
 
         public string Serialize()
@@ -107,7 +110,8 @@ namespace DDF___Program_Language_Editor
                 "formatOnSave=" + FormatOnSave,
                 "autoSaveEnabled=" + AutoSaveEnabled,
                 "autoSaveDelaySeconds=" + AutoSaveDelaySeconds,
-                "hotExitEnabled=" + HotExitEnabled
+                "hotExitEnabled=" + HotExitEnabled,
+                "restoreSessionEnabled=" + RestoreSessionEnabled
             });
         }
 

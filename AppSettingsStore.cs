@@ -12,6 +12,7 @@ namespace DDF___Program_Language_Editor
         private const string PaletteLayoutSettingsFileName = "palette-layout.txt";
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
         private const string HotExitSnapshotFileName = "hot-exit.json";
+        private const string WorkspaceSessionFileName = "workspace-session.json";
 
         public static string LoadRecentFiles()
         {
@@ -100,6 +101,22 @@ namespace DDF___Program_Language_Editor
         public static void ClearHotExitSnapshot()
         {
             string path = GetSettingsPath(HotExitSnapshotFileName);
+            if (File.Exists(path)) File.Delete(path);
+        }
+
+        public static string LoadWorkspaceSession()
+        {
+            return Load(WorkspaceSessionFileName);
+        }
+
+        public static void SaveWorkspaceSession(string value)
+        {
+            Save(WorkspaceSessionFileName, value);
+        }
+
+        public static void ClearWorkspaceSession()
+        {
+            string path = GetSettingsPath(WorkspaceSessionFileName);
             if (File.Exists(path)) File.Delete(path);
         }
 

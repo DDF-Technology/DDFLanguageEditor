@@ -85,7 +85,7 @@ runtime posizionati nel sorgente.
 | Comprimi blocco | comprime più blocchi dalla firma nella stessa proiezione di sola lettura |
 | Espandi tutto | ripristina il sorgente originale senza alterarne il contenuto |
 | Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
-| Impostazioni | applica e persiste editor, scorciatoie, autosave e Hot Exit, rileva conflitti e ripristina il preset predefinito |
+| Impostazioni | applica e persiste editor, scorciatoie, autosave, Hot Exit e ripristino sessione, con preset predefinito |
 
 Sono controllati anche testo e disponibilità contestuale dei due comandi, i
 colori, la colonna dei numeri di riga, l'espansione selettiva di un singolo
@@ -121,6 +121,8 @@ persistenti e aggiornino menu, toolbar, Command Palette ed esecuzione reale.
 Autosave viene provato con un orologio controllato su un file temporaneo; Hot
 Exit deve serializzare e ripristinare contenuto, selezione e stato dirty senza
 accedere ai dati reali del profilo utente.
+Lo snapshot di sessione viene verificato ricaricando realmente un file temporaneo
+dal disco e recuperando selezione e breakpoint, separatamente dal contenuto Hot Exit.
 Verifica inoltre la nuova icona incorporata, la centratura delle form secondarie
 e il docking senza sovrapposizioni tra palette destra e pannello inferiore.
 Il popup Trova/Sostituisci viene inoltre controllato per allineamento della

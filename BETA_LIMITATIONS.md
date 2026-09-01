@@ -1,4 +1,4 @@
-# Beta 0.9.4.3 limitations
+# Beta 0.9.4.4 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -33,6 +33,7 @@ This release is intended for interface and language-design evaluation only.
 - persistent right and bottom palette dimensions and pinned/auto-hide state;
 - persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
 - optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;
+- previous-session restoration for workspace, ordered tabs, active document, selections and breakpoints;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;

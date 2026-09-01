@@ -103,6 +103,8 @@ namespace DDF___Program_Language_Editor
                     ActiveDocumentIndex = Math.Max(0, dirtyViews.FindIndex(view => ReferenceEquals(view, activeDocumentView))),
                     Documents = dirtyViews.Select(view => new HotExitDocumentSnapshot
                     {
+                        SessionDocumentIndex = openDocuments.Documents.ToList().FindIndex(buffer =>
+                            ReferenceEquals(buffer, view.Buffer)),
                         Path = view.Buffer.Session.CurrentPath,
                         Source = view.Editor.Text,
                         SelectionStart = view.Editor.SelectionStart,
@@ -157,21 +159,26 @@ namespace DDF___Program_Language_Editor
 
             try
             {
-                DocumentView initial = activeDocumentView;
+                DocumentView sessionActive = activeDocumentView;
                 var restored = new List<DocumentView>();
+                var usedDocumentIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (int index = 0; index < snapshot.Documents.Count; index++)
                 {
-                    DocumentView view;
-                    if (index == 0) view = initial;
-                    else
+                    HotExitDocumentSnapshot document = snapshot.Documents[index];
+                    DocumentView view = findHotExitTarget(document, usedDocumentIds);
+                    if (view == null)
                     {
                         OpenDocumentBuffer buffer = openDocuments.CreateUntitled();
                         view = addDocumentView(buffer);
                     }
-                    restoreHotExitDocument(view, snapshot.Documents[index]);
+                    restoreHotExitDocument(view, document);
+                    usedDocumentIds.Add(view.Buffer.Id);
                     restored.Add(view);
                 }
-                activateDocument(restored[snapshot.ActiveDocumentIndex]);
+                activateDocument(workspaceSessionRestored && sessionActive != null
+                    ? sessionActive
+                    : restored[snapshot.ActiveDocumentIndex]);
+                refreshRestoredActiveDocument();
                 clearHotExitSnapshotSetting();
                 statusFileLabel.ToolTipText = restored.Count == 1
                     ? "Hot Exit: ripristinato un buffer non salvato."
@@ -181,6 +188,23 @@ namespace DDF___Program_Language_Editor
             {
                 statusFileLabel.ToolTipText = "Ripristino Hot Exit non riuscito: " + exception.Message;
             }
+        }
+
+        private DocumentView findHotExitTarget(HotExitDocumentSnapshot snapshot, ISet<string> usedDocumentIds)
+        {
+            if (snapshot.SessionDocumentIndex >= 0 &&
+                restoredSessionDocumentIds.TryGetValue(snapshot.SessionDocumentIndex, out string restoredId) &&
+                !usedDocumentIds.Contains(restoredId) && documentViews.TryGetValue(restoredId, out DocumentView indexed))
+                return indexed;
+            DocumentView match = documentViews.Values.FirstOrDefault(view =>
+                !usedDocumentIds.Contains(view.Buffer.Id) &&
+                (string.IsNullOrWhiteSpace(snapshot.Path)
+                    ? !view.Buffer.Session.HasPath
+                    : view.Buffer.Session.HasPath && string.Equals(view.Buffer.Session.CurrentPath,
+                        Path.GetFullPath(snapshot.Path), StringComparison.OrdinalIgnoreCase)));
+            if (match != null) return match;
+            if (!workspaceSessionRestored && usedDocumentIds.Count == 0) return activeDocumentView;
+            return null;
         }
 
         private void restoreHotExitDocument(DocumentView view, HotExitDocumentSnapshot snapshot)

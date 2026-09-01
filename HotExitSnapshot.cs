@@ -7,6 +7,7 @@ namespace DDF___Program_Language_Editor
 {
     public sealed class HotExitDocumentSnapshot
     {
+        public int SessionDocumentIndex { get; set; } = -1;
         public string Path { get; set; }
         public string Source { get; set; } = string.Empty;
         public int SelectionStart { get; set; }
@@ -49,6 +50,7 @@ namespace DDF___Program_Language_Editor
 
         private static HotExitDocumentSnapshot sanitize(HotExitDocumentSnapshot document)
         {
+            document.SessionDocumentIndex = Math.Max(-1, document.SessionDocumentIndex);
             int length = document.Source.Length;
             document.SelectionStart = Math.Max(0, Math.Min(length, document.SelectionStart));
             document.SelectionLength = Math.Max(0, Math.Min(length - document.SelectionStart, document.SelectionLength));

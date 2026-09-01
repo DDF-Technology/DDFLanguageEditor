@@ -259,7 +259,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.4") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -585,6 +585,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "loadHotExitSnapshotSetting", new Func<string>(() => string.Empty));
             SetPrivateField(form, "saveHotExitSnapshotSetting", new Action<string>(value => { }));
             SetPrivateField(form, "clearHotExitSnapshotSetting", new Action(() => { }));
+            SetPrivateField(form, "loadWorkspaceSessionSetting", new Func<string>(() => string.Empty));
+            SetPrivateField(form, "saveWorkspaceSessionSetting", new Action<string>(value => { }));
+            SetPrivateField(form, "clearWorkspaceSessionSetting", new Action(() => { }));
         }
 
         private static void ResetEditorSettingsForSmoke(MainForm form)
@@ -2163,6 +2166,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<CheckBox>(dialog, "settingsAutoSaveCheckBox").Checked = true;
                 FindControl<NumericUpDown>(dialog, "settingsAutoSaveDelayNumeric").Value = 1M;
                 FindControl<CheckBox>(dialog, "settingsHotExitCheckBox").Checked = true;
+                FindControl<CheckBox>(dialog, "settingsRestoreSessionCheckBox").Checked = true;
                 Require(FindControl<DataGridView>(dialog, "settingsShortcutGrid").Rows.Count >= 46,
                     "La scheda Scorciatoie non elenca i comandi configurabili.");
                 Require(!dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.F, out string conflict) &&
@@ -2176,6 +2180,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             EditorSettings settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 1 && settings.UseTabs && settings.IndentSize == 2 && settings.FormatOnSave &&
                     settings.AutoSaveEnabled && settings.AutoSaveDelaySeconds == 1 && settings.HotExitEnabled &&
+                    settings.RestoreSessionEnabled &&
                     settings.LineEnding == EditorLineEnding.CrLf && persisted != null && persistedShortcuts != null,
                 "Le preferenze scelte non vengono applicate e persistite.");
             Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
@@ -2235,13 +2240,36 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         !GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
                     "L'autosave non salva il file dopo il ritardo configurato o non aggiorna lo stato dirty.");
 
+                int sessionSelection = editor.Text.IndexOf("ret", StringComparison.Ordinal);
+                editor.Select(sessionSelection, 3);
+                FindMenuItem(form, "toggleBreakpointMenuItem").PerformClick();
+                string workspaceSessionData = null;
+                SetPrivateField(form, "saveWorkspaceSessionSetting", new Action<string>(value => workspaceSessionData = value));
+                InvokePrivate(form, "persistWorkspaceSession");
+                WorkspaceSessionSnapshot workspaceSession = WorkspaceSessionSnapshot.Parse(workspaceSessionData);
+                Require(workspaceSession?.Documents.Count == 1 &&
+                        workspaceSession.Documents[0].Path == Path.GetFullPath(settingsSavePath) &&
+                        workspaceSession.Documents[0].SelectionStart == sessionSelection &&
+                        workspaceSession.Documents[0].BreakpointLines.SequenceEqual(new[] { 1 }),
+                    "La sessione non serializza scheda, selezione e breakpoint correnti.");
+
+                editor.Text = "contenuto transitorio";
+                InvokePrivate(form, "clearBreakpoints");
+                GetPrivateField<DocumentSession>(form, "documentSession").MarkSaved(settingsSavePath);
+                SetPrivateField(form, "loadWorkspaceSessionSetting", new Func<string>(() => workspaceSessionData));
+                InvokePrivate(form, "restoreWorkspaceSession");
+                Require(editor.Text.Contains("ret 3;", StringComparison.Ordinal) && editor.SelectedText == "ret" &&
+                        FindControl<RichTextBox>(form, "richTextBoxLineNumbers").Text.Contains("● 1", StringComparison.Ordinal),
+                    "Il ripristino sessione non ricarica dal disco selezione e breakpoint.");
+
                 string hotExitData = null;
                 bool hotExitCleared = false;
                 editor.Text = "main() out int {\n\tret 4;\n}";
                 editor.Select(editor.Text.IndexOf("ret", StringComparison.Ordinal), 3);
                 SetPrivateField(form, "saveHotExitSnapshotSetting", new Action<string>(value => hotExitData = value));
                 SetPrivateField(form, "clearHotExitSnapshotSetting", new Action(() => hotExitCleared = true));
-                Require((bool)InvokePrivate(form, "prepareHotExit") && HotExitSnapshot.Parse(hotExitData)?.Documents.Count == 1,
+                Require((bool)InvokePrivate(form, "prepareHotExit") &&
+                        HotExitSnapshot.Parse(hotExitData)?.Documents.Single().SessionDocumentIndex == 0,
                     "Hot Exit non serializza il buffer modificato.");
 
                 SetPrivateField(form, "loadHotExitSnapshotSetting", new Func<string>(() => hotExitData));
@@ -2257,6 +2285,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 if (File.Exists(settingsSavePath)) File.Delete(settingsSavePath);
             }
             GetPrivateField<DocumentSession>(form, "documentSession").SetUntitled();
+            InvokePrivate(form, "clearBreakpoints");
             InvokePrivate(form, "updateDocumentUi");
 
             SetPrivateField(form, "showSettingsDialog", new Func<SettingsForm, DialogResult>(dialog =>
@@ -2270,12 +2299,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             FindToolbarButton(form, "toolbarSettingsButton").PerformClick();
             settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 2 && !settings.UseTabs && settings.IndentSize == 4 &&
-                    !settings.AutoSaveEnabled && !settings.HotExitEnabled &&
+                    !settings.AutoSaveEnabled && !settings.HotExitEnabled && settings.RestoreSessionEnabled &&
                     settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
-            Console.WriteLine("PASS preferenze, scorciatoie, autosave e Hot Exit persistenti con ripristino sicuro");
+            Console.WriteLine("PASS preferenze, scorciatoie, autosave, Hot Exit e sessione persistenti con ripristino sicuro");
         }
 
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)
