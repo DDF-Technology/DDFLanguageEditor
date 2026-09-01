@@ -27,6 +27,10 @@ trascina inoltre un sorgente `.ddf` e una cartella sulle superfici dell'IDE,
 verificando apertura in scheda, aggiornamento del workspace e rifiuto dei file
 con estensione non supportata.
 
+Lo smoke modifica inoltre dall'esterno un file aperto e verifica il confronto
+affiancato, la ricarica, la conservazione del buffer, il rinvio senza popup
+ripetuti, il blocco prima del salvataggio e il caso di file eliminato.
+
 ## Modifica
 
 | Comando | Verifica dinamica |

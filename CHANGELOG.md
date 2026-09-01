@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.4.6 - 2026-09-01
+
+- track the last known disk content independently for every named document tab;
+- periodically detect external edits, replacements, deletion and recreation without relying on fragile watcher event sequences;
+- show a centered light side-by-side comparison between the editor buffer and the current disk version;
+- let the user reload from disk, keep the editor buffer or postpone the decision without automatic overwrites;
+- preserve dirty buffers when keeping a conflict and remap breakpoints when reloading external content;
+- suppress repeated prompts for the same postponed version while rechecking the conflict before every manual or automatic save;
+- block writes after reload, postpone or disk-read failure, while allowing an explicitly kept buffer to be saved;
+- verify reload, keep, postpone, pre-save protection and deleted-file handling through dynamic WinForms smoke tests;
+
 ## 0.9.4.5 - 2026-09-01
 
 - add an enabled-by-default five-second recovery journal for dirty named and untitled buffers;

@@ -327,6 +327,7 @@ namespace DDF___Program_Language_Editor
                 editorHost.Controls.Remove(view.Editor);
                 documentViews.Remove(view.Buffer.Id);
                 openDocuments.Remove(view.Buffer.Id);
+                knownDiskStates.Remove(view.Buffer.Id);
                 markCrashRecoveryChanged();
                 view.Tab.Dispose();
                 view.Editor.Dispose();

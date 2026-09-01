@@ -1,4 +1,4 @@
-# Beta 0.9.4.5 limitations
+# Beta 0.9.4.6 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -35,6 +35,7 @@ This release is intended for interface and language-design evaluation only.
 - optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;
 - previous-session restoration for workspace, ordered tabs, active document, selections and breakpoints;
 - opt-out local crash-recovery journal with explicit restore, discard or postpone choice;
+- periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
 - internal AST interpreter with functions, control flow, arrays and structures;
@@ -57,8 +58,7 @@ This release is intended for interface and language-design evaluation only.
 
 ## Not implemented
 
-- concurrent-edit conflict detection or multi-instance recovery coordination;
-- autosave does not yet detect external file changes before writing;
+- automatic three-way merging, operating-system file locking or multi-instance recovery coordination;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - compiler, bytecode VM, native runtime or full debugger;
 - complete standard library, non-interactive input streams or step-by-step execution;
@@ -87,6 +87,6 @@ bounded to 100,000 syntax-node instructions per run and does not yet load
 functions from other workspace documents at runtime. Output through `>>` is
 currently textual; interactive input is not defined.
 
-New documents are not persisted until they are saved. The editor asks before
-discarding known unsaved changes, but does not yet recover content after a crash
-or system interruption.
+New documents are not persisted until they are saved. Crash recovery and Hot
+Exit keep local copies, but they are not a replacement for source control or
+backups and cannot automatically merge concurrent versions.

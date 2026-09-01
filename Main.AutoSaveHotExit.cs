@@ -67,6 +67,11 @@ namespace DDF___Program_Language_Editor
             {
                 string source = view.Editor.Text;
                 string path = view.Buffer.Session.CurrentPath;
+                if (!canWriteDocument(view, path))
+                {
+                    view.LastEditUtc = attemptTime;
+                    return;
+                }
                 DdfDocumentFile.Save(path, editorSettings.ApplyLineEndings(source));
                 view.Buffer.UpdateSource(source, false);
                 view.Buffer.MarkSaved(path);
@@ -75,6 +80,7 @@ namespace DDF___Program_Language_Editor
                 view.LastEditUtc = null;
                 updateWorkspaceDocument(path, source);
                 updateDocumentTab(view);
+                rememberCurrentDiskState(view);
                 if (ReferenceEquals(view, activeDocumentView)) updateDocumentUi();
                 statusFileLabel.ToolTipText = "Salvataggio automatico completato: " + view.Buffer.Session.DisplayName;
             }
@@ -223,6 +229,7 @@ namespace DDF___Program_Language_Editor
                 view.Buffer.BreakpointLines.Clear();
                 foreach (int line in snapshot.BreakpointLines) view.Buffer.BreakpointLines.Add(line);
                 view.LastEditUtc = getUtcNow();
+                rememberCurrentDiskState(view);
                 updateDocumentTab(view);
             }
             finally

@@ -1,6 +1,14 @@
-# DDFLanguageEditor 0.9.4.5
+# DDFLanguageEditor 0.9.4.6
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.4.6 completes the personalization, session and recovery milestone.
+Each named tab now tracks its last known disk content and detects edits,
+replacement or deletion performed by another program. A centered side-by-side
+comparison offers Reload from disk, Keep buffer or Later. Postponed conflicts do
+not repeatedly interrupt editing, but are checked again before manual or
+automatic saves so no external version is silently overwritten. Reload remaps
+breakpoints; Keep preserves the editor content as an explicitly dirty buffer.
 
 Version 0.9.4.5 adds local recovery after an unexpected termination. While
 documents are dirty, an enabled-by-default journal is refreshed every five

@@ -259,7 +259,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.5") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.4.6") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -591,6 +591,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "loadCrashRecoverySetting", new Func<string>(() => string.Empty));
             SetPrivateField(form, "saveCrashRecoverySetting", new Action<string>(value => { }));
             SetPrivateField(form, "clearCrashRecoverySetting", new Action(() => { }));
+            GetPrivateField<System.Windows.Forms.Timer>(form, "externalChangeTimer").Stop();
         }
 
         private static void ResetEditorSettingsForSmoke(MainForm form)
@@ -2316,6 +2317,69 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         GetPrivateField<DocumentSession>(form, "documentSession").IsDirty && recoveryCleared &&
                         !File.ReadAllText(settingsSavePath).Contains("ret 5;", StringComparison.Ordinal),
                     "Recovery non ripristina il buffer come dirty oppure sovrascrive il file originale.");
+
+                int externalDialogCount = 0;
+                File.WriteAllText(settingsSavePath, "main() out int {\n\tret 6;\n}");
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog =>
+                {
+                    externalDialogCount++;
+                    Require(dialog.StartPosition == FormStartPosition.CenterScreen && IsLight(dialog.BackColor) &&
+                            FindControl<RichTextBox>(dialog, "externalChangeBufferTextBox").Text.Contains("ret 5;", StringComparison.Ordinal) &&
+                            FindControl<RichTextBox>(dialog, "externalChangeDiskTextBox").Text.Contains("ret 6;", StringComparison.Ordinal),
+                        "Il confronto delle modifiche esterne non è chiaro, centrato o non mostra entrambe le versioni.");
+                    return DialogResult.Yes;
+                }));
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                Require(externalDialogCount == 1 && editor.Text.Contains("ret 6;", StringComparison.Ordinal) &&
+                        !GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "Ricarica da disco non sostituisce il buffer o non ripristina lo stato pulito.");
+
+                editor.Text = "main() out int {\n\tret 7;\n}";
+                File.WriteAllText(settingsSavePath, "main() out int {\n\tret 8;\n}");
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog => DialogResult.No));
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                Require(editor.Text.Contains("ret 7;", StringComparison.Ordinal) &&
+                        File.ReadAllText(settingsSavePath).Contains("ret 8;", StringComparison.Ordinal) &&
+                        GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "Mantieni buffer sovrascrive il file esterno o perde lo stato dirty.");
+
+                File.WriteAllText(settingsSavePath, "main() out int {\n\tret 9;\n}");
+                int postponedDialogs = 0;
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog =>
+                {
+                    postponedDialogs++;
+                    return DialogResult.Cancel;
+                }));
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                Require(postponedDialogs == 1 && File.ReadAllText(settingsSavePath).Contains("ret 9;", StringComparison.Ordinal),
+                    "Più tardi ripropone subito il popup oppure modifica il file esterno.");
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog => DialogResult.Cancel));
+                fakeNow = fakeNow.AddSeconds(2);
+                InvokeHandler(form, "autoSaveTimer_Tick", form, EventArgs.Empty);
+                Require(File.ReadAllText(settingsSavePath).Contains("ret 9;", StringComparison.Ordinal) &&
+                        GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "L'autosave sovrascrive una modifica esterna rimandata.");
+                Require(!(bool)InvokePrivate(form, "saveDocument", false) &&
+                        File.ReadAllText(settingsSavePath).Contains("ret 9;", StringComparison.Ordinal),
+                    "Il controllo pre-salvataggio ignora una decisione rimandata e sovrascrive il file esterno.");
+
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog => DialogResult.No));
+                Require((bool)InvokePrivate(form, "saveDocument", false) &&
+                        File.ReadAllText(settingsSavePath).Contains("ret 7;", StringComparison.Ordinal),
+                    "Mantieni buffer non consente il successivo salvataggio consapevole.");
+                File.Delete(settingsSavePath);
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog =>
+                {
+                    Require(!FindControl<Button>(dialog, "externalChangeReloadButton").Enabled &&
+                            FindControl<Label>(dialog, "externalChangeDiskLabel").Text.Contains("non disponibile", StringComparison.OrdinalIgnoreCase),
+                        "Il popup non distingue un file eliminato da una normale modifica esterna.");
+                    return DialogResult.No;
+                }));
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                Require(editor.Text.Contains("ret 7;", StringComparison.Ordinal) &&
+                        GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "La gestione di un file eliminato perde il buffer corrente.");
             }
             finally
             {
@@ -2342,7 +2406,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
             SetPrivateField(form, "saveShortcutSettingsSetting", new Action<string>(value => { }));
-            Console.WriteLine("PASS preferenze, sessione e recovery non distruttivo con autosave e Hot Exit");
+            Console.WriteLine("PASS preferenze, sessione, recovery e conflitti esterni non distruttivi");
         }
 
         private static void AssertTextBoxEditingSupport(MainForm form, RichTextBox editor)

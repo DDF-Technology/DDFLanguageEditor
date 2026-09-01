@@ -168,6 +168,7 @@ namespace DDF___Program_Language_Editor
                 foreach (int line in snapshot.BreakpointLines) view.Buffer.BreakpointLines.Add(line);
                 view.LastEditPosition = selectionStart;
                 view.LastEditUtc = null;
+                rememberCurrentDiskState(view);
                 updateDocumentTab(view);
             }
             finally
