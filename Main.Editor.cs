@@ -407,6 +407,7 @@ namespace DDF___Program_Language_Editor
             updateFoldingRanges(snapshot.FoldingRanges);
             analysisAppliedVersion = version;
             updateBreadcrumb();
+            refreshEditorOverviewViewport();
             refreshDelimiterHighlight();
             updateNavigationCommandState();
         }

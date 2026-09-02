@@ -103,7 +103,8 @@ namespace DDF___Program_Language_Editor
                 new Point(1, Math.Max(1, richTextBoxMainEditor.ClientSize.Height - 2)));
             editorOverviewBar.SetViewport(
                 richTextBoxMainEditor.GetLineFromCharIndex(firstIndex) + 1,
-                richTextBoxMainEditor.GetLineFromCharIndex(lastIndex) + 1);
+                richTextBoxMainEditor.GetLineFromCharIndex(lastIndex) + 1,
+                richTextBoxMainEditor.GetLineFromCharIndex(richTextBoxMainEditor.SelectionStart) + 1);
         }
 
         private void editorOverviewBar_LineRequested(object sender, EditorOverviewLineRequestedEventArgs e)

@@ -16,6 +16,10 @@ well below the 16 ms target. A full text-rendering minimap was evaluated and is
 intentionally deferred: the overview delivers the primary navigation value at a
 much lower rendering and maintenance cost.
 
+The overview uses a 24-pixel high-contrast track. Diagnostic and breakpoint
+markers are painted above the viewport band, and a cyan pointer always shows the
+current caret line, so a clean document no longer looks like an empty control.
+
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They
 can be changed from View, Settings, the Command Palette or dedicated toggle

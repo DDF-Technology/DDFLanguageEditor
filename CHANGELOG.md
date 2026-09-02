@@ -7,6 +7,7 @@
 - deduplicate marker snapshots and update only the viewport during scrolling, retaining the established scroll p95 target;
 - verify real diagnostic and breakpoint markers, line navigation, settings persistence, all 56 menu commands and 44 toolbar controls with dynamic smoke;
 - evaluate a full text minimap and defer it as an optional future enhancement because the lightweight overview provides the useful navigation signals without duplicating text rendering;
+- enlarge and increase contrast after visual inspection, paint markers above the viewport and keep the current caret line visible even in clean documents;
 
 ## 0.9.5.3 - 2026-09-02
 

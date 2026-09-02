@@ -724,7 +724,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripMenuItem overview = FindMenuItem(form, "showOverviewMenuItem");
                 Control overviewBar = FindControl<Control>(form, "editorOverviewBar");
                 Require(currentLine.Checked && !whitespace.Checked && indentGuides.Checked && !wordWrap.Checked &&
-                        overview.Checked && overviewBar.Visible,
+                        overview.Checked && overviewBar.Visible && overviewBar.Width >= 20,
                     "Le opzioni visive iniziali non corrispondono al profilo predefinito.");
                 editor.Text = "main()\n{\n    int value << 1;\n\tret value;\n}";
                 editor.Select(editor.Text.IndexOf("int", StringComparison.Ordinal), 0);
@@ -753,7 +753,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 overview.PerformClick();
                 PumpMessages(80);
                 Require(overview.Checked && overviewBar.Visible &&
-                        GetControlProperty<int>(overviewBar, "TotalLines") == editor.Lines.Length,
+                        GetControlProperty<int>(overviewBar, "TotalLines") == editor.Lines.Length &&
+                        GetControlProperty<int>(overviewBar, "CurrentLine") == 3,
                     "L'overview non è sincronizzata con menu, toolbar e righe del documento.");
                 Require(editor.Text == visualSource && editor.SelectionStart == selectionStart,
                     "Le decorazioni visive modificano il sorgente o spostano il cursore.");

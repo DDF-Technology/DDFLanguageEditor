@@ -38,14 +38,15 @@ namespace DDF___Program_Language_Editor
         private int totalLines = 1;
         private int firstVisibleLine = 1;
         private int lastVisibleLine = 1;
+        private int currentLine = 1;
         private string markerSignature = string.Empty;
 
         public EditorOverviewBar()
         {
             Name = "editorOverviewBar";
             Dock = DockStyle.Right;
-            Width = 16;
-            MinimumSize = new Size(12, 0);
+            Width = 24;
+            MinimumSize = new Size(20, 0);
             Cursor = Cursors.Hand;
             DoubleBuffered = true;
             TabStop = false;
@@ -58,6 +59,7 @@ namespace DDF___Program_Language_Editor
         public int TotalLines => totalLines;
         public int FirstVisibleLine => firstVisibleLine;
         public int LastVisibleLine => lastVisibleLine;
+        public int CurrentLine => currentLine;
         public int SearchMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Search);
         public int WarningMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Warning);
         public int ErrorMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Error);
@@ -83,13 +85,15 @@ namespace DDF___Program_Language_Editor
             Invalidate();
         }
 
-        public void SetViewport(int firstLine, int lastLine)
+        public void SetViewport(int firstLine, int lastLine, int caretLine)
         {
             int first = Math.Max(1, Math.Min(totalLines, firstLine));
             int last = Math.Max(first, Math.Min(totalLines, lastLine));
-            if (first == firstVisibleLine && last == lastVisibleLine) return;
+            int current = Math.Max(1, Math.Min(totalLines, caretLine));
+            if (first == firstVisibleLine && last == lastVisibleLine && current == currentLine) return;
             firstVisibleLine = first;
             lastVisibleLine = last;
+            currentLine = current;
             Invalidate();
         }
 
@@ -97,21 +101,35 @@ namespace DDF___Program_Language_Editor
         {
             base.OnPaint(e);
             if (ClientSize.Height <= 0 || ClientSize.Width <= 0) return;
-            foreach (EditorOverviewMarker marker in markers)
-            {
-                int y = lineToY(marker.Line);
-                using (var brush = new SolidBrush(markerColor(marker.Kind)))
-                    e.Graphics.FillRectangle(brush, 2, Math.Max(0, y - 1), Math.Max(1, ClientSize.Width - 4), 3);
-            }
-
+            using (var trackBrush = new SolidBrush(Color.FromArgb(18, ForeColor)))
+                e.Graphics.FillRectangle(trackBrush, 2, 0, Math.Max(1, ClientSize.Width - 4), ClientSize.Height);
             int top = lineToY(firstVisibleLine);
             int bottom = lineToY(lastVisibleLine);
             int height = Math.Max(5, bottom - top + 1);
             if (top + height >= ClientSize.Height) height = Math.Max(1, ClientSize.Height - top - 1);
-            using (var brush = new SolidBrush(Color.FromArgb(38, ForeColor)))
-                e.Graphics.FillRectangle(brush, 0, top, ClientSize.Width - 1, height);
-            using (var pen = new Pen(Color.FromArgb(135, ForeColor)))
-                e.Graphics.DrawRectangle(pen, 0, top, Math.Max(0, ClientSize.Width - 1), height);
+            using (var brush = new SolidBrush(Color.FromArgb(48, ForeColor)))
+                e.Graphics.FillRectangle(brush, 1, top, ClientSize.Width - 2, height);
+            using (var pen = new Pen(Color.FromArgb(190, ForeColor), 2F))
+                e.Graphics.DrawRectangle(pen, 1, top, Math.Max(0, ClientSize.Width - 3), height);
+
+            foreach (EditorOverviewMarker marker in markers)
+            {
+                int y = lineToY(marker.Line);
+                using (var brush = new SolidBrush(markerColor(marker.Kind)))
+                    e.Graphics.FillRectangle(brush, 3, Math.Max(0, y - 2), Math.Max(1, ClientSize.Width - 6), 5);
+            }
+
+            int caretY = lineToY(currentLine);
+            using (var pen = new Pen(Color.FromArgb(86, 190, 255), 2F))
+                e.Graphics.DrawLine(pen, 1, caretY, ClientSize.Width - 2, caretY);
+            Point[] pointer =
+            {
+                new Point(0, Math.Max(0, caretY - 4)),
+                new Point(5, caretY),
+                new Point(0, Math.Min(ClientSize.Height - 1, caretY + 4))
+            };
+            using (var brush = new SolidBrush(Color.FromArgb(86, 190, 255)))
+                e.Graphics.FillPolygon(brush, pointer);
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
