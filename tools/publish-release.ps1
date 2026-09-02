@@ -75,6 +75,27 @@ if ($missingFiles.Count -gt 0) {
     throw "Pubblicazione self-contained incompleta. File mancanti: $($missingFiles -join ', ')"
 }
 
+$requiredLanguageFiles = @(
+    'manifest.json',
+    'lexicon.json',
+    'grammar.json',
+    'types.json',
+    'semantics.json',
+    'formatting.json',
+    'intellisense.json',
+    'runtime.json',
+    'build.json',
+    'standard-library.json'
+)
+$publishedLanguageDirectory = Join-Path $publishDirectory 'language-packages\ddf'
+$missingLanguageFiles = @($requiredLanguageFiles | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $publishedLanguageDirectory $_) -PathType Leaf)
+})
+if ($missingLanguageFiles.Count -gt 0 -or
+    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-package.schema.json') -PathType Leaf)) {
+    throw "Pacchetto linguaggio DDF pubblicato incompleto. File mancanti: $($missingLanguageFiles -join ', ')"
+}
+
 $applicationDll = Join-Path $publishDirectory 'DDFLanguageEditor.dll'
 $publishedVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($applicationDll).FileVersion
 $parsedApplicationVersion = [version]$applicationVersion

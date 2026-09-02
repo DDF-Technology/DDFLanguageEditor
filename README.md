@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.5.6 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.6.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -13,6 +13,7 @@ evidenziazione delle regole note e indentazione assistita.
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
+- pacchetto DDF esterno versionato, caricabile da cartella o archivio `.ddflang`, con validazione atomica e fallback incorporato;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
@@ -195,6 +196,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `LANGUAGE_REFERENCE.md`: sottoinsieme sintattico riconosciuto dall'editor;
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
+- `LANGUAGE_PACKAGE_FORMAT.md`: contratto, struttura, sicurezza e versionamento dei pacchetti `.ddflang`;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
@@ -214,7 +216,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.5.6 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.6.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

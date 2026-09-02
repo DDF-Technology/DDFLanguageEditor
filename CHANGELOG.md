@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.6.0 - 2026-09-02
+
+- define the versioned `1.0` contract for folder-based or archived `.ddflang` language packages;
+- split the reference DDF package into manifest, lexicon, grammar, types, semantics, formatting, IntelliSense, runtime, build and standard-library documents;
+- load the existing DDF vocabulary from external JSON while preserving lexer, parser and formatter behavior;
+- embed the complete reference package in Core and activate it atomically when the external copy is missing or invalid;
+- reject incompatible versions, unsafe or duplicate references, unknown sections, unsupported adapters and duplicate lexical definitions with file/JSON-path diagnostics;
+- display active language, language version, package version, source and origin in the application status area;
+- verify embedded, directory, `.ddflang` archive, invalid-package and fallback paths in the dependency-free Core suite;
+
 ## 0.9.5.6 - 2026-09-02
 
 - add an accelerated endurance gate that runs 160 mixed editing cycles across four independent document tabs;

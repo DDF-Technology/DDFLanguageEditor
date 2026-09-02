@@ -82,6 +82,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(diagnosticsPanel.Visible, "La finestra diagnostica non è visibile all'avvio.");
                 Require(form.Controls.Find("panelBeta", true).Length == 0,
                     "La barra beta è ancora presente nella finestra principale.");
+                ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
+                    .Items["statusEncodingLabel"];
+                Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
+                    "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
 
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
@@ -699,7 +705,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.6") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),

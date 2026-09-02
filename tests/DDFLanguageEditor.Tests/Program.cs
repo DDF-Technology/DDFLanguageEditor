@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -68,6 +69,10 @@ namespace DDFLanguageEditor.Tests
             Run("drives lexing from a language catalog", DrivesLexingFromLanguageCatalog);
             Run("drives parsing from syntax roles", DrivesParsingFromSyntaxRoles);
             Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
+            Run("loads the embedded DDF language package", LoadsEmbeddedDdfLanguagePackage);
+            Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
+            Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
+            Run("falls back to the embedded language package", FallsBackToEmbeddedLanguagePackage);
             Run("indexes document symbols hierarchically", IndexesDocumentSymbolsHierarchically);
             Run("builds contextual breadcrumb paths", BuildsContextualBreadcrumbPaths);
             Run("keeps breadcrumb paths usable for incomplete code", KeepsBreadcrumbPathsUsableForIncompleteCode);
@@ -912,6 +917,118 @@ namespace DDFLanguageEditor.Tests
                 new string[0],
                 new DdfOperatorDefinition[0],
                 new[] { ';' }));
+        }
+
+        private static void LoadsEmbeddedDdfLanguagePackage()
+        {
+            DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.LoadEmbeddedDefault();
+            Equal(true, result.Success);
+            Equal(false, result.HasErrors);
+            Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
+            Equal("ddf", result.Package.Id);
+            Equal("0.9.6", result.Package.PackageVersion);
+            Equal(16, result.Package.Language.Keywords.Count);
+            Equal(22, result.Package.Language.Operators.Count);
+
+            const string source = "main() out int { int value << 1; ret value; }";
+            SequenceEqual(
+                DdfLexer.Lex(source).Tokens.Select(token => token.Kind),
+                DdfLexer.Lex(source, result.Package.Language).Tokens.Select(token => token.Kind));
+            Equal(DdfParser.Parse(source).Diagnostics.Count,
+                DdfParser.Parse(source, result.Package.Language).Diagnostics.Count);
+            Equal(DdfFormatter.Format(source).Text,
+                DdfFormatter.Format(source, result.Package.Language).Text);
+        }
+
+        private static void LoadsDirectoryAndArchiveLanguagePackages()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-language-package-" + Guid.NewGuid().ToString("N"));
+            string directory = Path.Combine(root, "ddf");
+            string archive = Path.Combine(root, "ddf.ddflang");
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(directory);
+                DdfLanguagePackageLoadResult folderResult = DdfLanguagePackageLoader.Load(directory);
+                Equal(true, folderResult.Success);
+                Equal(DdfLanguagePackageOrigin.Directory, folderResult.Package.Origin);
+                Equal(Path.GetFullPath(directory), folderResult.Package.Source);
+
+                ZipFile.CreateFromDirectory(directory, archive);
+                DdfLanguagePackageLoadResult archiveResult = DdfLanguagePackageLoader.Load(archive);
+                Equal(true, archiveResult.Success);
+                Equal(DdfLanguagePackageOrigin.Archive, archiveResult.Package.Origin);
+                SequenceEqual(
+                    folderResult.Package.Language.Keywords.Select(item => item.Text).OrderBy(item => item),
+                    archiveResult.Package.Language.Keywords.Select(item => item.Text).OrderBy(item => item));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsInvalidLanguagePackagesAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-invalid-package-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                string duplicateDirectory = Path.Combine(root, "duplicate");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(duplicateDirectory);
+                string lexiconPath = Path.Combine(duplicateDirectory, "lexicon.json");
+                string lexicon = File.ReadAllText(lexiconPath, Encoding.UTF8)
+                    .Replace("\"text\": \"float\"", "\"text\": \"int\"");
+                File.WriteAllText(lexiconPath, lexicon, new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(duplicateDirectory);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.HasErrors);
+                DdfLanguagePackageDiagnostic diagnostic = result.Diagnostics.Single(item => item.Code == "DDFL040");
+                Equal("lexicon.json", diagnostic.File);
+                Equal("$.keywords", diagnostic.JsonPath);
+
+                string incompatibleDirectory = Path.Combine(root, "incompatible");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(incompatibleDirectory);
+                string manifestPath = Path.Combine(incompatibleDirectory, "manifest.json");
+                File.WriteAllText(manifestPath,
+                    File.ReadAllText(manifestPath, Encoding.UTF8)
+                        .Replace("\"engineApi\": \"1.0\"", "\"engineApi\": \"9.0\""),
+                    new UTF8Encoding(false));
+                result = DdfLanguagePackageLoader.Load(incompatibleDirectory);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL021" &&
+                    item.JsonPath == "$.engineApi"));
+
+                string unsafeDirectory = Path.Combine(root, "unsafe-reference");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(unsafeDirectory);
+                manifestPath = Path.Combine(unsafeDirectory, "manifest.json");
+                File.WriteAllText(manifestPath,
+                    File.ReadAllText(manifestPath, Encoding.UTF8)
+                        .Replace("\"grammar\": \"grammar.json\"", "\"grammar\": \"../grammar.json\""),
+                    new UTF8Encoding(false));
+                result = DdfLanguagePackageLoader.Load(unsafeDirectory);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL027" &&
+                    item.JsonPath == "$.sections.grammar"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void FallsBackToEmbeddedLanguagePackage()
+        {
+            string missing = Path.Combine(Path.GetTempPath(), "missing-ddf-package-" + Guid.NewGuid().ToString("N"));
+            DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.LoadWithEmbeddedFallback(missing);
+            Equal(true, result.Success);
+            Equal(true, result.HasErrors);
+            Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
+            Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL002"));
+            Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL005" &&
+                item.Severity == DdfLanguagePackageDiagnosticSeverity.Warning));
         }
 
         private static DdfLanguageDefinition CreateAlternativeLanguage()

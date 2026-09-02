@@ -1,6 +1,30 @@
-# DDFLanguageEditor 0.9.5.6
+# DDFLanguageEditor 0.9.6.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.6.0 introduces the first stable boundary between the editor and a
+language definition. DDF now ships as a versioned package made of a manifest and
+separate JSON documents for lexicon, grammar, types, semantics, formatting,
+IntelliSense, runtime, build and standard library. The same package can be read
+from a directory or from a ZIP-compatible `.ddflang` archive.
+
+The current DDF lexicon is loaded from this external package and continues to
+drive the existing lexer, parser and formatter without observable grammar
+changes. The remaining sections select explicit, versioned adapters to the
+current engines; their fully declarative replacements are staged in the next
+0.9.6 steps. Package data cannot name or execute arbitrary host code.
+
+Loading is atomic. Unsupported versions or adapters, missing or unsafe section
+references, unknown sections and duplicate definitions reject the whole package
+with diagnostics containing a code, file and JSON path. A complete copy embedded
+in Core is then used as a safe fallback. The status bar and its tooltip expose
+the active language and package versions, source, origin and fallback details.
+
+The Core suite covers the embedded resource, folder and `.ddflang` forms,
+behavioral equivalence, invalid definitions and fallback. The package contract
+is documented in `LANGUAGE_PACKAGE_FORMAT.md`.
+
+Previous milestone notes follow.
 
 Version 0.9.5.6 closes the 0.9.5 milestone with an accelerated endurance gate.
 The dynamic WinForms suite now runs 160 mixed cycles across four open documents,

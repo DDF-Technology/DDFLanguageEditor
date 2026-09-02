@@ -1,4 +1,4 @@
-# Beta 0.9.5.6 limitations
+# Beta 0.9.6.0 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -41,6 +41,7 @@ This release is intended for interface and language-design evaluation only.
 - periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
 - repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
 - accelerated multi-document endurance smoke with latency, memory, handle and GDI/USER resource-growth gates;
+- versioned DDF language package loadable from a directory or `.ddflang` archive, with atomic validation and embedded fallback;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
@@ -71,6 +72,7 @@ This release is intended for interface and language-design evaluation only.
 - complete standard library, non-interactive input streams or step-by-step execution;
 - project files, dependency graphs or build configurations;
 - extension or plug-in APIs;
+- user-facing package installation/selection and fully declarative grammar, semantics, runtime or build adapters;
 - full text-rendering minimap (the lightweight marker overview is implemented instead);
 - stability guarantees for the DDF syntax.
 
@@ -94,6 +96,11 @@ The first interpreter executes only the current document through `main`. It is
 bounded to 100,000 syntax-node instructions per run and does not yet load
 functions from other workspace documents at runtime. Output through `>>` is
 currently textual; interactive input is not defined.
+
+In this first package-contract release only `lexicon.json` directly constructs a
+language service definition. The other package sections select fixed, safe DDF
+adapters; making their rules fully declarative is deliberately split across the
+remaining `0.9.6.x` roadmap.
 
 New documents are not persisted until they are saved. Crash recovery and Hot
 Exit keep local copies, but they are not a replacement for source control or

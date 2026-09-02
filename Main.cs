@@ -116,6 +116,7 @@ namespace DDF___Program_Language_Editor
             requestRuntimeInput = showRuntimeInputDialog;
             applyEditorSettings();
             applyApplicationTheme();
+            applyActiveLanguagePackageStatus();
             TextBoxEditingSupport.Apply(this);
         }
 

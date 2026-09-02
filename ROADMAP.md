@@ -412,11 +412,11 @@ host arbitrario.
 
 ### 0.9.6.0 — Contratto e pacchetto DDF predefinito
 
-- [ ] Definire uno schema versionato per pacchetti `.ddflang`, rappresentabili come cartella o archivio.
-- [ ] Separare manifest, lessico, grammatica, tipi, semantica, formattazione, IntelliSense, runtime, build e libreria standard.
-- [ ] Trasferire il catalogo DDF corrente in un pacchetto esterno senza cambiare il comportamento osservabile.
-- [ ] Incorporare nell'applicazione una copia DDF valida come fallback, mantenendo espliciti origine e versione del pacchetto attivo.
-- [ ] Validare schema, duplicati, riferimenti, versioni e compatibilità con diagnostiche navigabili, senza lasciare l'editor in uno stato parziale.
+- [x] Definire uno schema versionato per pacchetti `.ddflang`, rappresentabili come cartella o archivio (`0.9.6.0`).
+- [x] Separare manifest, lessico, grammatica, tipi, semantica, formattazione, IntelliSense, runtime, build e libreria standard (`0.9.6.0`).
+- [x] Trasferire il catalogo DDF corrente in un pacchetto esterno senza cambiare il comportamento osservabile (`0.9.6.0`).
+- [x] Incorporare nell'applicazione una copia DDF valida come fallback, mantenendo espliciti origine e versione del pacchetto attivo (`0.9.6.0`).
+- [x] Validare schema, duplicati, riferimenti, versioni e compatibilità con diagnostiche navigabili, senza lasciare l'editor in uno stato parziale (`0.9.6.0`).
 
 ### 0.9.6.1 — Lexer dichiarativo
 

@@ -6,4 +6,9 @@
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\language-packages\ddf\*.json"
+                      Link="LanguagePackages\Ddf\%(Filename)%(Extension)"
+                      LogicalName="DDFLanguageEditor.Core.LanguagePackages.Ddf.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

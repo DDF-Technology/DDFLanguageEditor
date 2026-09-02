@@ -1,12 +1,14 @@
-# DDF language catalog — 0.4.1
+# DDF language catalog — 0.9.6
 
 Questo documento inventaria il vocabolario attualmente riconosciuto. Non pretende
 di essere completo: è la base controllabile che verrà confrontata con il
 linguaggio C e ampliata insieme alla grammatica.
 
-La fonte eseguibile è `DDFLanguageEditor.Core/DdfLanguageCatalog.cs`. Lexer,
-parser, completamento contestuale e formatter consumano `DdfLanguageDefinition`
-e non mantengono copie proprie delle liste.
+La fonte dati eseguibile è `language-packages/ddf/lexicon.json`.
+`DdfLanguageCatalog` carica e valida il pacchetto esterno completo, oppure la sua
+copia incorporata di fallback. Lexer, parser, completamento contestuale e
+formatter consumano la `DdfLanguageDefinition` risultante e non mantengono copie
+proprie delle liste.
 
 ## Parole riservate
 
@@ -51,7 +53,7 @@ un operatore composto non richiede di modificare l'algoritmo longest-match.
 
 ## Come estendere il catalogo
 
-1. Registrare il termine in `DdfLanguageCatalog.CreateDefault` con categoria e,
+1. Registrare il termine in `language-packages/ddf/lexicon.json` con categoria e,
    quando necessario, ruolo sintattico.
 2. Per un operatore indicare precedenza, associatività e uso prefisso/postfisso.
 3. Aggiornare questo inventario, `DDF_GRAMMAR.md` e il corpus interessato.
@@ -62,6 +64,9 @@ Un sinonimo che usa un ruolo già esistente non richiede modifiche al parser. Un
 costrutto realmente nuovo richiederà invece un nuovo ruolo, il relativo nodo AST
 e la regola di parsing: questa distinzione impedisce che il catalogo lessicale e
 la grammatica vengano confusi.
+
+Il contratto completo, la struttura delle altre sezioni e i limiti degli adapter
+della `0.9.6.0` sono descritti in `LANGUAGE_PACKAGE_FORMAT.md`.
 
 ## Futuro confronto con C
 

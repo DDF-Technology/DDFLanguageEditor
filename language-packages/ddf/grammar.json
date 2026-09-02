@@ -1,0 +1,1 @@
+{ "schemaVersion": "1.0", "adapter": "ddf-parser-v1", "dependsOn": [ "lexicon" ], "description": "Parser AST DDF corrente; sostituzione dichiarativa prevista in 0.9.6.2." }

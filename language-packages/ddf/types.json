@@ -1,0 +1,1 @@
+{ "schemaVersion": "1.0", "adapter": "ddf-types-v1", "dependsOn": [ "grammar" ], "description": "Tipi DDF correnti." }

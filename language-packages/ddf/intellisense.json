@@ -1,0 +1,1 @@
+{ "schemaVersion": "1.0", "adapter": "ddf-intellisense-v1", "dependsOn": [ "lexicon", "grammar", "types", "semantics" ], "description": "Servizi IDE DDF correnti." }
