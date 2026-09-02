@@ -19,6 +19,9 @@ much lower rendering and maintenance cost.
 The overview uses a 24-pixel high-contrast track. Diagnostic and breakpoint
 markers are painted above the viewport band, and a cyan pointer always shows the
 current caret line, so a clean document no longer looks like an empty control.
+Visible caret and diagnostic markers use the native editor's actual pixel
+coordinates; proportional whole-document placement is reserved for lines that
+are outside the current viewport.
 
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They

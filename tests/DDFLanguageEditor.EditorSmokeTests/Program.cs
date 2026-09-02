@@ -756,6 +756,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         GetControlProperty<int>(overviewBar, "TotalLines") == editor.Lines.Length &&
                         GetControlProperty<int>(overviewBar, "CurrentLine") == 3,
                     "L'overview non è sincronizzata con menu, toolbar e righe del documento.");
+                int editorLineY = editor.GetPositionFromCharIndex(editor.GetFirstCharIndexFromLine(2)).Y;
+                int overviewLineY = (int)overviewBar.GetType().GetMethod("markerToY",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(overviewBar, new object[] { 3, false });
+                Require(Math.Abs(editorLineY - overviewLineY) <= 1,
+                    "La riga visibile dell'overview non è allineata alla posizione reale nell'editor.");
                 Require(editor.Text == visualSource && editor.SelectionStart == selectionStart,
                     "Le decorazioni visive modificano il sorgente o spostano il cursore.");
                 editor.Text = "main() out int\n{\n    int value << 1\n    ret value;\n}";

@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
         private void initializeEditorOverview()
         {
             editorOverviewBar = new EditorOverviewBar();
+            editorOverviewBar.TargetEditor = richTextBoxMainEditor;
             editorOverviewBar.LineRequested += editorOverviewBar_LineRequested;
             editorHost.Controls.Add(editorOverviewBar);
             editorOverviewBar.BringToFront();
@@ -61,6 +62,7 @@ namespace DDF___Program_Language_Editor
                 : Color.FromArgb(80, 80, 80);
             if (visible)
             {
+                editorOverviewBar.TargetEditor = richTextBoxMainEditor;
                 editorOverviewBar.BringToFront();
                 refreshEditorOverview();
             }

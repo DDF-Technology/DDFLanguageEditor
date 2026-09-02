@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -56,6 +57,9 @@ namespace DDF___Program_Language_Editor
 
         public event EventHandler<EditorOverviewLineRequestedEventArgs> LineRequested;
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public RichTextBox TargetEditor { get; set; }
         public int TotalLines => totalLines;
         public int FirstVisibleLine => firstVisibleLine;
         public int LastVisibleLine => lastVisibleLine;
@@ -114,12 +118,12 @@ namespace DDF___Program_Language_Editor
 
             foreach (EditorOverviewMarker marker in markers)
             {
-                int y = lineToY(marker.Line);
+                int y = markerToY(marker.Line);
                 using (var brush = new SolidBrush(markerColor(marker.Kind)))
                     e.Graphics.FillRectangle(brush, 3, Math.Max(0, y - 2), Math.Max(1, ClientSize.Width - 6), 5);
             }
 
-            int caretY = lineToY(currentLine);
+            int caretY = markerToY(currentLine, true);
             using (var pen = new Pen(Color.FromArgb(86, 190, 255), 2F))
                 e.Graphics.DrawLine(pen, 1, caretY, ClientSize.Width - 2, caretY);
             Point[] pointer =
@@ -145,6 +149,22 @@ namespace DDF___Program_Language_Editor
         private int lineToY(int line) => totalLines <= 1 || ClientSize.Height <= 1
             ? 0
             : (int)Math.Round((double)(Math.Max(1, Math.Min(totalLines, line)) - 1) * (ClientSize.Height - 1) / (totalLines - 1));
+
+        private int markerToY(int line, bool useCaretPosition = false)
+        {
+            if (TargetEditor != null && !TargetEditor.IsDisposed && line >= firstVisibleLine && line <= lastVisibleLine)
+            {
+                int character = useCaretPosition
+                    ? TargetEditor.SelectionStart
+                    : TargetEditor.GetFirstCharIndexFromLine(Math.Max(0, line - 1));
+                if (character >= 0)
+                {
+                    int y = TargetEditor.GetPositionFromCharIndex(character).Y;
+                    if (y >= 0 && y < ClientSize.Height) return y;
+                }
+            }
+            return lineToY(line);
+        }
 
         private static Color markerColor(EditorOverviewMarkerKind kind)
         {

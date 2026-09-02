@@ -212,6 +212,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Name = "richTextBoxMainEditor";
                 richTextBoxMainEditor.Visible = true;
                 richTextBoxMainEditor.BringToFront();
+                if (editorOverviewBar != null) editorOverviewBar.TargetEditor = richTextBoxMainEditor;
                 editorOverviewBar?.BringToFront();
                 richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
                 documentTabs.SelectedTab = view.Tab;
