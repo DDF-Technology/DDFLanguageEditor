@@ -217,6 +217,7 @@ namespace DDF___Program_Language_Editor
             if (!ReferenceEquals(changedEditor, richTextBoxMainEditor)) return;
 
             updateLineNumbers();
+            overviewDiagnosticsSource = string.Empty;
             refreshEditorOverview();
             updateCaretPosition();
             highlightTimer.Stop();
@@ -397,6 +398,7 @@ namespace DDF___Program_Language_Editor
                 isApplyingHighlighting = false;
             }
 
+            overviewDiagnosticsSource = text;
             updateDiagnostics(allDiagnostics);
             updateOutline(snapshot.Symbols);
             lastLexResult = snapshot.LexResult;

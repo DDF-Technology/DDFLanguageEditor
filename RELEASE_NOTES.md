@@ -29,6 +29,10 @@ problems distinguishable.
 Visible problems occupy the main lane at the exact RichEdit row coordinate;
 off-screen problems use a separate two-pixel edge lane at their proportional
 whole-document position, avoiding overlaps between the two coordinate systems.
+Diagnostic overview positions now originate from the same character offsets as
+the native wave underline. Stale analysis snapshots are not reprojected while
+typing, and editor coordinates are transformed through screen space to account
+for control origins and DPI scaling without accumulating a vertical offset.
 
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They

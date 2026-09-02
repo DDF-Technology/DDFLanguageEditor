@@ -11,6 +11,7 @@
 - align caret and diagnostic markers for visible lines to the editor's real RichEdit pixel coordinates, retaining proportional document mapping only for off-screen lines;
 - update the overview directly from SelectionChanged, use one ordered proportional scale whenever the document scrolls and reduce diagnostic marker thickness to two pixels;
 - split visible and off-screen signals: the main lane aligns markers to real editor rows while a two-pixel edge lane retains proportional whole-document positions;
+- derive overview rows from the same diagnostic character offsets used by native waves, discard stale diagnostic snapshots while typing and transform coordinates through screen space for DPI-safe alignment;
 
 ## 0.9.5.3 - 2026-09-02
 

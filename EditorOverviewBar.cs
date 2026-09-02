@@ -17,14 +17,16 @@ namespace DDF___Program_Language_Editor
 
     internal sealed class EditorOverviewMarker
     {
-        public EditorOverviewMarker(int line, EditorOverviewMarkerKind kind)
+        public EditorOverviewMarker(int line, EditorOverviewMarkerKind kind, int position = -1)
         {
             Line = Math.Max(1, line);
             Kind = kind;
+            Position = position;
         }
 
         public int Line { get; }
         public EditorOverviewMarkerKind Kind { get; }
+        public int Position { get; }
     }
 
     internal sealed class EditorOverviewLineRequestedEventArgs : EventArgs
@@ -74,12 +76,13 @@ namespace DDF___Program_Language_Editor
             int safeLineCount = Math.Max(1, lineCount);
             EditorOverviewMarker[] normalized = (value ?? Enumerable.Empty<EditorOverviewMarker>())
                 .Where(marker => marker != null)
-                .Select(marker => new EditorOverviewMarker(Math.Min(safeLineCount, marker.Line), marker.Kind))
+                .Select(marker => new EditorOverviewMarker(Math.Min(safeLineCount, marker.Line), marker.Kind, marker.Position))
                 .Distinct(new MarkerComparer())
                 .OrderBy(marker => marker.Line)
                 .ThenBy(marker => marker.Kind)
                 .ToArray();
-            string signature = safeLineCount + ":" + string.Join(",", normalized.Select(marker => marker.Line + "/" + (int)marker.Kind));
+            string signature = safeLineCount + ":" + string.Join(",", normalized.Select(marker =>
+                marker.Line + "/" + (int)marker.Kind + "/" + marker.Position));
             if (signature == markerSignature) return;
             totalLines = safeLineCount;
             markers = normalized;
@@ -118,10 +121,10 @@ namespace DDF___Program_Language_Editor
 
             foreach (EditorOverviewMarker marker in markers)
             {
-                bool visibleLine = isLineVisible(marker.Line);
-                int y = visibleLine ? markerToY(marker.Line) : lineToY(marker.Line);
-                int x = visibleLine ? 3 : Math.Max(1, ClientSize.Width - 3);
-                int width = visibleLine ? Math.Max(1, ClientSize.Width - 7) : 2;
+                bool visibleMarker = tryGetEditorY(marker.Line, marker.Position, false, out int editorY);
+                int y = visibleMarker ? editorY : lineToY(marker.Line);
+                int x = visibleMarker ? 3 : Math.Max(1, ClientSize.Width - 3);
+                int width = visibleMarker ? Math.Max(1, ClientSize.Width - 7) : 2;
                 using (var brush = new SolidBrush(markerColor(marker.Kind)))
                     e.Graphics.FillRectangle(brush, x, Math.Max(0, y - 1), width, 2);
             }
@@ -155,21 +158,30 @@ namespace DDF___Program_Language_Editor
 
         private int markerToY(int line, bool useCaretPosition = false)
         {
-            if (TargetEditor != null && !TargetEditor.IsDisposed && isLineVisible(line))
-            {
-                int character = useCaretPosition
-                    ? TargetEditor.SelectionStart
-                    : TargetEditor.GetFirstCharIndexFromLine(Math.Max(0, line - 1));
-                if (character >= 0)
-                {
-                    int y = TargetEditor.GetPositionFromCharIndex(character).Y;
-                    if (y >= 0 && y < ClientSize.Height) return y;
-                }
-            }
+            if (tryGetEditorY(line, -1, useCaretPosition, out int editorY)) return editorY;
             return lineToY(line);
         }
 
-        private bool isLineVisible(int line) => line >= firstVisibleLine && line <= lastVisibleLine;
+        private bool tryGetEditorY(int line, int position, bool useCaretPosition, out int y)
+        {
+            y = 0;
+            if (TargetEditor != null && !TargetEditor.IsDisposed)
+            {
+                int character = useCaretPosition
+                    ? TargetEditor.SelectionStart
+                    : position >= 0
+                        ? Math.Min(position, TargetEditor.TextLength)
+                        : TargetEditor.GetFirstCharIndexFromLine(Math.Max(0, line - 1));
+                if (character >= 0)
+                {
+                    Point editorPoint = TargetEditor.GetPositionFromCharIndex(character);
+                    Point overviewPoint = PointToClient(TargetEditor.PointToScreen(editorPoint));
+                    y = overviewPoint.Y;
+                    return y >= 0 && y < ClientSize.Height;
+                }
+            }
+            return false;
+        }
 
         private static Color markerColor(EditorOverviewMarkerKind kind)
         {
@@ -185,8 +197,10 @@ namespace DDF___Program_Language_Editor
         private sealed class MarkerComparer : IEqualityComparer<EditorOverviewMarker>
         {
             public bool Equals(EditorOverviewMarker x, EditorOverviewMarker y) =>
-                ReferenceEquals(x, y) || (x != null && y != null && x.Line == y.Line && x.Kind == y.Kind);
-            public int GetHashCode(EditorOverviewMarker marker) => (marker.Line * 397) ^ (int)marker.Kind;
+                ReferenceEquals(x, y) || (x != null && y != null && x.Line == y.Line && x.Kind == y.Kind &&
+                    x.Position == y.Position);
+            public int GetHashCode(EditorOverviewMarker marker) =>
+                ((marker.Line * 397) ^ (int)marker.Kind) * 397 ^ marker.Position;
         }
     }
 }

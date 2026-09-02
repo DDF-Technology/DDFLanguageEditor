@@ -13,6 +13,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem showOverviewMenuItem;
         private ToolStripButton toolbarOverviewButton;
         private IReadOnlyList<DdfWorkspaceSearchResult> activeWorkspaceSearchResults = Array.Empty<DdfWorkspaceSearchResult>();
+        private string overviewDiagnosticsSource = string.Empty;
 
         private void initializeEditorOverview()
         {
@@ -73,15 +74,25 @@ namespace DDF___Program_Language_Editor
             if (editorOverviewBar == null || !editorOverviewBar.Visible || richTextBoxMainEditor == null) return;
             int lineCount = Math.Max(1, richTextBoxMainEditor.GetLineFromCharIndex(richTextBoxMainEditor.TextLength) + 1);
             var markers = new List<EditorOverviewMarker>();
-            foreach (DdfDiagnostic diagnostic in activeDiagnostics ?? Array.Empty<DdfDiagnostic>())
+            bool diagnosticsCurrent = string.Equals(
+                overviewDiagnosticsSource, richTextBoxMainEditor.Text, StringComparison.Ordinal);
+            foreach (DdfDiagnostic diagnostic in diagnosticsCurrent
+                ? activeDiagnostics ?? Array.Empty<DdfDiagnostic>()
+                : Array.Empty<DdfDiagnostic>())
             {
-                markers.Add(new EditorOverviewMarker(diagnostic.Line,
+                int position = Math.Max(0, Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength));
+                int line = richTextBoxMainEditor.GetLineFromCharIndex(position) + 1;
+                markers.Add(new EditorOverviewMarker(line,
                     diagnostic.Severity == DdfDiagnosticSeverity.Error
                         ? EditorOverviewMarkerKind.Error
-                        : EditorOverviewMarkerKind.Warning));
+                        : EditorOverviewMarkerKind.Warning,
+                    position));
             }
             foreach (int line in activeBreakpointLines ?? new HashSet<int>())
-                markers.Add(new EditorOverviewMarker(line, EditorOverviewMarkerKind.Breakpoint));
+            {
+                int position = richTextBoxMainEditor.GetFirstCharIndexFromLine(Math.Max(0, line - 1));
+                markers.Add(new EditorOverviewMarker(line, EditorOverviewMarkerKind.Breakpoint, position));
+            }
 
             OpenDocumentBuffer active = openDocuments.ActiveDocument;
             string activePath = active?.Session.CurrentPath;
@@ -90,7 +101,14 @@ namespace DDF___Program_Language_Editor
                 bool sameDocument = active != null && (string.Equals(result.Document.Id, active.Id, StringComparison.OrdinalIgnoreCase) ||
                     (!string.IsNullOrWhiteSpace(activePath) && !string.IsNullOrWhiteSpace(result.Document.Path) &&
                      string.Equals(result.Document.Path, activePath, StringComparison.OrdinalIgnoreCase)));
-                if (sameDocument) markers.Add(new EditorOverviewMarker(result.Line, EditorOverviewMarkerKind.Search));
+                if (sameDocument)
+                {
+                    int position = Math.Max(0, Math.Min(result.Start, richTextBoxMainEditor.TextLength));
+                    markers.Add(new EditorOverviewMarker(
+                        richTextBoxMainEditor.GetLineFromCharIndex(position) + 1,
+                        EditorOverviewMarkerKind.Search,
+                        position));
+                }
             }
             editorOverviewBar.SetMarkers(lineCount, markers);
             refreshEditorOverviewViewport();

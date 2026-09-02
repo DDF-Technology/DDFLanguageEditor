@@ -792,6 +792,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         Math.Abs(caretY - overviewCaretY) <= 1 &&
                         GetControlProperty<int>(overviewBar, "ErrorMarkerCount") >= 40,
                     "Cursore o diagnostiche dell'overview lunga non seguono la viewport reale.");
+
+                var offsetDiagnostic = new DdfDiagnostic(
+                    "OVERVIEW", "Posizione di prova", 0, 1, 50, 1, DdfDiagnosticSeverity.Error);
+                SetPrivateField(form, "activeDiagnostics", new List<DdfDiagnostic> { offsetDiagnostic });
+                SetPrivateField(form, "overviewDiagnosticsSource", editor.Text);
+                InvokePrivate(form, "refreshEditorOverview");
+                object markerCollection = GetPrivateField<object>(overviewBar, "markers");
+                object diagnosticMarker = ((System.Collections.IEnumerable)markerCollection).Cast<object>().Single();
+                Require(GetPropertyValue<int>(diagnosticMarker, "Line") == 1 &&
+                        GetPropertyValue<int>(diagnosticMarker, "Position") == 0,
+                    "L'overview usa il numero di riga dichiarato invece dell'offset realmente sottolineato.");
+                editor.AppendText("\n");
+                Require(GetControlProperty<int>(overviewBar, "ErrorMarkerCount") == 0,
+                    "L'overview riproietta uno snapshot diagnostico obsoleto durante la digitazione.");
             }
 
             Console.WriteLine("PASS menu Visualizza: folding, riga corrente, invisibili, guide, word wrap e overview");

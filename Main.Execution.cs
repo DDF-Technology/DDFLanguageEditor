@@ -42,6 +42,7 @@ namespace DDF___Program_Language_Editor
             blockingDiagnostics.AddRange(types.Diagnostics);
             if (blockingDiagnostics.Count > 0)
             {
+                overviewDiagnosticsSource = source;
                 updateDiagnostics(blockingDiagnostics);
                 tabControlBottom.SelectedTab = tabPageDiagnostics;
                 expandDiagnosticsPalette();
