@@ -118,9 +118,12 @@ namespace DDF___Program_Language_Editor
 
             foreach (EditorOverviewMarker marker in markers)
             {
-                int y = markerToY(marker.Line);
+                bool visibleLine = isLineVisible(marker.Line);
+                int y = visibleLine ? markerToY(marker.Line) : lineToY(marker.Line);
+                int x = visibleLine ? 3 : Math.Max(1, ClientSize.Width - 3);
+                int width = visibleLine ? Math.Max(1, ClientSize.Width - 7) : 2;
                 using (var brush = new SolidBrush(markerColor(marker.Kind)))
-                    e.Graphics.FillRectangle(brush, 3, Math.Max(0, y - 2), Math.Max(1, ClientSize.Width - 6), 5);
+                    e.Graphics.FillRectangle(brush, x, Math.Max(0, y - 1), width, 2);
             }
 
             int caretY = markerToY(currentLine, true);
@@ -152,7 +155,7 @@ namespace DDF___Program_Language_Editor
 
         private int markerToY(int line, bool useCaretPosition = false)
         {
-            if (TargetEditor != null && !TargetEditor.IsDisposed && line >= firstVisibleLine && line <= lastVisibleLine)
+            if (TargetEditor != null && !TargetEditor.IsDisposed && isLineVisible(line))
             {
                 int character = useCaretPosition
                     ? TargetEditor.SelectionStart
@@ -165,6 +168,8 @@ namespace DDF___Program_Language_Editor
             }
             return lineToY(line);
         }
+
+        private bool isLineVisible(int line) => line >= firstVisibleLine && line <= lastVisibleLine;
 
         private static Color markerColor(EditorOverviewMarkerKind kind)
         {

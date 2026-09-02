@@ -761,6 +761,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     BindingFlags.Instance | BindingFlags.NonPublic).Invoke(overviewBar, new object[] { 3, false });
                 Require(Math.Abs(editorLineY - overviewLineY) <= 1,
                     "La riga visibile dell'overview non è allineata alla posizione reale nell'editor.");
+                editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+                PumpMessages(20);
+                Require(GetControlProperty<int>(overviewBar, "CurrentLine") == 4,
+                    "Il cursore dell'overview non segue SelectionChanged in tempo reale.");
+                editor.Select(selectionStart, 0);
                 Require(editor.Text == visualSource && editor.SelectionStart == selectionStart,
                     "Le decorazioni visive modificano il sorgente o spostano il cursore.");
                 editor.Text = "main() out int\n{\n    int value << 1\n    ret value;\n}";
@@ -775,6 +780,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(editor.GetLineFromCharIndex(editor.SelectionStart) == editor.Lines.Length - 1,
                     "Il clic sull'overview non naviga alla riga corrispondente.");
                 InvokePrivate(form, "clearBreakpoints");
+
+                editor.Text = string.Join("\n", Enumerable.Range(1, 50).Select(index => "int value" + index + " << ;"));
+                editor.Select(editor.GetFirstCharIndexFromLine(39), 0);
+                editor.ScrollToCaret();
+                PumpMessages(280);
+                int caretY = editor.GetPositionFromCharIndex(editor.SelectionStart).Y;
+                int overviewCaretY = (int)overviewBar.GetType().GetMethod("markerToY",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(overviewBar, new object[] { 40, true });
+                Require(GetControlProperty<int>(overviewBar, "CurrentLine") == 40 &&
+                        Math.Abs(caretY - overviewCaretY) <= 1 &&
+                        GetControlProperty<int>(overviewBar, "ErrorMarkerCount") >= 40,
+                    "Cursore o diagnostiche dell'overview lunga non seguono la viewport reale.");
             }
 
             Console.WriteLine("PASS menu Visualizza: folding, riga corrente, invisibili, guide, word wrap e overview");

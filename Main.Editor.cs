@@ -844,6 +844,7 @@ namespace DDF___Program_Language_Editor
             updateFoldingCommandState();
             updateNavigationCommandState();
             updateBreadcrumb();
+            refreshEditorOverviewViewport();
         }
 
         private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)

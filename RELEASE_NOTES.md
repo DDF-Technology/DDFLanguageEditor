@@ -22,6 +22,13 @@ current caret line, so a clean document no longer looks like an empty control.
 Visible caret and diagnostic markers use the native editor's actual pixel
 coordinates; proportional whole-document placement is reserved for lines that
 are outside the current viewport.
+Caret movement now updates immediately without waiting for typing or analysis.
+When a document is longer than the viewport, every marker uses the same ordered
+whole-document scale; diagnostic ticks are two pixels thick to keep adjacent
+problems distinguishable.
+Visible problems occupy the main lane at the exact RichEdit row coordinate;
+off-screen problems use a separate two-pixel edge lane at their proportional
+whole-document position, avoiding overlaps between the two coordinate systems.
 
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They
