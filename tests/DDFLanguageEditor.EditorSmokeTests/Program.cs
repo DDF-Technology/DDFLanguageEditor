@@ -1121,6 +1121,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Shift+F6 non percorre le palette in ordine inverso.");
             Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && editor.ContainsFocus,
                 "Shift+F6 non riporta il focus nell'editor.");
+
+            RichTextBox foldedView = FindControl<RichTextBox>(form, "richTextBoxFoldedView");
+            editor.Visible = false;
+            foldedView.Visible = true;
+            outline.Focus();
+            Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && foldedView.ContainsFocus,
+                "Shift+F6 tenta di focalizzare l'editor sorgente nascosto durante il folding.");
+            foldedView.Visible = false;
+            editor.Visible = true;
+            editor.Focus();
             outlinePin.PerformClick();
             diagnosticsPin.PerformClick();
             Console.WriteLine("PASS accessibilità: nomi, contrasto, F6/Shift+F6 e layout DPI per-monitor");

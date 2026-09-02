@@ -13,11 +13,12 @@ namespace DDF___Program_Language_Editor
 
         private bool moveFocusBetweenPanes(bool backwards)
         {
+            Control editorPane = activeEditorPane();
             Control target;
             if (panelOutline.ContainsFocus)
-                target = backwards ? (Control)richTextBoxMainEditor : listBoxDiagnostics;
+                target = backwards ? editorPane : listBoxDiagnostics;
             else if (panelDiagnostics.ContainsFocus)
-                target = backwards ? (Control)treeViewOutline : richTextBoxMainEditor;
+                target = backwards ? (Control)treeViewOutline : editorPane;
             else
                 target = backwards ? (Control)listBoxDiagnostics : treeViewOutline;
 
@@ -40,12 +41,16 @@ namespace DDF___Program_Language_Editor
                     ? (Control)navigationTabs
                     : ReferenceEquals(target, listBoxDiagnostics)
                         ? tabControlBottom
-                        : richTextBoxMainEditor;
+                        : editorPane;
                 focused = fallback.Focus();
                 target = fallback;
             }
             return true;
         }
+
+        private Control activeEditorPane() => richTextBoxFoldedView?.Visible == true
+            ? (Control)richTextBoxFoldedView
+            : richTextBoxMainEditor;
 
         protected override void OnShown(EventArgs e)
         {

@@ -9,6 +9,8 @@ for keyboard use without silently changing its persisted pin state.
 The shortcut is handled across native editor, dialog-key and form key-preview
 paths. It selects the requested Outline or Diagnostics tab and prevents the
 auto-hide timer from closing a palette while keyboard focus remains inside it.
+Returning to the editor now targets the folded projection when folding is active,
+rather than attempting to focus the hidden source control.
 
 Focusable controls and toolbar commands now expose stable accessible names.
 Application chrome honors Windows high-contrast colors and its normal theme is
