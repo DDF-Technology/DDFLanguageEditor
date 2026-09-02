@@ -121,10 +121,11 @@ namespace DDF___Program_Language_Editor
         private void applyApplicationTheme()
         {
             AppTheme.ApplyLight(this);
-            toolbarRunButton.ForeColor = AppTheme.Run;
-            toolbarStopButton.ForeColor = AppTheme.Stop;
-            toolbarBreakpointButton.ForeColor = AppTheme.Stop;
-            listBoxDiagnostics.ForeColor = AppTheme.Error;
+            bool highContrast = SystemInformation.HighContrast;
+            toolbarRunButton.ForeColor = highContrast ? System.Drawing.SystemColors.MenuText : AppTheme.Run;
+            toolbarStopButton.ForeColor = highContrast ? System.Drawing.SystemColors.MenuText : AppTheme.Stop;
+            toolbarBreakpointButton.ForeColor = highContrast ? System.Drawing.SystemColors.MenuText : AppTheme.Stop;
+            listBoxDiagnostics.ForeColor = highContrast ? System.Drawing.SystemColors.WindowText : AppTheme.Error;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -459,7 +460,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.5.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.5.5 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

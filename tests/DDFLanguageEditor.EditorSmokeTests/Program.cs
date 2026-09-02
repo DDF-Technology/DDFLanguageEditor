@@ -85,6 +85,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
+                AssertAccessibilityAndDpi(form, editor);
                 AssertEditorSettings(form, editor);
                 AssertTextBoxEditingSupport(form, editor);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
@@ -533,7 +534,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.5") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1054,6 +1055,85 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(editor.SelectionColor == Color.FromArgb(106, 153, 85),
                 "I commenti non usano il verde attenuato previsto.");
             Console.WriteLine("PASS palette IDE ad alto contrasto per sfondo, stringhe e commenti");
+        }
+
+        private static void AssertAccessibilityAndDpi(MainForm form, RichTextBox editor)
+        {
+            Require(form.AutoScaleMode == AutoScaleMode.Dpi,
+                "La finestra principale non usa lo scaling DPI per-monitor.");
+
+            Control[] unnamed = Descendants(form)
+                .Where(control => control.TabStop && control.Enabled && control.Visible &&
+                    string.IsNullOrWhiteSpace(control.AccessibleName))
+                .ToArray();
+            Require(unnamed.Length == 0,
+                "Controlli raggiungibili da tastiera senza nome accessibile: " +
+                string.Join(", ", unnamed.Select(control => control.Name)));
+
+            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            Require(toolbar.Items.OfType<ToolStripButton>().All(button =>
+                    !string.IsNullOrWhiteSpace(button.AccessibleName)),
+                "La toolbar contiene comandi senza nome accessibile.");
+            Require(contrastRatio(form.ForeColor, form.BackColor) >= 4.5D,
+                "Il testo principale non raggiunge il contrasto minimo 4.5:1.");
+
+            Type dpiLayout = typeof(MainForm).Assembly.GetType("DDF___Program_Language_Editor.DpiLayout", true);
+            MethodInfo scale = dpiLayout.GetMethod("ScaleLogical", BindingFlags.Static | BindingFlags.Public);
+            MethodInfo unscale = dpiLayout.GetMethod("ToLogical", BindingFlags.Static | BindingFlags.Public);
+            Require((int)scale.Invoke(null, new object[] { 300, 144 }) == 450 &&
+                    (int)unscale.Invoke(null, new object[] { 450, 144 }) == 300,
+                "La conversione delle dimensioni persistenti tra DPI logici e fisici non è reversibile.");
+
+            TreeView outline = FindControl<TreeView>(form, "treeViewOutline");
+            ListBox diagnostics = FindControl<ListBox>(form, "listBoxDiagnostics");
+            Panel outlinePanel = FindControl<Panel>(form, "panelOutline");
+            Panel diagnosticsPanel = FindControl<Panel>(form, "panelDiagnostics");
+            Button outlinePin = FindControl<Button>(form, "buttonOutlinePin");
+            Button diagnosticsPin = FindControl<Button>(form, "buttonDiagnosticsPin");
+            outlinePin.PerformClick();
+            diagnosticsPin.PerformClick();
+            editor.Focus();
+            Require(InvokeProcessCmdKey(form, Keys.F6) && outline.ContainsFocus && outlinePanel.Width > 28 &&
+                    !Convert.ToBoolean(GetPrivateField<object>(form, "outlinePinned")),
+                "F6 non sposta il focus dall'editor all'Outline.");
+            Require(InvokeProcessCmdKey(form, Keys.F6) && diagnostics.ContainsFocus && diagnosticsPanel.Height > 26 &&
+                    !Convert.ToBoolean(GetPrivateField<object>(form, "diagnosticsPinned")),
+                "F6 non sposta il focus dall'Outline alla Diagnostica.");
+            Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && outline.ContainsFocus,
+                "Shift+F6 non percorre le palette in ordine inverso.");
+            Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && editor.ContainsFocus,
+                "Shift+F6 non riporta il focus nell'editor.");
+            outlinePin.PerformClick();
+            diagnosticsPin.PerformClick();
+            Console.WriteLine("PASS accessibilità: nomi, contrasto, F6/Shift+F6 e layout DPI per-monitor");
+        }
+
+        private static IEnumerable<Control> Descendants(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in Descendants(child)) yield return descendant;
+            }
+        }
+
+        private static double contrastRatio(Color foreground, Color background)
+        {
+            double light = Math.Max(relativeLuminance(foreground), relativeLuminance(background));
+            double dark = Math.Min(relativeLuminance(foreground), relativeLuminance(background));
+            return (light + 0.05D) / (dark + 0.05D);
+        }
+
+        private static double relativeLuminance(Color color)
+        {
+            Func<byte, double> channel = value =>
+            {
+                double normalized = value / 255D;
+                return normalized <= 0.03928D
+                    ? normalized / 12.92D
+                    : Math.Pow((normalized + 0.055D) / 1.055D, 2.4D);
+            };
+            return 0.2126D * channel(color.R) + 0.7152D * channel(color.G) + 0.0722D * channel(color.B);
         }
 
         private static void AssertGutterAndAutoHidePalettes(

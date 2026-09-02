@@ -6,17 +6,17 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
-        private const int OutlineAutoHideWidth = 28;
-        private const int DiagnosticsAutoHideHeight = 26;
-        private const int MinimumOutlineExpandedWidth = 300;
-        private const int MinimumDiagnosticsExpandedHeight = 116;
+        private const int OutlineAutoHideLogicalWidth = 28;
+        private const int DiagnosticsAutoHideLogicalHeight = 26;
+        private const int MinimumOutlineExpandedLogicalWidth = 300;
+        private const int MinimumDiagnosticsExpandedLogicalHeight = 116;
 
         private Timer paletteAutoHideTimer;
         private ToolTip paletteToolTip;
         private bool outlinePinned = true;
         private bool diagnosticsPinned = true;
-        private int outlineExpandedWidth = MinimumOutlineExpandedWidth;
-        private int diagnosticsExpandedHeight = MinimumDiagnosticsExpandedHeight;
+        private int outlineExpandedWidth = MinimumOutlineExpandedLogicalWidth;
+        private int diagnosticsExpandedHeight = MinimumDiagnosticsExpandedLogicalHeight;
         private Action<string> savePaletteLayoutSetting;
 
         private void initializePaletteBehavior()
@@ -87,7 +87,8 @@ namespace DDF___Program_Language_Editor
         {
             if (outlinePinned)
             {
-                outlineExpandedWidth = Math.Max(MinimumOutlineExpandedWidth, panelOutline.Width);
+                outlineExpandedWidth = Math.Max(MinimumOutlineExpandedLogicalWidth,
+                    DpiLayout.ToLogical(panelOutline.Width, DeviceDpi));
                 outlinePinned = false;
                 collapseOutlinePalette();
             }
@@ -105,7 +106,8 @@ namespace DDF___Program_Language_Editor
         {
             if (diagnosticsPinned)
             {
-                diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedHeight, panelDiagnostics.Height);
+                diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedLogicalHeight,
+                    DpiLayout.ToLogical(panelDiagnostics.Height, DeviceDpi));
                 diagnosticsPinned = false;
                 collapseDiagnosticsPalette();
             }
@@ -131,13 +133,13 @@ namespace DDF___Program_Language_Editor
 
         private void paletteAutoHideTimer_Tick(object sender, EventArgs e)
         {
-            if (!outlinePinned && panelOutline.Width > OutlineAutoHideWidth &&
+            if (!outlinePinned && panelOutline.Width > scaled(OutlineAutoHideLogicalWidth) &&
                 !containsMouse(panelOutline))
             {
                 collapseOutlinePalette();
             }
 
-            if (!diagnosticsPinned && panelDiagnostics.Height > DiagnosticsAutoHideHeight &&
+            if (!diagnosticsPinned && panelDiagnostics.Height > scaled(DiagnosticsAutoHideLogicalHeight) &&
                 !containsMouse(panelDiagnostics))
             {
                 collapseDiagnosticsPalette();
@@ -152,16 +154,17 @@ namespace DDF___Program_Language_Editor
 
         private void expandOutlinePalette()
         {
-            int maximum = Math.Max(MinimumOutlineExpandedWidth,
+            int minimum = scaled(MinimumOutlineExpandedLogicalWidth);
+            int maximum = Math.Max(minimum,
                 ClientSize.Width - splitterOutline.Width - splitterOutline.MinExtra);
-            panelOutline.Width = Math.Min(maximum, Math.Max(MinimumOutlineExpandedWidth, outlineExpandedWidth));
+            panelOutline.Width = Math.Min(maximum, Math.Max(minimum, scaled(outlineExpandedWidth)));
             splitterOutline.Enabled = outlinePinned;
             buttonOutlinePin.BringToFront();
         }
 
         private void collapseOutlinePalette()
         {
-            panelOutline.Width = OutlineAutoHideWidth;
+            panelOutline.Width = scaled(OutlineAutoHideLogicalWidth);
             splitterOutline.Enabled = false;
             buttonOutlinePin.BringToFront();
         }
@@ -170,9 +173,10 @@ namespace DDF___Program_Language_Editor
         {
             splitterDiagnostics.Visible = true;
             splitterDiagnostics.Enabled = diagnosticsPinned;
-            int maximum = Math.Max(MinimumDiagnosticsExpandedHeight,
+            int minimum = scaled(MinimumDiagnosticsExpandedLogicalHeight);
+            int maximum = Math.Max(minimum,
                 ClientSize.Height - splitterDiagnostics.MinExtra);
-            panelDiagnostics.Height = Math.Min(maximum, Math.Max(MinimumDiagnosticsExpandedHeight, diagnosticsExpandedHeight));
+            panelDiagnostics.Height = Math.Min(maximum, Math.Max(minimum, scaled(diagnosticsExpandedHeight)));
             buttonDiagnosticsPin.BringToFront();
         }
 
@@ -180,21 +184,23 @@ namespace DDF___Program_Language_Editor
         {
             splitterDiagnostics.Enabled = false;
             splitterDiagnostics.Visible = false;
-            panelDiagnostics.Height = DiagnosticsAutoHideHeight;
+            panelDiagnostics.Height = scaled(DiagnosticsAutoHideLogicalHeight);
             buttonDiagnosticsPin.BringToFront();
         }
 
         private void splitterDiagnostics_SplitterMoved(object sender, SplitterEventArgs e)
         {
             if (!diagnosticsPinned) return;
-            diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedHeight, panelDiagnostics.Height);
+            diagnosticsExpandedHeight = Math.Max(MinimumDiagnosticsExpandedLogicalHeight,
+                DpiLayout.ToLogical(panelDiagnostics.Height, DeviceDpi));
             persistPaletteLayout();
         }
 
         private void splitterOutline_SplitterMoved(object sender, SplitterEventArgs e)
         {
             if (!outlinePinned) return;
-            outlineExpandedWidth = Math.Max(MinimumOutlineExpandedWidth, panelOutline.Width);
+            outlineExpandedWidth = Math.Max(MinimumOutlineExpandedLogicalWidth,
+                DpiLayout.ToLogical(panelOutline.Width, DeviceDpi));
             persistPaletteLayout();
         }
 
@@ -227,5 +233,7 @@ namespace DDF___Program_Language_Editor
                     diagnosticsPinned ? "Attiva auto-hide Diagnostica" : "Mantieni Diagnostica aperta");
             }
         }
+
+        private int scaled(int logicalPixels) => DpiLayout.ScaleLogical(logicalPixels, DeviceDpi);
     }
 }

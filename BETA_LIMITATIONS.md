@@ -1,4 +1,4 @@
-# Beta 0.9.5.4 limitations
+# Beta 0.9.5.5 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -33,6 +33,7 @@ This release is intended for interface and language-design evaluation only.
 - persistent current-line highlighting, whitespace markers, indentation guides and word wrap with source-preserving overlays;
 - persistent interactive editor overview for diagnostics, search matches, breakpoints and the visible viewport;
 - persistent right and bottom palette dimensions and pinned/auto-hide state;
+- accessible names, high-contrast application chrome, per-monitor DPI layout and `F6`/`Shift+F6` pane traversal;
 - persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
 - optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;
 - previous-session restoration for workspace, ordered tabs, active document, selections and breakpoints;

@@ -21,6 +21,8 @@ namespace DDF___Program_Language_Editor
 
         public LineNumberGutter()
         {
+            AccessibleName = "Numeri di riga";
+            AccessibleDescription = "Mostra i numeri delle righe logiche senza accettare il focus.";
             Cursor = Cursors.Arrow;
             ReadOnly = true;
             ShortcutsEnabled = false;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5.5 - 2026-09-02
+
+- add bidirectional `F6`/`Shift+F6` keyboard traversal across the editor, Outline and Diagnostics panes, expanding auto-hidden targets without changing their pin state;
+- infer stable accessible names for focusable controls and ToolStrip commands while retaining explicit descriptions for the editor overview and non-focusable line-number gutter;
+- enforce per-monitor DPI autoscaling across the main window and dialogs;
+- persist palette dimensions in logical pixels and convert them at the active monitor DPI, preventing size drift when moving between displays;
+- honor the Windows high-contrast color scheme on application chrome while preserving the explicitly configured code-editor surface;
+- verify names, keyboard traversal, a minimum `4.5:1` chrome contrast ratio and reversible 100%/150% DPI geometry in dynamic WinForms smoke;
+
 ## 0.9.5.4 - 2026-09-02
 
 - add a compact editor overview for errors, warnings, workspace-search matches, breakpoints and the visible viewport;

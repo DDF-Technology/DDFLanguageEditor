@@ -617,8 +617,8 @@ namespace DDF___Program_Language_Editor
             //
             // MainForm
             //
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(1027, 793);
             this.Controls.Add(this.panelEditor);
             this.Controls.Add(this.splitterDiagnostics);
@@ -632,7 +632,7 @@ namespace DDF___Program_Language_Editor
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "DDFLanguageEditor 0.9.5.4 Beta — Senza titolo.ddf";
+            this.Text = "DDFLanguageEditor 0.9.5.5 Beta — Senza titolo.ddf";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);

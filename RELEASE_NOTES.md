@@ -1,6 +1,18 @@
-# DDFLanguageEditor 0.9.5.4
+# DDFLanguageEditor 0.9.5.5
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.5 completes the first accessibility and multi-monitor pass.
+`F6` moves focus from the editor to Outline, then Diagnostics and back to the
+editor; `Shift+F6` follows the reverse path. An auto-hidden destination opens
+for keyboard use without silently changing its persisted pin state.
+
+Focusable controls and toolbar commands now expose stable accessible names.
+Application chrome honors Windows high-contrast colors and its normal theme is
+checked against a minimum 4.5:1 text contrast. Every form uses per-monitor DPI
+autoscaling. Persisted palette dimensions are stored as logical pixels and
+converted for the active monitor, so moving between 100% and 150% scaling does
+not progressively alter the saved layout.
 
 Version 0.9.5.4 adds a narrow, interactive overview at the right edge of the
 editor. It maps errors, warnings, workspace-search matches and breakpoints over

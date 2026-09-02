@@ -20,6 +20,13 @@ namespace DDF___Program_Language_Editor
         {
             if (root == null || IsEditorSurface(root)) return;
 
+            if (SystemInformation.HighContrast)
+            {
+                ApplyHighContrast(root);
+                AccessibilitySupport.Apply(root);
+                return;
+            }
+
             root.ForeColor = Text;
             if (root is Form || root is Panel || root is TabControl) root.BackColor = Window;
             if (root is TabPage || root is TextBox || root is RichTextBox || root is ListBox || root is TreeView)
@@ -55,6 +62,31 @@ namespace DDF___Program_Language_Editor
             }
 
             foreach (Control child in root.Controls) ApplyLight(child);
+            if (root is Form) AccessibilitySupport.Apply(root);
+        }
+
+        private static void ApplyHighContrast(Control root)
+        {
+            if (root == null || IsEditorSurface(root)) return;
+            root.BackColor = root is Button ? SystemColors.Control : SystemColors.Window;
+            root.ForeColor = root is Button ? SystemColors.ControlText : SystemColors.WindowText;
+            if (root is MenuStrip || root is ToolStrip)
+            {
+                root.BackColor = SystemColors.Menu;
+                root.ForeColor = SystemColors.MenuText;
+            }
+            if (root is ToolStrip strip) ApplyHighContrastItems(strip.Items);
+            foreach (Control child in root.Controls) ApplyHighContrast(child);
+        }
+
+        private static void ApplyHighContrastItems(ToolStripItemCollection items)
+        {
+            foreach (ToolStripItem item in items)
+            {
+                item.BackColor = SystemColors.Menu;
+                item.ForeColor = SystemColors.MenuText;
+                if (item is ToolStripDropDownItem dropDown) ApplyHighContrastItems(dropDown.DropDownItems);
+            }
         }
 
         private static void ApplyItems(ToolStripItemCollection items)

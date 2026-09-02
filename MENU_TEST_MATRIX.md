@@ -124,7 +124,11 @@ riduzione, navigazione tra delimitatori, le quattro opzioni visive e l'overview.
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette
-chiara e che soltanto editor, folding e gutter conservino lo sfondo scuro.
+chiara, oppure i colori di sistema in modalità ad alto contrasto, e che soltanto
+editor, folding e gutter conservino lo sfondo scuro. Verifica inoltre che i controlli
+raggiungibili espongano nomi accessibili e che `F6`/`Shift+F6` attraversino
+editor, Outline e Diagnostica in entrambe le direzioni. Le dimensioni persistite
+delle palette vengono inoltre verificate come pixel logici reversibili tra DPI.
 Verifica inoltre che le scorciatoie personalizzate rilevino i conflitti, siano
 persistenti e aggiornino menu, toolbar, Command Palette ed esecuzione reale.
 Autosave viene provato con un orologio controllato su un file temporaneo; Hot

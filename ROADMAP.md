@@ -49,7 +49,7 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
 | `0.9.3` | Ricerca e navigazione del workspace | Completata (`0.9.3.0`–`0.9.3.7`) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Completata (`0.9.4.6`) |
-| `0.9.5` | Fluidità, accessibilità e rifinitura | In corso (`0.9.5.4` completata) |
+| `0.9.5` | Fluidità, accessibilità e rifinitura | In corso (`0.9.5.5` completata) |
 | `0.9.6` | Pacchetti di linguaggio, grammatica dichiarativa e build configurabile | Pianificata |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
 | `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
@@ -398,7 +398,7 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Mantenere reattivi documenti e workspace di dimensioni realistiche con lavoro cancellabile in background (`0.9.5.2`).
 - [x] Aggiungere evidenza della riga corrente, spazi invisibili, guide di indentazione e word wrap configurabile (`0.9.5.3`).
 - [x] Aggiungere un'overview disattivabile e interattiva per diagnostiche, ricerca, breakpoint e viewport; minimappa testuale completa valutata e rinviata come estensione opzionale (`0.9.5.4`).
-- [ ] Completare navigazione da tastiera, nomi accessibili, contrasto e comportamento DPI multi-monitor.
+- [x] Completare navigazione da tastiera, nomi accessibili, contrasto e comportamento DPI multi-monitor (`0.9.5.5`).
 - [ ] Creare smoke dinamici di sessioni prolungate, digitazione rapida e alternanza tra più comandi.
 
 ## 0.9.6 — Pacchetti di linguaggio e architettura dichiarativa

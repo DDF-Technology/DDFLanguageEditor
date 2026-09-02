@@ -18,6 +18,9 @@ namespace DDF___Program_Language_Editor
 
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            if (keyData == Keys.F6 || keyData == (Keys.Shift | Keys.F6))
+                return moveFocusBetweenPanes(keyData == (Keys.Shift | Keys.F6));
+
             TextBoxBase focusedTextBox = findFocusedTextBox(this);
             if (focusedTextBox != null && !isEditorTextControl(focusedTextBox))
             {
