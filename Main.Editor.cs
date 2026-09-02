@@ -20,6 +20,7 @@ namespace DDF___Program_Language_Editor
         {
             if (isPaneFocusShortcut(keyData))
                 return moveFocusBetweenPanes(keyData == (Keys.Shift | Keys.F6));
+            if (isPaletteTabShortcut(keyData) && cycleFocusedPaletteTab(keyData)) return true;
 
             TextBoxBase focusedTextBox = findFocusedTextBox(this);
             if (focusedTextBox != null && !isEditorTextControl(focusedTextBox))

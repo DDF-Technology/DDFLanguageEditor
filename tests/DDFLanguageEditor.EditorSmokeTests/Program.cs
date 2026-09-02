@@ -1107,6 +1107,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(350);
             Require(outline.ContainsFocus && outlinePanel.Width > 28,
                 "L'auto-hide richiude l'Outline mentre contiene il focus da tastiera.");
+            TreeView workspace = FindControl<TreeView>(form, "treeViewWorkspace");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.Tab) &&
+                    navigationTabs.SelectedTab.Name == "workspaceTabPage" && workspace.ContainsFocus,
+                "Ctrl+Tab non passa da Outline alla scheda File della palette laterale.");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.Tab) &&
+                    navigationTabs.SelectedTab.Name == "outlineTabPage" && outline.ContainsFocus,
+                "Ctrl+Shift+Tab non torna alla scheda Outline.");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.PageDown) &&
+                    navigationTabs.SelectedTab.Name == "workspaceTabPage" &&
+                    InvokeProcessCmdKey(form, Keys.Control | Keys.PageUp) &&
+                    navigationTabs.SelectedTab.Name == "outlineTabPage",
+                "Ctrl+PagSu/PagGiù non cambia le schede della palette laterale.");
             Require(InvokeFilteredKey(form, outline, Keys.F6),
                 "Il percorso reale dei messaggi tastiera non intercetta F6 dall'Outline.");
             PumpMessages(40);
@@ -1117,6 +1129,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(350);
             Require(diagnostics.ContainsFocus && diagnosticsPanel.Height > 26,
                 "L'auto-hide richiude la Diagnostica mentre contiene il focus da tastiera.");
+            RichTextBox output = FindControl<RichTextBox>(form, "richTextBoxOutput");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.Tab) &&
+                    bottomTabs.SelectedTab.Name == "tabPageOutput" && output.ContainsFocus,
+                "Ctrl+Tab non passa da Diagnostica alla scheda Output.");
+            Require(InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.Tab) &&
+                    bottomTabs.SelectedTab.Name == "tabPageDiagnostics" && diagnostics.ContainsFocus,
+                "Ctrl+Shift+Tab non torna alla scheda Diagnostica.");
             Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && outline.ContainsFocus,
                 "Shift+F6 non percorre le palette in ordine inverso.");
             Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && editor.ContainsFocus,
@@ -1133,7 +1152,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Focus();
             outlinePin.PerformClick();
             diagnosticsPin.PerformClick();
-            Console.WriteLine("PASS accessibilità: nomi, contrasto, F6/Shift+F6 e layout DPI per-monitor");
+            Console.WriteLine("PASS accessibilità: nomi, contrasto, F6, schede palette e layout DPI per-monitor");
         }
 
         private static IEnumerable<Control> Descendants(Control root)

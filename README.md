@@ -62,6 +62,7 @@ evidenziazione delle regole note e indentazione assistita.
 - riga corrente, caratteri invisibili, guide di indentazione e word wrap opzionali e persistenti, disegnati senza modificare il sorgente o Undo;
 - overview interattiva e disattivabile per errori, avvisi, risultati di ricerca, breakpoint e viewport visibile;
 - navigazione `F6`/`Shift+F6` tra editor, Outline e Diagnostica, nomi accessibili, contrasto elevato e layout DPI per-monitor;
+- cambio scheda nella palette attiva con `Ctrl+Tab`/`Ctrl+Shift+Tab` oppure `Ctrl+PagGiù`/`Ctrl+PagSu`;
 - numerazione delle righe visibili in un gutter non selezionabile;
 - Outline e Diagnostica pinnabili oppure richiudibili automaticamente;
 - indentazione configurabile con Tab o da uno a otto spazi;

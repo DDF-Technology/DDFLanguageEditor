@@ -11,6 +11,9 @@ paths. It selects the requested Outline or Diagnostics tab and prevents the
 auto-hide timer from closing a palette while keyboard focus remains inside it.
 Returning to the editor now targets the folded projection when folding is active,
 rather than attempting to focus the hidden source control.
+Within the focused palette, `Ctrl+Tab` and `Ctrl+Shift+Tab` cycle its tabs;
+`Ctrl+PageDown` and `Ctrl+PageUp` provide the equivalent IDE-style commands.
+The primary control of the newly selected tab receives focus immediately.
 
 Focusable controls and toolbar commands now expose stable accessible names.
 Application chrome honors Windows high-contrast colors and its normal theme is

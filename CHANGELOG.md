@@ -10,6 +10,7 @@
 - verify names, keyboard traversal, a minimum `4.5:1` chrome contrast ratio and reversible 100%/150% DPI geometry in dynamic WinForms smoke;
 - route pane traversal through command, dialog-key and key-preview paths, activate hidden Outline/Diagnostics tabs and keep auto-hide palettes open while keyboard focus remains inside;
 - return focus to the visible folded editor when code folding is active instead of targeting the hidden source RichEdit;
+- cycle tabs inside the focused side or bottom palette with `Ctrl+Tab`, `Ctrl+Shift+Tab`, `Ctrl+PageDown` and `Ctrl+PageUp`, then focus the selected tab's primary control;
 
 ## 0.9.5.4 - 2026-09-02
 

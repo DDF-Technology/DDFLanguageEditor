@@ -127,7 +127,9 @@ Lo stesso gate verifica che tutte le superfici applicative usino la palette
 chiara, oppure i colori di sistema in modalità ad alto contrasto, e che soltanto
 editor, folding e gutter conservino lo sfondo scuro. Verifica inoltre che i controlli
 raggiungibili espongano nomi accessibili e che `F6`/`Shift+F6` attraversino
-editor, Outline e Diagnostica in entrambe le direzioni. Le dimensioni persistite
+editor, Outline e Diagnostica in entrambe le direzioni. `Ctrl+Tab`,
+`Ctrl+Shift+Tab` e `Ctrl+PagSu/PagGiù` cambiano inoltre la scheda della palette
+che contiene il focus. Le dimensioni persistite
 delle palette vengono inoltre verificate come pixel logici reversibili tra DPI.
 Verifica inoltre che le scorciatoie personalizzate rilevino i conflitti, siano
 persistenti e aggiornino menu, toolbar, Command Palette ed esecuzione reale.
