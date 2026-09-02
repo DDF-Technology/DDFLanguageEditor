@@ -1090,15 +1090,33 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Panel diagnosticsPanel = FindControl<Panel>(form, "panelDiagnostics");
             Button outlinePin = FindControl<Button>(form, "buttonOutlinePin");
             Button diagnosticsPin = FindControl<Button>(form, "buttonDiagnosticsPin");
+            TabControl navigationTabs = FindControl<TabControl>(form, "navigationTabs");
+            TabControl bottomTabs = FindControl<TabControl>(form, "tabControlBottom");
+            navigationTabs.SelectedTab = FindControl<TabPage>(form, "workspaceTabPage");
+            bottomTabs.SelectedTab = FindControl<TabPage>(form, "tabPageOutput");
             outlinePin.PerformClick();
             diagnosticsPin.PerformClick();
             editor.Focus();
-            Require(InvokeProcessCmdKey(form, Keys.F6) && outline.ContainsFocus && outlinePanel.Width > 28 &&
+            Require(InvokeFilteredKey(form, editor, Keys.F6),
+                "Il percorso reale dei messaggi tastiera non intercetta F6 dall'editor.");
+            PumpMessages(40);
+            Require(outline.ContainsFocus && outlinePanel.Width > 28 &&
+                    navigationTabs.SelectedTab.Name == "outlineTabPage" &&
                     !Convert.ToBoolean(GetPrivateField<object>(form, "outlinePinned")),
                 "F6 non sposta il focus dall'editor all'Outline.");
-            Require(InvokeProcessCmdKey(form, Keys.F6) && diagnostics.ContainsFocus && diagnosticsPanel.Height > 26 &&
+            PumpMessages(350);
+            Require(outline.ContainsFocus && outlinePanel.Width > 28,
+                "L'auto-hide richiude l'Outline mentre contiene il focus da tastiera.");
+            Require(InvokeFilteredKey(form, outline, Keys.F6),
+                "Il percorso reale dei messaggi tastiera non intercetta F6 dall'Outline.");
+            PumpMessages(40);
+            Require(diagnostics.ContainsFocus && diagnosticsPanel.Height > 26 &&
+                    bottomTabs.SelectedTab.Name == "tabPageDiagnostics" &&
                     !Convert.ToBoolean(GetPrivateField<object>(form, "diagnosticsPinned")),
                 "F6 non sposta il focus dall'Outline alla Diagnostica.");
+            PumpMessages(350);
+            Require(diagnostics.ContainsFocus && diagnosticsPanel.Height > 26,
+                "L'auto-hide richiude la Diagnostica mentre contiene il focus da tastiera.");
             Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && outline.ContainsFocus,
                 "Shift+F6 non percorre le palette in ordine inverso.");
             Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F6) && editor.ContainsFocus,
@@ -3051,6 +3069,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
             var message = Message.Create(form.Handle, 0, IntPtr.Zero, IntPtr.Zero);
             object[] arguments = { message, keys };
             return (bool)method.Invoke(form, arguments);
+        }
+
+        private static bool InvokeFilteredKey(MainForm form, Control control, Keys key)
+        {
+            const int wmKeyDown = 0x0100;
+            var message = Message.Create(control.Handle, wmKeyDown, new IntPtr((int)key), IntPtr.Zero);
+            return form.PreFilterMessage(ref message);
         }
 
         private static object InvokePrivate(MainForm form, string methodName, params object[] arguments)

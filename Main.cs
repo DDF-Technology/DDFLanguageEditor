@@ -9,7 +9,7 @@ using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
-    public partial class MainForm : Form
+    public partial class MainForm : Form, IMessageFilter
     {
         private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
         private DocumentSession documentSession;
@@ -52,6 +52,7 @@ namespace DDF___Program_Language_Editor
         private Func<string, string> requestSymbolRename;
         private Func<FolderBrowserDialog, DialogResult> showWorkspaceDialog;
         private Func<string> requestRuntimeInput;
+        private bool paneFocusMessageFilterRegistered;
 
         public MainForm()
         {
@@ -130,6 +131,11 @@ namespace DDF___Program_Language_Editor
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            if (paneFocusMessageFilterRegistered)
+            {
+                Application.RemoveMessageFilter(this);
+                paneFocusMessageFilterRegistered = false;
+            }
             stopExecution();
             cancelBackgroundAnalysis();
             highlightTimer.Stop();

@@ -6,6 +6,9 @@ Version 0.9.5.5 completes the first accessibility and multi-monitor pass.
 `F6` moves focus from the editor to Outline, then Diagnostics and back to the
 editor; `Shift+F6` follows the reverse path. An auto-hidden destination opens
 for keyboard use without silently changing its persisted pin state.
+The shortcut is handled across native editor, dialog-key and form key-preview
+paths. It selects the requested Outline or Diagnostics tab and prevents the
+auto-hide timer from closing a palette while keyboard focus remains inside it.
 
 Focusable controls and toolbar commands now expose stable accessible names.
 Application chrome honors Windows high-contrast colors and its normal theme is

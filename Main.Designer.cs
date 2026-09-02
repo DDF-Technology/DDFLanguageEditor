@@ -628,6 +628,7 @@ namespace DDF___Program_Language_Editor
             this.Controls.Add(this.statusStripMain);
             this.Controls.Add(this.toolStripMain);
             this.Controls.Add(this.menuStripMain);
+            this.KeyPreview = true;
             this.MainMenuStrip = this.menuStripMain;
             this.MinimumSize = new System.Drawing.Size(720, 480);
             this.Name = "MainForm";

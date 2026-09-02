@@ -134,13 +134,13 @@ namespace DDF___Program_Language_Editor
         private void paletteAutoHideTimer_Tick(object sender, EventArgs e)
         {
             if (!outlinePinned && panelOutline.Width > scaled(OutlineAutoHideLogicalWidth) &&
-                !containsMouse(panelOutline))
+                !containsMouse(panelOutline) && !panelOutline.ContainsFocus)
             {
                 collapseOutlinePalette();
             }
 
             if (!diagnosticsPinned && panelDiagnostics.Height > scaled(DiagnosticsAutoHideLogicalHeight) &&
-                !containsMouse(panelDiagnostics))
+                !containsMouse(panelDiagnostics) && !panelDiagnostics.ContainsFocus)
             {
                 collapseDiagnosticsPalette();
             }
