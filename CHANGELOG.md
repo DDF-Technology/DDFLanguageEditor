@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5.6 - 2026-09-02
+
+- add an accelerated endurance gate that runs 160 mixed editing cycles across four independent document tabs;
+- alternate transient edits, Undo/Redo, background analysis, caret and overview updates, pane/tab keyboard navigation, word wrap, formatting, folding and repeated Command Palette lifetimes;
+- verify a UI-thread heartbeat, all document contents and the absence of new WinForms thread exceptions throughout the session;
+- establish bounded growth gates for managed memory, process handles and Windows GDI/USER resources after forced collection;
+- record per-iteration p95 latency and retain the existing input, selection, scroll, highlighting, popup and realistic workspace budgets;
+- complete the `0.9.5` fluidity, accessibility and refinement milestone;
+
 ## 0.9.5.5 - 2026-09-02
 
 - add bidirectional `F6`/`Shift+F6` keyboard traversal across the editor, Outline and Diagnostics panes, expanding auto-hidden targets without changing their pin state;

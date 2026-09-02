@@ -32,6 +32,19 @@ the measurement output and becomes optimization work for the following steps.
 | Workspace-load dispatch | start or supersede indexing of 40 files × 100 lines | 50 ms | 250 ms |
 | Large workspace input | 20 insertions in 2,000 lines with 40 indexed files | 16 ms | 120 ms |
 
+## Endurance gate
+
+The `0.9.5.6` gate runs 160 deterministic mixed-command cycles across four open
+documents. It alternates editing, Undo/Redo, background analysis, navigation,
+visual settings, formatting, folding and popup creation while checking an UI
+heartbeat and exact buffer integrity.
+
+The complete iteration p95 must stay at or below 750 ms. After forced garbage
+collection, retained managed growth must not exceed 64 MiB, process-handle
+growth must not exceed 24, and GDI or USER object growth must not exceed 16.
+These deliberately tolerant ceilings detect accumulation and deadlock regressions;
+they are not replacements for the stricter interactive budgets above.
+
 ## Interpretation
 
 The 16 ms interactive target corresponds to one refresh interval at 60 Hz. A

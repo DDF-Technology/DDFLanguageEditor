@@ -1,6 +1,18 @@
-# DDFLanguageEditor 0.9.5.5
+# DDFLanguageEditor 0.9.5.6
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.6 closes the 0.9.5 milestone with an accelerated endurance gate.
+The dynamic WinForms suite now runs 160 mixed cycles across four open documents,
+alternating edits, Undo/Redo, cancellable analysis, overview updates, keyboard
+navigation, visual settings, formatting, folding and Command Palette lifetimes.
+It verifies UI heartbeats and every buffer after the run, and rejects excessive
+growth in managed memory, process handles, GDI objects or USER objects.
+
+The reference run completed with a 38.9 ms iteration p95, 23,504 bytes of
+managed growth, three additional process handles, three GDI objects and eight
+USER objects. The existing interactive and realistic-workspace performance
+budgets remain active alongside the endurance gate.
 
 Version 0.9.5.5 completes the first accessibility and multi-monitor pass.
 `F6` moves focus from the editor to Outline, then Diagnostics and back to the

@@ -40,6 +40,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 RunEditorScenarios(visible);
                 AssertPerformanceBudgets(visible);
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
+                AssertProlongedEditingSession(visible);
                 RunMenuScenarios(visible);
                 if (UiExceptions.Count > 0)
                 {
@@ -380,6 +381,170 @@ namespace DDFLanguageEditor.EditorSmokeTests
             return source.ToString();
         }
 
+        private static void AssertProlongedEditingSession(bool visible)
+        {
+            using (var form = ShowSmokeForm(visible))
+            using (Process process = Process.GetCurrentProcess())
+            {
+                TabControl documentTabs = FindControl<TabControl>(form, "documentTabs");
+                ToolStripMenuItem format = FindMenuItem(form, "formatDocumentMenuItem");
+                ToolStripMenuItem wordWrap = FindMenuItem(form, "wordWrapMenuItem");
+                ToolStripMenuItem expandAll = FindMenuItem(form, "expandAllFoldsMenuItem");
+                IReadOnlyList<CommandPaletteCommand> commands =
+                    (IReadOnlyList<CommandPaletteCommand>)InvokePrivate(form, "createCommandPaletteCommands");
+                string stableSource = null;
+
+                for (int index = 0; index < 4; index++)
+                {
+                    if (index > 0) FindMenuItem(form, "newMenuItem").PerformClick();
+                    PumpMessages(30);
+                    RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    editor.Text = Source;
+                    editor.Select(0, 0);
+                    format.PerformClick();
+                    stableSource = stableSource ?? editor.Text;
+                    Require(editor.Text == stableSource, "Il formatter produce sorgenti diversi tra schede equivalenti.");
+                    editor.ClearUndo();
+                }
+
+                using (var warmup = new CommandPaletteForm(commands))
+                {
+                    warmup.StartPosition = FormStartPosition.Manual;
+                    warmup.Location = visible ? new Point(120, 120) : new Point(-32000, -32000);
+                    warmup.Show(form);
+                    PumpMessages(20);
+                    warmup.Close();
+                }
+                PumpMessages(120);
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                long initialManaged = GC.GetTotalMemory(true);
+                process.Refresh();
+                int initialHandles = process.HandleCount;
+                int initialGdi = GetGuiResources(process.Handle, 0);
+                int initialUser = GetGuiResources(process.Handle, 1);
+                int initialUiExceptions = UiExceptions.Count;
+                var iterationSamples = new List<double>();
+
+                for (int iteration = 0; iteration < EditorPerformanceBudgets.EnduranceIterations; iteration++)
+                {
+                    iterationSamples.Add(MeasureMilliseconds(() =>
+                    {
+                        documentTabs.SelectedIndex = iteration % documentTabs.TabCount;
+                        Application.DoEvents();
+                        RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                        int editPosition = stableSource.IndexOf("value", StringComparison.Ordinal);
+                        editor.Select(editPosition, 0);
+
+                        switch (iteration % 8)
+                        {
+                            case 0:
+                                editor.ClearUndo();
+                                editor.SelectedText = "x";
+                                editor.Undo();
+                                Require(editor.Text == stableSource, "Undo perde il buffer durante la sessione prolungata.");
+                                editor.Redo();
+                                editor.Undo();
+                                break;
+                            case 1:
+                                editor.SelectedText = " ";
+                                editor.Select(editPosition, 1);
+                                editor.SelectedText = string.Empty;
+                                InvokePrivate(form, "startBackgroundAnalysis");
+                                break;
+                            case 2:
+                                editor.Select(Math.Min(editor.TextLength, editPosition + iteration % 5), 0);
+                                InvokePrivate(form, "updateCaretPosition");
+                                InvokePrivate(form, "updateLineNumbers");
+                                InvokePrivate(form, "refreshEditorOverview");
+                                break;
+                            case 3:
+                                editor.Focus();
+                                InvokeProcessCmdKey(form, Keys.F6);
+                                InvokeProcessCmdKey(form, Keys.Control | Keys.Tab);
+                                InvokeProcessCmdKey(form, Keys.F6);
+                                InvokeProcessCmdKey(form, Keys.Control | Keys.Tab);
+                                InvokeProcessCmdKey(form, Keys.F6);
+                                break;
+                            case 4:
+                                wordWrap.PerformClick();
+                                wordWrap.PerformClick();
+                                break;
+                            case 5:
+                                format.PerformClick();
+                                break;
+                            case 6:
+                                InvokePrivate(form, "applyHighlighting");
+                                editor.Select(Math.Max(0, stableSource.IndexOf("main", StringComparison.Ordinal)), 0);
+                                FindMenuItem(form, "toggleFoldMenuItem").PerformClick();
+                                if (FindControl<RichTextBox>(form, "richTextBoxFoldedView").Visible)
+                                    expandAll.PerformClick();
+                                break;
+                            case 7:
+                                using (var palette = new CommandPaletteForm(commands))
+                                {
+                                    palette.StartPosition = FormStartPosition.Manual;
+                                    palette.Location = visible ? new Point(120, 120) : new Point(-32000, -32000);
+                                    palette.Show(form);
+                                    Application.DoEvents();
+                                    palette.Close();
+                                }
+                                break;
+                        }
+
+                        Require(editor.Text == stableSource,
+                            "Una sequenza di comandi ha alterato il buffer alla iterazione " + iteration + ".");
+                        editor.ClearUndo();
+                    }));
+
+                    if (iteration % 8 == 0)
+                    {
+                        bool heartbeat = false;
+                        form.BeginInvoke(new Action(() => heartbeat = true));
+                        PumpUntil(() => heartbeat, 1000,
+                            "Il thread UI non risponde durante la sessione prolungata.");
+                    }
+                    else PumpMessages(5);
+                }
+
+                PumpMessages(400);
+                for (int index = 0; index < documentTabs.TabCount; index++)
+                {
+                    documentTabs.SelectedIndex = index;
+                    PumpMessages(20);
+                    Require(FindControl<RichTextBox>(form, "richTextBoxMainEditor").Text == stableSource,
+                        "La sessione prolungata ha corrotto il contenuto della scheda " + index + ".");
+                }
+                Require(UiExceptions.Count == initialUiExceptions,
+                    "La sessione prolungata ha generato eccezioni UI.");
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                long managedGrowth = Math.Max(0, GC.GetTotalMemory(true) - initialManaged);
+                process.Refresh();
+                int handleGrowth = Math.Max(0, process.HandleCount - initialHandles);
+                int gdiGrowth = Math.Max(0, GetGuiResources(process.Handle, 0) - initialGdi);
+                int userGrowth = Math.Max(0, GetGuiResources(process.Handle, 1) - initialUser);
+                double p95 = EditorPerformanceBudget.Percentile95(iterationSamples);
+
+                Require(p95 <= EditorPerformanceBudgets.EnduranceP95CeilingMilliseconds,
+                    "Sessione prolungata non reattiva: p95=" + p95.ToString("0.0") + " ms.");
+                Require(managedGrowth <= EditorPerformanceBudgets.EnduranceManagedGrowthBytes,
+                    "Crescita memoria gestita anomala: " + managedGrowth + " byte.");
+                Require(handleGrowth <= EditorPerformanceBudgets.EnduranceHandleGrowth,
+                    "Crescita handle anomala: " + handleGrowth + ".");
+                Require(gdiGrowth <= EditorPerformanceBudgets.EnduranceGuiResourceGrowth &&
+                        userGrowth <= EditorPerformanceBudgets.EnduranceGuiResourceGrowth,
+                    "Crescita risorse GUI anomala: GDI=" + gdiGrowth + ", USER=" + userGrowth + ".");
+                Console.WriteLine("PASS sessione prolungata: " +
+                    EditorPerformanceBudgets.EnduranceIterations + " cicli, 4 schede, p95=" +
+                    p95.ToString("0.0") + " ms, memoria=" + managedGrowth + " B, handle=" +
+                    handleGrowth + ", GDI=" + gdiGrowth + ", USER=" + userGrowth);
+            }
+        }
+
         private static void StopInteractiveTimers(MainForm form)
         {
             GetPrivateField<System.Windows.Forms.Timer>(form, "highlightTimer")?.Stop();
@@ -534,7 +699,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.5") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.6") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -3151,6 +3316,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern int GetGuiResources(IntPtr process, int flags);
 
         private static void InvokeMouseHandler(MainForm form, string methodName, RichTextBox editor, MouseButtons button)
         {

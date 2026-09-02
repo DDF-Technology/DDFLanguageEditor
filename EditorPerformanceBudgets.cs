@@ -43,6 +43,11 @@ namespace DDF___Program_Language_Editor
         public const int RealisticDocumentLines = 2000;
         public const int RealisticWorkspaceDocuments = 40;
         public const int RealisticWorkspaceLinesPerDocument = 100;
+        public const int EnduranceIterations = 160;
+        public const double EnduranceP95CeilingMilliseconds = 750D;
+        public const long EnduranceManagedGrowthBytes = 64L * 1024L * 1024L;
+        public const int EnduranceHandleGrowth = 24;
+        public const int EnduranceGuiResourceGrowth = 16;
 
         public static readonly EditorPerformanceBudget Input = new EditorPerformanceBudget(
             "input", "Input editor", 16D, 120D,

@@ -1,4 +1,4 @@
-# Beta 0.9.5.5 limitations
+# Beta 0.9.5.6 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -40,6 +40,7 @@ This release is intended for interface and language-design evaluation only.
 - opt-out local crash-recovery journal with explicit restore, discard or postpone choice;
 - periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
 - repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
+- accelerated multi-document endurance smoke with latency, memory, handle and GDI/USER resource-growth gates;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
