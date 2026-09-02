@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.5.4 - 2026-09-02
+
+- add a compact editor overview for errors, warnings, workspace-search matches, breakpoints and the visible viewport;
+- make the overview interactive, source-preserving, optional and persistent through View, Settings, Command Palette and the icon bar;
+- deduplicate marker snapshots and update only the viewport during scrolling, retaining the established scroll p95 target;
+- verify real diagnostic and breakpoint markers, line navigation, settings persistence, all 56 menu commands and 44 toolbar controls with dynamic smoke;
+- evaluate a full text minimap and defer it as an optional future enhancement because the lightweight overview provides the useful navigation signals without duplicating text rendering;
+
 ## 0.9.5.3 - 2026-09-02
 
 - add source-preserving overlays for the current line, spaces, tabs, line endings and indentation guides;

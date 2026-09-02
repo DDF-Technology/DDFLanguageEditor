@@ -64,6 +64,7 @@ namespace DDF___Program_Language_Editor
             debuggerSession?.SetBreakpoints(getEnabledBreakpointLines(openDocuments.ActiveDocument));
             refreshBreakpointsPalette();
             updateLineNumbers();
+            refreshEditorOverview();
         }
 
         private void clearBreakpoints()
@@ -74,6 +75,7 @@ namespace DDF___Program_Language_Editor
                 ? (IEnumerable<int>)Array.Empty<int>()
                 : activeBreakpointLines);
             refreshBreakpointsPalette();
+            refreshEditorOverview();
         }
 
         private string formatLineNumber(int line)

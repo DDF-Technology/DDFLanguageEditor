@@ -212,6 +212,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Name = "richTextBoxMainEditor";
                 richTextBoxMainEditor.Visible = true;
                 richTextBoxMainEditor.BringToFront();
+                editorOverviewBar?.BringToFront();
                 richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
                 documentTabs.SelectedTab = view.Tab;
                 resetActiveAnalysis();
@@ -227,6 +228,7 @@ namespace DDF___Program_Language_Editor
             refreshBreakpointsPalette();
             updateCaretPosition();
             updateBreadcrumb();
+            refreshEditorOverview();
             richTextBoxMainEditor.Focus();
         }
 

@@ -55,6 +55,7 @@ namespace DDF___Program_Language_Editor
                 { "toolbarShowWhitespaceButton", "showWhitespaceMenuItem" },
                 { "toolbarShowIndentGuidesButton", "showIndentGuidesMenuItem" },
                 { "toolbarWordWrapButton", "wordWrapMenuItem" },
+                { "toolbarOverviewButton", "showOverviewMenuItem" },
                 { "toolbarBreakpointButton", "toggleBreakpointMenuItem" },
                 { "toolbarRunButton", "runProgramMenuItem" },
                 { "toolbarStopButton", "stopProgramMenuItem" }

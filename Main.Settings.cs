@@ -77,6 +77,7 @@ namespace DDF___Program_Language_Editor
             if (completionListBox != null) completionListBox.Font = createEditorFont(Math.Max(8F, editorSettings.FontSize - 0.5F));
             if (signatureHelpLabel != null) signatureHelpLabel.Font = createEditorFont(editorSettings.FontSize);
             applyEditorVisualSettings();
+            applyEditorOverviewSettings();
             diagnosticsFormatStart = 0;
             applyHighlighting();
             updateLineNumbers();

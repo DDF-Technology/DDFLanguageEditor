@@ -95,6 +95,7 @@ namespace DDF___Program_Language_Editor
             initializeBreadcrumb();
             initializeEditorSettings();
             initializeEditorVisuals();
+            initializeEditorOverview();
             initializeCommandPalette();
             initializeShortcutSettings();
             initializeAutoSaveAndHotExit();
@@ -152,6 +153,7 @@ namespace DDF___Program_Language_Editor
         {
             base.OnResize(e);
             updateLineNumbers();
+            refreshEditorOverviewViewport();
         }
 
         private void MainForm_Load(object sender, EventArgs e)
@@ -164,6 +166,7 @@ namespace DDF___Program_Language_Editor
             updateDocumentUi();
             applyHighlighting();
             updateLineNumbers();
+            refreshEditorOverview();
             updateCaretPosition();
             richTextBoxMainEditor.Focus();
         }
@@ -456,7 +459,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.5.3 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.5.4 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

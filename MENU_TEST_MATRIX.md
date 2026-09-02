@@ -92,6 +92,7 @@ runtime posizionati nel sorgente.
 | Mostra caratteri invisibili | disegna marker per spazi, tab e fine riga e sincronizza menu, toolbar e impostazioni |
 | Mostra guide di indentazione | disegna guide per i livelli configurati senza contaminare RTF o Undo |
 | A capo automatico | applica il word wrap alle schede e alla vista compressa mantenendo coerente il gutter |
+| Mostra overview diagnostica | alterna la barra persistente, verifica errori e breakpoint reali e naviga alla riga cliccata |
 | Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
 | Impostazioni | applica editor, scorciatoie, autosave, Hot Exit, sessione e recovery locale, con preset predefinito |
 
@@ -118,8 +119,8 @@ ritorno alla posizione precedente tramite Navigazione indietro.
 
 ## Barra strumenti
 
-La toolbar espone 43 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, Impostazioni, Command Palette, completamento, correzioni rapide, selezione sintattica,
-riduzione, navigazione tra delimitatori e le quattro opzioni visive. Lo smoke verifica presenza, ordine funzionale,
+La toolbar espone 44 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, Impostazioni, Command Palette, completamento, correzioni rapide, selezione sintattica,
+riduzione, navigazione tra delimitatori, le quattro opzioni visive e l'overview. Lo smoke verifica presenza, ordine funzionale,
 accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette

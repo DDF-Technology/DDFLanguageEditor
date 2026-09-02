@@ -1,6 +1,20 @@
-# DDFLanguageEditor 0.9.5.3
+# DDFLanguageEditor 0.9.5.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.4 adds a narrow, interactive overview at the right edge of the
+editor. It maps errors, warnings, workspace-search matches and breakpoints over
+the complete document, while an outlined band shows the currently visible
+viewport. Clicking the overview navigates directly to the corresponding line.
+The feature can be disabled from View, Settings, the Command Palette or its icon
+bar button, and that preference persists between launches.
+
+The overview reuses existing language-service results and never modifies source,
+RTF colors, selection or Undo history. Marker snapshots are deduplicated and a
+scroll updates only the viewport band. The measured scroll/gutter p95 remains
+well below the 16 ms target. A full text-rendering minimap was evaluated and is
+intentionally deferred: the overview delivers the primary navigation value at a
+much lower rendering and maintenance cost.
 
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They

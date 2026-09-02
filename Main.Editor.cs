@@ -217,6 +217,7 @@ namespace DDF___Program_Language_Editor
             if (!ReferenceEquals(changedEditor, richTextBoxMainEditor)) return;
 
             updateLineNumbers();
+            refreshEditorOverview();
             updateCaretPosition();
             highlightTimer.Stop();
             highlightTimer.Start();
@@ -802,6 +803,7 @@ namespace DDF___Program_Language_Editor
         private void richTextBoxMainEditor_VScroll(object sender, EventArgs e)
         {
             updateLineNumbers();
+            refreshEditorOverviewViewport();
         }
 
         private void richTextBoxMainEditor_FontChanged(object sender, EventArgs e)
@@ -880,6 +882,7 @@ namespace DDF___Program_Language_Editor
         private void updateDiagnostics(System.Collections.Generic.IReadOnlyList<DdfDiagnostic> diagnostics)
         {
             activeDiagnostics = diagnostics ?? new List<DdfDiagnostic>();
+            refreshEditorOverview();
             string signature = createDiagnosticsRenderSignature(activeDiagnostics);
             if (string.Equals(diagnosticsRenderSignature, signature, StringComparison.Ordinal)) return;
             diagnosticsRenderSignature = signature;

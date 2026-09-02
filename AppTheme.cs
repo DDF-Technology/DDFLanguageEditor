@@ -71,7 +71,8 @@ namespace DDF___Program_Language_Editor
         {
             return control.Name == "richTextBoxMainEditor" ||
                    control.Name == "richTextBoxFoldedView" ||
-                   control.Name == "richTextBoxLineNumbers";
+                   control.Name == "richTextBoxLineNumbers" ||
+                   control.Name == "editorOverviewBar";
         }
     }
 }

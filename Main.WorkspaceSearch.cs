@@ -276,8 +276,10 @@ namespace DDF___Program_Language_Editor
             workspaceReplacementApplyButton.Enabled = false;
             if (string.IsNullOrWhiteSpace(workspaceSearchTextBox.Text))
             {
+                activeWorkspaceSearchResults = Array.Empty<DdfWorkspaceSearchResult>();
                 workspaceSearchResultsListView.Items.Clear();
                 workspaceSearchStatusLabel.Text = "Nessuna ricerca";
+                refreshEditorOverview();
                 return;
             }
             workspaceSearchTimer.Start();
@@ -362,6 +364,7 @@ namespace DDF___Program_Language_Editor
                 replacementPreview != isWorkspaceReplacementMode ||
                 !string.Equals(query, workspaceSearchTextBox.Text, StringComparison.Ordinal) ||
                 (replacementPreview && !string.Equals(replacement, workspaceReplacementTextBox.Text, StringComparison.Ordinal))) return;
+            activeWorkspaceSearchResults = results ?? Array.Empty<DdfWorkspaceSearchResult>();
             isPopulatingWorkspaceSearchResults = true;
             workspaceSearchResultsListView.BeginUpdate();
             try
@@ -396,6 +399,7 @@ namespace DDF___Program_Language_Editor
                 ? (replacementPreview ? "Sostituzione" : "Ricerca")
                 : (replacementPreview ? "Sostituzione (" : "Ricerca (") + results.Count + ")";
             if (results.Count > 0) workspaceSearchResultsListView.Items[0].Selected = true;
+            refreshEditorOverview();
         }
 
         private static string getSearchSymbolKind(DdfSymbolKind? kind)
@@ -597,6 +601,7 @@ namespace DDF___Program_Language_Editor
 
         private void disposeWorkspaceSearch()
         {
+            activeWorkspaceSearchResults = Array.Empty<DdfWorkspaceSearchResult>();
             workspaceSearchRequestVersion++;
             workspaceSearchCancellation?.Cancel();
             workspaceSearchTimer?.Stop();

@@ -37,7 +37,7 @@ namespace DDF___Program_Language_Editor
             bool crashRecoveryEnabled)
             : this(fontFamily, fontSize, zoomPercent, theme, useTabs, indentSize, lineEnding,
                 formatOnSave, autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled,
-                restoreSessionEnabled, crashRecoveryEnabled, true, false, true, false)
+                restoreSessionEnabled, crashRecoveryEnabled, true, false, true, false, true)
         {
         }
 
@@ -46,6 +46,18 @@ namespace DDF___Program_Language_Editor
             bool autoSaveEnabled, int autoSaveDelaySeconds, bool hotExitEnabled, bool restoreSessionEnabled,
             bool crashRecoveryEnabled, bool highlightCurrentLine, bool showWhitespace,
             bool showIndentGuides, bool wordWrap)
+            : this(fontFamily, fontSize, zoomPercent, theme, useTabs, indentSize, lineEnding,
+                formatOnSave, autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled,
+                restoreSessionEnabled, crashRecoveryEnabled, highlightCurrentLine, showWhitespace,
+                showIndentGuides, wordWrap, true)
+        {
+        }
+
+        public EditorSettings(string fontFamily, float fontSize, int zoomPercent, EditorTheme theme,
+            bool useTabs, int indentSize, EditorLineEnding lineEnding, bool formatOnSave,
+            bool autoSaveEnabled, int autoSaveDelaySeconds, bool hotExitEnabled, bool restoreSessionEnabled,
+            bool crashRecoveryEnabled, bool highlightCurrentLine, bool showWhitespace,
+            bool showIndentGuides, bool wordWrap, bool showOverview)
         {
             if (string.IsNullOrWhiteSpace(fontFamily)) throw new ArgumentException("A font family is required.", nameof(fontFamily));
             if (fontSize < 8F || fontSize > 32F) throw new ArgumentOutOfRangeException(nameof(fontSize));
@@ -69,6 +81,7 @@ namespace DDF___Program_Language_Editor
             ShowWhitespace = showWhitespace;
             ShowIndentGuides = showIndentGuides;
             WordWrap = wordWrap;
+            ShowOverview = showOverview;
         }
 
         public string FontFamily { get; }
@@ -88,6 +101,7 @@ namespace DDF___Program_Language_Editor
         public bool ShowWhitespace { get; }
         public bool ShowIndentGuides { get; }
         public bool WordWrap { get; }
+        public bool ShowOverview { get; }
 
         public static EditorSettings Default => new EditorSettings(DefaultFontFamily, DefaultFontSize,
             DefaultZoomPercent, EditorTheme.Dark, false, DefaultIndentSize, EditorLineEnding.Lf, false);
@@ -117,11 +131,12 @@ namespace DDF___Program_Language_Editor
             bool showWhitespace = parseBool(values, "showWhitespace", defaults.ShowWhitespace);
             bool showIndentGuides = parseBool(values, "showIndentGuides", defaults.ShowIndentGuides);
             bool wordWrap = parseBool(values, "wordWrap", defaults.WordWrap);
+            bool showOverview = parseBool(values, "showOverview", defaults.ShowOverview);
             EditorTheme theme = parseEnum(values, "theme", defaults.Theme);
             EditorLineEnding lineEnding = parseEnum(values, "lineEnding", defaults.LineEnding);
             return new EditorSettings(font, fontSize, zoom, theme, tabs, indent, lineEnding, formatOnSave,
                 autoSaveEnabled, autoSaveDelaySeconds, hotExitEnabled, restoreSessionEnabled, crashRecoveryEnabled,
-                highlightCurrentLine, showWhitespace, showIndentGuides, wordWrap);
+                highlightCurrentLine, showWhitespace, showIndentGuides, wordWrap, showOverview);
         }
 
         public string Serialize()
@@ -144,7 +159,8 @@ namespace DDF___Program_Language_Editor
                 "highlightCurrentLine=" + HighlightCurrentLine,
                 "showWhitespace=" + ShowWhitespace,
                 "showIndentGuides=" + ShowIndentGuides,
-                "wordWrap=" + WordWrap
+                "wordWrap=" + WordWrap,
+                "showOverview=" + ShowOverview
             });
         }
 
@@ -154,7 +170,15 @@ namespace DDF___Program_Language_Editor
             return new EditorSettings(FontFamily, FontSize, ZoomPercent, Theme, UseTabs, IndentSize,
                 LineEnding, FormatOnSave, AutoSaveEnabled, AutoSaveDelaySeconds, HotExitEnabled,
                 RestoreSessionEnabled, CrashRecoveryEnabled, highlightCurrentLine, showWhitespace,
-                showIndentGuides, wordWrap);
+                showIndentGuides, wordWrap, ShowOverview);
+        }
+
+        public EditorSettings WithOverview(bool showOverview)
+        {
+            return new EditorSettings(FontFamily, FontSize, ZoomPercent, Theme, UseTabs, IndentSize,
+                LineEnding, FormatOnSave, AutoSaveEnabled, AutoSaveDelaySeconds, HotExitEnabled,
+                RestoreSessionEnabled, CrashRecoveryEnabled, HighlightCurrentLine, ShowWhitespace,
+                ShowIndentGuides, WordWrap, showOverview);
         }
 
         public string ApplyLineEndings(string text)

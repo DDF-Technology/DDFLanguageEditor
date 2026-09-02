@@ -1,0 +1,149 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace DDF___Program_Language_Editor
+{
+    internal enum EditorOverviewMarkerKind
+    {
+        Search,
+        Warning,
+        Error,
+        Breakpoint
+    }
+
+    internal sealed class EditorOverviewMarker
+    {
+        public EditorOverviewMarker(int line, EditorOverviewMarkerKind kind)
+        {
+            Line = Math.Max(1, line);
+            Kind = kind;
+        }
+
+        public int Line { get; }
+        public EditorOverviewMarkerKind Kind { get; }
+    }
+
+    internal sealed class EditorOverviewLineRequestedEventArgs : EventArgs
+    {
+        public EditorOverviewLineRequestedEventArgs(int line) => Line = line;
+        public int Line { get; }
+    }
+
+    internal sealed class EditorOverviewBar : Control
+    {
+        private IReadOnlyList<EditorOverviewMarker> markers = Array.Empty<EditorOverviewMarker>();
+        private int totalLines = 1;
+        private int firstVisibleLine = 1;
+        private int lastVisibleLine = 1;
+        private string markerSignature = string.Empty;
+
+        public EditorOverviewBar()
+        {
+            Name = "editorOverviewBar";
+            Dock = DockStyle.Right;
+            Width = 16;
+            MinimumSize = new Size(12, 0);
+            Cursor = Cursors.Hand;
+            DoubleBuffered = true;
+            TabStop = false;
+            AccessibleName = "Panoramica del documento";
+            AccessibleDescription = "Mostra errori, avvisi, risultati di ricerca, breakpoint e area visibile.";
+        }
+
+        public event EventHandler<EditorOverviewLineRequestedEventArgs> LineRequested;
+
+        public int TotalLines => totalLines;
+        public int FirstVisibleLine => firstVisibleLine;
+        public int LastVisibleLine => lastVisibleLine;
+        public int SearchMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Search);
+        public int WarningMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Warning);
+        public int ErrorMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Error);
+        public int BreakpointMarkerCount => markers.Count(marker => marker.Kind == EditorOverviewMarkerKind.Breakpoint);
+
+        public void SetMarkers(int lineCount, IEnumerable<EditorOverviewMarker> value)
+        {
+            int safeLineCount = Math.Max(1, lineCount);
+            EditorOverviewMarker[] normalized = (value ?? Enumerable.Empty<EditorOverviewMarker>())
+                .Where(marker => marker != null)
+                .Select(marker => new EditorOverviewMarker(Math.Min(safeLineCount, marker.Line), marker.Kind))
+                .Distinct(new MarkerComparer())
+                .OrderBy(marker => marker.Line)
+                .ThenBy(marker => marker.Kind)
+                .ToArray();
+            string signature = safeLineCount + ":" + string.Join(",", normalized.Select(marker => marker.Line + "/" + (int)marker.Kind));
+            if (signature == markerSignature) return;
+            totalLines = safeLineCount;
+            markers = normalized;
+            markerSignature = signature;
+            firstVisibleLine = Math.Min(firstVisibleLine, totalLines);
+            lastVisibleLine = Math.Max(firstVisibleLine, Math.Min(lastVisibleLine, totalLines));
+            Invalidate();
+        }
+
+        public void SetViewport(int firstLine, int lastLine)
+        {
+            int first = Math.Max(1, Math.Min(totalLines, firstLine));
+            int last = Math.Max(first, Math.Min(totalLines, lastLine));
+            if (first == firstVisibleLine && last == lastVisibleLine) return;
+            firstVisibleLine = first;
+            lastVisibleLine = last;
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            if (ClientSize.Height <= 0 || ClientSize.Width <= 0) return;
+            foreach (EditorOverviewMarker marker in markers)
+            {
+                int y = lineToY(marker.Line);
+                using (var brush = new SolidBrush(markerColor(marker.Kind)))
+                    e.Graphics.FillRectangle(brush, 2, Math.Max(0, y - 1), Math.Max(1, ClientSize.Width - 4), 3);
+            }
+
+            int top = lineToY(firstVisibleLine);
+            int bottom = lineToY(lastVisibleLine);
+            int height = Math.Max(5, bottom - top + 1);
+            if (top + height >= ClientSize.Height) height = Math.Max(1, ClientSize.Height - top - 1);
+            using (var brush = new SolidBrush(Color.FromArgb(38, ForeColor)))
+                e.Graphics.FillRectangle(brush, 0, top, ClientSize.Width - 1, height);
+            using (var pen = new Pen(Color.FromArgb(135, ForeColor)))
+                e.Graphics.DrawRectangle(pen, 0, top, Math.Max(0, ClientSize.Width - 1), height);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left) return;
+            int line = ClientSize.Height <= 1
+                ? 1
+                : 1 + (int)Math.Round((double)Math.Max(0, Math.Min(ClientSize.Height - 1, e.Y)) * (totalLines - 1) / (ClientSize.Height - 1));
+            LineRequested?.Invoke(this, new EditorOverviewLineRequestedEventArgs(line));
+        }
+
+        private int lineToY(int line) => totalLines <= 1 || ClientSize.Height <= 1
+            ? 0
+            : (int)Math.Round((double)(Math.Max(1, Math.Min(totalLines, line)) - 1) * (ClientSize.Height - 1) / (totalLines - 1));
+
+        private static Color markerColor(EditorOverviewMarkerKind kind)
+        {
+            switch (kind)
+            {
+                case EditorOverviewMarkerKind.Search: return Color.FromArgb(0, 122, 204);
+                case EditorOverviewMarkerKind.Warning: return Color.FromArgb(215, 154, 46);
+                case EditorOverviewMarkerKind.Error: return Color.FromArgb(241, 76, 76);
+                default: return Color.FromArgb(210, 45, 45);
+            }
+        }
+
+        private sealed class MarkerComparer : IEqualityComparer<EditorOverviewMarker>
+        {
+            public bool Equals(EditorOverviewMarker x, EditorOverviewMarker y) =>
+                ReferenceEquals(x, y) || (x != null && y != null && x.Line == y.Line && x.Kind == y.Kind);
+            public int GetHashCode(EditorOverviewMarker marker) => (marker.Line * 397) ^ (int)marker.Kind;
+        }
+    }
+}

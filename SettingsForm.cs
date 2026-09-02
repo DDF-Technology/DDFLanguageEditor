@@ -25,6 +25,7 @@ namespace DDF___Program_Language_Editor
         private readonly CheckBox settingsShowWhitespaceCheckBox;
         private readonly CheckBox settingsShowIndentGuidesCheckBox;
         private readonly CheckBox settingsWordWrapCheckBox;
+        private readonly CheckBox settingsShowOverviewCheckBox;
         private readonly DataGridView settingsShortcutGrid;
         private readonly TextBox settingsShortcutTextBox;
         private readonly Label settingsShortcutStatusLabel;
@@ -51,7 +52,7 @@ namespace DDF___Program_Language_Editor
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(760, 650);
+            ClientSize = new Size(760, 690);
             Font = new Font("Segoe UI", 9F);
             Icon = AppIconProvider.LoadIcon();
 
@@ -76,6 +77,7 @@ namespace DDF___Program_Language_Editor
             settingsShowWhitespaceCheckBox = new CheckBox { Name = "settingsShowWhitespaceCheckBox", Text = "Mostra spazi, tab e fine riga", Checked = settings.ShowWhitespace, Dock = DockStyle.Fill };
             settingsShowIndentGuidesCheckBox = new CheckBox { Name = "settingsShowIndentGuidesCheckBox", Text = "Mostra guide di indentazione", Checked = settings.ShowIndentGuides, Dock = DockStyle.Fill };
             settingsWordWrapCheckBox = new CheckBox { Name = "settingsWordWrapCheckBox", Text = "A capo automatico delle righe lunghe", Checked = settings.WordWrap, Dock = DockStyle.Fill };
+            settingsShowOverviewCheckBox = new CheckBox { Name = "settingsShowOverviewCheckBox", Text = "Mostra overview di diagnostica, ricerca e breakpoint", Checked = settings.ShowOverview, Dock = DockStyle.Fill };
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
@@ -138,7 +140,8 @@ namespace DDF___Program_Language_Editor
             settingsHighlightCurrentLineCheckBox.Checked,
             settingsShowWhitespaceCheckBox.Checked,
             settingsShowIndentGuidesCheckBox.Checked,
-            settingsWordWrapCheckBox.Checked);
+            settingsWordWrapCheckBox.Checked,
+            settingsShowOverviewCheckBox.Checked);
 
         public ShortcutSettings SelectedShortcuts => new ShortcutSettings(shortcutDefinitions, shortcutValues);
 
@@ -167,10 +170,10 @@ namespace DDF___Program_Language_Editor
         private TabPage createEditorTab()
         {
             var page = new TabPage("Editor") { Name = "settingsEditorTab", Padding = new Padding(6) };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 18, Padding = new Padding(18) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 19, Padding = new Padding(18) };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int index = 0; index < 17; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+            for (int index = 0; index < 18; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             addRow(layout, 0, "Font del codice", settingsFontComboBox);
             addRow(layout, 1, "Dimensione font", settingsFontSizeNumeric);
@@ -189,6 +192,7 @@ namespace DDF___Program_Language_Editor
             addRow(layout, 14, "Caratteri invisibili", settingsShowWhitespaceCheckBox);
             addRow(layout, 15, "Guide indentazione", settingsShowIndentGuidesCheckBox);
             addRow(layout, 16, "A capo automatico", settingsWordWrapCheckBox);
+            addRow(layout, 17, "Overview editor", settingsShowOverviewCheckBox);
             page.Controls.Add(layout);
             return page;
         }
@@ -279,6 +283,7 @@ namespace DDF___Program_Language_Editor
             settingsShowWhitespaceCheckBox.Checked = settings.ShowWhitespace;
             settingsShowIndentGuidesCheckBox.Checked = settings.ShowIndentGuides;
             settingsWordWrapCheckBox.Checked = settings.WordWrap;
+            settingsShowOverviewCheckBox.Checked = settings.ShowOverview;
         }
 
         private static NumericUpDown createNumeric(string name, decimal minimum, decimal maximum, decimal value, decimal increment) =>
