@@ -14,6 +14,7 @@ evidenziazione delle regole note e indentazione assistita.
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
 - pacchetto DDF esterno versionato, caricabile da cartella o archivio `.ddflang`, con validazione atomica e fallback incorporato;
+- finestra `Help > Pacchetto linguaggio attivo` con versione, origine, sorgente e diagnostiche di caricamento;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
@@ -164,7 +165,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 56 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 57 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:

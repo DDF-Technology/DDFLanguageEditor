@@ -42,6 +42,7 @@ This release is intended for interface and language-design evaluation only.
 - repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
 - accelerated multi-document endurance smoke with latency, memory, handle and GDI/USER resource-growth gates;
 - versioned DDF language package loadable from a directory or `.ddflang` archive, with atomic validation and embedded fallback;
+- active language-package information and fallback diagnostics available from the Help menu;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;

@@ -48,7 +48,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 56 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 57 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -86,6 +86,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     .Items["statusEncodingLabel"];
                 Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
                         languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6", StringComparison.Ordinal) &&
+                        languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
 
@@ -670,7 +671,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "highlightCurrentLineMenuItem", "showWhitespaceMenuItem",
-                    "showIndentGuidesMenuItem", "wordWrapMenuItem", "showOverviewMenuItem", "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
+                    "showIndentGuidesMenuItem", "wordWrapMenuItem", "showOverviewMenuItem", "languagePackageInfoMenuItem",
+                    "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
                 };
                 foreach (string command in commands)
                 {
@@ -695,6 +697,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             using (var form = ShowSmokeForm(visible))
             {
+                FindMenuItem(form, "languagePackageInfoMenuItem").PerformClick();
+                PumpMessages(80);
+
+                Form packageInfo = Application.OpenForms.Cast<Form>()
+                    .FirstOrDefault(openForm => openForm.Name == "LanguagePackageInfoForm" && openForm.Owner == form);
+                Require(packageInfo != null && packageInfo.Visible,
+                    "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
+                Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
+                    "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6") &&
+                        FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
+                        !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
+                    "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
+                Require(FindControl<ListBox>(packageInfo, "languagePackageDiagnosticsListBox").Items.Count > 0,
+                    "La finestra non espone lo stato delle diagnostiche di caricamento.");
+                FindControl<Button>(packageInfo, "languagePackageCloseButton").PerformClick();
+                PumpMessages(40);
+                Require(packageInfo.IsDisposed, "Il pulsante Chiudi non ha terminato le informazioni pacchetto.");
+
                 FindMenuItem(form, "aboutMenuItem").PerformClick();
                 PumpMessages(80);
 
@@ -727,7 +748,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(about.IsDisposed, "Il pulsante Chiudi non ha terminato About.");
             }
 
-            Console.WriteLine("PASS menu Help: About, autore, sito, licenza, versione beta e icona");
+            Console.WriteLine("PASS menu Help: pacchetto linguaggio attivo, About, autore, sito, licenza, versione beta e icona");
         }
 
         private static void AssertEditAndFindReplaceMenus(bool visible)

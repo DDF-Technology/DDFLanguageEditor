@@ -49,6 +49,8 @@ namespace DDF___Program_Language_Editor
             this.toggleFoldMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.expandAllFoldsMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.languagePackageInfoMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.helpSeparator = new System.Windows.Forms.ToolStripSeparator();
             this.aboutMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMain = new System.Windows.Forms.ToolStrip();
             this.panelEditor = new System.Windows.Forms.Panel();
@@ -335,10 +337,22 @@ namespace DDF___Program_Language_Editor
             // helpMenuItem
             //
             this.helpMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.languagePackageInfoMenuItem,
+            this.helpSeparator,
             this.aboutMenuItem});
             this.helpMenuItem.Name = "helpMenuItem";
             this.helpMenuItem.Size = new System.Drawing.Size(44, 20);
             this.helpMenuItem.Text = "&Help";
+            //
+            // languagePackageInfoMenuItem
+            //
+            this.languagePackageInfoMenuItem.Name = "languagePackageInfoMenuItem";
+            this.languagePackageInfoMenuItem.Text = "Pacchetto &linguaggio attivo...";
+            this.languagePackageInfoMenuItem.Click += new System.EventHandler(this.languagePackageInfoMenuItem_Click);
+            //
+            // helpSeparator
+            //
+            this.helpSeparator.Name = "helpSeparator";
             //
             // aboutMenuItem
             //
@@ -686,6 +700,8 @@ namespace DDF___Program_Language_Editor
         private System.Windows.Forms.ToolStripMenuItem toggleFoldMenuItem;
         private System.Windows.Forms.ToolStripMenuItem expandAllFoldsMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem languagePackageInfoMenuItem;
+        private System.Windows.Forms.ToolStripSeparator helpSeparator;
         private System.Windows.Forms.ToolStripMenuItem aboutMenuItem;
         private System.Windows.Forms.ToolStrip toolStripMain;
         private System.Windows.Forms.Panel panelEditor;

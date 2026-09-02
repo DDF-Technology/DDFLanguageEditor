@@ -49,6 +49,12 @@ espone ID, versione del pacchetto, origine (`cartella`, `archivio` o
 `incorporato`), sorgente e le eventuali diagnostiche che hanno causato il
 fallback.
 
+Le stesse informazioni sono sempre consultabili da
+`Help > Pacchetto linguaggio attivo`, senza dipendere dalla larghezza della barra
+di stato o dalla comparsa del tooltip. La finestra distingue esplicitamente un
+caricamento esterno riuscito dal fallback incorporato e consente di copiare tutti
+i dettagli.
+
 Ogni diagnostica del loader contiene:
 
 - un codice stabile `DDFLxxx`;

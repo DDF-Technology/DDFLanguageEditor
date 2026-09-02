@@ -104,6 +104,7 @@ blocco e il blocco delle modifiche nella vista compressa.
 
 | Comando | Verifica dinamica |
 | --- | --- |
+| Pacchetto linguaggio attivo | apre il popup centrato e verifica stato, versione, origine, sorgente e diagnostiche di caricamento |
 | About | apre il popup e verifica icona ad alta risoluzione, autore, sito, licenza MIT, versione e stato beta |
 
 Lo smoke controlla inoltre che la finestra principale sia configurata per

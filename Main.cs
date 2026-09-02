@@ -30,6 +30,7 @@ namespace DDF___Program_Language_Editor
         private List<string> recentWorkspaces;
         private FindReplaceForm findReplaceForm;
         private AboutForm aboutForm;
+        private LanguagePackageInfoForm languagePackageInfoForm;
         private readonly ToolTip symbolToolTip;
         private DdfDocumentSymbol hoveredSymbol;
         private DdfTypedSpan hoveredTypedSpan;

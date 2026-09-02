@@ -19,6 +19,9 @@ references, unknown sections and duplicate definitions reject the whole package
 with diagnostics containing a code, file and JSON path. A complete copy embedded
 in Core is then used as a safe fallback. The status bar and its tooltip expose
 the active language and package versions, source, origin and fallback details.
+The same information is available without relying on a tooltip through
+`Help > Pacchetto linguaggio attivo`, including an explicit successful-load or
+embedded-fallback state and copyable diagnostics.
 
 The Core suite covers the embedded resource, folder and `.ddflang` forms,
 behavioral equivalence, invalid definitions and fallback. The package contract
