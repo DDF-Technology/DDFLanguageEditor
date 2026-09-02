@@ -51,6 +51,10 @@ namespace DDF___Program_Language_Editor
                 { "toolbarQuickFixButton", "quickFixMenuItem" },
                 { "toolbarFormatButton", "formatDocumentMenuItem" },
                 { "toolbarFoldButton", "toggleFoldMenuItem" },
+                { "toolbarHighlightCurrentLineButton", "highlightCurrentLineMenuItem" },
+                { "toolbarShowWhitespaceButton", "showWhitespaceMenuItem" },
+                { "toolbarShowIndentGuidesButton", "showIndentGuidesMenuItem" },
+                { "toolbarWordWrapButton", "wordWrapMenuItem" },
                 { "toolbarBreakpointButton", "toggleBreakpointMenuItem" },
                 { "toolbarRunButton", "runProgramMenuItem" },
                 { "toolbarStopButton", "stopProgramMenuItem" }

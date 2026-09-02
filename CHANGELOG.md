@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.5.3 - 2026-09-02
+
+- add source-preserving overlays for the current line, spaces, tabs, line endings and indentation guides;
+- make all four visual aids configurable and persistent through View, Settings, Command Palette and four new toolbar buttons;
+- support optional word wrap across document tabs and folded view, with logical line numbers shown only on the first wrapped row;
+- defer overlay refreshes outside synchronous selection and scrolling paths, retaining the established input, selection and scroll p95 targets;
+- stop and harden crash-recovery snapshots during form teardown after dynamic smoke exposed a disposed-tab timer race;
+- extend the menu gate to all 55 commands and the icon bar to 43 tested controls;
+- add the planned 0.9.6 language-package, declarative grammar, safe semantics, VM and configurable-build architecture to the roadmap;
+
 ## 0.9.5.2 - 2026-09-01
 
 - load folder workspaces on cancellable, versioned background tasks while keeping tree updates on the UI thread;

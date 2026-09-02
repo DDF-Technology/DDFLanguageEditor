@@ -72,7 +72,8 @@ namespace DDF___Program_Language_Editor
             {
                 List<OpenDocumentBuffer> allBuffers = openDocuments.Documents.ToList();
                 List<DocumentView> dirtyViews = allBuffers.Where(buffer => buffer.Session.IsDirty)
-                    .Select(buffer => documentViews[buffer.Id]).ToList();
+                    .Select(buffer => documentViews[buffer.Id])
+                    .Where(view => view.Editor != null && !view.Editor.IsDisposed).ToList();
                 if (dirtyViews.Count == 0)
                 {
                     clearCrashRecoverySetting();

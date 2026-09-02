@@ -1,4 +1,4 @@
-# Beta 0.9.5.2 limitations
+# Beta 0.9.5.3 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -30,6 +30,7 @@ This release is intended for interface and language-design evaluation only.
 - searchable Command Palette generated from current menu actions, shortcuts and enabled state;
 - drag-and-drop opening for DDF files and workspace folders, with persisted recent workspaces;
 - persistent editor preferences for font, zoom, code theme, indentation, line endings and format-on-save;
+- persistent current-line highlighting, whitespace markers, indentation guides and word wrap with source-preserving overlays;
 - persistent right and bottom palette dimensions and pinned/auto-hide state;
 - persistent configurable keyboard shortcuts with conflict detection and a restorable default preset;
 - optional idle autosave for named documents and Hot Exit recovery for dirty named or untitled buffers;

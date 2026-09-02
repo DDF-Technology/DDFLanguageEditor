@@ -94,6 +94,7 @@ namespace DDF___Program_Language_Editor
             initializeWorkspaceNavigation();
             initializeBreadcrumb();
             initializeEditorSettings();
+            initializeEditorVisuals();
             initializeCommandPalette();
             initializeShortcutSettings();
             initializeAutoSaveAndHotExit();
@@ -176,6 +177,7 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
+            crashRecoveryTimer?.Stop();
             symbolToolTip.Active = false;
             symbolToolTip.Hide(richTextBoxMainEditor);
             symbolToolTip.RemoveAll();
@@ -454,7 +456,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.5.2 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.5.3 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

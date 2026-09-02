@@ -21,6 +21,10 @@ namespace DDF___Program_Language_Editor
         private readonly CheckBox settingsHotExitCheckBox;
         private readonly CheckBox settingsRestoreSessionCheckBox;
         private readonly CheckBox settingsCrashRecoveryCheckBox;
+        private readonly CheckBox settingsHighlightCurrentLineCheckBox;
+        private readonly CheckBox settingsShowWhitespaceCheckBox;
+        private readonly CheckBox settingsShowIndentGuidesCheckBox;
+        private readonly CheckBox settingsWordWrapCheckBox;
         private readonly DataGridView settingsShortcutGrid;
         private readonly TextBox settingsShortcutTextBox;
         private readonly Label settingsShortcutStatusLabel;
@@ -47,7 +51,7 @@ namespace DDF___Program_Language_Editor
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(760, 560);
+            ClientSize = new Size(760, 650);
             Font = new Font("Segoe UI", 9F);
             Icon = AppIconProvider.LoadIcon();
 
@@ -68,6 +72,10 @@ namespace DDF___Program_Language_Editor
             settingsHotExitCheckBox = new CheckBox { Name = "settingsHotExitCheckBox", Text = "Conserva i buffer non salvati alla chiusura (Hot Exit)", Checked = settings.HotExitEnabled, Dock = DockStyle.Fill };
             settingsRestoreSessionCheckBox = new CheckBox { Name = "settingsRestoreSessionCheckBox", Text = "Riapri workspace e schede dell'ultima sessione", Checked = settings.RestoreSessionEnabled, Dock = DockStyle.Fill };
             settingsCrashRecoveryCheckBox = new CheckBox { Name = "settingsCrashRecoveryCheckBox", Text = "Conserva copie locali dopo modifiche non salvate", Checked = settings.CrashRecoveryEnabled, Dock = DockStyle.Fill };
+            settingsHighlightCurrentLineCheckBox = new CheckBox { Name = "settingsHighlightCurrentLineCheckBox", Text = "Evidenzia la riga del cursore", Checked = settings.HighlightCurrentLine, Dock = DockStyle.Fill };
+            settingsShowWhitespaceCheckBox = new CheckBox { Name = "settingsShowWhitespaceCheckBox", Text = "Mostra spazi, tab e fine riga", Checked = settings.ShowWhitespace, Dock = DockStyle.Fill };
+            settingsShowIndentGuidesCheckBox = new CheckBox { Name = "settingsShowIndentGuidesCheckBox", Text = "Mostra guide di indentazione", Checked = settings.ShowIndentGuides, Dock = DockStyle.Fill };
+            settingsWordWrapCheckBox = new CheckBox { Name = "settingsWordWrapCheckBox", Text = "A capo automatico delle righe lunghe", Checked = settings.WordWrap, Dock = DockStyle.Fill };
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
@@ -126,7 +134,11 @@ namespace DDF___Program_Language_Editor
             (int)settingsAutoSaveDelayNumeric.Value,
             settingsHotExitCheckBox.Checked,
             settingsRestoreSessionCheckBox.Checked,
-            settingsCrashRecoveryCheckBox.Checked);
+            settingsCrashRecoveryCheckBox.Checked,
+            settingsHighlightCurrentLineCheckBox.Checked,
+            settingsShowWhitespaceCheckBox.Checked,
+            settingsShowIndentGuidesCheckBox.Checked,
+            settingsWordWrapCheckBox.Checked);
 
         public ShortcutSettings SelectedShortcuts => new ShortcutSettings(shortcutDefinitions, shortcutValues);
 
@@ -155,10 +167,10 @@ namespace DDF___Program_Language_Editor
         private TabPage createEditorTab()
         {
             var page = new TabPage("Editor") { Name = "settingsEditorTab", Padding = new Padding(6) };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 14, Padding = new Padding(18) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 18, Padding = new Padding(18) };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int index = 0; index < 13; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
+            for (int index = 0; index < 17; index++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             addRow(layout, 0, "Font del codice", settingsFontComboBox);
             addRow(layout, 1, "Dimensione font", settingsFontSizeNumeric);
@@ -173,6 +185,10 @@ namespace DDF___Program_Language_Editor
             addRow(layout, 10, "Hot Exit", settingsHotExitCheckBox);
             addRow(layout, 11, "Sessione", settingsRestoreSessionCheckBox);
             addRow(layout, 12, "Recovery", settingsCrashRecoveryCheckBox);
+            addRow(layout, 13, "Riga corrente", settingsHighlightCurrentLineCheckBox);
+            addRow(layout, 14, "Caratteri invisibili", settingsShowWhitespaceCheckBox);
+            addRow(layout, 15, "Guide indentazione", settingsShowIndentGuidesCheckBox);
+            addRow(layout, 16, "A capo automatico", settingsWordWrapCheckBox);
             page.Controls.Add(layout);
             return page;
         }
@@ -259,6 +275,10 @@ namespace DDF___Program_Language_Editor
             settingsHotExitCheckBox.Checked = settings.HotExitEnabled;
             settingsRestoreSessionCheckBox.Checked = settings.RestoreSessionEnabled;
             settingsCrashRecoveryCheckBox.Checked = settings.CrashRecoveryEnabled;
+            settingsHighlightCurrentLineCheckBox.Checked = settings.HighlightCurrentLine;
+            settingsShowWhitespaceCheckBox.Checked = settings.ShowWhitespace;
+            settingsShowIndentGuidesCheckBox.Checked = settings.ShowIndentGuides;
+            settingsWordWrapCheckBox.Checked = settings.WordWrap;
         }
 
         private static NumericUpDown createNumeric(string name, decimal minimum, decimal maximum, decimal value, decimal increment) =>

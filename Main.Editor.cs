@@ -999,6 +999,12 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
+            if (richTextBoxMainEditor.WordWrap)
+            {
+                updateWrappedLineNumbers();
+                return;
+            }
+
             int firstIndex = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, 1)));
             int firstLine = richTextBoxMainEditor.GetLineFromCharIndex(firstIndex);
             int bottom = Math.Max(1, richTextBoxMainEditor.ClientRectangle.Height - 1);
@@ -1021,6 +1027,34 @@ namespace DDF___Program_Language_Editor
 
             string value = lineNumbers.ToString();
             richTextBoxLineNumbers.UpdateDisplayedLines(value, sourceLines);
+        }
+
+        private void updateWrappedLineNumbers()
+        {
+            int lineHeight = Math.Max(1, (int)Math.Ceiling(
+                richTextBoxMainEditor.Font.GetHeight() * richTextBoxMainEditor.ZoomFactor));
+            int rows = Math.Max(1, (int)Math.Ceiling(
+                richTextBoxMainEditor.ClientRectangle.Height / (double)lineHeight) + 1);
+            var lineNumbers = new StringBuilder();
+            var sourceLines = new List<int>();
+            int previousLogicalLine = -1;
+            for (int row = 0; row < rows; row++)
+            {
+                int y = Math.Min(Math.Max(0, richTextBoxMainEditor.ClientRectangle.Height - 1),
+                    row * lineHeight + Math.Max(1, lineHeight / 2));
+                int character = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, y)));
+                int logicalLine = richTextBoxMainEditor.GetLineFromCharIndex(character);
+                int lineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(logicalLine);
+                int lineStartY = lineStart < 0 ? int.MinValue : richTextBoxMainEditor.GetPositionFromCharIndex(lineStart).Y;
+                bool startsHere = logicalLine != previousLogicalLine &&
+                    lineStartY >= row * lineHeight - 2 && lineStartY < (row + 1) * lineHeight + 2;
+                int sourceLine = startsHere ? logicalLine + 1 : 0;
+                sourceLines.Add(sourceLine);
+                if (sourceLine > 0) lineNumbers.Append(formatLineNumber(sourceLine));
+                lineNumbers.Append('\n');
+                previousLogicalLine = logicalLine;
+            }
+            richTextBoxLineNumbers.UpdateDisplayedLines(lineNumbers.ToString(), sourceLines);
         }
     }
 }

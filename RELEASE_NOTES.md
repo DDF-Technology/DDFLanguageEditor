@@ -1,6 +1,20 @@
-# DDFLanguageEditor 0.9.5.2
+# DDFLanguageEditor 0.9.5.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
+space/tab/end-of-line markers, indentation guides and optional word wrap. They
+can be changed from View, Settings, the Command Palette or dedicated toggle
+buttons on the icon bar. Decorations are painted over the native editor without
+changing source text, RTF formatting, selection or Undo history. With wrapping
+enabled, the gutter keeps logical source numbers on the first visual row only.
+
+Overlay refreshes are deferred away from synchronous selection and scroll
+operations, preserving the established input, selection and scroll targets. The expanded
+dynamic smoke also exposed and fixed a teardown race in which the recovery timer
+could inspect an already disposed document tab. The roadmap now records the
+0.9.6 transition toward versioned language packages, declarative grammar, safe
+semantic operations, a generic VM and configurable builds.
 
 Version 0.9.5.2 moves folder indexing off the WinForms input thread. Workspace
 loads are cancellable and versioned, so opening or closing another folder

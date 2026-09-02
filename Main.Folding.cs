@@ -103,6 +103,7 @@ namespace DDF___Program_Language_Editor
         {
             refreshFoldingRangesForCommand();
             updateFoldingCommandState();
+            updateEditorVisualCommandState();
         }
 
         private void updateFoldingCommandState()

@@ -47,7 +47,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 51 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 55 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -497,7 +497,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
                     "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
-                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
+                    "toggleFoldMenuItem", "expandAllFoldsMenuItem", "highlightCurrentLineMenuItem", "showWhitespaceMenuItem",
+                    "showIndentGuidesMenuItem", "wordWrapMenuItem", "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
                 };
                 foreach (string command in commands)
                 {
@@ -532,7 +533,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.2") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.5.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -715,9 +716,39 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpMessages(80);
                 Require(editor.Visible && !foldedView.Visible && editor.Text == Source,
                     "Espandi tutto non ha ripristinato il sorgente originale.");
+
+                ToolStripMenuItem currentLine = FindMenuItem(form, "highlightCurrentLineMenuItem");
+                ToolStripMenuItem whitespace = FindMenuItem(form, "showWhitespaceMenuItem");
+                ToolStripMenuItem indentGuides = FindMenuItem(form, "showIndentGuidesMenuItem");
+                ToolStripMenuItem wordWrap = FindMenuItem(form, "wordWrapMenuItem");
+                Require(currentLine.Checked && !whitespace.Checked && indentGuides.Checked && !wordWrap.Checked,
+                    "Le opzioni visive iniziali non corrispondono al profilo predefinito.");
+                editor.Text = "main()\n{\n    int value << 1;\n\tret value;\n}";
+                editor.Select(editor.Text.IndexOf("int", StringComparison.Ordinal), 0);
+                int selectionStart = editor.SelectionStart;
+                string visualSource = editor.Text;
+                whitespace.PerformClick();
+                PumpMessages(80);
+                Require(whitespace.Checked && FindToolbarButton(form, "toolbarShowWhitespaceButton").Checked &&
+                        GetControlProperty<bool>(editor, "ShowWhitespace") &&
+                        GetControlProperty<int>(editor, "LastRenderedWhitespaceCount") > 0,
+                    "Spazi, tab e fine riga non vengono renderizzati o sincronizzati con menu e toolbar.");
+                indentGuides.PerformClick();
+                FindToolbarButton(form, "toolbarShowIndentGuidesButton").PerformClick();
+                PumpMessages(80);
+                Require(indentGuides.Checked && GetControlProperty<int>(editor, "LastRenderedIndentGuideCount") > 0,
+                    "Le guide di indentazione non vengono ripristinate e disegnate.");
+                FindToolbarButton(form, "toolbarHighlightCurrentLineButton").PerformClick();
+                Require(!currentLine.Checked && !GetControlProperty<bool>(editor, "HighlightCurrentLine"),
+                    "L'evidenza della riga corrente non è controllabile dalla toolbar.");
+                FindToolbarButton(form, "toolbarWordWrapButton").PerformClick();
+                Require(wordWrap.Checked && editor.WordWrap && foldedView.WordWrap,
+                    "L'a capo automatico non viene applicato a editor e vista compressa.");
+                Require(editor.Text == visualSource && editor.SelectionStart == selectionStart,
+                    "Le decorazioni visive modificano il sorgente o spostano il cursore.");
             }
 
-            Console.WriteLine("PASS menu Visualizza: Comprimi blocco ed Espandi tutto");
+            Console.WriteLine("PASS menu Visualizza: folding, riga corrente, invisibili, guide e word wrap");
         }
 
         private static void AssertFileMenu(bool visible)
@@ -2349,7 +2380,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarGoToLineButton", "toolbarGoToLastEditButton",
                 "toolbarCompletionButton",
                 "toolbarQuickFixButton",
-                "toolbarFormatButton", "toolbarFoldButton", "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
+                "toolbarFormatButton", "toolbarFoldButton", "toolbarHighlightCurrentLineButton",
+                "toolbarShowWhitespaceButton", "toolbarShowIndentGuidesButton", "toolbarWordWrapButton",
+                "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
             };
             foreach (string name in expected)
             {
@@ -2376,7 +2409,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 39 comandi principali");
+            Console.WriteLine("PASS toolbar a icone con 43 comandi principali");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -2451,6 +2484,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<CheckBox>(dialog, "settingsHotExitCheckBox").Checked = true;
                 FindControl<CheckBox>(dialog, "settingsRestoreSessionCheckBox").Checked = true;
                 FindControl<CheckBox>(dialog, "settingsCrashRecoveryCheckBox").Checked = true;
+                FindControl<CheckBox>(dialog, "settingsHighlightCurrentLineCheckBox").Checked = false;
+                FindControl<CheckBox>(dialog, "settingsShowWhitespaceCheckBox").Checked = true;
+                FindControl<CheckBox>(dialog, "settingsShowIndentGuidesCheckBox").Checked = false;
+                FindControl<CheckBox>(dialog, "settingsWordWrapCheckBox").Checked = true;
                 Require(FindControl<DataGridView>(dialog, "settingsShortcutGrid").Rows.Count >= 46,
                     "La scheda Scorciatoie non elenca i comandi configurabili.");
                 Require(!dialog.TrySetShortcut("duplicateLinesMenuItem", Keys.Control | Keys.F, out string conflict) &&
@@ -2466,6 +2503,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     settings.AutoSaveEnabled && settings.AutoSaveDelaySeconds == 1 && settings.HotExitEnabled &&
                     settings.RestoreSessionEnabled &&
                     settings.CrashRecoveryEnabled &&
+                    !settings.HighlightCurrentLine && settings.ShowWhitespace &&
+                    !settings.ShowIndentGuides && settings.WordWrap && editor.WordWrap &&
                     settings.LineEnding == EditorLineEnding.CrLf && persisted != null && persistedShortcuts != null,
                 "Le preferenze scelte non vengono applicate e persistite.");
             Require(Math.Abs(editor.Font.Size - 12F) < 0.1F && Math.Abs(editor.ZoomFactor - 1.25F) < 0.02F && IsLight(editor.BackColor),
@@ -2679,7 +2718,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             settings = GetPrivateField<EditorSettings>(form, "editorSettings");
             Require(dialogCount == 2 && !settings.UseTabs && settings.IndentSize == 4 &&
                     !settings.AutoSaveEnabled && !settings.HotExitEnabled && settings.RestoreSessionEnabled &&
-                    settings.CrashRecoveryEnabled &&
+                    settings.CrashRecoveryEnabled && settings.HighlightCurrentLine &&
+                    !settings.ShowWhitespace && settings.ShowIndentGuides && !settings.WordWrap &&
                     settings.Theme == EditorTheme.Dark && !IsLight(editor.BackColor),
                 "Predefiniti o accesso alle Impostazioni dalla toolbar non ripristinano il profilo iniziale.");
             SetPrivateField(form, "saveEditorSettingsSetting", new Action<string>(value => { }));
@@ -2864,6 +2904,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
             MethodInfo method = typeof(MainForm).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) throw new InvalidOperationException("Metodo non trovato: " + methodName);
             return method.Invoke(form, arguments);
+        }
+
+        private static T GetControlProperty<T>(Control control, string propertyName)
+        {
+            PropertyInfo property = control.GetType().GetProperty(
+                propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property == null) throw new InvalidOperationException("Proprietà controllo non trovata: " + propertyName);
+            return (T)property.GetValue(control);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

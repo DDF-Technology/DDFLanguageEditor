@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.5.2 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.5.3 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -50,7 +50,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 39 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, Command Palette, folding, breakpoint ed esecuzione;
+- barra a 43 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
@@ -59,6 +59,7 @@ evidenziazione delle regole note e indentazione assistita.
 - correzioni rapide estensibili da menu contestuale, `Ctrl+.` e toolbar per costrutti non terminati, caratteri non validi e token mancanti;
 - ripristino strutturale delle graffe nel blocco corretto, con indentazione coerente e recovery dei blocchi annidati;
 - analisi e completamento in background con richieste versionate e risultati obsoleti scartati;
+- riga corrente, caratteri invisibili, guide di indentazione e word wrap opzionali e persistenti, disegnati senza modificare il sorgente o Undo;
 - numerazione delle righe visibili in un gutter non selezionabile;
 - Outline e Diagnostica pinnabili oppure richiudibili automaticamente;
 - indentazione configurabile con Tab o da uno a otto spazi;
@@ -158,7 +159,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 51 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 55 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:
@@ -209,7 +210,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.5.2 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.5.3 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
@@ -246,7 +247,8 @@ structure, function and nested control-flow blocks and shares navigation history
 A searchable Command Palette exposes current menu actions, categories, shortcuts
 and availability through `Ctrl+Shift+P` while reusing their original handlers.
 Persistent settings opened with `Ctrl+,` configure font, zoom, code theme,
-indentation, saved line endings and optional format-on-save across open tabs.
+indentation, saved line endings, current-line highlighting, whitespace markers,
+indent guides, word wrap and optional format-on-save across open tabs.
 The Shortcuts tab configures every current menu command, rejects conflicts,
 synchronizes menus, toolbar hints and the Command Palette, and restores a tested
 default preset on demand.

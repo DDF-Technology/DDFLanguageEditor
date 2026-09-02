@@ -127,7 +127,7 @@ namespace DDF___Program_Language_Editor
                 HideSelection = false,
                 Name = "documentEditor_" + id,
                 ZoomFactor = richTextBoxMainEditor.ZoomFactor,
-                WordWrap = false,
+                WordWrap = editorSettings?.WordWrap == true,
                 Visible = false,
                 ContextMenuStrip = editorContextMenu
             };
@@ -138,6 +138,7 @@ namespace DDF___Program_Language_Editor
             editor.KeyDown += richTextBoxMainEditor_KeyDown;
             editor.KeyPress += richTextBoxMainEditor_KeyPress;
             hookEditorMouseEvents(editor);
+            if (editorSettings != null) configureEditorVisuals(editor);
             configureWorkspaceDropTarget(editor);
             editorHost.Controls.Add(editor);
             editor.BringToFront();

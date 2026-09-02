@@ -49,7 +49,8 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.2` | IntelliSense, snippet e feedback inline | Completata (`0.9.2.0`–`0.9.2.10`) |
 | `0.9.3` | Ricerca e navigazione del workspace | Completata (`0.9.3.0`–`0.9.3.7`) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Completata (`0.9.4.6`) |
-| `0.9.5` | Fluidità, accessibilità e rifinitura | In corso (`0.9.5.2` completata) |
+| `0.9.5` | Fluidità, accessibilità e rifinitura | In corso (`0.9.5.3` completata) |
+| `0.9.6` | Pacchetti di linguaggio, grammatica dichiarativa e build configurabile | Pianificata |
 | `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
 | `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
 | `0.11.0` | Runtime multi-file del workspace | Pianificata |
@@ -395,10 +396,90 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 - [x] Definire budget misurabili per input, selezione, scroll, colorazione e apertura dei popup (`0.9.5.0`).
 - [x] Evitare flickering e aggiornamenti completi durante le operazioni incrementali (`0.9.5.1`).
 - [x] Mantenere reattivi documenti e workspace di dimensioni realistiche con lavoro cancellabile in background (`0.9.5.2`).
-- [ ] Aggiungere evidenza della riga corrente, spazi invisibili, guide di indentazione e word wrap configurabile.
+- [x] Aggiungere evidenza della riga corrente, spazi invisibili, guide di indentazione e word wrap configurabile (`0.9.5.3`).
 - [ ] Valutare minimappa e overview delle diagnostiche come opzioni disattivabili.
 - [ ] Completare navigazione da tastiera, nomi accessibili, contrasto e comportamento DPI multi-monitor.
 - [ ] Creare smoke dinamici di sessioni prolungate, digitazione rapida e alternanza tra più comandi.
+
+## 0.9.6 — Pacchetti di linguaggio e architettura dichiarativa
+
+Trasformare DDFLanguageEditor da applicazione legata a una grammatica compilata
+nel codice a piattaforma capace di caricare un pacchetto di linguaggio
+versionato. DDF resterà il linguaggio predefinito e l'implementazione di
+riferimento. Il pacchetto definirà sintassi, servizi IDE, semantica disponibile e
+profilo di build senza consentire a un semplice file dati di eseguire codice
+host arbitrario.
+
+### 0.9.6.0 — Contratto e pacchetto DDF predefinito
+
+- [ ] Definire uno schema versionato per pacchetti `.ddflang`, rappresentabili come cartella o archivio.
+- [ ] Separare manifest, lessico, grammatica, tipi, semantica, formattazione, IntelliSense, runtime, build e libreria standard.
+- [ ] Trasferire il catalogo DDF corrente in un pacchetto esterno senza cambiare il comportamento osservabile.
+- [ ] Incorporare nell'applicazione una copia DDF valida come fallback, mantenendo espliciti origine e versione del pacchetto attivo.
+- [ ] Validare schema, duplicati, riferimenti, versioni e compatibilità con diagnostiche navigabili, senza lasciare l'editor in uno stato parziale.
+
+### 0.9.6.1 — Lexer dichiarativo
+
+- [ ] Rendere configurabili identificatori, numeri, stringhe, escape, commenti, direttive, keyword, operatori, delimitatori e longest match.
+- [ ] Rilevare conflitti lessicali, regole irraggiungibili e costrutti non terminati già durante il caricamento del pacchetto.
+- [ ] Derivare classificazione, colori e completamento lessicale dalla stessa definizione.
+- [ ] Conservare token, intervalli sorgente, analisi incrementale e recovery necessari durante la digitazione incompleta.
+
+### 0.9.6.2 — Grammatica caricabile e albero sintattico generico
+
+- [ ] Scegliere una notazione canonica EBNF con metadati JSON, evitando due rappresentazioni concorrenti della stessa regola.
+- [ ] Compilare e validare la grammatica al caricamento, segnalando ambiguità e ricorsioni non gestibili.
+- [ ] Produrre un albero sintattico generico ma tipizzato tramite nomi di nodo e campi dichiarati dal pacchetto.
+- [ ] Conservare error recovery, token mancanti e intervalli esatti richiesti da editor, diagnostiche e Quick Fix.
+- [ ] Migrare tutti i costrutti DDF correnti e verificarli contro un corpus valido, non valido e incompleto.
+
+### 0.9.6.3 — Servizi IDE derivati dal pacchetto
+
+- [ ] Alimentare Outline, folding, breadcrumb, selezione sintattica e navigazione dai metadati dei nodi.
+- [ ] Derivare completamento, Signature Help, hover, snippet e simboli dalle regole del pacchetto.
+- [ ] Rendere formatter, indentazione, coppie automatiche e Quick Fix configurabili senza duplicare la grammatica.
+- [ ] Aggiornare menu, impostazioni, icon bar e stato applicazione quando cambia il linguaggio attivo.
+- [ ] Mantenere cancellazione, versionamento degli snapshot e budget prestazionali con pacchetti utente realistici.
+
+### 0.9.6.4 — Tipi, semantica e rappresentazione intermedia
+
+- [ ] Definire dichiarativamente tipi primitivi, conversioni, compatibilità, mutabilità, scope e firme.
+- [ ] Collegare le produzioni a un insieme versionato di operazioni semantiche sicure, non a codice host arbitrario.
+- [ ] Introdurre una rappresentazione intermedia comune consumata da diagnostica, interprete, debugger e futuri backend.
+- [ ] Distinguere errori del sorgente, errori nella definizione del linguaggio e operazioni non supportate dal motore.
+- [ ] Prevedere estensioni native opzionali soltanto come plug-in espliciti, identificabili e autorizzabili separatamente.
+
+### 0.9.6.5 — Runtime generico e libreria standard
+
+- [ ] Eseguire la rappresentazione intermedia tramite una VM indipendente dalla sintassi concreta.
+- [ ] Definire operazioni controllate per valori, scope, chiamate, flusso, array, strutture e funzioni host.
+- [ ] Spostare funzioni standard, firme e collegamenti runtime nel pacchetto DDF.
+- [ ] Conservare limiti di esecuzione, cancellazione, posizioni sorgente e predisposizione per breakpoint e ispezione variabili.
+
+### 0.9.6.6 — Progetto e sistema di build
+
+- [ ] Separare il pacchetto di linguaggio dal manifest del progetto che sceglie sorgenti, entry point, dipendenze, backend e output.
+- [ ] Definire comandi distinti per convalida, Build, Run e Debug con diagnostiche navigabili.
+- [ ] Rendere il primo backend basato sulla VM generica e mantenere un contratto sostituibile per backend futuri.
+- [ ] Usare anche i buffer non salvati quando richiesto, senza scritture implicite o perdita delle modifiche.
+- [ ] Rendere riproducibili versione del linguaggio, opzioni e artefatti di build.
+
+### 0.9.6.7 — Autonomia dell'utente e strumenti di verifica
+
+- [ ] Consentire installazione, selezione, aggiornamento e disattivazione dei pacchetti di linguaggio.
+- [ ] Fornire anteprima di tokenizzazione, albero sintattico, diagnostiche e formattazione su un playground isolato.
+- [ ] Aggiungere test dichiarativi al pacchetto e un validatore eseguibile prima dell'attivazione.
+- [ ] Documentare quali personalizzazioni sono puramente dichiarative e quali richiedono una nuova operazione del motore o un plug-in.
+- [ ] Preparare in seguito un editor assistito delle definizioni senza rendere obbligatoria una UI visuale per creare un linguaggio.
+
+### Criteri di completamento della 0.9.6
+
+- il DDF corrente viene caricato dal proprio pacchetto e conserva i test di compatibilità;
+- almeno un secondo linguaggio dimostrativo usa lessico, grammatica e sintassi differenti senza modificare il codice dell'editor;
+- editor, parser, IntelliSense, formatter, diagnostica, VM e build consumano la stessa definizione versionata;
+- un pacchetto non valido viene rifiutato con diagnostiche chiare e fallback sicuro;
+- i pacchetti puramente dichiarativi non possono eseguire codice host arbitrario;
+- build, Run e Debug dichiarano sempre linguaggio e configurazione effettivamente utilizzati.
 
 ## 0.10.0 — Variabili e call stack durante la pausa
 
@@ -422,8 +503,8 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 ## 0.11.0 — Runtime multi-file
 
-- [ ] Definire formalmente se i simboli del workspace siano visibili implicitamente o richiedano una direttiva di import esplicita.
-- [ ] Decidere se estendere `@@'...'` come import di moduli DDF o introdurre una sintassi distinta, senza attribuirgli retroattivamente una semantica non definita.
+- [ ] Implementare per DDF la visibilità tra moduli definita nel pacchetto di linguaggio della `0.9.6`.
+- [ ] Applicare la semantica formalizzata per `@@'...'` o per l'eventuale direttiva di import sostitutiva.
 - [ ] Costruire uno snapshot coerente di tutti i buffer, compresi quelli modificati ma non salvati, all'avvio del runtime.
 - [ ] Definire il caricamento runtime dei moduli del workspace e un unico grafo di dichiarazioni.
 - [ ] Risolvere funzioni, strutture e globali tra documenti indicizzati.
@@ -434,13 +515,15 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 ## Dopo 0.11 — Progetti, build e backend compilati
 
-- [ ] Definire formato progetto, dipendenze, configurazioni e flusso di build soltanto dopo la stabilizzazione dell'esperienza editor.
+- [ ] Estendere il manifest di progetto di base con dipendenze, configurazioni e distribuzione di pacchetti riutilizzabili.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 
 ## Principi di sviluppo
 
 - Ogni release deve avere criteri di completamento verificabili.
 - La logica del linguaggio non deve dipendere dalla UI.
+- Lessico, grammatica, semantica e servizi IDE devono derivare da una definizione versionata e validabile, senza liste parallele.
+- La sintassi dichiarativa non implica automaticamente semantica eseguibile: nuove capacità host richiedono operazioni controllate o plug-in espliciti.
 - I bug corretti devono essere accompagnati da un test di regressione.
 - Le modifiche alla sintassi richiedono aggiornamento della specifica e dei test.
 - Le nuove dipendenze devono essere motivate e documentate.
@@ -454,6 +537,8 @@ valutato tramite flussi reali di editing, non soltanto con test statici.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-01 | Introdurre pacchetti di linguaggio dichiarativi prima del debugger avanzato | Rendere DDF il linguaggio predefinito di una piattaforma configurabile ed evitare di consolidare parser, runtime e build hardcoded prima della 1.0. |
+| 2026-09-01 | Separare pacchetto di linguaggio, manifest di progetto e plug-in eseguibili | Permettere agli utenti di personalizzare grammatica e semantica sicura tramite dati, mantenendo riproducibilità e un confine esplicito per il codice host. |
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |
 | 2026-08-30 | Migrare a .NET 10 prima della 1.0 | Evitare di accumulare altro codice UI/runtime legacy e arrivare alla prima stabile su una base LTS già collaudata. |
 | 2026-08-30 | Distribuire la beta .NET 10 come pacchetto self-contained Windows x64 | Consentire l'avvio su Windows x64 senza installare separatamente il Desktop Runtime, accettando un archivio più grande. |
