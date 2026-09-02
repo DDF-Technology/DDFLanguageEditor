@@ -33,6 +33,9 @@ Diagnostic overview positions now originate from the same character offsets as
 the native wave underline. Stale analysis snapshots are not reprojected while
 typing, and editor coordinates are transformed through screen space to account
 for control origins and DPI scaling without accumulating a vertical offset.
+Caret and diagnostic ticks now use the same clamped two-pixel rectangle instead
+of mixing a GDI+ line with a filled marker, eliminating the final rasterization
+offset when both occupy the same editor row.
 
 Version 0.9.5.3 adds four persistent visual aids: current-line highlighting,
 space/tab/end-of-line markers, indentation guides and optional word wrap. They

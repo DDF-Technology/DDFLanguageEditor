@@ -126,12 +126,12 @@ namespace DDF___Program_Language_Editor
                 int x = visibleMarker ? 3 : Math.Max(1, ClientSize.Width - 3);
                 int width = visibleMarker ? Math.Max(1, ClientSize.Width - 7) : 2;
                 using (var brush = new SolidBrush(markerColor(marker.Kind)))
-                    e.Graphics.FillRectangle(brush, x, Math.Max(0, y - 1), width, 2);
+                    e.Graphics.FillRectangle(brush, x, markerTop(y), width, 2);
             }
 
             int caretY = markerToY(currentLine, true);
-            using (var pen = new Pen(Color.FromArgb(86, 190, 255), 2F))
-                e.Graphics.DrawLine(pen, 1, caretY, ClientSize.Width - 2, caretY);
+            using (var brush = new SolidBrush(Color.FromArgb(86, 190, 255)))
+                e.Graphics.FillRectangle(brush, 1, markerTop(caretY), Math.Max(1, ClientSize.Width - 3), 2);
             Point[] pointer =
             {
                 new Point(0, Math.Max(0, caretY - 4)),
@@ -155,6 +155,8 @@ namespace DDF___Program_Language_Editor
         private int lineToY(int line) => totalLines <= 1 || ClientSize.Height <= 1
             ? 0
             : (int)Math.Round((double)(Math.Max(1, Math.Min(totalLines, line)) - 1) * (ClientSize.Height - 1) / (totalLines - 1));
+
+        private int markerTop(int y) => Math.Max(0, Math.Min(Math.Max(0, ClientSize.Height - 2), y - 1));
 
         private int markerToY(int line, bool useCaretPosition = false)
         {

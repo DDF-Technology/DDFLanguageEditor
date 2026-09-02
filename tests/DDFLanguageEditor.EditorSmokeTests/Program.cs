@@ -803,6 +803,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(GetPropertyValue<int>(diagnosticMarker, "Line") == 1 &&
                         GetPropertyValue<int>(diagnosticMarker, "Position") == 0,
                     "L'overview usa il numero di riga dichiarato invece dell'offset realmente sottolineato.");
+                editor.Select(0, 0);
+                PumpMessages(20);
+                MethodInfo markerToYMethod = overviewBar.GetType().GetMethod(
+                    "markerToY", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo markerTopMethod = overviewBar.GetType().GetMethod(
+                    "markerTop", BindingFlags.Instance | BindingFlags.NonPublic);
+                int errorY = (int)markerToYMethod.Invoke(overviewBar, new object[] { 1, false });
+                int cursorY = (int)markerToYMethod.Invoke(overviewBar, new object[] { 1, true });
+                Require((int)markerTopMethod.Invoke(overviewBar, new object[] { errorY }) ==
+                        (int)markerTopMethod.Invoke(overviewBar, new object[] { cursorY }),
+                    "Tacca azzurra e tacca diagnostica non condividono gli stessi pixel verticali.");
                 editor.AppendText("\n");
                 Require(GetControlProperty<int>(overviewBar, "ErrorMarkerCount") == 0,
                     "L'overview riproietta uno snapshot diagnostico obsoleto durante la digitazione.");
