@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/lexicon-1.0.json",
+  "title": "DDF language package lexicon 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "lexical", "keywords", "booleanLiterals", "operators", "punctuation" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-lexicon-v1" },
+    "description": { "type": "string" },
+    "lexical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "whitespace", "identifier", "number", "delimitedTokens", "longestMatch" ],
+      "properties": {
+        "whitespace": { "$ref": "#/$defs/characterSet" },
+        "identifier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [ "start", "part" ],
+          "properties": {
+            "start": { "$ref": "#/$defs/characterSet" },
+            "part": { "$ref": "#/$defs/characterSet" }
+          }
+        },
+        "number": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [ "digits", "decimalSeparator", "requireFractionDigits" ],
+          "properties": {
+            "digits": { "$ref": "#/$defs/characterSet" },
+            "decimalSeparator": { "type": "string", "maxLength": 1 },
+            "requireFractionDigits": { "type": "boolean" }
+          }
+        },
+        "delimitedTokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "tokenKind", "start" ],
+            "properties": {
+              "tokenKind": { "enum": [ "LineComment", "BlockComment", "StringLiteral", "LibraryDirective" ] },
+              "start": { "type": "string", "minLength": 1 },
+              "end": { "type": "string", "minLength": 1 },
+              "endsAtLineBreak": { "type": "boolean" },
+              "allowLineBreak": { "type": "boolean" },
+              "escapeCharacter": { "type": "string", "maxLength": 1 },
+              "unterminatedCode": { "type": "string", "minLength": 1 },
+              "unterminatedMessage": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "longestMatch": { "type": "boolean" }
+      }
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "text", "tokenKind" ],
+        "properties": {
+          "text": { "type": "string", "minLength": 1 },
+          "tokenKind": { "enum": [ "DataTypeKeyword", "FunctionKeyword", "ControlFlowKeyword" ] },
+          "role": { "enum": [ "None", "Structure", "ReturnTypeMarker", "If", "While", "Do", "For", "Return", "Break", "End" ] }
+        }
+      }
+    },
+    "booleanLiterals": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "text" ],
+        "properties": {
+          "text": { "type": "string", "minLength": 1 },
+          "binaryPrecedence": { "type": "integer", "minimum": 0 },
+          "associativity": { "enum": [ "Left", "Right" ] },
+          "prefixPrecedence": { "type": "integer", "minimum": 0 },
+          "postfixPrecedence": { "type": "integer", "minimum": 0 },
+          "role": { "enum": [ "None", "DeclarationInitializer" ] }
+        }
+      }
+    },
+    "punctuation": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 1 }
+    }
+  },
+  "$defs": {
+    "characterSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unicodeLetters": { "type": "boolean" },
+        "unicodeDigits": { "type": "boolean" },
+        "unicodeWhitespace": { "type": "boolean" },
+        "characters": { "type": "string" }
+      }
+    }
+  }
+}

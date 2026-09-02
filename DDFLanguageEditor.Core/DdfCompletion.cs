@@ -163,12 +163,12 @@ namespace DDFLanguageEditor.Core
 
             DdfLexResult lexResult = DdfLexer.Lex(source, language);
             cancellationToken.ThrowIfCancellationRequested();
-            bool libraryContext = TryGetLibraryPrefix(source, position, out int prefixStart) &&
-                                  IsLibraryDirectiveAt(lexResult, prefixStart - 3);
+            bool libraryContext = TryGetLibraryPrefix(source, position, language, out int prefixStart, out int directiveStart) &&
+                                  IsLibraryDirectiveAt(lexResult, directiveStart);
             if (!libraryContext)
             {
                 prefixStart = position;
-                while (prefixStart > 0 && IsIdentifierPart(source[prefixStart - 1])) prefixStart--;
+                while (prefixStart > 0 && language.LexicalRules.IsIdentifierPart(source[prefixStart - 1])) prefixStart--;
             }
 
             string prefix = source.Substring(prefixStart, position - prefixStart);
@@ -190,6 +190,7 @@ namespace DDFLanguageEditor.Core
             if (libraryContext)
             {
                 AddLibrarySymbols(candidates, symbols);
+                AddLibraryTokens(candidates, source, lexResult, language);
             }
             else
             {
@@ -299,18 +300,28 @@ namespace DDFLanguageEditor.Core
                 token.Kind == DdfTokenKind.LibraryDirective && token.Start == markerStart);
         }
 
-        private static bool TryGetLibraryPrefix(string source, int position, out int prefixStart)
+        private static bool TryGetLibraryPrefix(string source, int position, DdfLanguageDefinition language,
+            out int prefixStart, out int directiveStart)
         {
             int lineStart = position == 0 ? 0 : source.LastIndexOf('\n', position - 1) + 1;
-            int marker = source.IndexOf("@@'", lineStart, StringComparison.Ordinal);
-            if (marker >= 0 && marker + 3 <= position && source.IndexOf('\'', marker + 3, position - marker - 3) < 0)
+            string linePrefix = source.Substring(lineStart, position - lineStart);
+            prefixStart = position;
+            directiveStart = -1;
+            foreach (DdfDelimitedTokenRule rule in language.LexicalRules.DelimitedTokens
+                         .Where(item => item.TokenKind == DdfTokenKind.LibraryDirective))
             {
-                prefixStart = marker + 3;
-                return true;
+                int relativeMarker = linePrefix.LastIndexOf(rule.Start, StringComparison.Ordinal);
+                int marker = relativeMarker < 0 ? -1 : lineStart + relativeMarker;
+                int contentStart = marker < 0 ? -1 : marker + rule.Start.Length;
+                if (marker > directiveStart && contentStart <= position &&
+                    source.IndexOf(rule.End, contentStart, position - contentStart, StringComparison.Ordinal) < 0)
+                {
+                    prefixStart = contentStart;
+                    directiveStart = marker;
+                }
             }
 
-            prefixStart = position;
-            return false;
+            return directiveStart >= 0;
         }
 
         private static void AddLibrarySymbols(List<DdfCompletionItem> result, IReadOnlyList<DdfDocumentSymbol> symbols)
@@ -318,6 +329,23 @@ namespace DDFLanguageEditor.Core
             foreach (DdfDocumentSymbol library in Flatten(symbols).Where(symbol => symbol.Kind == DdfSymbolKind.Library))
             {
                 AddSymbol(result, library, "documento corrente", 0);
+            }
+        }
+
+        private static void AddLibraryTokens(List<DdfCompletionItem> result, string source,
+            DdfLexResult lexResult, DdfLanguageDefinition language)
+        {
+            foreach (DdfToken token in lexResult.Tokens.Where(item => item.Kind == DdfTokenKind.LibraryDirective))
+            {
+                DdfDelimitedTokenRule rule = language.LexicalRules.FindDelimitedToken(source, token.Start);
+                if (rule == null || rule.EndsAtLineBreak || token.Length < rule.Start.Length + rule.End.Length) continue;
+                int contentStart = token.Start + rule.Start.Length;
+                int contentLength = token.Length - rule.Start.Length - rule.End.Length;
+                if (contentLength <= 0 || string.CompareOrdinal(source, token.End - rule.End.Length,
+                        rule.End, 0, rule.End.Length) != 0) continue;
+                string name = source.Substring(contentStart, contentLength);
+                result.Add(new DdfCompletionItem(name, name, DdfCompletionKind.Library,
+                    "libreria", string.Empty, "documento corrente", 0));
             }
         }
 
@@ -384,7 +412,7 @@ namespace DDFLanguageEditor.Core
             if (position >= 0 && source[position] == '.') return DdfCompletionContextKind.Member;
 
             int wordEnd = position + 1;
-            while (position >= 0 && IsIdentifierPart(source[position])) position--;
+            while (position >= 0 && language.LexicalRules.IsIdentifierPart(source[position])) position--;
             string previousWord = wordEnd > position + 1
                 ? source.Substring(position + 1, wordEnd - position - 1)
                 : string.Empty;
@@ -477,11 +505,6 @@ namespace DDFLanguageEditor.Core
                 case DdfCompletionKind.Boolean: return 7;
                 default: return 8;
             }
-        }
-
-        private static bool IsIdentifierPart(char value)
-        {
-            return char.IsLetterOrDigit(value) || value == '_';
         }
 
         private static DdfCompletionResult Empty(int start, int length)

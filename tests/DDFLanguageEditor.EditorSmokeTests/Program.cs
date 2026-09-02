@@ -85,7 +85,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
                     .Items["statusEncodingLabel"];
                 Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
-                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.1", StringComparison.Ordinal) &&
                         languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
@@ -706,7 +706,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
                 Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
-                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6") &&
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.1") &&
                         FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
@@ -726,7 +726,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.0") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.1") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),

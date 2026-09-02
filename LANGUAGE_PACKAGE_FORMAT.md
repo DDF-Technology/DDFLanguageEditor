@@ -21,20 +21,59 @@ dell'API del motore e riferisce queste nove sezioni obbligatorie:
 - `standardLibrary`: firme e collegamenti della libreria standard.
 
 Lo schema pubblico del manifest è in
-[`language-package.schema.json`](language-package.schema.json). Il pacchetto DDF
-di riferimento è in [`language-packages/ddf`](language-packages/ddf).
+[`language-package.schema.json`](language-package.schema.json), mentre
+[`language-lexicon.schema.json`](language-lexicon.schema.json) descrive il
+lessico. Il pacchetto DDF di riferimento è in
+[`language-packages/ddf`](language-packages/ddf).
 
 ## Stato dell'adattamento
 
-Nella `0.9.6.0` il lessico DDF viene materialmente costruito da `lexicon.json` e
-continua ad alimentare lexer, parser, classificazione, completamento e formatter.
-Le altre sezioni dichiarano adapter interni versionati che mantengono invariato
-il comportamento dei motori DDF correnti. Le successive versioni `0.9.6.x`
-sostituiranno questi adapter, una sezione alla volta, con regole dichiarative.
+Dalla `0.9.6.1` `lexicon.json` definisce anche spazi, classi degli identificatori,
+cifre e separatore decimale, stringhe, escape, commenti, direttive, multilinea,
+diagnostiche per token incompleti e longest match. La stessa definizione alimenta
+lexer incrementale, classificazione, prefissi del completamento e validazione dei
+nomi. Le altre sezioni dichiarano adapter interni versionati che mantengono
+invariato il comportamento dei motori DDF correnti. Le successive versioni
+`0.9.6.x` sostituiranno questi adapter, una sezione alla volta, con regole
+dichiarative.
 
 Un pacchetto dati non carica assembly, script o nomi di tipi .NET. Il campo
 `adapter` deve corrispondere a un identificatore già supportato dall'applicazione:
 il JSON non può quindi autorizzare l'esecuzione di codice host arbitrario.
+
+## Regole lessicali 1.0
+
+L'oggetto `lexical` contiene cinque elementi:
+
+- `whitespace`: classe dei caratteri ignorati tra i token;
+- `identifier.start` e `identifier.part`: classi valide all'inizio e nel resto di un nome;
+- `number`: classe delle cifre, separatore decimale e obbligatorietà delle cifre frazionarie;
+- `delimitedTokens`: commenti, stringhe e direttive con marcatori, escape e diagnostica di terminazione;
+- `longestMatch`: se `true`, prova prima marcatori e operatori più lunghi; se `false`, conserva l'ordine dichiarato e rifiuta quelli resi irraggiungibili da una regola precedente.
+
+Una classe di caratteri combina i flag `unicodeLetters`, `unicodeDigits` e
+`unicodeWhitespace` con la stringa `characters` di caratteri espliciti. Non
+vengono eseguite espressioni regolari fornite dal pacchetto.
+
+Ogni elemento di `delimitedTokens` dichiara `tokenKind` e `start`. I commenti di
+riga usano `endsAtLineBreak`; commenti a blocchi, stringhe e direttive richiedono
+invece `end`, `unterminatedCode` e `unterminatedMessage`. `allowLineBreak` decide
+se il token può continuare sulla riga seguente e `escapeCharacter` protegge il
+carattere immediatamente successivo.
+
+Il caricatore rifiuta atomicamente classi sovrapposte incompatibili, keyword non
+riconoscibili come identificatori, categorie duplicate, marcatori duplicati e
+regole od operatori irraggiungibili. I dettagli completi e i valori enumerati
+sono in `language-lexicon.schema.json`.
+
+Per una prova manuale non distruttiva, duplicare l'intera cartella pubblicata e
+modificare soltanto la copia di `language-packages/ddf/lexicon.json`. Dopo il
+riavvio, `Help > Pacchetto linguaggio attivo` deve confermare il caricamento
+esterno. Per esempio, aggiungendo `$` a `identifier.start.characters` e
+`identifier.part.characters`, un nome come `$value` viene tokenizzato come
+identificatore; cambiando il marcatore di `LineComment`, cambia immediatamente la
+colorazione dei commenti. Keyword e costrutti sintattici devono restare coerenti
+con la grammatica DDF finché non sarà completata la `0.9.6.2`.
 
 ## Caricamento atomico e fallback
 

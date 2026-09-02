@@ -42,73 +42,34 @@ namespace DDFLanguageEditor.Core
             int index = startIndex;
             while (index < text.Length)
             {
-                if (char.IsWhiteSpace(text[index]))
+                if (language.LexicalRules.IsWhitespace(text[index]))
                 {
                     index++;
                     continue;
                 }
 
-                if (StartsWith(text, index, "//"))
+                DdfDelimitedTokenRule delimitedRule = language.LexicalRules.FindDelimitedToken(text, index);
+                if (delimitedRule != null)
                 {
-                    int end = index + 2;
-                    while (end < text.Length && text[end] != '\r' && text[end] != '\n')
+                    int end;
+                    bool terminated = true;
+                    if (delimitedRule.EndsAtLineBreak)
                     {
-                        end++;
+                        end = index + delimitedRule.Start.Length;
+                        while (end < text.Length && text[end] != '\r' && text[end] != '\n') end++;
+                    }
+                    else
+                    {
+                        end = FindDelimitedEnd(text, index + delimitedRule.Start.Length, delimitedRule, out terminated);
                     }
 
-                    tokens.Add(new DdfToken(DdfTokenKind.LineComment, index, end - index));
-                    index = end;
-                    continue;
-                }
-
-                if (StartsWith(text, index, "/*"))
-                {
-                    int endMarker = text.IndexOf("*/", index + 2, StringComparison.Ordinal);
-                    int end = endMarker < 0 ? text.Length : endMarker + 2;
-                    tokens.Add(new DdfToken(DdfTokenKind.BlockComment, index, end - index));
-                    if (endMarker < 0)
-                    {
-                        diagnostics.Add(CreateDiagnostic(
-                            text,
-                            "DDF002",
-                            "Commento a blocchi non terminato.",
-                            index,
-                            end - index));
-                    }
-
-                    index = end;
-                    continue;
-                }
-
-                if (StartsWith(text, index, "@@'"))
-                {
-                    int endMarker = text.IndexOf('\'', index + 3);
-                    int end = endMarker < 0 ? text.Length : endMarker + 1;
-                    tokens.Add(new DdfToken(DdfTokenKind.LibraryDirective, index, end - index));
-                    if (endMarker < 0)
-                    {
-                        diagnostics.Add(CreateDiagnostic(
-                            text,
-                            "DDF003",
-                            "Inclusione di libreria non terminata.",
-                            index,
-                            end - index));
-                    }
-
-                    index = end;
-                    continue;
-                }
-
-                if (text[index] == '"')
-                {
-                    int end = FindStringEnd(text, index + 1, out bool terminated);
-                    tokens.Add(new DdfToken(DdfTokenKind.StringLiteral, index, end - index));
+                    tokens.Add(new DdfToken(delimitedRule.TokenKind, index, end - index));
                     if (!terminated)
                     {
                         diagnostics.Add(CreateDiagnostic(
                             text,
-                            "DDF001",
-                            "Stringa non terminata.",
+                            delimitedRule.UnterminatedCode,
+                            delimitedRule.UnterminatedMessage,
                             index,
                             end - index));
                     }
@@ -117,10 +78,10 @@ namespace DDFLanguageEditor.Core
                     continue;
                 }
 
-                if (char.IsLetter(text[index]) || text[index] == '_')
+                if (language.LexicalRules.IsIdentifierStart(text[index]))
                 {
                     int end = index + 1;
-                    while (end < text.Length && (char.IsLetterOrDigit(text[end]) || text[end] == '_'))
+                    while (end < text.Length && language.LexicalRules.IsIdentifierPart(text[end]))
                     {
                         end++;
                     }
@@ -131,18 +92,21 @@ namespace DDFLanguageEditor.Core
                     continue;
                 }
 
-                if (char.IsDigit(text[index]))
+                if (language.LexicalRules.IsDigit(text[index]))
                 {
                     int end = index + 1;
-                    while (end < text.Length && char.IsDigit(text[end]))
+                    while (end < text.Length && language.LexicalRules.IsDigit(text[end]))
                     {
                         end++;
                     }
 
-                    if (end + 1 < text.Length && text[end] == '.' && char.IsDigit(text[end + 1]))
+                    string separator = language.LexicalRules.Number.DecimalSeparator;
+                    bool hasSeparator = separator.Length == 1 && end < text.Length && text[end] == separator[0];
+                    bool hasFractionDigit = end + 1 < text.Length && language.LexicalRules.IsDigit(text[end + 1]);
+                    if (hasSeparator && (!language.LexicalRules.Number.RequireFractionDigits || hasFractionDigit))
                     {
                         end++;
-                        while (end < text.Length && char.IsDigit(text[end]))
+                        while (end < text.Length && language.LexicalRules.IsDigit(text[end]))
                         {
                             end++;
                         }
@@ -201,19 +165,26 @@ namespace DDFLanguageEditor.Core
             return DdfTokenKind.Identifier;
         }
 
-        private static int FindStringEnd(string text, int index, out bool terminated)
+        private static int FindDelimitedEnd(string text, int index, DdfDelimitedTokenRule rule, out bool terminated)
         {
-            bool escaped = false;
             while (index < text.Length)
             {
-                char current = text[index++];
-                if (current == '"' && !escaped)
+                if (!rule.AllowLineBreak && (text[index] == '\r' || text[index] == '\n'))
                 {
-                    terminated = true;
+                    terminated = false;
                     return index;
                 }
-
-                escaped = current == '\\' && !escaped;
+                if (rule.EscapeCharacter.Length == 1 && text[index] == rule.EscapeCharacter[0])
+                {
+                    index += Math.Min(2, text.Length - index);
+                    continue;
+                }
+                if (StartsWith(text, index, rule.End))
+                {
+                    terminated = true;
+                    return index + rule.End.Length;
+                }
+                index++;
             }
 
             terminated = false;

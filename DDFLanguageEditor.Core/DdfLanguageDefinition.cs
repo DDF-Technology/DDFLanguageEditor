@@ -101,20 +101,23 @@ namespace DDFLanguageEditor.Core
             IEnumerable<DdfKeywordDefinition> keywords,
             IEnumerable<string> booleanLiterals,
             IEnumerable<DdfOperatorDefinition> operators,
-            IEnumerable<char> punctuation)
+            IEnumerable<char> punctuation,
+            DdfLexicalDefinition lexicalRules = null)
         {
             if (keywords == null) throw new ArgumentNullException(nameof(keywords));
             if (booleanLiterals == null) throw new ArgumentNullException(nameof(booleanLiterals));
             if (operators == null) throw new ArgumentNullException(nameof(operators));
             if (punctuation == null) throw new ArgumentNullException(nameof(punctuation));
 
+            var declaredOperators = operators.ToList();
+            LexicalRules = lexicalRules ?? DdfLexicalDefinition.CreateDdfCompatibleDefault();
             this.keywords = ToUniqueDictionary(keywords, item => item.Text, "keyword");
             this.booleanLiterals = new HashSet<string>(booleanLiterals, StringComparer.Ordinal);
-            this.operators = ToUniqueDictionary(operators, item => item.Text, "operator");
-            operatorsByLength = this.operators.Keys
-                .OrderByDescending(value => value.Length)
-                .ThenBy(value => value, StringComparer.Ordinal)
-                .ToArray();
+            this.operators = ToUniqueDictionary(declaredOperators, item => item.Text, "operator");
+            operatorsByLength = (LexicalRules.LongestMatch
+                ? declaredOperators.Select(item => item.Text).OrderByDescending(value => value.Length)
+                    .ThenBy(value => value, StringComparer.Ordinal)
+                : declaredOperators.Select(item => item.Text)).ToArray();
             this.punctuation = new HashSet<char>(punctuation);
             publicKeywords = new List<DdfKeywordDefinition>(this.keywords.Values).AsReadOnly();
             publicBooleanLiterals = new List<string>(this.booleanLiterals).AsReadOnly();
@@ -126,6 +129,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyCollection<string> BooleanLiterals => publicBooleanLiterals;
         public IReadOnlyCollection<DdfOperatorDefinition> Operators => publicOperators;
         public IReadOnlyCollection<char> Punctuation => publicPunctuation;
+        public DdfLexicalDefinition LexicalRules { get; }
 
         public bool TryGetKeyword(string text, out DdfKeywordDefinition definition)
         {

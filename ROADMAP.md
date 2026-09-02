@@ -420,10 +420,10 @@ host arbitrario.
 
 ### 0.9.6.1 — Lexer dichiarativo
 
-- [ ] Rendere configurabili identificatori, numeri, stringhe, escape, commenti, direttive, keyword, operatori, delimitatori e longest match.
-- [ ] Rilevare conflitti lessicali, regole irraggiungibili e costrutti non terminati già durante il caricamento del pacchetto.
-- [ ] Derivare classificazione, colori e completamento lessicale dalla stessa definizione.
-- [ ] Conservare token, intervalli sorgente, analisi incrementale e recovery necessari durante la digitazione incompleta.
+- [x] Rendere configurabili identificatori, numeri, stringhe, escape, commenti, direttive, keyword, operatori, delimitatori e longest match (`0.9.6.1`).
+- [x] Rilevare conflitti lessicali, regole irraggiungibili e costrutti non terminati già durante il caricamento del pacchetto (`0.9.6.1`).
+- [x] Derivare classificazione, colori e completamento lessicale dalla stessa definizione (`0.9.6.1`).
+- [x] Conservare token, intervalli sorgente, analisi incrementale e recovery necessari durante la digitazione incompleta (`0.9.6.1`).
 
 ### 0.9.6.2 — Grammatica caricabile e albero sintattico generico
 

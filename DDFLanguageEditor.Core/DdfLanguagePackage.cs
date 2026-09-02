@@ -268,6 +268,7 @@ namespace DDFLanguageEditor.Core
                 "ruolo keyword", file, "$.keywords", diagnostics);
             validateUniqueRoles(lexicon.Operators.Where(item => item != null).Select(item => item.Role),
                 "ruolo operatore", file, "$.operators", diagnostics);
+            DdfLexicalDefinition lexicalRules = createLexicalRules(lexicon, file, diagnostics);
             var keywords = new List<DdfKeywordDefinition>();
             var operators = new List<DdfOperatorDefinition>();
             foreach (KeywordDto item in lexicon.Keywords)
@@ -292,8 +293,139 @@ namespace DDFLanguageEditor.Core
             if (punctuation.Length != lexicon.Punctuation.Count)
                 diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL045", "Ogni punteggiatura deve contenere un solo carattere.", file, "$.punctuation"));
             if (hasErrors(diagnostics)) return null;
-            try { return new DdfLanguageDefinition(keywords, lexicon.BooleanLiterals, operators, punctuation); }
+            try { return new DdfLanguageDefinition(keywords, lexicon.BooleanLiterals, operators, punctuation, lexicalRules); }
             catch (ArgumentException exception) { diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL046", exception.Message, file)); return null; }
+        }
+
+        private static DdfLexicalDefinition createLexicalRules(LexiconDto lexicon, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            LexicalDto lexical = lexicon.Lexical;
+            if (lexical == null || lexical.Whitespace == null || lexical.Identifier == null ||
+                lexical.Identifier.Start == null || lexical.Identifier.Part == null ||
+                lexical.Number == null || lexical.Number.Digits == null || lexical.DelimitedTokens == null)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL050",
+                    "Definizione delle regole lessicali incompleta.", file, "$.lexical"));
+                return null;
+            }
+
+            try
+            {
+                DdfCharacterSetDefinition whitespace = createCharacterSet(lexical.Whitespace);
+                DdfCharacterSetDefinition identifierStart = createCharacterSet(lexical.Identifier.Start);
+                DdfCharacterSetDefinition identifierPart = createCharacterSet(lexical.Identifier.Part);
+                DdfCharacterSetDefinition digits = createCharacterSet(lexical.Number.Digits);
+                require(identifierStart.UnicodeLetters ? identifierPart.UnicodeLetters : true, diagnostics, "DDFL051",
+                    "Le lettere ammesse all'inizio devono essere ammesse anche nel resto dell'identificatore.", file, "$.lexical.identifier");
+                require(identifierStart.UnicodeDigits ? identifierPart.UnicodeDigits : true, diagnostics, "DDFL051",
+                    "Le cifre ammesse all'inizio devono essere ammesse anche nel resto dell'identificatore.", file, "$.lexical.identifier");
+                require(identifierStart.Characters.All(identifierPart.Contains), diagnostics, "DDFL051",
+                    "I caratteri espliciti iniziali devono essere ammessi anche nel resto dell'identificatore.", file, "$.lexical.identifier");
+                require(digits.UnicodeDigits || digits.Characters.Length > 0, diagnostics, "DDFL052",
+                    "La regola numerica non definisce alcuna cifra.", file, "$.lexical.number.digits");
+
+                var rules = new List<DdfDelimitedTokenRule>();
+                for (int index = 0; index < lexical.DelimitedTokens.Count; index++)
+                {
+                    DelimitedTokenDto item = lexical.DelimitedTokens[index];
+                    string path = "$.lexical.delimitedTokens[" + index + "]";
+                    if (item == null || !Enum.TryParse(item.TokenKind, true, out DdfTokenKind tokenKind) || !Enum.IsDefined(tokenKind))
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL053",
+                            "Categoria del token delimitato non valida.", file, path + ".tokenKind"));
+                        continue;
+                    }
+                    try
+                    {
+                        rules.Add(new DdfDelimitedTokenRule(tokenKind, item.Start, item.End,
+                            item.EndsAtLineBreak, item.AllowLineBreak, item.EscapeCharacter,
+                            item.UnterminatedCode, item.UnterminatedMessage));
+                    }
+                    catch (ArgumentException exception)
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL054", exception.Message, file, path));
+                    }
+                }
+
+                for (int earlier = 0; !lexical.LongestMatch && earlier < rules.Count; earlier++)
+                    for (int later = earlier + 1; later < rules.Count; later++)
+                        if (rules[later].Start.StartsWith(rules[earlier].Start, StringComparison.Ordinal))
+                            diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL055",
+                                "Regola irraggiungibile senza longest match: " + rules[later].Start + ".",
+                                file, "$.lexical.delimitedTokens[" + later + "]"));
+                for (int earlier = 0; !lexical.LongestMatch && earlier < lexicon.Operators.Count; earlier++)
+                    for (int later = earlier + 1; later < lexicon.Operators.Count; later++)
+                        if (lexicon.Operators[earlier] != null && lexicon.Operators[later] != null &&
+                            !string.IsNullOrEmpty(lexicon.Operators[earlier].Text) &&
+                            !string.IsNullOrEmpty(lexicon.Operators[later].Text) &&
+                            lexicon.Operators[later].Text.StartsWith(lexicon.Operators[earlier].Text, StringComparison.Ordinal))
+                            diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL066",
+                                "Operatore irraggiungibile senza longest match: " + lexicon.Operators[later].Text + ".",
+                                file, "$.operators[" + later + "]"));
+
+                var number = new DdfNumberRuleDefinition(digits, lexical.Number.DecimalSeparator,
+                    lexical.Number.RequireFractionDigits);
+                if (number.DecimalSeparator.Length == 1)
+                    require(!whitespace.Contains(number.DecimalSeparator[0]) &&
+                            !digits.Contains(number.DecimalSeparator[0]) &&
+                            !identifierPart.Contains(number.DecimalSeparator[0]), diagnostics, "DDFL067",
+                        "Il separatore decimale è in conflitto con un'altra classe di caratteri.",
+                        file, "$.lexical.number.decimalSeparator");
+                var result = new DdfLexicalDefinition(whitespace, identifierStart, identifierPart,
+                    number, rules, lexical.LongestMatch);
+                require(!characterSetsOverlap(whitespace, identifierPart) && !characterSetsOverlap(whitespace, digits),
+                    diagnostics, "DDFL058", "Spazi, identificatori e cifre contengono classi di caratteri in conflitto.",
+                    file, "$.lexical");
+                require(!characterSetsOverlap(identifierStart, digits), diagnostics, "DDFL059",
+                    "L'inizio degli identificatori è in conflitto con la regola numerica.", file, "$.lexical");
+                foreach (DdfDelimitedTokenRule rule in result.DelimitedTokens)
+                {
+                    require(!whitespace.Contains(rule.Start[0]), diagnostics, "DDFL056",
+                        "Il marcatore lessicale inizia con uno spazio configurato: " + rule.Start + ".", file, "$.lexical.delimitedTokens");
+                    require(!lexicon.Operators.Any(item => item != null && item.Text == rule.Start) &&
+                            !lexicon.Punctuation.Any(item => item == rule.Start), diagnostics, "DDFL061",
+                        "Il marcatore lessicale duplica un operatore o delimitatore: " + rule.Start + ".", file, "$.lexical.delimitedTokens");
+                }
+                foreach (KeywordDto keyword in lexicon.Keywords.Where(item => item != null))
+                    require(result.IsValidIdentifier(keyword.Text), diagnostics, "DDFL062",
+                        "Keyword non raggiungibile con le regole degli identificatori: " + keyword.Text + ".", file, "$.keywords");
+                foreach (string literal in lexicon.BooleanLiterals)
+                    require(result.IsValidIdentifier(literal), diagnostics, "DDFL062",
+                        "Literal booleano non raggiungibile con le regole degli identificatori: " + literal + ".", file, "$.booleanLiterals");
+                var keywordTexts = new HashSet<string>(lexicon.Keywords.Where(item => item != null).Select(item => item.Text), StringComparer.Ordinal);
+                require(!lexicon.BooleanLiterals.Any(keywordTexts.Contains), diagnostics, "DDFL065",
+                    "Keyword e letterali booleani non possono condividere la stessa definizione.", file, "$.booleanLiterals");
+                var operatorTexts = new HashSet<string>(lexicon.Operators.Where(item => item != null).Select(item => item.Text), StringComparer.Ordinal);
+                require(!lexicon.Punctuation.Any(operatorTexts.Contains), diagnostics, "DDFL065",
+                    "Operatori e punteggiatura non possono condividere la stessa definizione.", file, "$.punctuation");
+                foreach (OperatorDto item in lexicon.Operators.Where(item => item != null && !string.IsNullOrEmpty(item.Text)))
+                    require(!whitespace.Contains(item.Text[0]) && !identifierStart.Contains(item.Text[0]) && !digits.Contains(item.Text[0]),
+                        diagnostics, "DDFL063", "Operatore irraggiungibile con le regole lessicali: " + item.Text + ".", file, "$.operators");
+                foreach (string item in lexicon.Punctuation.Where(item => !string.IsNullOrEmpty(item)))
+                    require(!whitespace.Contains(item[0]) && !identifierStart.Contains(item[0]) && !digits.Contains(item[0]),
+                        diagnostics, "DDFL064", "Punteggiatura irraggiungibile con le regole lessicali: " + item + ".", file, "$.punctuation");
+                return hasErrors(diagnostics) ? null : result;
+            }
+            catch (ArgumentException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL057", exception.Message, file, "$.lexical"));
+                return null;
+            }
+        }
+
+        private static DdfCharacterSetDefinition createCharacterSet(CharacterSetDto value)
+        {
+            return new DdfCharacterSetDefinition(value.UnicodeLetters, value.UnicodeDigits,
+                value.UnicodeWhitespace, value.Characters);
+        }
+
+        private static bool characterSetsOverlap(DdfCharacterSetDefinition first, DdfCharacterSetDefinition second)
+        {
+            if ((first.UnicodeLetters && second.UnicodeLetters) ||
+                (first.UnicodeDigits && second.UnicodeDigits) ||
+                (first.UnicodeWhitespace && second.UnicodeWhitespace)) return true;
+            return first.Characters.Any(second.Contains) || second.Characters.Any(first.Contains);
         }
 
         private static void validateUnique(IEnumerable<string> values, string label, string file, string path,
@@ -357,7 +489,12 @@ namespace DDFLanguageEditor.Core
         }
 
         private class SectionDto { public string SchemaVersion { get; set; } public string Adapter { get; set; } public List<string> DependsOn { get; set; } public string Description { get; set; } }
-        private sealed class LexiconDto : SectionDto { public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
+        private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
+        private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
+        private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }
+        private sealed class IdentifierDto { public CharacterSetDto Start { get; set; } public CharacterSetDto Part { get; set; } }
+        private sealed class NumberDto { public CharacterSetDto Digits { get; set; } public string DecimalSeparator { get; set; } public bool RequireFractionDigits { get; set; } }
+        private sealed class DelimitedTokenDto { public string TokenKind { get; set; } public string Start { get; set; } public string End { get; set; } public bool EndsAtLineBreak { get; set; } public bool AllowLineBreak { get; set; } = true; public string EscapeCharacter { get; set; } public string UnterminatedCode { get; set; } public string UnterminatedMessage { get; set; } }
         private sealed class KeywordDto { public string Text { get; set; } public string TokenKind { get; set; } public string Role { get; set; } }
         private sealed class OperatorDto { public string Text { get; set; } public int BinaryPrecedence { get; set; } public string Associativity { get; set; } public int PrefixPrecedence { get; set; } public int PostfixPrecedence { get; set; } public string Role { get; set; } }
         private sealed class ManifestDto { public string SchemaVersion { get; set; } public string EngineApi { get; set; } public string Id { get; set; } public string Name { get; set; } public string PackageVersion { get; set; } public string LanguageVersion { get; set; } public List<string> FileExtensions { get; set; } public Dictionary<string, string> Sections { get; set; } }

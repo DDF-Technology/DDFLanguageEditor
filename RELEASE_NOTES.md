@@ -1,6 +1,27 @@
-# DDFLanguageEditor 0.9.6.0
+# DDFLanguageEditor 0.9.6.1
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.6.1 makes the lexical layer genuinely declarative. Unicode character
+classes and explicit characters now define whitespace, identifier starts and
+parts, and numeric digits. The package also controls decimal separators,
+strings, escapes, line and block comments, library directives, multiline
+behavior, unterminated-token diagnostics and longest-match ordering.
+
+The loaded definition is shared by the lexer, syntax classifier, completion
+prefix calculation and rename validation. Library completion no longer assumes
+the DDF-specific `@@'...` form. Exact source spans and the incremental lexer are
+preserved while editing incomplete code.
+
+Package loading rejects missing rules, duplicate or unreachable markers,
+incompatible character classes and lexical categories that could never be
+recognized. `language-lexicon.schema.json` documents the public JSON contract.
+Regression tests load an external package using `$` identifiers, comma decimals,
+`#`/`##` comments, backtick strings with `~` escapes and `use[...]` directives,
+then verify tokenization, classification, completion and incremental equivalence
+without recompiling the editor.
+
+Previous version notes follow.
 
 Version 0.9.6.0 introduces the first stable boundary between the editor and a
 language definition. DDF now ships as a versioned package made of a manifest and

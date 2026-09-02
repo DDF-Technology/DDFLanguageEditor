@@ -3,7 +3,7 @@
   "engineApi": "1.0",
   "id": "ddf",
   "name": "DDF",
-  "packageVersion": "0.9.6",
+  "packageVersion": "0.9.6.1",
   "languageVersion": "0.9",
   "fileExtensions": [ ".ddf" ],
   "sections": {

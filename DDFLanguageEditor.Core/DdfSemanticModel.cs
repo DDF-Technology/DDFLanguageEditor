@@ -159,12 +159,12 @@ namespace DDFLanguageEditor.Core
 
         public DdfRenameResult Rename(int position, string newName, DdfLanguageDefinition language = null)
         {
-            if (!IsValidIdentifier(newName))
+            DdfLanguageDefinition effectiveLanguage = language ?? DdfLanguageCatalog.Default;
+            if (!IsValidIdentifier(newName, effectiveLanguage))
             {
                 throw new ArgumentException("Il nuovo nome non è un identificatore valido.", nameof(newName));
             }
 
-            DdfLanguageDefinition effectiveLanguage = language ?? DdfLanguageCatalog.Default;
             if (effectiveLanguage.TryGetKeyword(newName, out DdfKeywordDefinition keyword))
             {
                 throw new ArgumentException("Il nuovo nome è una parola riservata.", nameof(newName));
@@ -189,16 +189,9 @@ namespace DDFLanguageEditor.Core
             return new DdfRenameResult(result, selectionStart, newName.Length, replacements.Count);
         }
 
-        public static bool IsValidIdentifier(string value)
+        public static bool IsValidIdentifier(string value, DdfLanguageDefinition language = null)
         {
-            if (string.IsNullOrWhiteSpace(value)) return false;
-            if (!(char.IsLetter(value[0]) || value[0] == '_')) return false;
-            for (int index = 1; index < value.Length; index++)
-            {
-                if (!(char.IsLetterOrDigit(value[index]) || value[index] == '_')) return false;
-            }
-
-            return true;
+            return (language ?? DdfLanguageCatalog.Default).LexicalRules.IsValidIdentifier(value);
         }
 
         private static IEnumerable<DdfDocumentSymbol> Flatten(IEnumerable<DdfDocumentSymbol> symbols)

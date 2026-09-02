@@ -92,7 +92,8 @@ $missingLanguageFiles = @($requiredLanguageFiles | Where-Object {
     -not (Test-Path -LiteralPath (Join-Path $publishedLanguageDirectory $_) -PathType Leaf)
 })
 if ($missingLanguageFiles.Count -gt 0 -or
-    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-package.schema.json') -PathType Leaf)) {
+    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-package.schema.json') -PathType Leaf) -or
+    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-lexicon.schema.json') -PathType Leaf)) {
     throw "Pacchetto linguaggio DDF pubblicato incompleto. File mancanti: $($missingLanguageFiles -join ', ')"
 }
 

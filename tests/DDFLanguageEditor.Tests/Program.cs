@@ -4,6 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using DDFLanguageEditor.Core;
@@ -71,6 +73,8 @@ namespace DDFLanguageEditor.Tests
             Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
             Run("loads the embedded DDF language package", LoadsEmbeddedDdfLanguagePackage);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
+            Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
+            Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
             Run("falls back to the embedded language package", FallsBackToEmbeddedLanguagePackage);
             Run("indexes document symbols hierarchically", IndexesDocumentSymbolsHierarchically);
@@ -926,7 +930,7 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.9.6", result.Package.PackageVersion);
+            Equal("0.9.6.1", result.Package.PackageVersion);
             Equal(16, result.Package.Language.Keywords.Count);
             Equal(22, result.Package.Language.Operators.Count);
 
@@ -960,6 +964,104 @@ namespace DDFLanguageEditor.Tests
                 SequenceEqual(
                     folderResult.Package.Language.Keywords.Select(item => item.Text).OrderBy(item => item),
                     archiveResult.Package.Language.Keywords.Select(item => item.Text).OrderBy(item => item));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DrivesLexicalServicesFromLanguagePackage()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-declarative-lexer-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string lexiconPath = Path.Combine(root, "lexicon.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(lexiconPath, Encoding.UTF8)).AsObject();
+                JsonObject lexical = document["lexical"].AsObject();
+                JsonObject identifier = lexical["identifier"].AsObject();
+                identifier["start"].AsObject()["characters"] = "_$";
+                identifier["part"].AsObject()["characters"] = "_$";
+                lexical["number"].AsObject()["decimalSeparator"] = ",";
+                foreach (JsonNode node in lexical["delimitedTokens"].AsArray())
+                {
+                    JsonObject rule = node.AsObject();
+                    switch (rule["tokenKind"].GetValue<string>())
+                    {
+                        case "LineComment": rule["start"] = "#"; break;
+                        case "BlockComment": rule["start"] = "##"; rule["end"] = "##"; break;
+                        case "LibraryDirective": rule["start"] = "use["; rule["end"] = "]"; break;
+                        case "StringLiteral": rule["start"] = "`"; rule["end"] = "`"; rule["escapeCharacter"] = "~"; break;
+                    }
+                }
+                foreach (JsonNode node in document["keywords"].AsArray())
+                    if (node.AsObject()["text"].GetValue<string>() == "if") node.AsObject()["text"] = "$if";
+                File.WriteAllText(lexiconPath, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                if (!load.Success)
+                    throw new InvalidOperationException(string.Join(" | ", load.Diagnostics.Select(item => item.ToString())));
+                DdfLanguageDefinition language = load.Package.Language;
+                const string source = "$value 12,5 # note\n##block##\n`hello~`world` use[Console]";
+                DdfLexResult lex = DdfLexer.Lex(source, language);
+                Equal(0, lex.Diagnostics.Count);
+                SequenceEqual(new[]
+                {
+                    DdfTokenKind.Identifier, DdfTokenKind.NumberLiteral, DdfTokenKind.LineComment,
+                    DdfTokenKind.BlockComment, DdfTokenKind.StringLiteral, DdfTokenKind.LibraryDirective
+                }, lex.Tokens.Select(item => item.Kind));
+                SequenceEqual(new[] { SyntaxKind.Number, SyntaxKind.Comment, SyntaxKind.Comment, SyntaxKind.String, SyntaxKind.Library },
+                    DdfSyntaxClassifier.Classify(source, language).Select(item => item.Kind));
+                Equal(true, DdfSemanticModel.IsValidIdentifier("$value", language));
+                Equal(false, DdfSemanticModel.IsValidIdentifier("value-with-dash", language));
+
+                DdfCompletionResult keywordCompletion = DdfCompletionService.GetCompletions("$i", 2, false, language);
+                Equal(true, keywordCompletion.Items.Any(item => item.DisplayText == "$if"));
+                const string librarySource = "use[Console]\nuse[Con";
+                DdfCompletionResult libraryCompletion = DdfCompletionService.GetCompletions(
+                    librarySource, librarySource.Length, false, language);
+                SequenceEqual(new[] { "Console" }, libraryCompletion.Items.Select(item => item.DisplayText));
+
+                SequenceEqual(new[] { DdfTokenKind.NumberLiteral, DdfTokenKind.Punctuation, DdfTokenKind.NumberLiteral },
+                    DdfLexer.Lex("12.5", language).Tokens.Select(item => item.Kind));
+                DdfLexResult unterminated = DdfLexer.Lex("`open", language);
+                Equal(DdfTokenKind.StringLiteral, unterminated.Tokens.Single().Kind);
+                Equal("DDF001", unterminated.Diagnostics.Single().Code);
+
+                var incremental = new IncrementalDdfLexer(language);
+                incremental.Update("$name #");
+                DdfLexResult incrementalResult = incremental.Update("$name ##block##").Result;
+                DdfLexResult fullResult = DdfLexer.Lex("$name ##block##", language);
+                SequenceEqual(fullResult.Tokens.Select(item => item.Kind + ":" + item.Start + ":" + item.Length),
+                    incrementalResult.Tokens.Select(item => item.Kind + ":" + item.Start + ":" + item.Length));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsUnreachableLexicalRules()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-lexical-conflict-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string lexiconPath = Path.Combine(root, "lexicon.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(lexiconPath, Encoding.UTF8)).AsObject();
+                JsonObject lexical = document["lexical"].AsObject();
+                lexical["longestMatch"] = false;
+                lexical["delimitedTokens"].AsArray()[0].AsObject()["start"] = "/";
+                File.WriteAllText(lexiconPath, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(root);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL055" &&
+                    item.JsonPath.StartsWith("$.lexical.delimitedTokens", StringComparison.Ordinal)));
             }
             finally
             {

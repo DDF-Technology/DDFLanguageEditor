@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.6.1 - 2026-09-02
+
+- move whitespace, identifier, number, string, escape, line/block comment and library-directive rules into `lexicon.json`;
+- introduce safe declarative character sets and delimited-token rules without regular expressions or executable host code;
+- apply configurable longest-match ordering to overlapping token markers and retain longest-match operator handling;
+- derive lexer, syntax classification, rename validation and lexical completion prefixes from one loaded definition;
+- remove the fixed `@@'...` assumption from library completion and support package-defined directive delimiters;
+- reject incomplete definitions, duplicate markers, unreachable rules and character-class/category conflicts atomically during package loading;
+- preserve exact token spans, configured unterminated-construct diagnostics and incremental re-lexing across custom lexical rules;
+- publish a strict `language-lexicon.schema.json` and verify a substantially different external lexer without rebuilding the editor;
+
 ## 0.9.6.0 - 2026-09-02
 
 - define the versioned `1.0` contract for folder-based or archived `.ddflang` language packages;

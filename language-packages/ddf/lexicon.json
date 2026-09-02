@@ -1,6 +1,64 @@
 {
   "schemaVersion": "1.0",
   "adapter": "ddf-lexicon-v1",
+  "lexical": {
+    "whitespace": {
+      "unicodeWhitespace": true,
+      "characters": ""
+    },
+    "identifier": {
+      "start": {
+        "unicodeLetters": true,
+        "characters": "_"
+      },
+      "part": {
+        "unicodeLetters": true,
+        "unicodeDigits": true,
+        "characters": "_"
+      }
+    },
+    "number": {
+      "digits": {
+        "unicodeDigits": true,
+        "characters": ""
+      },
+      "decimalSeparator": ".",
+      "requireFractionDigits": true
+    },
+    "delimitedTokens": [
+      {
+        "tokenKind": "LineComment",
+        "start": "//",
+        "endsAtLineBreak": true
+      },
+      {
+        "tokenKind": "BlockComment",
+        "start": "/*",
+        "end": "*/",
+        "allowLineBreak": true,
+        "unterminatedCode": "DDF002",
+        "unterminatedMessage": "Commento a blocchi non terminato."
+      },
+      {
+        "tokenKind": "LibraryDirective",
+        "start": "@@'",
+        "end": "'",
+        "allowLineBreak": true,
+        "unterminatedCode": "DDF003",
+        "unterminatedMessage": "Inclusione di libreria non terminata."
+      },
+      {
+        "tokenKind": "StringLiteral",
+        "start": "\"",
+        "end": "\"",
+        "allowLineBreak": true,
+        "escapeCharacter": "\\",
+        "unterminatedCode": "DDF001",
+        "unterminatedMessage": "Stringa non terminata."
+      }
+    ],
+    "longestMatch": true
+  },
   "keywords": [
     { "text": "int", "tokenKind": "DataTypeKeyword", "role": "None" },
     { "text": "float", "tokenKind": "DataTypeKeyword", "role": "None" },

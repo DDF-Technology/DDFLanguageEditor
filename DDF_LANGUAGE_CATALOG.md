@@ -51,6 +51,11 @@ un operatore composto non richiede di modificare l'algoritmo longest-match.
 - numeri interi e decimali;
 - identificatori composti da lettere, cifre e `_`, non iniziati da cifra.
 
+Queste proprietà non sono più incorporate nel lexer: si trovano nell'oggetto
+`lexical` di `language-packages/ddf/lexicon.json`. Le classi Unicode possono
+essere combinate con caratteri espliciti; stringhe, commenti e direttive sono
+regole delimitate ordinate secondo `longestMatch`.
+
 ## Come estendere il catalogo
 
 1. Registrare il termine in `language-packages/ddf/lexicon.json` con categoria e,
