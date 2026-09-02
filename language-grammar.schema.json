@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/grammar-1.0.json",
+  "title": "DDF language package grammar 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "notation", "ebnfFile", "startRule", "choiceStrategy", "nodes" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-grammar-v2" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "notation": { "const": "ebnf-1.0" },
+    "ebnfFile": { "type": "string", "pattern": "^[^/\\\\]+\\.ebnf$" },
+    "startRule": { "type": "string", "minLength": 1 },
+    "choiceStrategy": { "const": "longest" },
+    "description": { "type": "string" },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "rule", "kind", "fields" ],
+        "properties": {
+          "rule": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [ "name", "sourceRule" ],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "sourceRule": { "type": "string", "minLength": 1 },
+                "multiple": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# Beta 0.9.6.1 limitations
+# Beta 0.9.6.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -43,6 +43,8 @@ This release is intended for interface and language-design evaluation only.
 - accelerated multi-document endurance smoke with latency, memory, handle and GDI/USER resource-growth gates;
 - versioned DDF language package loadable from a directory or `.ddflang` archive, with atomic validation and embedded fallback;
 - declarative lexical rules shared by tokenization, classification, completion prefixes and rename validation;
+- canonical EBNF grammar loaded and validated from the language package, with generic typed-by-kind syntax nodes;
+- extensible keyword role identifiers and DDF `if/else` parsing, analysis and execution;
 - active language-package information and fallback diagnostics available from the Help menu;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;

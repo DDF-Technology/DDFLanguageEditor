@@ -2,7 +2,7 @@
 
 La versione 1.0 del contratto separa la definizione di un linguaggio dai motori
 dell'editor. Un pacchetto può essere una cartella oppure un archivio ZIP con
-estensione `.ddflang`; in entrambi i casi tutti i file JSON risiedono nella
+estensione `.ddflang`; in entrambi i casi i file JSON e l'eventuale EBNF risiedono nella
 radice del contenitore.
 
 ## Struttura
@@ -22,8 +22,9 @@ dell'API del motore e riferisce queste nove sezioni obbligatorie:
 
 Lo schema pubblico del manifest è in
 [`language-package.schema.json`](language-package.schema.json), mentre
-[`language-lexicon.schema.json`](language-lexicon.schema.json) descrive il
-lessico. Il pacchetto DDF di riferimento è in
+[`language-lexicon.schema.json`](language-lexicon.schema.json) e
+[`language-grammar.schema.json`](language-grammar.schema.json) descrivono il
+lessico e la grammatica. Il pacchetto DDF di riferimento è in
 [`language-packages/ddf`](language-packages/ddf).
 
 ## Stato dell'adattamento
@@ -32,7 +33,17 @@ Dalla `0.9.6.1` `lexicon.json` definisce anche spazi, classi degli identificator
 cifre e separatore decimale, stringhe, escape, commenti, direttive, multilinea,
 diagnostiche per token incompleti e longest match. La stessa definizione alimenta
 lexer incrementale, classificazione, prefissi del completamento e validazione dei
-nomi. Le altre sezioni dichiarano adapter interni versionati che mantengono
+nomi.
+
+La `0.9.6.2` usa `grammar.ebnf` come unica rappresentazione canonica delle
+produzioni e `grammar.json` soltanto per start rule, strategia delle alternative
+e metadati di nodi/campi. Il loader compila la grammatica prima dell'attivazione,
+rifiuta riferimenti mancanti e ricorsione sinistra, e produce un albero generico
+con nodi mancanti e intervalli sorgente esatti. Il precedente AST DDF resta una
+proiezione temporanea di compatibilità per formatter, semantica e runtime e sarà
+sostituito dai servizi dichiarativi della `0.9.6.3`.
+
+Le altre sezioni dichiarano adapter interni versionati che mantengono
 invariato il comportamento dei motori DDF correnti. Le successive versioni
 `0.9.6.x` sostituiranno questi adapter, una sezione alla volta, con regole
 dichiarative.
@@ -73,7 +84,9 @@ esterno. Per esempio, aggiungendo `$` a `identifier.start.characters` e
 `identifier.part.characters`, un nome come `$value` viene tokenizzato come
 identificatore; cambiando il marcatore di `LineComment`, cambia immediatamente la
 colorazione dei commenti. Keyword e costrutti sintattici devono restare coerenti
-con la grammatica DDF finché non sarà completata la `0.9.6.2`.
+con `grammar.ebnf`. I ruoli delle keyword sono identificatori estensibili e non
+richiedono più una modifica dell'enum interno; perché un nuovo costrutto influenzi
+tutti i servizi IDE serviranno anche i metadati previsti dalla `0.9.6.3`.
 
 ## Caricamento atomico e fallback
 

@@ -72,6 +72,9 @@ namespace DDFLanguageEditor.Tests
             Run("drives parsing from syntax roles", DrivesParsingFromSyntaxRoles);
             Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
             Run("loads the embedded DDF language package", LoadsEmbeddedDdfLanguagePackage);
+            Run("parses the canonical EBNF grammar", ParsesCanonicalEbnfGrammar);
+            Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
+            Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
             Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
@@ -930,9 +933,11 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.9.6.1", result.Package.PackageVersion);
-            Equal(16, result.Package.Language.Keywords.Count);
+            Equal("0.9.6.2", result.Package.PackageVersion);
+            Equal(17, result.Package.Language.Keywords.Count);
             Equal(22, result.Package.Language.Operators.Count);
+            Equal(true, result.Package.Grammar != null);
+            Equal("compilation-unit", result.Package.Grammar.StartRule);
 
             const string source = "main() out int { int value << 1; ret value; }";
             SequenceEqual(
@@ -942,6 +947,66 @@ namespace DDFLanguageEditor.Tests
                 DdfParser.Parse(source, result.Package.Language).Diagnostics.Count);
             Equal(DdfFormatter.Format(source).Text,
                 DdfFormatter.Format(source, result.Package.Language).Text);
+        }
+
+        private static void ParsesCanonicalEbnfGrammar()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            string source = File.ReadAllText(Path.Combine(projectRoot, "samples", "parser", "valid.ddf"));
+            DdfParseResult result = DdfParser.Parse(source, package.Language);
+            if (result.GrammarDiagnostics.Count > 0)
+            {
+                string functionOnly = source.Substring(source.IndexOf("main()", StringComparison.Ordinal));
+                DdfParseResult isolated = DdfParser.Parse(functionOnly, package.Language);
+                throw new InvalidOperationException(string.Join(" | ", result.GrammarDiagnostics.Select(item => item.ToString())) +
+                    " ISOLATED: " + string.Join(" | ", isolated.GrammarDiagnostics.Select(item => item.ToString())));
+            }
+            Equal(0, result.GrammarDiagnostics.Count);
+            Equal("CompilationUnit", result.GenericRoot.Kind);
+            Equal(true, result.GenericRoot.Fields["members"].Count > 0);
+
+            DdfParseResult invalid = DdfParser.Parse("main() out int { ret 1 }", package.Language);
+            Equal(true, invalid.GrammarDiagnostics.Any(item => item.Code == "DDFG101"));
+            Equal(true, invalid.GenericRoot.Children.Any(item => item.IsMissing));
+        }
+
+        private static void AcceptsExtensibleKeywordRolesAndElseBranches()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfKeywordDefinition elseKeyword = package.Language.Keywords.Single(item => item.Text == "else");
+            Equal("Else", elseKeyword.RoleId);
+            Equal(DdfKeywordRole.None, elseKeyword.Role);
+
+            const string source = "main() out int { if(false) { ret 1; } else { ret 2; } }";
+            DdfParseResult parse = DdfParser.Parse(source, package.Language);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, parse.GrammarDiagnostics.Count);
+            var function = (FunctionDeclarationSyntax)parse.Root.Members.Single();
+            Equal(true, ((IfStatementSyntax)function.Body.Statements.Single()).ElseBody != null);
+            Equal(2L, Convert.ToInt64(DdfInterpreter.Execute(source, parse.Root).ReturnValue));
+            string formatted = DdfFormatter.Format(source, package.Language).Text;
+            Equal(0, DdfParser.Parse(formatted, package.Language).Diagnostics.Count);
+            Equal(0, DdfParser.Parse(formatted, package.Language).GrammarDiagnostics.Count);
+        }
+
+        private static void RejectsInvalidEbnfGrammarsAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-invalid-grammar-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                File.WriteAllText(Path.Combine(root, "grammar.ebnf"),
+                    "compilation-unit = compilation-unit, <Identifier> ;", new UTF8Encoding(false));
+                DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(root);
+                Equal(false, result.Success);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL064" &&
+                    item.Message.Contains("left recursion", StringComparison.OrdinalIgnoreCase)));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         private static void LoadsDirectoryAndArchiveLanguagePackages()

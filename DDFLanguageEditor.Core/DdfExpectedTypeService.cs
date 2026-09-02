@@ -43,7 +43,10 @@ namespace DDFLanguageEditor.Core
             if (statement is IfStatementSyntax conditional)
             {
                 if (Contains(conditional.Condition, position)) return "bool";
-                return FindInStatement(conditional.Body, position, returnType, types);
+                string branch = FindInStatement(conditional.Body, position, returnType, types);
+                return string.IsNullOrEmpty(branch)
+                    ? FindInStatement(conditional.ElseBody, position, returnType, types)
+                    : branch;
             }
             if (statement is WhileStatementSyntax whileStatement)
             {

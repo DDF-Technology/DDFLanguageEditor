@@ -1,9 +1,9 @@
-# DDF grammar — parser and semantic subset 0.6
+# DDF grammar — declarative grammar subset 0.9.6.2
 
-Questa grammatica descrive il sottoinsieme sintattico riconosciuto dal parser di
-DDFLanguageEditor 0.6. È deliberatamente piccola e conserva la natura
-sperimentale del linguaggio. Dalla 0.7.0 questo sottoinsieme può essere eseguito
-dal primo interprete AST interno, ancora privo di libreria standard completa.
+La fonte canonica della sintassi è ora
+[`language-packages/ddf/grammar.ebnf`](language-packages/ddf/grammar.ebnf),
+completata dai metadati dei nodi in `grammar.json`. Questo documento rimane una
+guida leggibile e non deve duplicare nuove produzioni.
 
 ## Notazione
 
@@ -70,7 +70,8 @@ statement = block
 
 block = "{", { statement }, "}" ;
 
-if-statement = "if", "(", expression, ")", statement ;
+if-statement = "if", "(", expression, ")", statement,
+               [ "else", statement ] ;
 
 while-statement = "while", "(", expression, ")", statement ;
 
@@ -88,8 +89,8 @@ end-statement = "end", ";" ;
 expression-statement = expression, ";" ;
 ```
 
-`else`, `switch`, eccezioni e altre forme di controllo non appartengono ancora
-al sottoinsieme 0.4.
+`switch`, eccezioni e altre forme di controllo non appartengono ancora al
+sottoinsieme corrente.
 
 ## Espressioni
 
@@ -132,6 +133,10 @@ Il parser continua dopo un errore sincronizzandosi sui delimitatori `;`, `{` e
 `}` o avanzando almeno di un token. I nodi incompleti restano nell'AST con un
 intervallo valido, permettendo all'editor di mostrare più diagnostiche nella
 stessa sessione senza interrompere la digitazione.
+
+Il parser generico della grammatica EBNF emette inoltre `MissingSyntax` e la
+diagnostica `DDFG101` nel punto sorgente più avanzato raggiunto. Il vecchio AST
+DDF resta temporaneamente una proiezione di compatibilità per i servizi IDE.
 
 ## Diagnostiche sintattiche
 

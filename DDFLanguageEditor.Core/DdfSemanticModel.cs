@@ -250,6 +250,9 @@ namespace DDFLanguageEditor.Core
             if (statement is IfStatementSyntax conditional)
             {
                 CollectStatementBindings(conditional.Body, symbolsByStart, bindings, depth + 1, conditional.Body.Start, conditional.Body.End);
+                if (conditional.ElseBody != null)
+                    CollectStatementBindings(conditional.ElseBody, symbolsByStart, bindings, depth + 1,
+                        conditional.ElseBody.Start, conditional.ElseBody.End);
             }
             else if (statement is WhileStatementSyntax loop)
             {
@@ -317,6 +320,7 @@ namespace DDFLanguageEditor.Core
             {
                 VisitExpression(conditional.Condition, bindings, occurrences, diagnostics, source);
                 VisitStatementReferences(conditional.Body, bindings, occurrences, diagnostics, source);
+                VisitStatementReferences(conditional.ElseBody, bindings, occurrences, diagnostics, source);
             }
             else if (statement is WhileStatementSyntax loop)
             {

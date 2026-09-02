@@ -7,7 +7,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\language-packages\ddf\*.json"
+    <EmbeddedResource Include="..\language-packages\ddf\*.*"
                       Link="LanguagePackages\Ddf\%(Filename)%(Extension)"
                       LogicalName="DDFLanguageEditor.Core.LanguagePackages.Ddf.%(Filename)%(Extension)" />
   </ItemGroup>

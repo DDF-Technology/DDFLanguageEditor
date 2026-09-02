@@ -209,6 +209,7 @@ namespace DDFLanguageEditor.Core
                 {
                     RequireBoolean(CheckExpression(conditional.Condition), conditional.Condition);
                     CheckStatement(conditional.Body);
+                    CheckStatement(conditional.ElseBody);
                 }
                 else if (statement is WhileStatementSyntax loop)
                 {
@@ -407,7 +408,8 @@ namespace DDFLanguageEditor.Core
                 if (statement == null) return false;
                 if (statement is ReturnStatementSyntax) return true;
                 if (statement is BlockStatementSyntax block) return block.Statements.Any(ContainsReturn);
-                if (statement is IfStatementSyntax conditional) return ContainsReturn(conditional.Body);
+                if (statement is IfStatementSyntax conditional) return conditional.ElseBody != null &&
+                    ContainsReturn(conditional.Body) && ContainsReturn(conditional.ElseBody);
                 if (statement is WhileStatementSyntax loop) return ContainsReturn(loop.Body);
                 if (statement is DoWhileStatementSyntax doLoop) return ContainsReturn(doLoop.Body);
                 if (statement is ForStatementSyntax forLoop) return ContainsReturn(forLoop.Body);

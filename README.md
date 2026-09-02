@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.6.1 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.6.2 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -15,6 +15,7 @@ evidenziazione delle regole note e indentazione assistita.
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
 - pacchetto DDF esterno versionato, caricabile da cartella o archivio `.ddflang`, con validazione atomica e fallback incorporato;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
+- grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
 - finestra `Help > Pacchetto linguaggio attivo` con versione, origine, sorgente e diagnostiche di caricamento;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
@@ -219,7 +220,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.6.1 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.6.2 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

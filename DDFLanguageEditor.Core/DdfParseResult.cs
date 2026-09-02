@@ -5,11 +5,15 @@ namespace DDFLanguageEditor.Core
 {
     public sealed class DdfParseResult
     {
-        public DdfParseResult(CompilationUnitSyntax root, IReadOnlyList<DdfDiagnostic> lexicalDiagnostics, IReadOnlyList<DdfDiagnostic> syntaxDiagnostics)
+        public DdfParseResult(CompilationUnitSyntax root, IReadOnlyList<DdfDiagnostic> lexicalDiagnostics,
+            IReadOnlyList<DdfDiagnostic> syntaxDiagnostics, DdfGenericSyntaxNode genericRoot = null,
+            IReadOnlyList<DdfDiagnostic> grammarDiagnostics = null)
         {
             Root = root ?? throw new ArgumentNullException(nameof(root));
             LexicalDiagnostics = lexicalDiagnostics ?? throw new ArgumentNullException(nameof(lexicalDiagnostics));
             SyntaxDiagnostics = syntaxDiagnostics ?? throw new ArgumentNullException(nameof(syntaxDiagnostics));
+            GenericRoot = genericRoot;
+            GrammarDiagnostics = grammarDiagnostics ?? Array.Empty<DdfDiagnostic>();
 
             var all = new List<DdfDiagnostic>(lexicalDiagnostics.Count + syntaxDiagnostics.Count);
             all.AddRange(lexicalDiagnostics);
@@ -23,6 +27,8 @@ namespace DDFLanguageEditor.Core
         public CompilationUnitSyntax Root { get; }
         public IReadOnlyList<DdfDiagnostic> LexicalDiagnostics { get; }
         public IReadOnlyList<DdfDiagnostic> SyntaxDiagnostics { get; }
+        public DdfGenericSyntaxNode GenericRoot { get; }
+        public IReadOnlyList<DdfDiagnostic> GrammarDiagnostics { get; }
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
     }
 }

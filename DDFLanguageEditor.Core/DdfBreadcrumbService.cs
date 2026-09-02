@@ -85,7 +85,8 @@ namespace DDFLanguageEditor.Core
             if (statement is IfStatementSyntax ifStatement)
             {
                 AddControl(path, "if", DdfBreadcrumbKind.If, ifStatement, 2);
-                AddStatementPath(ifStatement.Body, position, path);
+                if (!AddStatementPath(ifStatement.Body, position, path) && ifStatement.ElseBody != null)
+                    AddStatementPath(ifStatement.ElseBody, position, path);
                 return true;
             }
             if (statement is WhileStatementSyntax whileStatement)

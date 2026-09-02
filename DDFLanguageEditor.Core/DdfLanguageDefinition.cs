@@ -18,6 +18,21 @@ namespace DDFLanguageEditor.Core
         End
     }
 
+    public static class DdfSyntaxRoles
+    {
+        public const string None = "None";
+        public const string Structure = "Structure";
+        public const string ReturnTypeMarker = "ReturnTypeMarker";
+        public const string If = "If";
+        public const string Else = "Else";
+        public const string While = "While";
+        public const string Do = "Do";
+        public const string For = "For";
+        public const string Return = "Return";
+        public const string Break = "Break";
+        public const string End = "End";
+    }
+
     public enum DdfOperatorRole
     {
         None,
@@ -33,6 +48,11 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfKeywordDefinition
     {
         public DdfKeywordDefinition(string text, DdfTokenKind tokenKind, DdfKeywordRole role = DdfKeywordRole.None)
+            : this(text, tokenKind, role.ToString())
+        {
+        }
+
+        public DdfKeywordDefinition(string text, DdfTokenKind tokenKind, string roleId)
         {
             if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Keyword text is required.", nameof(text));
             if (tokenKind != DdfTokenKind.DataTypeKeyword &&
@@ -44,12 +64,15 @@ namespace DDFLanguageEditor.Core
 
             Text = text;
             TokenKind = tokenKind;
-            Role = role;
+            RoleId = string.IsNullOrWhiteSpace(roleId) ? DdfSyntaxRoles.None : roleId;
         }
 
         public string Text { get; }
         public DdfTokenKind TokenKind { get; }
-        public DdfKeywordRole Role { get; }
+        public string RoleId { get; }
+        public DdfKeywordRole Role => Enum.TryParse(RoleId, true, out DdfKeywordRole role) && Enum.IsDefined(role)
+            ? role
+            : DdfKeywordRole.None;
     }
 
     public sealed class DdfOperatorDefinition
@@ -130,6 +153,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyCollection<DdfOperatorDefinition> Operators => publicOperators;
         public IReadOnlyCollection<char> Punctuation => publicPunctuation;
         public DdfLexicalDefinition LexicalRules { get; }
+        public DdfCompiledGrammar Grammar { get; internal set; }
 
         public bool TryGetKeyword(string text, out DdfKeywordDefinition definition)
         {

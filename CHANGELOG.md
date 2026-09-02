@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.6.2 - 2026-09-02
+
+- make `grammar.ebnf` the canonical package syntax and keep JSON limited to compilation and node metadata;
+- compile grammar packages atomically with start-rule, reference, node-field and left-recursion validation;
+- expose a generic typed-by-kind syntax tree with declared fields, exact spans and missing-syntax recovery diagnostics;
+- retain the typed DDF AST as a compatibility projection while IDE services migrate in 0.9.6.3;
+- replace the closed keyword-role loader enum with extensible role identifiers;
+- add DDF `else` across lexing, parsing, traversal, type checking, folding, breakpoints and runtime execution;
+- publish `language-grammar.schema.json` and include EBNF in embedded, folder, archive and self-contained packages;
+- extend the Core suite with canonical-corpus, incomplete-source, extensible-role, `else` runtime and invalid-grammar cases;
+
 ## 0.9.6.1 - 2026-09-02
 
 - move whitespace, identifier, number, string, escape, line/block comment and library-directive rules into `lexicon.json`;

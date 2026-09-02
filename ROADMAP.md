@@ -427,11 +427,11 @@ host arbitrario.
 
 ### 0.9.6.2 — Grammatica caricabile e albero sintattico generico
 
-- [ ] Scegliere una notazione canonica EBNF con metadati JSON, evitando due rappresentazioni concorrenti della stessa regola.
-- [ ] Compilare e validare la grammatica al caricamento, segnalando ambiguità e ricorsioni non gestibili.
-- [ ] Produrre un albero sintattico generico ma tipizzato tramite nomi di nodo e campi dichiarati dal pacchetto.
-- [ ] Conservare error recovery, token mancanti e intervalli esatti richiesti da editor, diagnostiche e Quick Fix.
-- [ ] Migrare tutti i costrutti DDF correnti e verificarli contro un corpus valido, non valido e incompleto.
+- [x] Scegliere una notazione canonica EBNF con metadati JSON, evitando due rappresentazioni concorrenti della stessa regola (`0.9.6.2`).
+- [x] Compilare e validare la grammatica al caricamento, segnalando alternative deterministiche e ricorsioni non gestibili (`0.9.6.2`).
+- [x] Produrre un albero sintattico generico ma tipizzato tramite nomi di nodo e campi dichiarati dal pacchetto (`0.9.6.2`).
+- [x] Conservare recovery con nodi mancanti, diagnostiche navigabili e intervalli sorgente esatti; il vecchio AST DDF resta temporaneamente una proiezione di compatibilità per i servizi IDE (`0.9.6.2`).
+- [x] Migrare tutti i costrutti DDF correnti, incluso `else`, e verificarli contro corpus valido, non valido e incompleto (`0.9.6.2`).
 
 ### 0.9.6.3 — Servizi IDE derivati dal pacchetto
 

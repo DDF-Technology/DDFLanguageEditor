@@ -65,6 +65,7 @@ namespace DDFLanguageEditor.Core
 
         private static void VisitStatement(List<DdfFoldingRange> ranges, StatementSyntax statement, string text)
         {
+            if (statement == null) return;
             if (statement is BlockStatementSyntax block)
             {
                 AddBlock(ranges, block, DdfFoldingKind.Block, text);
@@ -73,6 +74,7 @@ namespace DDFLanguageEditor.Core
             else if (statement is IfStatementSyntax ifStatement)
             {
                 VisitStatement(ranges, ifStatement.Body, text);
+                VisitStatement(ranges, ifStatement.ElseBody, text);
             }
             else if (statement is WhileStatementSyntax whileStatement)
             {

@@ -164,14 +164,22 @@ namespace DDFLanguageEditor.Core
 
     public sealed class IfStatementSyntax : StatementSyntax
     {
-        public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax body, int start, int length) : base(start, length)
+        public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax body, int start, int length)
+            : this(condition, body, null, start, length)
+        {
+        }
+
+        public IfStatementSyntax(ExpressionSyntax condition, StatementSyntax body, StatementSyntax elseBody,
+            int start, int length) : base(start, length)
         {
             Condition = condition;
             Body = body;
+            ElseBody = elseBody;
         }
 
         public ExpressionSyntax Condition { get; }
         public StatementSyntax Body { get; }
+        public StatementSyntax ElseBody { get; }
     }
 
     public sealed class WhileStatementSyntax : StatementSyntax

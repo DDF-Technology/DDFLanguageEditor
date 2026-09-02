@@ -64,7 +64,7 @@
         "properties": {
           "text": { "type": "string", "minLength": 1 },
           "tokenKind": { "enum": [ "DataTypeKeyword", "FunctionKeyword", "ControlFlowKeyword" ] },
-          "role": { "enum": [ "None", "Structure", "ReturnTypeMarker", "If", "While", "Do", "For", "Return", "Break", "End" ] }
+          "role": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9.]*$" }
         }
       }
     },

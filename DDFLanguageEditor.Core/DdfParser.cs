@@ -52,7 +52,9 @@ namespace DDFLanguageEditor.Core
 
             var parser = new DdfParser(text, lexResult, language);
             CompilationUnitSyntax root = parser.ParseCompilationUnit();
-            return new DdfParseResult(root, lexResult.Diagnostics, parser.diagnostics.AsReadOnly());
+            DdfGenericParseResult generic = language.Grammar?.Parse(text, lexResult);
+            return new DdfParseResult(root, lexResult.Diagnostics, parser.diagnostics.AsReadOnly(),
+                generic?.Root, generic?.Diagnostics);
         }
 
         private CompilationUnitSyntax ParseCompilationUnit()
@@ -220,7 +222,14 @@ namespace DDFLanguageEditor.Core
             ExpressionSyntax condition = ParseExpression();
             MatchText(")");
             StatementSyntax body = ParseStatement();
-            return new IfStatementSyntax(condition, body, start, Math.Max(0, body.End - start));
+            StatementSyntax elseBody = null;
+            if (IsKeyword(DdfSyntaxRoles.Else))
+            {
+                NextToken();
+                elseBody = ParseStatement();
+            }
+            int end = elseBody?.End ?? body.End;
+            return new IfStatementSyntax(condition, body, elseBody, start, Math.Max(0, end - start));
         }
 
         private WhileStatementSyntax ParseWhileStatement()
@@ -626,9 +635,14 @@ namespace DDFLanguageEditor.Core
 
         private bool IsKeyword(DdfKeywordRole role)
         {
+            return IsKeyword(role.ToString());
+        }
+
+        private bool IsKeyword(string role)
+        {
             return Current != null &&
                    language.TryGetKeyword(CurrentText, out DdfKeywordDefinition definition) &&
-                   definition.Role == role;
+                   string.Equals(definition.RoleId, role, StringComparison.OrdinalIgnoreCase);
         }
 
         private string GetKeywordText(DdfKeywordRole role)

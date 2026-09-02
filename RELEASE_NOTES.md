@@ -1,6 +1,24 @@
-# DDFLanguageEditor 0.9.6.1
+# DDFLanguageEditor 0.9.6.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.6.2 makes `grammar.ebnf` the canonical syntax definition of the DDF
+package. `grammar.json` now contains only compilation settings and typed-by-kind
+node/field metadata. Package activation compiles and validates EBNF references,
+start rules, deterministic alternatives and unsupported left recursion.
+
+Parsing through a loaded package also produces a generic syntax tree with exact
+source spans, declared fields, a missing-syntax recovery node and navigable
+`DDFG101` diagnostics. The existing typed DDF AST remains a compatibility
+projection for the current IDE, semantic and runtime services until 0.9.6.3.
+
+Keyword roles are now extensible string identifiers rather than a loader enum
+restriction. The default DDF package adds `else`, including typed parsing,
+symbol traversal, folding, breakpoints, type checking and runtime execution.
+The new grammar schema and regression tests cover valid, invalid and incomplete
+sources plus atomic rejection of left-recursive packages.
+
+Previous version notes follow.
 
 Version 0.9.6.1 makes the lexical layer genuinely declarative. Unicode character
 classes and explicit characters now define whitespace, identifier starts and

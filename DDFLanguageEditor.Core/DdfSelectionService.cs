@@ -111,6 +111,7 @@ namespace DDFLanguageEditor.Core
             {
                 CollectContainingNodes(conditional.Condition, start, length, ranges);
                 CollectContainingNodes(conditional.Body, start, length, ranges);
+                CollectContainingNodes(conditional.ElseBody, start, length, ranges);
             }
             else if (node is WhileStatementSyntax whileStatement)
             {

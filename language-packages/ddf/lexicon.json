@@ -73,6 +73,7 @@
     { "text": "end", "tokenKind": "FunctionKeyword", "role": "End" },
     { "text": "out", "tokenKind": "FunctionKeyword", "role": "ReturnTypeMarker" },
     { "text": "if", "tokenKind": "ControlFlowKeyword", "role": "If" },
+    { "text": "else", "tokenKind": "ControlFlowKeyword", "role": "Else" },
     { "text": "while", "tokenKind": "ControlFlowKeyword", "role": "While" },
     { "text": "do", "tokenKind": "ControlFlowKeyword", "role": "Do" },
     { "text": "for", "tokenKind": "ControlFlowKeyword", "role": "For" }

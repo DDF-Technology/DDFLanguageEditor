@@ -1,1 +1,20 @@
-{ "schemaVersion": "1.0", "adapter": "ddf-parser-v1", "dependsOn": [ "lexicon" ], "description": "Parser AST DDF corrente; sostituzione dichiarativa prevista in 0.9.6.2." }
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-grammar-v2",
+  "dependsOn": [ "lexicon" ],
+  "notation": "ebnf-1.0",
+  "ebnfFile": "grammar.ebnf",
+  "startRule": "compilation-unit",
+  "choiceStrategy": "longest",
+  "nodes": [
+    { "rule": "compilation-unit", "kind": "CompilationUnit", "fields": [ { "name": "members", "sourceRule": "member", "multiple": true } ] },
+    { "rule": "struct-declaration", "kind": "StructDeclaration", "fields": [ { "name": "name", "sourceRule": "identifier" }, { "name": "body", "sourceRule": "block" } ] },
+    { "rule": "function-declaration", "kind": "FunctionDeclaration", "fields": [ { "name": "name", "sourceRule": "identifier" }, { "name": "parameters", "sourceRule": "parameter", "multiple": true }, { "name": "body", "sourceRule": "block" } ] },
+    { "rule": "if-statement", "kind": "IfStatement", "fields": [ { "name": "condition", "sourceRule": "expression" }, { "name": "branches", "sourceRule": "statement", "multiple": true } ] },
+    { "rule": "while-statement", "kind": "WhileStatement", "fields": [ { "name": "condition", "sourceRule": "expression" }, { "name": "body", "sourceRule": "statement" } ] },
+    { "rule": "variable-declaration", "kind": "VariableDeclaration", "fields": [ { "name": "type", "sourceRule": "type" }, { "name": "name", "sourceRule": "identifier" }, { "name": "initializer", "sourceRule": "expression" } ] },
+    { "rule": "block", "kind": "Block", "fields": [ { "name": "statements", "sourceRule": "statement", "multiple": true } ] },
+    { "rule": "expression", "kind": "Expression", "fields": [] }
+  ],
+  "description": "Grammatica EBNF canonica e metadati dell'albero sintattico generico."
+}

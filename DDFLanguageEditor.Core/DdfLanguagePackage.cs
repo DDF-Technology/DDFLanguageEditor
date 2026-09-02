@@ -35,11 +35,11 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfLanguagePackage
     {
         internal DdfLanguagePackage(string id, string name, string packageVersion, string languageVersion,
-            IReadOnlyList<string> extensions, DdfLanguageDefinition language,
+            IReadOnlyList<string> extensions, DdfLanguageDefinition language, DdfCompiledGrammar grammar,
             DdfLanguagePackageOrigin origin, string source)
         {
             Id = id; Name = name; PackageVersion = packageVersion; LanguageVersion = languageVersion;
-            FileExtensions = extensions; Language = language; Origin = origin; Source = source;
+            FileExtensions = extensions; Language = language; Grammar = grammar; Origin = origin; Source = source;
         }
         public string Id { get; }
         public string Name { get; }
@@ -47,6 +47,7 @@ namespace DDFLanguageEditor.Core
         public string LanguageVersion { get; }
         public IReadOnlyList<string> FileExtensions { get; }
         public DdfLanguageDefinition Language { get; }
+        public DdfCompiledGrammar Grammar { get; }
         public DdfLanguagePackageOrigin Origin { get; }
         public string Source { get; }
     }
@@ -78,7 +79,7 @@ namespace DDFLanguageEditor.Core
         private static readonly IReadOnlyDictionary<string, string> SupportedAdapters =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["lexicon"] = "ddf-lexicon-v1", ["grammar"] = "ddf-parser-v1",
+                ["lexicon"] = "ddf-lexicon-v1", ["grammar"] = "ddf-grammar-v2",
                 ["types"] = "ddf-types-v1", ["semantics"] = "ddf-semantics-v1",
                 ["formatting"] = "ddf-formatter-v1", ["intellisense"] = "ddf-intellisense-v1",
                 ["runtime"] = "ddf-runtime-v1", ["build"] = "ddf-build-v1",
@@ -164,7 +165,9 @@ namespace DDFLanguageEditor.Core
                     string file = manifest.Sections[section];
                     SectionDto document = section == "lexicon"
                         ? read<LexiconDto>(reader, file, diagnostics)
-                        : read<SectionDto>(reader, file, diagnostics);
+                        : section == "grammar"
+                            ? read<GrammarDto>(reader, file, diagnostics)
+                            : read<SectionDto>(reader, file, diagnostics);
                     if (document != null)
                     {
                         sectionDocuments[section] = document;
@@ -178,9 +181,15 @@ namespace DDFLanguageEditor.Core
                 if (hasErrors(diagnostics) || language == null)
                     return new DdfLanguagePackageLoadResult(null, diagnostics);
 
+                DdfCompiledGrammar grammar = createGrammar(reader,
+                    (GrammarDto)sectionDocuments["grammar"], manifest.Sections["grammar"], diagnostics);
+                if (hasErrors(diagnostics) || grammar == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
+                language.Grammar = grammar;
+
                 var package = new DdfLanguagePackage(manifest.Id, manifest.Name,
                     manifest.PackageVersion, manifest.LanguageVersion,
-                    manifest.FileExtensions.AsReadOnly(), language, origin, source);
+                    manifest.FileExtensions.AsReadOnly(), language, grammar, origin, source);
                 return new DdfLanguagePackageLoadResult(package, diagnostics);
             }
         }
@@ -274,10 +283,9 @@ namespace DDFLanguageEditor.Core
             foreach (KeywordDto item in lexicon.Keywords)
             {
                 if (item == null || !Enum.TryParse(item.TokenKind, true, out DdfTokenKind tokenKind) ||
-                    !Enum.IsDefined(tokenKind) || !Enum.TryParse(item.Role ?? "None", true, out DdfKeywordRole role) ||
-                    !Enum.IsDefined(role))
+                    !Enum.IsDefined(tokenKind) || !validRole(item.Role ?? "None"))
                 { diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL041", "Keyword con categoria o ruolo non valido.", file, "$.keywords")); continue; }
-                try { keywords.Add(new DdfKeywordDefinition(item.Text, tokenKind, role)); }
+                try { keywords.Add(new DdfKeywordDefinition(item.Text, tokenKind, item.Role ?? "None")); }
                 catch (ArgumentException exception) { diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL042", exception.Message, file, "$.keywords")); }
             }
             foreach (OperatorDto item in lexicon.Operators)
@@ -295,6 +303,35 @@ namespace DDFLanguageEditor.Core
             if (hasErrors(diagnostics)) return null;
             try { return new DdfLanguageDefinition(keywords, lexicon.BooleanLiterals, operators, punctuation, lexicalRules); }
             catch (ArgumentException exception) { diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL046", exception.Message, file)); return null; }
+        }
+
+        private static DdfCompiledGrammar createGrammar(IPackageReader reader, GrammarDto grammar, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (grammar == null) return null;
+            require(grammar.Notation == "ebnf-1.0", diagnostics, "DDFL060",
+                "Notazione grammaticale non supportata: " + grammar.Notation + ".", file, "$.notation");
+            require(grammar.ChoiceStrategy == "longest", diagnostics, "DDFL061",
+                "Strategia delle alternative non supportata: " + grammar.ChoiceStrategy + ".", file, "$.choiceStrategy");
+            require(safeResourceFile(grammar.EbnfFile) && reader.Exists(grammar.EbnfFile), diagnostics, "DDFL062",
+                "File EBNF mancante o non sicuro.", file, "$.ebnfFile");
+            require(!string.IsNullOrWhiteSpace(grammar.StartRule), diagnostics, "DDFL063",
+                "Regola iniziale richiesta.", file, "$.startRule");
+            if (hasErrors(diagnostics)) return null;
+            try
+            {
+                var nodes = (grammar.Nodes ?? new List<GrammarNodeDto>()).Select(node =>
+                    new DdfGrammarNodeDefinition(node.Rule, node.Kind,
+                        (node.Fields ?? new List<GrammarFieldDto>()).Select(field =>
+                            new DdfGrammarFieldDefinition(field.Name, field.SourceRule, field.Multiple))));
+                return DdfEbnfCompiler.Compile(reader.Read(grammar.EbnfFile), grammar.StartRule, nodes);
+            }
+            catch (Exception exception) when (exception is FormatException || exception is ArgumentException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL064", exception.Message,
+                    grammar.EbnfFile, "$"));
+                return null;
+            }
         }
 
         private static DdfLexicalDefinition createLexicalRules(LexiconDto lexicon, string file,
@@ -447,7 +484,10 @@ namespace DDFLanguageEditor.Core
                         "Definizione " + label + " duplicata: " + value + ".", file, path));
         }
         private static bool unique(IEnumerable<string> values) => values.Distinct(StringComparer.OrdinalIgnoreCase).Count() == values.Count();
+        private static bool validRole(string role) => !string.IsNullOrWhiteSpace(role) && Regex.IsMatch(role, "^[A-Z][A-Za-z0-9.]*$");
         private static bool safeFile(string file) => !string.IsNullOrWhiteSpace(file) && Path.GetFileName(file) == file && file.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+        private static bool safeResourceFile(string file) => !string.IsNullOrWhiteSpace(file) && Path.GetFileName(file) == file &&
+            (file.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".ebnf", StringComparison.OrdinalIgnoreCase));
         private static bool hasErrors(IEnumerable<DdfLanguagePackageDiagnostic> diagnostics) => diagnostics.Any(item => item.Severity == DdfLanguagePackageDiagnosticSeverity.Error);
         private static void require(bool condition, ICollection<DdfLanguagePackageDiagnostic> diagnostics,
             string code, string message, string file, string path) { if (!condition) diagnostics.Add(new DdfLanguagePackageDiagnostic(code, message, file, path)); }
@@ -464,8 +504,8 @@ namespace DDFLanguageEditor.Core
         {
             private readonly string root;
             public DirectoryReader(string rootPath) { root = Path.GetFullPath(rootPath); }
-            public IEnumerable<string> Files => Directory.EnumerateFiles(root, "*.json").Select(Path.GetFileName);
-            public bool Exists(string file) => safeFile(file) && File.Exists(Path.Combine(root, file));
+            public IEnumerable<string> Files => Directory.EnumerateFiles(root).Where(path => safeResourceFile(Path.GetFileName(path))).Select(Path.GetFileName);
+            public bool Exists(string file) => safeResourceFile(file) && File.Exists(Path.Combine(root, file));
             public string Read(string file) => File.ReadAllText(Path.Combine(root, file), Encoding.UTF8);
             public void Dispose() { }
         }
@@ -473,8 +513,8 @@ namespace DDFLanguageEditor.Core
         {
             private readonly ZipArchive archive;
             public ArchiveReader(string path) { archive = ZipFile.OpenRead(path); }
-            public IEnumerable<string> Files => archive.Entries.Where(entry => safeFile(entry.FullName)).Select(entry => entry.FullName);
-            public bool Exists(string file) => archive.GetEntry(file) != null;
+            public IEnumerable<string> Files => archive.Entries.Where(entry => safeResourceFile(entry.FullName)).Select(entry => entry.FullName);
+            public bool Exists(string file) => safeResourceFile(file) && archive.GetEntry(file) != null;
             public string Read(string file) { using (StreamReader reader = new StreamReader(archive.GetEntry(file).Open(), Encoding.UTF8)) return reader.ReadToEnd(); }
             public void Dispose() => archive.Dispose();
         }
@@ -489,6 +529,9 @@ namespace DDFLanguageEditor.Core
         }
 
         private class SectionDto { public string SchemaVersion { get; set; } public string Adapter { get; set; } public List<string> DependsOn { get; set; } public string Description { get; set; } }
+        private sealed class GrammarDto : SectionDto { public string Notation { get; set; } public string EbnfFile { get; set; } public string StartRule { get; set; } public string ChoiceStrategy { get; set; } public List<GrammarNodeDto> Nodes { get; set; } }
+        private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } }
+        private sealed class GrammarFieldDto { public string Name { get; set; } public string SourceRule { get; set; } public bool Multiple { get; set; } }
         private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
         private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }

@@ -184,6 +184,7 @@ namespace DDFLanguageEditor.Core
                 else if (statement is IfStatementSyntax conditional)
                 {
                     if (AsBoolean(Evaluate(conditional.Condition), conditional.Condition)) ExecuteStatement(conditional.Body);
+                    else if (conditional.ElseBody != null) ExecuteStatement(conditional.ElseBody);
                 }
                 else if (statement is WhileStatementSyntax loop)
                 {

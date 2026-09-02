@@ -88,7 +88,11 @@ namespace DDFLanguageEditor.Core
             if (!(statement is BlockStatementSyntax)) lines.Add(GetLine(source, statement.Start));
             if (statement is BlockStatementSyntax block)
                 foreach (StatementSyntax child in block.Statements) VisitStatement(source, child, lines);
-            else if (statement is IfStatementSyntax conditional) VisitStatement(source, conditional.Body, lines);
+            else if (statement is IfStatementSyntax conditional)
+            {
+                VisitStatement(source, conditional.Body, lines);
+                VisitStatement(source, conditional.ElseBody, lines);
+            }
             else if (statement is WhileStatementSyntax loop) VisitStatement(source, loop.Body, lines);
             else if (statement is DoWhileStatementSyntax doLoop) VisitStatement(source, doLoop.Body, lines);
             else if (statement is ForStatementSyntax forLoop)

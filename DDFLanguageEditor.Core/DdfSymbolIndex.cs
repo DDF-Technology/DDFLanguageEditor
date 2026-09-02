@@ -101,6 +101,7 @@ namespace DDFLanguageEditor.Core
             else if (statement is IfStatementSyntax ifStatement)
             {
                 AddStatementSymbols(symbols, ifStatement.Body);
+                AddStatementSymbols(symbols, ifStatement.ElseBody);
             }
             else if (statement is WhileStatementSyntax whileStatement)
             {
