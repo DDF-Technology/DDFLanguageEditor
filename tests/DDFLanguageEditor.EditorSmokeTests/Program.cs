@@ -90,6 +90,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
 
+                AssertWrappedGutterHasNoMissingLogicalLines(form, editor, lineNumbers);
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
@@ -1456,6 +1457,66 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Dimensioni o stato pin delle palette non vengono serializzati correttamente.");
             SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
             Console.WriteLine("PASS gutter e palette con dimensioni e pin persistenti tra gli avvii");
+        }
+
+        private static void AssertWrappedGutterHasNoMissingLogicalLines(
+            MainForm form, RichTextBox editor, RichTextBox lineNumbers)
+        {
+            editor = GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor");
+            form.GetType().GetMethod("leaveFoldedView", BindingFlags.Instance | BindingFlags.NonPublic,
+                null, Type.EmptyTypes, null).Invoke(form, null);
+            editor.BringToFront();
+            PumpMessages(20);
+            string originalText = editor.Text;
+            int originalSelection = editor.SelectionStart;
+            bool originalWordWrap = editor.WordWrap;
+            try
+            {
+                editor.WordWrap = true;
+                editor.Text = string.Join("\n", Enumerable.Range(1, 36).Select(line =>
+                    line % 3 == 0
+                        ? "string wrapped" + line + " << \"" + new string('x', 180) + "\";"
+                        : "int value" + line + " << " + line + ";"));
+                editor.Select(editor.TextLength, 0);
+                editor.ScrollToCaret();
+                PumpMessages(120);
+                InvokePrivate(form, "updateLineNumbers");
+
+                var displayed = GetPropertyValue<IReadOnlyList<int>>(lineNumbers, "DisplayedSourceLines");
+                var visibleLogicalLines = new List<int>();
+                int logicalLine = 1;
+                for (int start = 0; start <= editor.TextLength; logicalLine++)
+                {
+                    int y = editor.GetPositionFromCharIndex(start).Y;
+                    if (y >= 0 && y < editor.ClientSize.Height) visibleLogicalLines.Add(logicalLine);
+                    int newline = editor.Text.IndexOf('\n', start);
+                    if (newline < 0) break;
+                    start = newline + 1;
+                }
+                Require(visibleLogicalLines.Count > 2 && visibleLogicalLines.All(displayed.Contains),
+                    "Il gutter con a capo automatico omette una o più righe logiche visibili. Visibili=" +
+                    string.Join(",", visibleLogicalLines) + "; gutter=" + string.Join(",", displayed) +
+                    "; righe=" + editor.Lines.Length + "; visibile=" + editor.Visible +
+                    "; size=" + editor.ClientSize + "; fieldSame=" +
+                    ReferenceEquals(editor, GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor")));
+
+                editor.SelectedText = "\nint newlyTyped << 37;";
+                editor.ScrollToCaret();
+                PumpMessages(80);
+                InvokePrivate(form, "updateLineNumbers");
+                displayed = GetPropertyValue<IReadOnlyList<int>>(lineNumbers, "DisplayedSourceLines");
+                int typedLine = editor.Text.Count(character => character == '\n') + 1;
+                Require(displayed.Contains(typedLine),
+                    "Il gutter non aggiunge immediatamente la nuova riga durante la digitazione.");
+            }
+            finally
+            {
+                editor.WordWrap = originalWordWrap;
+                editor.Text = originalText;
+                editor.Select(Math.Min(originalSelection, editor.TextLength), 0);
+                InvokePrivate(form, "updateLineNumbers");
+            }
+            Console.WriteLine("PASS gutter continuo durante digitazione e a capo automatico");
         }
 
         private static void AssertSelectionStableDuringHighlight(RichTextBox editor)

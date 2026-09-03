@@ -38,6 +38,10 @@ namespace DDF___Program_Language_Editor
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int ContentUpdateCount { get; private set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IReadOnlyList<int> DisplayedSourceLines => displayedSourceLines;
+
         public void SetDisplayedSourceLines(IReadOnlyList<int> sourceLines)
         {
             displayedSourceLines = sourceLines?.ToArray() ?? new int[0];

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1016,10 +1017,12 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            int firstIndex = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, 1)));
+            int firstIndex = Math.Max(0, Math.Min(richTextBoxMainEditor.TextLength,
+                richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, 1))));
             int firstLine = richTextBoxMainEditor.GetLineFromCharIndex(firstIndex);
             int bottom = Math.Max(1, richTextBoxMainEditor.ClientRectangle.Height - 1);
-            int lastIndex = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, bottom)));
+            int lastIndex = Math.Max(0, Math.Min(richTextBoxMainEditor.TextLength,
+                richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, bottom))));
             int lastLine = richTextBoxMainEditor.GetLineFromCharIndex(lastIndex);
 
             if (lastLine < firstLine)
@@ -1046,24 +1049,41 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Font.GetHeight() * richTextBoxMainEditor.ZoomFactor));
             int rows = Math.Max(1, (int)Math.Ceiling(
                 richTextBoxMainEditor.ClientRectangle.Height / (double)lineHeight) + 1);
-            var lineNumbers = new StringBuilder();
-            var sourceLines = new List<int>();
-            int previousLogicalLine = -1;
-            for (int row = 0; row < rows; row++)
+            var sourceLines = Enumerable.Repeat(0, rows).ToList();
+            string source = richTextBoxMainEditor.Text;
+            int topCharacter = Math.Max(0, Math.Min(source.Length,
+                richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, 0))));
+            int searchBefore = Math.Min(source.Length - 1, topCharacter - 1);
+            int lineStart = searchBefore < 0 ? 0 : source.LastIndexOf('\n', searchBefore) + 1;
+            int sourceLine = 1;
+            for (int index = 0; index < lineStart; index++)
+                if (source[index] == '\n') sourceLine++;
+
+            // RichTextBox.GetLineFromCharIndex counts visual wrapped rows. Source numbers must
+            // instead follow actual newline characters, querying RichEdit only for their Y.
+            while (lineStart <= source.Length)
             {
-                int y = Math.Min(Math.Max(0, richTextBoxMainEditor.ClientRectangle.Height - 1),
-                    row * lineHeight + Math.Max(1, lineHeight / 2));
-                int character = Math.Max(0, richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, y)));
-                int logicalLine = richTextBoxMainEditor.GetLineFromCharIndex(character);
-                int lineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(logicalLine);
-                int lineStartY = lineStart < 0 ? int.MinValue : richTextBoxMainEditor.GetPositionFromCharIndex(lineStart).Y;
-                bool startsHere = logicalLine != previousLogicalLine &&
-                    lineStartY >= row * lineHeight - 2 && lineStartY < (row + 1) * lineHeight + 2;
-                int sourceLine = startsHere ? logicalLine + 1 : 0;
-                sourceLines.Add(sourceLine);
-                if (sourceLine > 0) lineNumbers.Append(formatLineNumber(sourceLine));
+                int y = richTextBoxMainEditor.GetPositionFromCharIndex(lineStart).Y;
+                if (y >= -lineHeight / 2 && y < richTextBoxMainEditor.ClientRectangle.Height + lineHeight / 2)
+                {
+                    int row = Math.Max(0, Math.Min(rows - 1,
+                        (int)Math.Round(y / (double)lineHeight, MidpointRounding.AwayFromZero)));
+                    while (row < rows && sourceLines[row] != 0) row++;
+                    if (row < rows) sourceLines[row] = sourceLine;
+                }
+                else if (y >= richTextBoxMainEditor.ClientRectangle.Height + lineHeight / 2) break;
+
+                int newline = source.IndexOf('\n', lineStart);
+                if (newline < 0) break;
+                lineStart = newline + 1;
+                sourceLine++;
+            }
+
+            var lineNumbers = new StringBuilder();
+            foreach (int visibleSourceLine in sourceLines)
+            {
+                if (visibleSourceLine > 0) lineNumbers.Append(formatLineNumber(visibleSourceLine));
                 lineNumbers.Append('\n');
-                previousLogicalLine = logicalLine;
             }
             richTextBoxLineNumbers.UpdateDisplayedLines(lineNumbers.ToString(), sourceLines);
         }

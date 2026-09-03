@@ -260,10 +260,18 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            int firstIndex = Math.Max(0, richTextBoxFoldedView.GetCharIndexFromPosition(new System.Drawing.Point(1, 1)));
+            if (richTextBoxFoldedView.WordWrap)
+            {
+                updateWrappedFoldedLineNumbers();
+                return;
+            }
+
+            int firstIndex = Math.Max(0, Math.Min(richTextBoxFoldedView.TextLength,
+                richTextBoxFoldedView.GetCharIndexFromPosition(new System.Drawing.Point(1, 1))));
             int firstLine = richTextBoxFoldedView.GetLineFromCharIndex(firstIndex);
             int bottom = Math.Max(1, richTextBoxFoldedView.ClientRectangle.Height - 1);
-            int lastIndex = Math.Max(0, richTextBoxFoldedView.GetCharIndexFromPosition(new System.Drawing.Point(1, bottom)));
+            int lastIndex = Math.Max(0, Math.Min(richTextBoxFoldedView.TextLength,
+                richTextBoxFoldedView.GetCharIndexFromPosition(new System.Drawing.Point(1, bottom))));
             int lastLine = richTextBoxFoldedView.GetLineFromCharIndex(lastIndex);
             firstLine = Math.Min(firstLine, activeFoldProjection.LineNumberLabels.Count - 1);
             lastLine = Math.Min(Math.Max(firstLine, lastLine), activeFoldProjection.LineNumberLabels.Count - 1);
@@ -289,6 +297,59 @@ namespace DDF___Program_Language_Editor
 
             string value = lineNumbers.ToString();
             richTextBoxLineNumbers.UpdateDisplayedLines(value, sourceLines);
+        }
+
+        private void updateWrappedFoldedLineNumbers()
+        {
+            int lineHeight = Math.Max(1, (int)Math.Ceiling(
+                richTextBoxFoldedView.Font.GetHeight() * richTextBoxFoldedView.ZoomFactor));
+            int rows = Math.Max(1, (int)Math.Ceiling(
+                richTextBoxFoldedView.ClientRectangle.Height / (double)lineHeight) + 1);
+            var sourceLines = System.Linq.Enumerable.Repeat(0, rows).ToList();
+            var displayLabels = System.Linq.Enumerable.Repeat(string.Empty, rows).ToList();
+            string projection = richTextBoxFoldedView.Text;
+            int topCharacter = Math.Max(0, Math.Min(projection.Length,
+                richTextBoxFoldedView.GetCharIndexFromPosition(new System.Drawing.Point(1, 0))));
+            int searchBefore = Math.Min(projection.Length - 1, topCharacter - 1);
+            int lineStart = searchBefore < 0 ? 0 : projection.LastIndexOf('\n', searchBefore) + 1;
+            int projectedLine = 0;
+            for (int index = 0; index < lineStart; index++)
+                if (projection[index] == '\n') projectedLine++;
+
+            while (lineStart <= projection.Length && projectedLine < activeFoldProjection.LineNumberLabels.Count)
+            {
+                int y = richTextBoxFoldedView.GetPositionFromCharIndex(lineStart).Y;
+                if (y >= -lineHeight / 2 && y < richTextBoxFoldedView.ClientRectangle.Height + lineHeight / 2)
+                {
+                    int row = Math.Max(0, Math.Min(rows - 1,
+                        (int)Math.Round(y / (double)lineHeight, MidpointRounding.AwayFromZero)));
+                    while (row < rows && !string.IsNullOrEmpty(displayLabels[row])) row++;
+                    if (row < rows)
+                    {
+                        string label = activeFoldProjection.LineNumberLabels[projectedLine];
+                        if (int.TryParse(label, out int sourceLine))
+                        {
+                            sourceLines[row] = sourceLine;
+                            displayLabels[row] = formatLineNumber(sourceLine);
+                        }
+                        else displayLabels[row] = label;
+                    }
+                }
+                else if (y >= richTextBoxFoldedView.ClientRectangle.Height + lineHeight / 2) break;
+
+                int newline = projection.IndexOf('\n', lineStart);
+                if (newline < 0) break;
+                lineStart = newline + 1;
+                projectedLine++;
+            }
+
+            var lineNumbers = new System.Text.StringBuilder();
+            foreach (string label in displayLabels)
+            {
+                lineNumbers.Append(label);
+                lineNumbers.Append('\n');
+            }
+            richTextBoxLineNumbers.UpdateDisplayedLines(lineNumbers.ToString(), sourceLines);
         }
 
         private DdfFoldingRange findFoldingRangeAtCaret()
