@@ -38,6 +38,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             try
             {
                 RunEditorScenarios(visible);
+                AssertRestoredMultiFileGutter(visible);
                 AssertPerformanceBudgets(visible);
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                 AssertProlongedEditingSession(visible);
@@ -126,6 +127,72 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertTypeChecking(form, editor, diagnostics);
                 AssertWorkspaceNavigation(form, editor, diagnostics);
                 AssertProgramExecution(form, editor);
+            }
+        }
+
+        private static void AssertRestoredMultiFileGutter(bool visible)
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-gutter-session-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                string firstPath = Path.Combine(root, "first.ddf");
+                string secondPath = Path.Combine(root, "second.ddf");
+                File.WriteAllText(firstPath, string.Join("\n", Enumerable.Range(1, 28)
+                    .Select(line => line % 5 == 0 ? string.Empty : "int first" + line + " << " + line + ";")));
+                File.WriteAllText(secondPath, string.Join("\n", Enumerable.Range(1, 32)
+                    .Select(line => line % 5 == 0
+                        ? string.Empty
+                        : line % 4 == 0
+                        ? "string second" + line + " << \"" + new string('w', 170) + "\";"
+                        : "int second" + line + " << " + line + ";")));
+                var snapshot = new WorkspaceSessionSnapshot
+                {
+                    WorkspacePath = root,
+                    ActiveDocumentIndex = 1,
+                    Documents = new List<WorkspaceSessionDocumentSnapshot>
+                    {
+                        new WorkspaceSessionDocumentSnapshot { Path = firstPath, SelectionStart = 0 },
+                        new WorkspaceSessionDocumentSnapshot { Path = secondPath, SelectionStart = 0 }
+                    }
+                };
+
+                using (var form = new MainForm())
+                {
+                    DisableRecentFilePersistence(form);
+                    ResetEditorSettingsForSmoke(form);
+                    EditorSettings settings = GetPrivateField<EditorSettings>(form, "editorSettings");
+                    SetPrivateField(form, "editorSettings", settings.WithVisualOptions(
+                        settings.HighlightCurrentLine, settings.ShowWhitespace, settings.ShowIndentGuides, true));
+                    InvokePrivate(form, "applyEditorSettings");
+                    SetPrivateField(form, "loadWorkspaceSessionSetting", new Func<string>(snapshot.Serialize));
+                    form.ShowInTaskbar = visible;
+                    form.StartPosition = FormStartPosition.Manual;
+                    form.Location = visible ? new Point(80, 80) : new Point(-32000, -32000);
+                    if (!visible) form.WindowState = FormWindowState.Normal;
+                    form.Show();
+                    PumpMessages(240);
+
+                    TabControl tabs = FindControl<TabControl>(form, "documentTabs");
+                    Require(tabs.TabPages.Count == 2, "Il ripristino multifile non ha riaperto entrambe le schede.");
+                    for (int tab = 0; tab < tabs.TabPages.Count; tab++)
+                    {
+                        tabs.SelectedIndex = tab;
+                        PumpMessages(100);
+                        RichTextBox activeEditor = GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor");
+                        activeEditor.Select(activeEditor.TextLength, 0);
+                        activeEditor.ScrollToCaret();
+                        PumpMessages(80);
+                        InvokePrivate(form, "updateLineNumbers");
+                        RequireVisibleLogicalLinesInGutter(activeEditor,
+                            FindControl<RichTextBox>(form, "richTextBoxLineNumbers"));
+                    }
+                }
+                Console.WriteLine("PASS gutter continuo dopo ripristino workspace multifile");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
             }
         }
 
@@ -1517,6 +1584,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokePrivate(form, "updateLineNumbers");
             }
             Console.WriteLine("PASS gutter continuo durante digitazione e a capo automatico");
+        }
+
+        private static void RequireVisibleLogicalLinesInGutter(RichTextBox editor, RichTextBox lineNumbers)
+        {
+            var displayed = GetPropertyValue<IReadOnlyList<int>>(lineNumbers, "DisplayedSourceLines");
+            var visible = new List<int>();
+            int logicalLine = 1;
+            for (int start = 0; start <= editor.TextLength; logicalLine++)
+            {
+                int y = editor.GetPositionFromCharIndex(start).Y;
+                if (y >= 0 && y < editor.ClientSize.Height) visible.Add(logicalLine);
+                int newline = editor.Text.IndexOf('\n', start);
+                if (newline < 0) break;
+                start = newline + 1;
+            }
+            Require(visible.Count > 0 && visible.All(displayed.Contains),
+                "Il gutter non contiene tutte le righe sorgente visibili. Visibili=" +
+                string.Join(",", visible) + "; gutter=" + string.Join(",", displayed));
         }
 
         private static void AssertSelectionStableDuringHighlight(RichTextBox editor)

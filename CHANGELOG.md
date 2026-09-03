@@ -10,6 +10,7 @@
 - add DDF `else` across lexing, parsing, traversal, type checking, folding, breakpoints and runtime execution;
 - publish `language-grammar.schema.json` and include EBNF in embedded, folder, archive and self-contained packages;
 - extend the Core suite with canonical-corpus, incomplete-source, extensible-role, `else` runtime and invalid-grammar cases;
+- keep gutter numbering tied to source newlines after multi-file/session restore, including wrapped and folded views;
 
 ## 0.9.6.1 - 2026-09-02
 
