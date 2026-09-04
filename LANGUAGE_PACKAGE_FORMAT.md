@@ -43,6 +43,13 @@ con nodi mancanti e intervalli sorgente esatti. Il precedente AST DDF resta una
 proiezione temporanea di compatibilità per formatter, semantica e runtime e sarà
 sostituito dai servizi dichiarativi della `0.9.6.3`.
 
+Dalla `0.9.6.3`, ogni nodo può dichiarare anche la sezione opzionale `ide` in
+`grammar.json`. I metadati `symbolKind`/`nameField`, `foldingKind`/`foldingField`,
+`breadcrumbKind`/`breadcrumbLabel` e `selectable` alimentano rispettivamente
+Outline e navigazione, folding, breadcrumb e selezione sintattica. Se il parsing
+generico di un documento incompleto non è disponibile, l'editor mantiene
+temporaneamente il servizio legacy come fallback durante la digitazione.
+
 Le altre sezioni dichiarano adapter interni versionati che mantengono
 invariato il comportamento dei motori DDF correnti. Le successive versioni
 `0.9.6.x` sostituiranno questi adapter, una sezione alla volta, con regole

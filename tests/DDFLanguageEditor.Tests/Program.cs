@@ -73,6 +73,7 @@ namespace DDFLanguageEditor.Tests
             Run("rejects duplicate catalog entries", RejectsDuplicateCatalogEntries);
             Run("loads the embedded DDF language package", LoadsEmbeddedDdfLanguagePackage);
             Run("parses the canonical EBNF grammar", ParsesCanonicalEbnfGrammar);
+            Run("drives structural IDE services from grammar metadata", DrivesStructuralIdeServicesFromGrammarMetadata);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
@@ -969,6 +970,57 @@ namespace DDFLanguageEditor.Tests
             DdfParseResult invalid = DdfParser.Parse("main() out int { ret 1 }", package.Language);
             Equal(true, invalid.GrammarDiagnostics.Any(item => item.Code == "DDFG101"));
             Equal(true, invalid.GenericRoot.Children.Any(item => item.IsMissing));
+        }
+
+        private static void DrivesStructuralIdeServicesFromGrammarMetadata()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            const string source = "@@'Console'\nmain(int input) out int\n{\n if(input > 0)\n {\n  int value;\n  ret value;\n }\n ret input;\n}";
+            DdfParseResult parse = DdfParser.Parse(source, package.Language);
+            Equal(0, parse.GrammarDiagnostics.Count);
+
+            DdfSymbolIndex symbols = DdfSymbolIndex.Create(parse, source);
+            SequenceEqual(new[] { "Console", "main" }, symbols.Symbols.Select(item => item.Name));
+            SequenceEqual(new[] { "input", "value" }, symbols.Symbols[1].Children.Select(item => item.Name));
+
+            IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parse, source);
+            Equal(2, folding.Count);
+            SequenceEqual(new[] { DdfFoldingKind.Function, DdfFoldingKind.Block }, folding.Select(item => item.Kind));
+
+            IReadOnlyList<DdfBreadcrumbItem> breadcrumb = DdfBreadcrumbService.GetPath(
+                parse, source, source.IndexOf("value;", StringComparison.Ordinal));
+            SequenceEqual(new[] { "main()", "if" }, breadcrumb.Select(item => item.Label));
+
+            string root = Path.Combine(Path.GetTempPath(), "ddf-ide-metadata-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string grammarPath = Path.Combine(root, "grammar.json");
+                JsonObject grammar = JsonNode.Parse(File.ReadAllText(grammarPath, Encoding.UTF8)).AsObject();
+                JsonObject ifNode = grammar["nodes"].AsArray().Select(item => item.AsObject())
+                    .Single(item => item["rule"].GetValue<string>() == "if-statement");
+                ifNode["ide"].AsObject()["breadcrumbLabel"] = "decisione";
+                File.WriteAllText(grammarPath,
+                    grammar.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult custom = DdfLanguagePackageLoader.Load(root);
+                Equal(true, custom.Success);
+                DdfParseResult customParse = DdfParser.Parse(source, custom.Package.Language);
+                IReadOnlyList<DdfBreadcrumbItem> customPath = DdfBreadcrumbService.GetPath(
+                    customParse, source, source.IndexOf("value;", StringComparison.Ordinal));
+                SequenceEqual(new[] { "main()", "decisione" }, customPath.Select(item => item.Label));
+
+                ifNode["ide"].AsObject()["breadcrumbSelectionField"] = "campo-inesistente";
+                File.WriteAllText(grammarPath,
+                    grammar.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+                DdfLanguagePackageLoadResult invalid = DdfLanguagePackageLoader.Load(root);
+                Equal(false, invalid.Success);
+                Equal(true, invalid.Diagnostics.Any(item => item.Code == "DDFL064"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         private static void AcceptsExtensibleKeywordRolesAndElseBranches()

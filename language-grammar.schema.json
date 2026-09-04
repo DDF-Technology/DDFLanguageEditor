@@ -35,6 +35,24 @@
                 "multiple": { "type": "boolean" }
               }
             }
+          },
+          "ide": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "symbolKind": { "enum": [ "Library", "Structure", "Function", "Parameter", "Field", "Variable" ] },
+              "nameField": { "type": "string", "minLength": 1 },
+              "namePrefix": { "type": "string" },
+              "nameSuffix": { "type": "string" },
+              "detail": { "type": "string" },
+              "foldingKind": { "enum": [ "Structure", "Function", "Block" ] },
+              "foldingField": { "type": "string", "minLength": 1 },
+              "breadcrumbKind": { "enum": [ "Structure", "Function", "If", "While", "DoWhile", "For" ] },
+              "breadcrumbLabel": { "type": "string" },
+              "breadcrumbSelectionField": { "type": "string", "minLength": 1 },
+              "breadcrumbSelectionLength": { "type": "integer", "minimum": 0 },
+              "selectable": { "type": "boolean" }
+            }
           }
         }
       }

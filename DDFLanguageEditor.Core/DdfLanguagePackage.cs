@@ -323,7 +323,8 @@ namespace DDFLanguageEditor.Core
                 var nodes = (grammar.Nodes ?? new List<GrammarNodeDto>()).Select(node =>
                     new DdfGrammarNodeDefinition(node.Rule, node.Kind,
                         (node.Fields ?? new List<GrammarFieldDto>()).Select(field =>
-                            new DdfGrammarFieldDefinition(field.Name, field.SourceRule, field.Multiple))));
+                            new DdfGrammarFieldDefinition(field.Name, field.SourceRule, field.Multiple)),
+                        createIdeDefinition(node.Ide)));
                 return DdfEbnfCompiler.Compile(reader.Read(grammar.EbnfFile), grammar.StartRule, nodes);
             }
             catch (Exception exception) when (exception is FormatException || exception is ArgumentException)
@@ -332,6 +333,25 @@ namespace DDFLanguageEditor.Core
                     grammar.EbnfFile, "$"));
                 return null;
             }
+        }
+
+        private static DdfGrammarIdeDefinition createIdeDefinition(GrammarIdeDto ide)
+        {
+            if (ide == null) return null;
+            return new DdfGrammarIdeDefinition(
+                parseOptionalEnum<DdfSymbolKind>(ide.SymbolKind, "symbolKind"),
+                ide.NameField, ide.NamePrefix, ide.NameSuffix, ide.Detail,
+                parseOptionalEnum<DdfFoldingKind>(ide.FoldingKind, "foldingKind"), ide.FoldingField,
+                parseOptionalEnum<DdfBreadcrumbKind>(ide.BreadcrumbKind, "breadcrumbKind"),
+                ide.BreadcrumbLabel, ide.BreadcrumbSelectionField, ide.BreadcrumbSelectionLength,
+                ide.Selectable);
+        }
+
+        private static T? parseOptionalEnum<T>(string value, string property) where T : struct
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            if (Enum.TryParse(value, true, out T parsed) && Enum.IsDefined(typeof(T), parsed)) return parsed;
+            throw new ArgumentException("Valore IDE non supportato per " + property + ": " + value + ".");
         }
 
         private static DdfLexicalDefinition createLexicalRules(LexiconDto lexicon, string file,
@@ -530,8 +550,9 @@ namespace DDFLanguageEditor.Core
 
         private class SectionDto { public string SchemaVersion { get; set; } public string Adapter { get; set; } public List<string> DependsOn { get; set; } public string Description { get; set; } }
         private sealed class GrammarDto : SectionDto { public string Notation { get; set; } public string EbnfFile { get; set; } public string StartRule { get; set; } public string ChoiceStrategy { get; set; } public List<GrammarNodeDto> Nodes { get; set; } }
-        private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } }
+        private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } public GrammarIdeDto Ide { get; set; } }
         private sealed class GrammarFieldDto { public string Name { get; set; } public string SourceRule { get; set; } public bool Multiple { get; set; } }
+        private sealed class GrammarIdeDto { public string SymbolKind { get; set; } public string NameField { get; set; } public string NamePrefix { get; set; } public string NameSuffix { get; set; } public string Detail { get; set; } public string FoldingKind { get; set; } public string FoldingField { get; set; } public string BreadcrumbKind { get; set; } public string BreadcrumbLabel { get; set; } public string BreadcrumbSelectionField { get; set; } public int BreadcrumbSelectionLength { get; set; } public bool Selectable { get; set; } }
         private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
         private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }

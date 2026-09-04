@@ -31,6 +31,16 @@ namespace DDFLanguageEditor.Core
 
     public static class DdfFoldingRangeProvider
     {
+        public static IReadOnlyList<DdfFoldingRange> Create(DdfParseResult parseResult, string text)
+        {
+            if (parseResult == null) throw new ArgumentNullException(nameof(parseResult));
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            if (parseResult.GenericRoot != null && parseResult.Grammar != null &&
+                parseResult.GrammarDiagnostics.Count == 0)
+                return DdfGenericIdeService.CreateFoldingRanges(parseResult.GenericRoot, parseResult.Grammar, text);
+            return Create(parseResult.Root, text);
+        }
+
         public static IReadOnlyList<DdfFoldingRange> Create(CompilationUnitSyntax root, string text)
         {
             if (root == null) throw new ArgumentNullException(nameof(root));

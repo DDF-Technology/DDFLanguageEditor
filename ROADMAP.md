@@ -435,7 +435,7 @@ host arbitrario.
 
 ### 0.9.6.3 — Servizi IDE derivati dal pacchetto
 
-- [ ] Alimentare Outline, folding, breadcrumb, selezione sintattica e navigazione dai metadati dei nodi.
+- [x] Alimentare Outline, folding, breadcrumb, selezione sintattica e navigazione dai metadati dei nodi.
 - [ ] Derivare completamento, Signature Help, hover, snippet e simboli dalle regole del pacchetto.
 - [ ] Rendere formatter, indentazione, coppie automatiche e Quick Fix configurabili senza duplicare la grammatica.
 - [ ] Aggiornare menu, impostazioni, icon bar e stato applicazione quando cambia il linguaggio attivo.

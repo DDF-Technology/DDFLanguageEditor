@@ -54,7 +54,7 @@ namespace DDFLanguageEditor.Core
             CompilationUnitSyntax root = parser.ParseCompilationUnit();
             DdfGenericParseResult generic = language.Grammar?.Parse(text, lexResult);
             return new DdfParseResult(root, lexResult.Diagnostics, parser.diagnostics.AsReadOnly(),
-                generic?.Root, generic?.Diagnostics);
+                generic?.Root, generic?.Diagnostics, language.Grammar);
         }
 
         private CompilationUnitSyntax ParseCompilationUnit()

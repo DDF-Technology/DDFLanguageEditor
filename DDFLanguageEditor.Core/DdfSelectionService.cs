@@ -29,12 +29,28 @@ namespace DDFLanguageEditor.Core
 
             DdfLexResult lexResult = DdfLexer.Lex(text);
             DdfParseResult parseResult = DdfParser.Parse(text, lexResult);
+            return GetNextExpansion(text, selectionStart, selectionLength, lexResult, parseResult);
+        }
+
+        public static DdfTextRange GetNextExpansion(string text, int selectionStart, int selectionLength,
+            DdfLexResult lexResult, DdfParseResult parseResult)
+        {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            if (selectionStart < 0 || selectionStart > text.Length) throw new ArgumentOutOfRangeException(nameof(selectionStart));
+            if (selectionLength < 0 || selectionStart + selectionLength > text.Length) throw new ArgumentOutOfRangeException(nameof(selectionLength));
+            if (lexResult == null) throw new ArgumentNullException(nameof(lexResult));
+            if (parseResult == null) throw new ArgumentNullException(nameof(parseResult));
             var candidates = new List<DdfTextRange>();
 
             DdfToken token = FindToken(lexResult.Tokens, selectionStart, selectionLength);
             if (token != null) candidates.Add(new DdfTextRange(token.Start, token.Length));
 
-            CollectContainingNodes(parseResult.Root, selectionStart, selectionLength, candidates);
+            if (parseResult.GenericRoot != null && parseResult.Grammar != null &&
+                parseResult.GrammarDiagnostics.Count == 0)
+                DdfGenericIdeService.CollectSelectableRanges(parseResult.GenericRoot, parseResult.Grammar,
+                    selectionStart, selectionLength, candidates);
+            else
+                CollectContainingNodes(parseResult.Root, selectionStart, selectionLength, candidates);
             foreach (DdfDelimiterMatch pair in DdfDelimiterMatcher.FindPairs(text, lexResult))
             {
                 AddIfContaining(candidates, pair.OpenStart, pair.CloseStart - pair.OpenStart + 1,

@@ -53,7 +53,8 @@ namespace DDF___Program_Language_Editor
             if (isNavigatingBreadcrumb || breadcrumbPanel == null || breadcrumbPanel.IsDisposed || richTextBoxMainEditor == null) return;
             activeBreadcrumbPath = lastParseResult != null &&
                                    string.Equals(lastAnalyzedText, richTextBoxMainEditor.Text, StringComparison.Ordinal)
-                ? DdfBreadcrumbService.GetPath(lastParseResult.Root, richTextBoxMainEditor.SelectionStart)
+                ? DdfBreadcrumbService.GetPath(lastParseResult, richTextBoxMainEditor.Text,
+                    richTextBoxMainEditor.SelectionStart)
                 : Array.Empty<DdfBreadcrumbItem>();
             string fileName = getBreadcrumbFileName();
             string signature = fileName + "|" + string.Join("|", activeBreadcrumbPath.Select(item =>

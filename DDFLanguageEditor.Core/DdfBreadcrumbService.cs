@@ -35,6 +35,17 @@ namespace DDFLanguageEditor.Core
 
     public static class DdfBreadcrumbService
     {
+        public static IReadOnlyList<DdfBreadcrumbItem> GetPath(DdfParseResult parseResult, string source, int position)
+        {
+            if (parseResult == null) throw new ArgumentNullException(nameof(parseResult));
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (parseResult.GenericRoot != null && parseResult.Grammar != null &&
+                parseResult.GrammarDiagnostics.Count == 0)
+                return DdfGenericIdeService.GetBreadcrumbPath(
+                    parseResult.GenericRoot, parseResult.Grammar, source, position);
+            return GetPath(parseResult.Root, position);
+        }
+
         public static IReadOnlyList<DdfBreadcrumbItem> GetPath(CompilationUnitSyntax root, int position)
         {
             if (root == null) throw new ArgumentNullException(nameof(root));

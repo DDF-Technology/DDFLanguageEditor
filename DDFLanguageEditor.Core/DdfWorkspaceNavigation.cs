@@ -53,7 +53,7 @@ namespace DDFLanguageEditor.Core
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 DdfParseResult parseResult = DdfParser.Parse(document.Source);
-                foreach (DdfDocumentSymbol symbol in Flatten(DdfSymbolIndex.Create(parseResult.Root).Symbols))
+                foreach (DdfDocumentSymbol symbol in Flatten(DdfSymbolIndex.Create(parseResult, document.Source).Symbols))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     result.Add(CreateLocation(document, symbol.Name,
@@ -88,7 +88,8 @@ namespace DDFLanguageEditor.Core
             if (declaration == null) return Array.Empty<DdfWorkspaceNavigationLocation>();
 
             HashSet<int> topLevelStarts = new HashSet<int>(
-                DdfSymbolIndex.Create(declarationParse.Root).Symbols.Select(symbol => symbol.SelectionStart));
+                DdfSymbolIndex.Create(declarationParse, declarationDocument.Source).Symbols
+                    .Select(symbol => symbol.SelectionStart));
             if (!topLevelStarts.Contains(declaration.Symbol.SelectionStart))
             {
                 return declarationModel.FindOccurrences(declaration.Symbol)
@@ -107,7 +108,7 @@ namespace DDFLanguageEditor.Core
                 DdfParseResult parse = DdfParser.Parse(document.Source);
                 DdfSemanticModel model = DdfSemanticModel.Create(document.Source, parse.Root);
                 HashSet<int> globalStarts = new HashSet<int>(
-                    DdfSymbolIndex.Create(parse.Root).Symbols.Select(symbol => symbol.SelectionStart));
+                    DdfSymbolIndex.Create(parse, document.Source).Symbols.Select(symbol => symbol.SelectionStart));
                 DdfLexResult lex = DdfLexer.Lex(document.Source);
                 foreach (DdfToken token in lex.Tokens)
                 {

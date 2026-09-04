@@ -19,16 +19,68 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfGrammarNodeDefinition
     {
-        public DdfGrammarNodeDefinition(string rule, string kind, IEnumerable<DdfGrammarFieldDefinition> fields)
+        public DdfGrammarNodeDefinition(string rule, string kind, IEnumerable<DdfGrammarFieldDefinition> fields,
+            DdfGrammarIdeDefinition ide = null)
         {
             if (string.IsNullOrWhiteSpace(rule)) throw new ArgumentException("Node rule is required.", nameof(rule));
             if (string.IsNullOrWhiteSpace(kind)) throw new ArgumentException("Node kind is required.", nameof(kind));
             Rule = rule; Kind = kind;
             Fields = (fields ?? Array.Empty<DdfGrammarFieldDefinition>()).ToList().AsReadOnly();
+            Ide = ide ?? DdfGrammarIdeDefinition.Empty;
+            ValidateIdeField(Ide.NameField, "nameField");
+            ValidateIdeField(Ide.FoldingField, "foldingField");
+            ValidateIdeField(Ide.BreadcrumbSelectionField, "breadcrumbSelectionField");
         }
         public string Rule { get; }
         public string Kind { get; }
         public IReadOnlyList<DdfGrammarFieldDefinition> Fields { get; }
+        public DdfGrammarIdeDefinition Ide { get; }
+
+        private void ValidateIdeField(string fieldName, string property)
+        {
+            if (!string.IsNullOrWhiteSpace(fieldName) && !Fields.Any(field => field.Name == fieldName))
+                throw new ArgumentException("IDE metadata " + property + " references unknown field '" +
+                    fieldName + "' on rule '" + Rule + "'.");
+        }
+    }
+
+    public sealed class DdfGrammarIdeDefinition
+    {
+        internal static readonly DdfGrammarIdeDefinition Empty = new DdfGrammarIdeDefinition();
+
+        public DdfGrammarIdeDefinition(DdfSymbolKind? symbolKind = null, string nameField = null,
+            string namePrefix = null, string nameSuffix = null, string detail = null,
+            DdfFoldingKind? foldingKind = null, string foldingField = null,
+            DdfBreadcrumbKind? breadcrumbKind = null, string breadcrumbLabel = null,
+            string breadcrumbSelectionField = null, int breadcrumbSelectionLength = 0,
+            bool selectable = false)
+        {
+            SymbolKind = symbolKind;
+            NameField = nameField;
+            NamePrefix = namePrefix ?? string.Empty;
+            NameSuffix = nameSuffix ?? string.Empty;
+            Detail = detail ?? string.Empty;
+            FoldingKind = foldingKind;
+            FoldingField = foldingField;
+            BreadcrumbKind = breadcrumbKind;
+            BreadcrumbLabel = breadcrumbLabel ?? string.Empty;
+            BreadcrumbSelectionField = breadcrumbSelectionField;
+            BreadcrumbSelectionLength = Math.Max(0, breadcrumbSelectionLength);
+            Selectable = selectable;
+        }
+
+        public DdfSymbolKind? SymbolKind { get; }
+        public string NameField { get; }
+        public string NamePrefix { get; }
+        public string NameSuffix { get; }
+        public string Detail { get; }
+        public DdfFoldingKind? FoldingKind { get; }
+        public string FoldingField { get; }
+        public DdfBreadcrumbKind? BreadcrumbKind { get; }
+        public string BreadcrumbLabel { get; }
+        public string BreadcrumbSelectionField { get; }
+        public int BreadcrumbSelectionLength { get; }
+        public bool Selectable { get; }
     }
 
     public sealed class DdfGenericSyntaxNode : DdfSyntaxNode
@@ -79,6 +131,11 @@ namespace DDFLanguageEditor.Core
         public string StartRule { get; }
         public IReadOnlyCollection<string> RuleNames => rules.Keys.ToList().AsReadOnly();
         public IReadOnlyCollection<DdfGrammarNodeDefinition> NodeDefinitions => nodes.Values.ToList().AsReadOnly();
+
+        public bool TryGetNodeDefinition(string ruleName, out DdfGrammarNodeDefinition definition)
+        {
+            return nodes.TryGetValue(ruleName ?? string.Empty, out definition);
+        }
 
         public DdfGenericParseResult Parse(string source, DdfLexResult lexResult)
         {

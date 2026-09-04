@@ -409,7 +409,7 @@ namespace DDF___Program_Language_Editor
             lastLexResult = lexResult;
             lastParseResult = parseResult;
             lastAnalyzedText = source;
-            foldingRanges = DdfFoldingRangeProvider.Create(parseResult.Root, source);
+            foldingRanges = DdfFoldingRangeProvider.Create(parseResult, source);
         }
 
         private void applyFoldedProjectionFormatting(DdfFoldProjection projection)

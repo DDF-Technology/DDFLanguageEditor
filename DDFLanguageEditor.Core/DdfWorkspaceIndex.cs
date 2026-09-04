@@ -164,12 +164,20 @@ namespace DDFLanguageEditor.Core
         private static DdfWorkspaceDocument CreateDocument(string rootPath, string path, string source)
         {
             DdfParseResult parseResult = DdfParser.Parse(source);
-            return CreateDocument(rootPath, path, source, parseResult.Root);
+            return CreateDocument(rootPath, path, source, parseResult.Root,
+                DdfSymbolIndex.Create(parseResult, source).Symbols);
         }
 
         private static DdfWorkspaceDocument CreateDocument(string rootPath, string path, string source, CompilationUnitSyntax root)
         {
-            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(root).Symbols;
+            DdfParseResult parseResult = DdfParser.Parse(source);
+            return CreateDocument(rootPath, path, source, root,
+                DdfSymbolIndex.Create(parseResult, source).Symbols);
+        }
+
+        private static DdfWorkspaceDocument CreateDocument(string rootPath, string path, string source,
+            CompilationUnitSyntax root, IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
             string prefix = rootPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
                 ? rootPath
                 : rootPath + Path.DirectorySeparatorChar;

@@ -261,8 +261,8 @@ namespace DDF___Program_Language_Editor
                 parseResult,
                 semanticModel,
                 typeCheckResult,
-                DdfSymbolIndex.Create(parseResult.Root).Symbols,
-                DdfFoldingRangeProvider.Create(parseResult.Root, text));
+                DdfSymbolIndex.Create(parseResult, text).Symbols,
+                DdfFoldingRangeProvider.Create(parseResult, text));
             applyAnalysisSnapshot(snapshot, update.RelexStart, version);
         }
 
@@ -318,8 +318,8 @@ namespace DDF___Program_Language_Editor
             cancellationToken.ThrowIfCancellationRequested();
             DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(text, parseResult.Root, externalRoots);
             cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
-            IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parseResult.Root, text);
+            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, text).Symbols;
+            IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parseResult, text);
             return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, symbols, folding);
         }
 

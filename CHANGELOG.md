@@ -1,5 +1,13 @@
 # Changelog
 
+## In sviluppo - 0.9.6.3
+
+- dichiarare in `grammar.json` i metadati IDE per simboli, folding, breadcrumb e nodi selezionabili;
+- alimentare Outline, folding, breadcrumb, selezione sintattica e navigazione workspace dall'AST generico del pacchetto;
+- validare atomicamente riferimenti errati dei metadati IDE e mantenere il fallback legacy sui documenti incompleti;
+- preservare temporaneamente i dettagli tipizzati legacy dei simboli finché completamento, hover e Signature Help non migreranno al pacchetto;
+- verificare che una modifica al solo pacchetto cambi il breadcrumb senza ricompilare il motore;
+
 ## 0.9.6.2 - 2026-09-02
 
 - make `grammar.ebnf` the canonical package syntax and keep JSON limited to compilation and node metadata;
