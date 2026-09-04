@@ -11,6 +11,9 @@
 - derivare tipi, firme e classificazione contestuale dei simboli dai campi dichiarati nell'AST generico;
 - caricare da `formatting.json` ruoli dei delimitatori, separazione delle istruzioni, trigger di indentazione, coppie automatiche e Quick Fix lessicali;
 - mantenere le Quick Fix sintattiche collegate ai token attesi dal parser senza duplicare le produzioni EBNF;
+- consentire il cambio atomico del pacchetto attivo da cartella o archivio `.ddflang`, con ripristino esplicito del DDF incorporato;
+- persistere la scelta e aggiornare servizi editor, workspace, filtri file, menu, impostazioni, icon bar e barra di stato senza riavvio;
+- mantenere attivo il linguaggio precedente e mostrare le diagnostiche quando il nuovo pacchetto non supera la validazione;
 
 ## 0.9.6.2 - 2026-09-02
 

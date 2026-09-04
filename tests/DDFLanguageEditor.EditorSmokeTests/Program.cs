@@ -765,6 +765,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             using (var form = ShowSmokeForm(visible))
             {
+                Require(FindMenuItem(form, "loadLanguageArchiveMenuItem") != null &&
+                        FindMenuItem(form, "loadLanguageFolderMenuItem") != null &&
+                        FindMenuItem(form, "useEmbeddedLanguageMenuItem") != null &&
+                        FindControl<StatusStrip>(form, "statusStripMain").Items
+                            .Cast<ToolStripItem>().Any(item => item.Name == "statusEncodingLabel" && item.Text.Contains("DDF")),
+                    "Menu e stato non espongono la gestione del linguaggio attivo.");
+                ToolStrip languageToolbar = FindControl<ToolStrip>(form, "toolStripMain");
+                Require(languageToolbar.Items.Cast<ToolStripItem>().Any(item =>
+                        item.Name == "toolbarLanguageButton" && item is ToolStripDropDownButton &&
+                        item.ToolTipText.Contains("DDF")),
+                    "La barra strumenti non espone il selettore del linguaggio attivo.");
                 FindMenuItem(form, "languagePackageInfoMenuItem").PerformClick();
                 PumpMessages(80);
 
@@ -3250,6 +3261,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 dialogCount++;
                 Require(FindControl<Button>(dialog, "settingsDefaultsButton") != null,
                     "Il comando Predefiniti manca dalla finestra Impostazioni.");
+                Require(FindControl<TabControl>(dialog, "settingsTabs").TabPages
+                        .Cast<TabPage>().Any(page => page.Name == "settingsLanguageTab"),
+                    "Le Impostazioni non mostrano il pacchetto linguaggio attivo.");
                 dialog.ResetToDefaults();
                 return DialogResult.OK;
             }));

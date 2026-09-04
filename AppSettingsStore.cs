@@ -11,6 +11,7 @@ namespace DDF___Program_Language_Editor
         private const string EditorSettingsFileName = "editor-settings.txt";
         private const string PaletteLayoutSettingsFileName = "palette-layout.txt";
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
+        private const string LanguagePackageSettingsFileName = "language-package.txt";
         private const string HotExitSnapshotFileName = "hot-exit.json";
         private const string WorkspaceSessionFileName = "workspace-session.json";
         private const string CrashRecoveryFileName = "crash-recovery.json";
@@ -87,6 +88,16 @@ namespace DDF___Program_Language_Editor
         public static void SaveShortcutSettings(string value)
         {
             Save(ShortcutSettingsFileName, value);
+        }
+
+        public static string LoadLanguagePackagePath()
+        {
+            return Load(LanguagePackageSettingsFileName);
+        }
+
+        public static void SaveLanguagePackagePath(string value)
+        {
+            Save(LanguagePackageSettingsFileName, value ?? string.Empty);
         }
 
         public static string LoadHotExitSnapshot()

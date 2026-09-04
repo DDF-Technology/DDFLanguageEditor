@@ -79,6 +79,7 @@ namespace DDFLanguageEditor.Tests
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
+            Run("switches active language packages atomically", SwitchesActiveLanguagePackagesAtomically);
             Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
@@ -96,6 +97,7 @@ namespace DDFLanguageEditor.Tests
             Run("renames library names without damaging directives", RenamesLibraryNamesWithoutDamagingDirectives);
             Run("renames structure declarations and type references", RenamesStructureDeclarationsAndTypeReferences);
             Run("indexes DDF workspace documents recursively", IndexesDdfWorkspaceDocumentsRecursively);
+            Run("indexes workspace extensions from the active package", IndexesConfiguredWorkspaceExtensions);
             Run("updates an in-memory workspace document", UpdatesInMemoryWorkspaceDocument);
             Run("updates workspace source without synchronous parsing", UpdatesWorkspaceSourceWithoutParsing);
             Run("honors workspace indexing cancellation", HonorsWorkspaceIndexingCancellation);
@@ -1193,6 +1195,35 @@ namespace DDFLanguageEditor.Tests
             }
         }
 
+        private static void SwitchesActiveLanguagePackagesAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-active-package-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string manifestPath = Path.Combine(root, "manifest.json");
+                JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath, Encoding.UTF8)).AsObject();
+                manifest["name"] = "DDF Test Active";
+                File.WriteAllText(manifestPath, manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult activated = DdfLanguageCatalog.TryActivate(root);
+                Equal(true, activated.Success);
+                Equal("DDF Test Active", DdfLanguageCatalog.DefaultPackage.Name);
+                DdfLanguagePackage active = DdfLanguageCatalog.DefaultPackage;
+
+                DdfLanguagePackageLoadResult rejected = DdfLanguageCatalog.TryActivate(
+                    Path.Combine(root, "missing"));
+                Equal(false, rejected.Success);
+                Equal(true, ReferenceEquals(active, DdfLanguageCatalog.DefaultPackage));
+            }
+            finally
+            {
+                DdfLanguageCatalog.ActivateEmbedded();
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void DrivesLexicalServicesFromLanguagePackage()
         {
             string root = Path.Combine(Path.GetTempPath(), "ddf-declarative-lexer-" + Guid.NewGuid().ToString("N"));
@@ -1567,6 +1598,27 @@ namespace DDFLanguageEditor.Tests
             finally
             {
                 if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
+        private static void IndexesConfiguredWorkspaceExtensions()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-workspace-extension-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(root);
+                const string source = "main() out int { ret 0; }";
+                File.WriteAllText(Path.Combine(root, "included.demo"), source, new UTF8Encoding(false));
+                File.WriteAllText(Path.Combine(root, "ignored.ddf"), source, new UTF8Encoding(false));
+
+                DdfWorkspaceIndex index = DdfWorkspaceIndex.Load(
+                    root, CancellationToken.None, new[] { ".demo" });
+                Equal(1, index.Documents.Count);
+                Equal("included.demo", index.Documents.Single().RelativePath);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
             }
         }
 

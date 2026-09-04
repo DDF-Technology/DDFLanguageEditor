@@ -11,11 +11,9 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm : Form, IMessageFilter
     {
-        private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
         private DocumentSession documentSession;
-        private readonly IncrementalDdfLexer incrementalLexer = new IncrementalDdfLexer();
-        private readonly DdfQuickFixService quickFixService =
-            DdfQuickFixService.CreateDefault(DdfLanguageCatalog.Default.Formatting);
+        private IncrementalDdfLexer incrementalLexer;
+        private DdfQuickFixService quickFixService;
         private readonly Timer highlightTimer;
         private readonly Timer delimiterHighlightTimer;
         private DdfLexResult lastLexResult;
@@ -58,10 +56,13 @@ namespace DDF___Program_Language_Editor
 
         public MainForm()
         {
+            restoreActiveLanguagePackage();
+            recreateLanguageServices();
             InitializeComponent();
             initializeDocuments();
             initializeEditingExperience();
             initializeMainToolbar();
+            initializeLanguagePackageCommands();
             initializeDebugger();
 
             System.Drawing.Icon applicationIcon = AppIconProvider.LoadIcon();
@@ -228,11 +229,11 @@ namespace DDF___Program_Language_Editor
         {
             using (var dialog = new OpenFileDialog())
             {
-                dialog.Filter = DocumentFilter;
-                dialog.DefaultExt = "ddf";
+                dialog.Filter = getDocumentFilter();
+                dialog.DefaultExt = getDefaultDocumentExtension();
                 dialog.CheckFileExists = true;
                 dialog.Multiselect = false;
-                dialog.Title = "Apri sorgente DDF";
+                dialog.Title = "Apri sorgente " + DdfLanguageCatalog.DefaultPackage.Name;
                 if (documentSession.HasPath)
                 {
                     dialog.InitialDirectory = Path.GetDirectoryName(documentSession.CurrentPath);
@@ -329,11 +330,11 @@ namespace DDF___Program_Language_Editor
             {
                 using (var dialog = new SaveFileDialog())
                 {
-                    dialog.Filter = DocumentFilter;
-                    dialog.DefaultExt = "ddf";
+                    dialog.Filter = getDocumentFilter();
+                    dialog.DefaultExt = getDefaultDocumentExtension();
                     dialog.AddExtension = true;
                     dialog.OverwritePrompt = true;
-                    dialog.Title = "Salva sorgente DDF";
+                    dialog.Title = "Salva sorgente " + DdfLanguageCatalog.DefaultPackage.Name;
                     dialog.FileName = documentSession.DisplayName;
                     if (documentSession.HasPath)
                     {

@@ -93,7 +93,8 @@ namespace DDF___Program_Language_Editor
             };
             int closeWorkspaceIndex = fileMenuItem.DropDownItems.IndexOf(closeWorkspaceMenuItem);
             fileMenuItem.DropDownItems.Insert(closeWorkspaceIndex + 1, recentWorkspacesMenuItem);
-            loadWorkspaceIndex = DdfWorkspaceIndex.Load;
+            loadWorkspaceIndex = (rootPath, cancellationToken) => DdfWorkspaceIndex.Load(
+                rootPath, cancellationToken, DdfLanguageCatalog.DefaultPackage.FileExtensions);
             initializeWorkspaceDropTargets();
         }
 
@@ -420,8 +421,7 @@ namespace DDF___Program_Language_Editor
         {
             if (paths == null || paths.Count == 0) return false;
             if (paths.Count == 1 && Directory.Exists(paths[0])) return true;
-            return paths.All(path => File.Exists(path) &&
-                string.Equals(Path.GetExtension(path), ".ddf", StringComparison.OrdinalIgnoreCase));
+            return paths.All(path => File.Exists(path) && isActiveLanguageExtension(path));
         }
 
         private void addRecentWorkspace(string path)

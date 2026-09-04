@@ -116,7 +116,7 @@ namespace DDF___Program_Language_Editor
                 Location = new Point(27, 419),
                 Name = "languagePackageNoteLabel",
                 Size = new Size(669, 37),
-                Text = "La selezione e l'installazione di altri pacchetti saranno aggiunte in una fase successiva della roadmap 0.9.6."
+                Text = "Usa Help > Linguaggio o il pulsante dedicato nella barra strumenti per cambiare pacchetto. La scelta viene ripristinata al prossimo avvio."
             };
             var copyButton = new Button
             {

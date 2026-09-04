@@ -38,10 +38,14 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfWorkspaceIndex
     {
-        private DdfWorkspaceIndex(string rootPath, IReadOnlyList<DdfWorkspaceDocument> documents)
+        private readonly IReadOnlyList<string> fileExtensions;
+
+        private DdfWorkspaceIndex(string rootPath, IReadOnlyList<DdfWorkspaceDocument> documents,
+            IReadOnlyList<string> fileExtensions)
         {
             RootPath = rootPath;
             Documents = documents;
+            this.fileExtensions = fileExtensions;
         }
 
         public string RootPath { get; }
@@ -54,15 +58,27 @@ namespace DDFLanguageEditor.Core
 
         public static DdfWorkspaceIndex Load(string rootPath, CancellationToken cancellationToken)
         {
+            return Load(rootPath, cancellationToken, DdfLanguageCatalog.DefaultPackage.FileExtensions);
+        }
+
+        public static DdfWorkspaceIndex Load(string rootPath, CancellationToken cancellationToken,
+            IEnumerable<string> fileExtensions)
+        {
             string normalizedRoot = NormalizeRoot(rootPath);
             cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<string> normalizedExtensions = NormalizeExtensions(fileExtensions);
             var documents = new List<DdfWorkspaceDocument>();
             var paths = new List<string>();
-            foreach (string path in Directory.EnumerateFiles(normalizedRoot, "*.ddf", SearchOption.AllDirectories))
+            foreach (string extension in normalizedExtensions)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                paths.Add(path);
+                foreach (string path in Directory.EnumerateFiles(
+                    normalizedRoot, "*" + extension, SearchOption.AllDirectories))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    paths.Add(path);
+                }
             }
+            paths = paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             paths.Sort(StringComparer.OrdinalIgnoreCase);
             foreach (string path in paths)
             {
@@ -72,7 +88,7 @@ namespace DDFLanguageEditor.Core
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
-            return new DdfWorkspaceIndex(normalizedRoot, documents.AsReadOnly());
+            return new DdfWorkspaceIndex(normalizedRoot, documents.AsReadOnly(), normalizedExtensions);
         }
 
         public DdfWorkspaceIndex WithDocument(string path, string source)
@@ -92,7 +108,7 @@ namespace DDFLanguageEditor.Core
                 existing.Root, existing.Symbols);
             var documents = Documents.Select(document => ReferenceEquals(document, existing) ? updated : document)
                 .ToList();
-            return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly());
+            return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly(), fileExtensions);
         }
 
         public DdfWorkspaceIndex WithDocument(string path, string source, CompilationUnitSyntax root)
@@ -100,7 +116,8 @@ namespace DDFLanguageEditor.Core
             if (path == null) throw new ArgumentNullException(nameof(path));
             if (root == null) throw new ArgumentNullException(nameof(root));
             string fullPath = Path.GetFullPath(path);
-            if (!ContainsPath(fullPath) || !string.Equals(Path.GetExtension(fullPath), ".ddf", StringComparison.OrdinalIgnoreCase))
+            if (!ContainsPath(fullPath) || !fileExtensions.Contains(
+                Path.GetExtension(fullPath), StringComparer.OrdinalIgnoreCase))
             {
                 return this;
             }
@@ -110,7 +127,18 @@ namespace DDFLanguageEditor.Core
                 .ToList();
             documents.Add(CreateDocument(RootPath, fullPath, source ?? string.Empty, root));
             documents.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath));
-            return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly());
+            return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly(), fileExtensions);
+        }
+
+        private static IReadOnlyList<string> NormalizeExtensions(IEnumerable<string> extensions)
+        {
+            var result = (extensions ?? Array.Empty<string>())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item.StartsWith(".", StringComparison.Ordinal) ? item : "." + item)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (result.Count == 0) result.Add(".ddf");
+            return result.AsReadOnly();
         }
 
         public IReadOnlyList<DdfWorkspaceSymbol> FindDefinitions(string name)

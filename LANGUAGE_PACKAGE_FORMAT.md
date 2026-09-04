@@ -104,9 +104,9 @@ regole od operatori irraggiungibili. I dettagli completi e i valori enumerati
 sono in `language-lexicon.schema.json`.
 
 Per una prova manuale non distruttiva, duplicare l'intera cartella pubblicata e
-modificare soltanto la copia di `language-packages/ddf/lexicon.json`. Dopo il
-riavvio, `Help > Pacchetto linguaggio attivo` deve confermare il caricamento
-esterno. Per esempio, aggiungendo `$` a `identifier.start.characters` e
+modificare soltanto la copia di `language-packages/ddf/lexicon.json`. Selezionare
+quindi `Help > Linguaggio > Carica da cartella`: non è necessario riavviare
+l'editor. Per esempio, aggiungendo `$` a `identifier.start.characters` e
 `identifier.part.characters`, un nome come `$value` viene tokenizzato come
 identificatore; cambiando il marcatore di `LineComment`, cambia immediatamente la
 colorazione dei commenti. Keyword e costrutti sintattici devono restare coerenti
@@ -128,10 +128,17 @@ espone ID, versione del pacchetto, origine (`cartella`, `archivio` o
 fallback.
 
 Le stesse informazioni sono sempre consultabili da
-`Help > Pacchetto linguaggio attivo`, senza dipendere dalla larghezza della barra
+`Help > Linguaggio > Informazioni sul pacchetto attivo`, senza dipendere dalla larghezza della barra
 di stato o dalla comparsa del tooltip. La finestra distingue esplicitamente un
 caricamento esterno riuscito dal fallback incorporato e consente di copiare tutti
 i dettagli.
+
+Il menu `Help > Linguaggio` e il pulsante Linguaggio della barra strumenti
+caricano una cartella o un archivio `.ddflang` e ripristinano il pacchetto
+incorporato. L'attivazione riuscita viene memorizzata tra gli avvii, rigenera i
+servizi configurabili dell'editor e reindicizza l'eventuale workspace usando le
+estensioni dichiarate nel manifest. Un errore lascia invece invariato il
+pacchetto già attivo e viene esposto nel messaggio e nel tooltip di stato.
 
 Ogni diagnostica del loader contiene:
 
