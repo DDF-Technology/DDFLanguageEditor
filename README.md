@@ -201,6 +201,8 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
 - `LANGUAGE_PACKAGE_FORMAT.md`: contratto, struttura, sicurezza e versionamento dei pacchetti `.ddflang`;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
+- `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
+- `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;

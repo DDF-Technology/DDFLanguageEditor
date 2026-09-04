@@ -58,25 +58,8 @@ namespace DDFLanguageEditor.Core
 
     public static class DdfSnippetCatalog
     {
-        private static readonly IReadOnlyList<DdfSnippetTemplate> templates = Array.AsReadOnly(new[]
-        {
-            new DdfSnippetTemplate("if", "if — blocco", "Blocco condizionale",
-                "if(${1:condition})\n{\n    ${2:statement};\n}${0}", true),
-            new DdfSnippetTemplate("while", "while — ciclo", "Ciclo con condizione iniziale",
-                "while(${1:condition})\n{\n    ${2:statement};\n}${0}", true),
-            new DdfSnippetTemplate("do", "do — ciclo", "Ciclo con condizione finale",
-                "do\n{\n    ${1:statement};\n} while(${2:condition});${0}", true),
-            new DdfSnippetTemplate("for", "for — ciclo", "Ciclo indicizzato",
-                "for(int ${1:index}; ${2:index} < ${3:limit}; ${4:index}++)\n{\n    ${5:statement};\n}${0}", true),
-            new DdfSnippetTemplate("function", "function — dichiarazione", "Dichiarazione di funzione",
-                "${1:name}(${2:int} ${3:parameter}) out ${4:void}\n{\n    ${5:statement};\n}${0}"),
-            new DdfSnippetTemplate("main", "main — entry point", "Funzione principale",
-                "main() out ${1:int}\n{\n    ${2:ret 0};\n}${0}"),
-            new DdfSnippetTemplate("struct", "struct — dichiarazione", "Dichiarazione di struttura",
-                "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", true)
-        });
-
-        public static IReadOnlyList<DdfSnippetTemplate> Templates => templates;
+        public static IReadOnlyList<DdfSnippetTemplate> Templates =>
+            DdfLanguageCatalog.Default.Intellisense.Snippets;
     }
 
     public static class DdfSnippetService

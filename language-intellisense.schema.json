@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/intellisense-1.0.json",
+  "title": "DDF language package IntelliSense 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "completion", "signatureHelp", "symbolKinds", "snippets" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-intellisense-v1" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "keywordOrigin", "booleanOrigin", "snippetOrigin", "standardLibraryOrigin", "currentDocumentOrigin", "workspaceOrigin", "typeDetail", "controlFlowDetail", "keywordDetail", "booleanDetail", "standardFunctionDetailPrefix" ],
+      "properties": {
+        "keywordOrigin": { "type": "string" }, "booleanOrigin": { "type": "string" },
+        "snippetOrigin": { "type": "string" }, "standardLibraryOrigin": { "type": "string" },
+        "currentDocumentOrigin": { "type": "string" }, "workspaceOrigin": { "type": "string" },
+        "typeDetail": { "type": "string" }, "controlFlowDetail": { "type": "string" },
+        "keywordDetail": { "type": "string" }, "booleanDetail": { "type": "string" },
+        "standardFunctionDetailPrefix": { "type": "string" }
+      }
+    },
+    "signatureHelp": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "currentDocumentOrigin", "workspaceOrigin", "standardLibraryOrigin" ],
+      "properties": {
+        "currentDocumentOrigin": { "type": "string" }, "workspaceOrigin": { "type": "string" },
+        "standardLibraryOrigin": { "type": "string" }
+      }
+    },
+    "symbolKinds": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": [ "kind", "label", "documentation" ],
+        "properties": {
+          "kind": { "enum": [ "Library", "Structure", "Function", "Parameter", "Field", "Variable" ] },
+          "label": { "type": "string" }, "documentation": { "type": "string" }
+        }
+      }
+    },
+    "snippets": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [ "prefix", "displayText", "description", "body" ],
+        "properties": {
+          "prefix": { "type": "string", "minLength": 1 }, "displayText": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" }, "body": { "type": "string", "minLength": 1 },
+          "requiresKeyword": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

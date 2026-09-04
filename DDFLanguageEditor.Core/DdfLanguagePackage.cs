@@ -167,7 +167,9 @@ namespace DDFLanguageEditor.Core
                         ? read<LexiconDto>(reader, file, diagnostics)
                         : section == "grammar"
                             ? read<GrammarDto>(reader, file, diagnostics)
-                            : read<SectionDto>(reader, file, diagnostics);
+                            : section == "intellisense"
+                                ? read<IntellisenseDto>(reader, file, diagnostics)
+                                : read<SectionDto>(reader, file, diagnostics);
                     if (document != null)
                     {
                         sectionDocuments[section] = document;
@@ -186,6 +188,11 @@ namespace DDFLanguageEditor.Core
                 if (hasErrors(diagnostics) || grammar == null)
                     return new DdfLanguagePackageLoadResult(null, diagnostics);
                 language.Grammar = grammar;
+                language.Intellisense = createIntellisense(
+                    (IntellisenseDto)sectionDocuments["intellisense"],
+                    manifest.Sections["intellisense"], diagnostics);
+                if (hasErrors(diagnostics) || language.Intellisense == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
 
                 var package = new DdfLanguagePackage(manifest.Id, manifest.Name,
                     manifest.PackageVersion, manifest.LanguageVersion,
@@ -344,7 +351,54 @@ namespace DDFLanguageEditor.Core
                 parseOptionalEnum<DdfFoldingKind>(ide.FoldingKind, "foldingKind"), ide.FoldingField,
                 parseOptionalEnum<DdfBreadcrumbKind>(ide.BreadcrumbKind, "breadcrumbKind"),
                 ide.BreadcrumbLabel, ide.BreadcrumbSelectionField, ide.BreadcrumbSelectionLength,
-                ide.Selectable);
+                ide.Selectable, ide.TypeField, ide.ReturnTypeField, ide.ParametersField,
+                parseOptionalEnum<DdfSymbolKind>(ide.ChildSymbolKind, "childSymbolKind"));
+        }
+
+        private static DdfIntellisenseDefinition createIntellisense(IntellisenseDto value, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try
+            {
+                require(value.Completion != null, diagnostics, "DDFL070",
+                    "Configurazione completion richiesta.", file, "$.completion");
+                require(value.SignatureHelp != null, diagnostics, "DDFL071",
+                    "Configurazione Signature Help richiesta.", file, "$.signatureHelp");
+                require(value.SymbolKinds != null && value.SymbolKinds.Count > 0, diagnostics, "DDFL072",
+                    "Presentazioni dei simboli richieste.", file, "$.symbolKinds");
+                require(value.Snippets != null, diagnostics, "DDFL073",
+                    "Catalogo snippet richiesto.", file, "$.snippets");
+                if (hasErrors(diagnostics)) return null;
+
+                CompletionDto completion = value.Completion;
+                SignatureHelpDto signature = value.SignatureHelp;
+                require(new[] { completion.KeywordOrigin, completion.BooleanOrigin, completion.SnippetOrigin,
+                    completion.StandardLibraryOrigin, completion.CurrentDocumentOrigin, completion.WorkspaceOrigin,
+                    completion.TypeDetail, completion.ControlFlowDetail, completion.KeywordDetail,
+                    completion.BooleanDetail, completion.StandardFunctionDetailPrefix }.All(item => item != null),
+                    diagnostics, "DDFL075", "Configurazione completion incompleta.", file, "$.completion");
+                require(new[] { signature.CurrentDocumentOrigin, signature.WorkspaceOrigin,
+                    signature.StandardLibraryOrigin }.All(item => item != null), diagnostics, "DDFL076",
+                    "Configurazione Signature Help incompleta.", file, "$.signatureHelp");
+                if (hasErrors(diagnostics)) return null;
+
+                var presentations = value.SymbolKinds.Select(item => new DdfSymbolPresentation(
+                    parseRequiredEnum<DdfSymbolKind>(item.Kind, "symbol kind"), item.Label, item.Documentation));
+                var snippets = value.Snippets.Select(item => new DdfSnippetTemplate(
+                    item.Prefix, item.DisplayText, item.Description, item.Body, item.RequiresKeyword));
+                return new DdfIntellisenseDefinition(snippets, presentations,
+                    completion.KeywordOrigin, completion.BooleanOrigin, completion.SnippetOrigin,
+                    completion.StandardLibraryOrigin, completion.CurrentDocumentOrigin, completion.WorkspaceOrigin,
+                    completion.TypeDetail, completion.ControlFlowDetail, completion.KeywordDetail,
+                    completion.BooleanDetail, completion.StandardFunctionDetailPrefix,
+                    signature.CurrentDocumentOrigin, signature.WorkspaceOrigin, signature.StandardLibraryOrigin);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL074", exception.Message, file, "$"));
+                return null;
+            }
         }
 
         private static T? parseOptionalEnum<T>(string value, string property) where T : struct
@@ -352,6 +406,13 @@ namespace DDFLanguageEditor.Core
             if (string.IsNullOrWhiteSpace(value)) return null;
             if (Enum.TryParse(value, true, out T parsed) && Enum.IsDefined(typeof(T), parsed)) return parsed;
             throw new ArgumentException("Valore IDE non supportato per " + property + ": " + value + ".");
+        }
+
+        private static T parseRequiredEnum<T>(string value, string property) where T : struct
+        {
+            T? parsed = parseOptionalEnum<T>(value, property);
+            if (parsed.HasValue) return parsed.Value;
+            throw new ArgumentException("Valore richiesto per " + property + ".");
         }
 
         private static DdfLexicalDefinition createLexicalRules(LexiconDto lexicon, string file,
@@ -552,7 +613,12 @@ namespace DDFLanguageEditor.Core
         private sealed class GrammarDto : SectionDto { public string Notation { get; set; } public string EbnfFile { get; set; } public string StartRule { get; set; } public string ChoiceStrategy { get; set; } public List<GrammarNodeDto> Nodes { get; set; } }
         private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } public GrammarIdeDto Ide { get; set; } }
         private sealed class GrammarFieldDto { public string Name { get; set; } public string SourceRule { get; set; } public bool Multiple { get; set; } }
-        private sealed class GrammarIdeDto { public string SymbolKind { get; set; } public string NameField { get; set; } public string NamePrefix { get; set; } public string NameSuffix { get; set; } public string Detail { get; set; } public string FoldingKind { get; set; } public string FoldingField { get; set; } public string BreadcrumbKind { get; set; } public string BreadcrumbLabel { get; set; } public string BreadcrumbSelectionField { get; set; } public int BreadcrumbSelectionLength { get; set; } public bool Selectable { get; set; } }
+        private sealed class GrammarIdeDto { public string SymbolKind { get; set; } public string NameField { get; set; } public string NamePrefix { get; set; } public string NameSuffix { get; set; } public string Detail { get; set; } public string FoldingKind { get; set; } public string FoldingField { get; set; } public string BreadcrumbKind { get; set; } public string BreadcrumbLabel { get; set; } public string BreadcrumbSelectionField { get; set; } public int BreadcrumbSelectionLength { get; set; } public bool Selectable { get; set; } public string TypeField { get; set; } public string ReturnTypeField { get; set; } public string ParametersField { get; set; } public string ChildSymbolKind { get; set; } }
+        private sealed class IntellisenseDto : SectionDto { public CompletionDto Completion { get; set; } public SignatureHelpDto SignatureHelp { get; set; } public List<SymbolPresentationDto> SymbolKinds { get; set; } public List<SnippetDto> Snippets { get; set; } }
+        private sealed class CompletionDto { public string KeywordOrigin { get; set; } public string BooleanOrigin { get; set; } public string SnippetOrigin { get; set; } public string StandardLibraryOrigin { get; set; } public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string TypeDetail { get; set; } public string ControlFlowDetail { get; set; } public string KeywordDetail { get; set; } public string BooleanDetail { get; set; } public string StandardFunctionDetailPrefix { get; set; } }
+        private sealed class SignatureHelpDto { public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string StandardLibraryOrigin { get; set; } }
+        private sealed class SymbolPresentationDto { public string Kind { get; set; } public string Label { get; set; } public string Documentation { get; set; } }
+        private sealed class SnippetDto { public string Prefix { get; set; } public string DisplayText { get; set; } public string Description { get; set; } public string Body { get; set; } public bool RequiresKeyword { get; set; } }
         private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
         private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }

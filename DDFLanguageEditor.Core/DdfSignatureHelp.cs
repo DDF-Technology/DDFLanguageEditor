@@ -103,18 +103,22 @@ namespace DDFLanguageEditor.Core
             CallFrame activeCall = stack.LastOrDefault(frame => frame.IsCall);
             if (activeCall == null) return null;
 
-            CompilationUnitSyntax root = DdfParser.Parse(source, lexResult, language).Root;
-            FunctionDeclarationSyntax local = FindFunction(root, activeCall.Name);
-            if (local != null && local.NameStart == activeCall.NameStart) return null;
-            if (local != null)
-                return CreateResult(activeCall, local, "documento corrente");
+            DdfParseResult parseResult = DdfParser.Parse(source, lexResult, language);
+            CompilationUnitSyntax root = parseResult.Root;
+            DdfDocumentSymbol localSymbol = DdfSymbolIndex.Create(parseResult, source).Symbols
+                .FirstOrDefault(symbol => symbol.Kind == DdfSymbolKind.Function &&
+                    string.Equals(symbol.Name, activeCall.Name, StringComparison.Ordinal));
+            if (localSymbol != null && localSymbol.SelectionStart == activeCall.NameStart) return null;
+            if (localSymbol != null)
+                return CreateResult(activeCall, localSymbol, language.Intellisense.SignatureCurrentDocumentOrigin);
 
             if (externalRoots != null)
             {
                 foreach (CompilationUnitSyntax externalRoot in externalRoots)
                 {
                     FunctionDeclarationSyntax external = FindFunction(externalRoot, activeCall.Name);
-                    if (external != null) return CreateResult(activeCall, external, "workspace");
+                    if (external != null) return CreateResult(activeCall, external,
+                        language.Intellisense.SignatureWorkspaceOrigin);
                 }
             }
 
@@ -127,7 +131,8 @@ namespace DDFLanguageEditor.Core
                 return new DdfSignatureHelpResult(
                     activeCall.OpenParenthesis,
                     activeCall.ActiveParameter,
-                    new DdfSignatureInformation(standard.Name, standard.ReturnType, parameters, "libreria standard"));
+                    new DdfSignatureInformation(standard.Name, standard.ReturnType, parameters,
+                        language.Intellisense.SignatureStandardLibraryOrigin));
             }
 
             return null;
@@ -143,6 +148,16 @@ namespace DDFLanguageEditor.Core
                 call.OpenParenthesis,
                 call.ActiveParameter,
                 new DdfSignatureInformation(function.Name, FormatType(function.ReturnType), parameters, origin));
+        }
+
+        private static DdfSignatureHelpResult CreateResult(CallFrame call, DdfDocumentSymbol function, string origin)
+        {
+            var parameters = function.Children.Where(item => item.Kind == DdfSymbolKind.Parameter)
+                .Select(item => new DdfSignatureParameter(item.Name, item.Detail)).ToList().AsReadOnly();
+            int arrow = function.Detail.LastIndexOf('→');
+            string returnType = arrow < 0 ? string.Empty : function.Detail.Substring(arrow + 1).Trim();
+            return new DdfSignatureHelpResult(call.OpenParenthesis, call.ActiveParameter,
+                new DdfSignatureInformation(function.Name, returnType, parameters, origin));
         }
 
         private static FunctionDeclarationSyntax FindFunction(CompilationUnitSyntax root, string name)

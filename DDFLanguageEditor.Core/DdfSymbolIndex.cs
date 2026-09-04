@@ -20,40 +20,10 @@ namespace DDFLanguageEditor.Core
             if (parseResult.GenericRoot != null && parseResult.Grammar != null &&
                 parseResult.GrammarDiagnostics.Count == 0)
             {
-                IReadOnlyList<DdfDocumentSymbol> generic = DdfGenericIdeService.CreateSymbols(
-                    parseResult.GenericRoot, parseResult.Grammar, source);
-                return new DdfSymbolIndex(PreserveLegacyDetails(generic, Create(parseResult.Root).Symbols));
+                return new DdfSymbolIndex(DdfGenericIdeService.CreateSymbols(
+                    parseResult.GenericRoot, parseResult.Grammar, source));
             }
             return Create(parseResult.Root);
-        }
-
-        private static IReadOnlyList<DdfDocumentSymbol> PreserveLegacyDetails(
-            IReadOnlyList<DdfDocumentSymbol> generic, IReadOnlyList<DdfDocumentSymbol> legacy)
-        {
-            List<DdfDocumentSymbol> legacyFlat = Flatten(legacy).ToList();
-            return generic.Select(symbol => PreserveLegacyDetails(symbol, legacyFlat)).ToList().AsReadOnly();
-        }
-
-        private static DdfDocumentSymbol PreserveLegacyDetails(
-            DdfDocumentSymbol symbol, IReadOnlyList<DdfDocumentSymbol> legacy)
-        {
-            DdfDocumentSymbol match = legacy.FirstOrDefault(candidate =>
-                candidate.SelectionStart == symbol.SelectionStart &&
-                string.Equals(candidate.Name, symbol.Name, StringComparison.Ordinal));
-            IReadOnlyList<DdfDocumentSymbol> children = symbol.Children
-                .Select(child => PreserveLegacyDetails(child, legacy)).ToList().AsReadOnly();
-            return new DdfDocumentSymbol(symbol.Name, symbol.Kind,
-                match != null && !string.IsNullOrWhiteSpace(match.Detail) ? match.Detail : symbol.Detail,
-                symbol.Start, symbol.Length, symbol.SelectionStart, symbol.SelectionLength, children);
-        }
-
-        private static IEnumerable<DdfDocumentSymbol> Flatten(IEnumerable<DdfDocumentSymbol> symbols)
-        {
-            foreach (DdfDocumentSymbol symbol in symbols)
-            {
-                yield return symbol;
-                foreach (DdfDocumentSymbol child in Flatten(symbol.Children)) yield return child;
-            }
         }
 
         public static DdfSymbolIndex Create(CompilationUnitSyntax root)

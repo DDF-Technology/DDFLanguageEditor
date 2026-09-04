@@ -7,6 +7,8 @@
 - validare atomicamente riferimenti errati dei metadati IDE e mantenere il fallback legacy sui documenti incompleti;
 - preservare temporaneamente i dettagli tipizzati legacy dei simboli finché completamento, hover e Signature Help non migreranno al pacchetto;
 - verificare che una modifica al solo pacchetto cambi il breadcrumb senza ricompilare il motore;
+- caricare da `intellisense.json` snippet, descrizioni di completamento, origini di Signature Help ed etichette/documentazione hover;
+- derivare tipi, firme e classificazione contestuale dei simboli dai campi dichiarati nell'AST generico;
 
 ## 0.9.6.2 - 2026-09-02
 

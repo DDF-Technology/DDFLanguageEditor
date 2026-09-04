@@ -30,6 +30,9 @@ namespace DDFLanguageEditor.Core
             ValidateIdeField(Ide.NameField, "nameField");
             ValidateIdeField(Ide.FoldingField, "foldingField");
             ValidateIdeField(Ide.BreadcrumbSelectionField, "breadcrumbSelectionField");
+            ValidateIdeField(Ide.TypeField, "typeField");
+            ValidateIdeField(Ide.ReturnTypeField, "returnTypeField");
+            ValidateIdeField(Ide.ParametersField, "parametersField");
         }
         public string Rule { get; }
         public string Kind { get; }
@@ -53,7 +56,8 @@ namespace DDFLanguageEditor.Core
             DdfFoldingKind? foldingKind = null, string foldingField = null,
             DdfBreadcrumbKind? breadcrumbKind = null, string breadcrumbLabel = null,
             string breadcrumbSelectionField = null, int breadcrumbSelectionLength = 0,
-            bool selectable = false)
+            bool selectable = false, string typeField = null, string returnTypeField = null,
+            string parametersField = null, DdfSymbolKind? childSymbolKind = null)
         {
             SymbolKind = symbolKind;
             NameField = nameField;
@@ -67,6 +71,10 @@ namespace DDFLanguageEditor.Core
             BreadcrumbSelectionField = breadcrumbSelectionField;
             BreadcrumbSelectionLength = Math.Max(0, breadcrumbSelectionLength);
             Selectable = selectable;
+            TypeField = typeField;
+            ReturnTypeField = returnTypeField;
+            ParametersField = parametersField;
+            ChildSymbolKind = childSymbolKind;
         }
 
         public DdfSymbolKind? SymbolKind { get; }
@@ -81,6 +89,10 @@ namespace DDFLanguageEditor.Core
         public string BreadcrumbSelectionField { get; }
         public int BreadcrumbSelectionLength { get; }
         public bool Selectable { get; }
+        public string TypeField { get; }
+        public string ReturnTypeField { get; }
+        public string ParametersField { get; }
+        public DdfSymbolKind? ChildSymbolKind { get; }
     }
 
     public sealed class DdfGenericSyntaxNode : DdfSyntaxNode

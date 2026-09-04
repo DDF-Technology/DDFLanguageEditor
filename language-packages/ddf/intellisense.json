@@ -1,1 +1,41 @@
-{ "schemaVersion": "1.0", "adapter": "ddf-intellisense-v1", "dependsOn": [ "lexicon", "grammar", "types", "semantics" ], "description": "Servizi IDE DDF correnti." }
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-intellisense-v1",
+  "dependsOn": [ "lexicon", "grammar", "types", "semantics" ],
+  "completion": {
+    "keywordOrigin": "linguaggio DDF",
+    "booleanOrigin": "linguaggio DDF",
+    "snippetOrigin": "snippet DDF",
+    "standardLibraryOrigin": "libreria standard",
+    "currentDocumentOrigin": "documento corrente",
+    "workspaceOrigin": "workspace",
+    "typeDetail": "tipo",
+    "controlFlowDetail": "controllo di flusso",
+    "keywordDetail": "parola chiave",
+    "booleanDetail": "valore booleano",
+    "standardFunctionDetailPrefix": "funzione standard — "
+  },
+  "signatureHelp": {
+    "currentDocumentOrigin": "documento corrente",
+    "workspaceOrigin": "workspace",
+    "standardLibraryOrigin": "libreria standard"
+  },
+  "symbolKinds": [
+    { "kind": "Library", "label": "libreria", "documentation": "Direttiva di libreria DDF." },
+    { "kind": "Structure", "label": "struttura", "documentation": "Struttura dati dichiarata nel sorgente DDF." },
+    { "kind": "Function", "label": "funzione", "documentation": "Funzione dichiarata nel sorgente DDF." },
+    { "kind": "Parameter", "label": "parametro", "documentation": "Parametro della funzione corrente." },
+    { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
+    { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
+  ],
+  "snippets": [
+    { "prefix": "if", "displayText": "if — blocco", "description": "Blocco condizionale", "body": "if(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
+    { "prefix": "while", "displayText": "while — ciclo", "description": "Ciclo con condizione iniziale", "body": "while(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
+    { "prefix": "do", "displayText": "do — ciclo", "description": "Ciclo con condizione finale", "body": "do\n{\n    ${1:statement};\n} while(${2:condition});${0}", "requiresKeyword": true },
+    { "prefix": "for", "displayText": "for — ciclo", "description": "Ciclo indicizzato", "body": "for(int ${1:index}; ${2:index} < ${3:limit}; ${4:index}++)\n{\n    ${5:statement};\n}${0}", "requiresKeyword": true },
+    { "prefix": "function", "displayText": "function — dichiarazione", "description": "Dichiarazione di funzione", "body": "${1:name}(${2:int} ${3:parameter}) out ${4:void}\n{\n    ${5:statement};\n}${0}" },
+    { "prefix": "main", "displayText": "main — entry point", "description": "Funzione principale", "body": "main() out ${1:int}\n{\n    ${2:ret 0};\n}${0}" },
+    { "prefix": "struct", "displayText": "struct — dichiarazione", "description": "Dichiarazione di struttura", "body": "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", "requiresKeyword": true }
+  ],
+  "description": "Presentazione dichiarativa dei servizi IntelliSense DDF."
+}

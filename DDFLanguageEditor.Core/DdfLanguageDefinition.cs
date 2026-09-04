@@ -146,6 +146,7 @@ namespace DDFLanguageEditor.Core
             publicBooleanLiterals = new List<string>(this.booleanLiterals).AsReadOnly();
             publicOperators = new List<DdfOperatorDefinition>(this.operators.Values).AsReadOnly();
             publicPunctuation = new List<char>(this.punctuation).AsReadOnly();
+            Intellisense = DdfIntellisenseDefinition.CreateLegacyDefault();
         }
 
         public IReadOnlyCollection<DdfKeywordDefinition> Keywords => publicKeywords;
@@ -154,6 +155,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyCollection<char> Punctuation => publicPunctuation;
         public DdfLexicalDefinition LexicalRules { get; }
         public DdfCompiledGrammar Grammar { get; internal set; }
+        public DdfIntellisenseDefinition Intellisense { get; internal set; }
 
         public bool TryGetKeyword(string text, out DdfKeywordDefinition definition)
         {

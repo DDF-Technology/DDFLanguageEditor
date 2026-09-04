@@ -24,7 +24,9 @@ Lo schema pubblico del manifest è in
 [`language-package.schema.json`](language-package.schema.json), mentre
 [`language-lexicon.schema.json`](language-lexicon.schema.json) e
 [`language-grammar.schema.json`](language-grammar.schema.json) descrivono il
-lessico e la grammatica. Il pacchetto DDF di riferimento è in
+lessico e la grammatica. [`language-intellisense.schema.json`](language-intellisense.schema.json)
+descrive completamento, presentazione dei simboli, Signature Help e snippet.
+Il pacchetto DDF di riferimento è in
 [`language-packages/ddf`](language-packages/ddf).
 
 ## Stato dell'adattamento
@@ -49,6 +51,14 @@ Dalla `0.9.6.3`, ogni nodo può dichiarare anche la sezione opzionale `ide` in
 Outline e navigazione, folding, breadcrumb e selezione sintattica. Se il parsing
 generico di un documento incompleto non è disponibile, l'editor mantiene
 temporaneamente il servizio legacy come fallback durante la digitazione.
+
+La sezione `intellisense.json` contiene inoltre le descrizioni e le origini
+mostrate dal completamento, le etichette e la documentazione predefinita dei
+simboli, i testi di origine della Signature Help e l'intero catalogo snippet.
+I tipi e le firme delle dichiarazioni locali sono estratti dai campi
+`typeField`, `returnTypeField` e `parametersField` dichiarati sui nodi della
+grammatica; `childSymbolKind` consente, per esempio, di presentare come campi le
+variabili annidate in una struttura.
 
 Le altre sezioni dichiarano adapter interni versionati che mantengono
 invariato il comportamento dei motori DDF correnti. Le successive versioni

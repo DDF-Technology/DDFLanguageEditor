@@ -118,7 +118,7 @@ namespace DDFLanguageEditor.Core
             List<DdfWorkspaceSearchResult> results, CancellationToken cancellationToken)
         {
             DdfParseResult parseResult = DdfParser.Parse(document.Source);
-            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
+            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, document.Source).Symbols;
             foreach (DdfDocumentSymbol symbol in Flatten(symbols))
             {
                 cancellationToken.ThrowIfCancellationRequested();

@@ -81,10 +81,12 @@ namespace DDFLanguageEditor.Core
             DdfSemanticModel semanticModel,
             string source,
             string origin,
-            string calculatedType = null)
+            string calculatedType = null,
+            DdfLanguageDefinition language = null)
         {
             if (symbol == null) throw new ArgumentNullException(nameof(symbol));
             source = source ?? string.Empty;
+            language = language ?? DdfLanguageCatalog.Default;
             DdfDocumentSymbol semanticSymbol = FindSemanticSymbol(symbol, semanticModel);
             IReadOnlyList<DdfSymbolOccurrence> occurrences = semanticSymbol == null || semanticModel == null
                 ? new List<DdfSymbolOccurrence>().AsReadOnly()
@@ -99,11 +101,12 @@ namespace DDFLanguageEditor.Core
             string typeName = string.IsNullOrEmpty(calculatedType) ? GetTypeName(symbol) : calculatedType;
             return new DdfHoverInfo(
                 symbol.Name,
-                GetKindLabel(symbol.Kind),
+                language.Intellisense.GetSymbolLabel(symbol.Kind),
                 typeName,
                 GetSignature(symbol),
                 origin,
-                ExtractDocumentation(source, symbol.Start) ?? GetFallbackDocumentation(symbol.Kind),
+                ExtractDocumentation(source, symbol.Start) ??
+                    language.Intellisense.GetSymbolDocumentation(symbol.Kind),
                 declaration.Line,
                 declaration.Column,
                 references);
@@ -163,32 +166,6 @@ namespace DDFLanguageEditor.Core
             if (symbol.Kind != DdfSymbolKind.Function) return symbol.Detail;
             int arrow = symbol.Detail.LastIndexOf('→');
             return arrow < 0 ? string.Empty : symbol.Detail.Substring(arrow + 1).Trim();
-        }
-
-        private static string GetKindLabel(DdfSymbolKind kind)
-        {
-            switch (kind)
-            {
-                case DdfSymbolKind.Library: return "libreria";
-                case DdfSymbolKind.Structure: return "struttura";
-                case DdfSymbolKind.Function: return "funzione";
-                case DdfSymbolKind.Parameter: return "parametro";
-                case DdfSymbolKind.Field: return "campo";
-                default: return "variabile";
-            }
-        }
-
-        private static string GetFallbackDocumentation(DdfSymbolKind kind)
-        {
-            switch (kind)
-            {
-                case DdfSymbolKind.Library: return "Direttiva di libreria DDF.";
-                case DdfSymbolKind.Structure: return "Struttura dati dichiarata nel sorgente DDF.";
-                case DdfSymbolKind.Function: return "Funzione dichiarata nel sorgente DDF.";
-                case DdfSymbolKind.Parameter: return "Parametro della funzione corrente.";
-                case DdfSymbolKind.Field: return "Campo di una struttura DDF.";
-                default: return "Variabile visibile nel relativo ambito DDF.";
-            }
         }
 
         private static string ExtractDocumentation(string source, int declarationStart)

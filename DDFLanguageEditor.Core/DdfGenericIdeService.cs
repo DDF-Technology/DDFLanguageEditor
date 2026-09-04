@@ -59,15 +59,47 @@ namespace DDFLanguageEditor.Core
                 !definition.Ide.SymbolKind.HasValue)
                 return descendants;
 
+            if (definition.Ide.ChildSymbolKind.HasValue)
+                descendants = descendants.Select(item => WithKind(item, definition.Ide.ChildSymbolKind.Value)).ToList();
+
             DdfGenericSyntaxNode selection = GetFieldNode(node, definition.Ide.NameField) ?? node;
             string name = Slice(source, selection).Trim();
             name = TrimAffixes(name, definition.Ide.NamePrefix, definition.Ide.NameSuffix);
             if (string.IsNullOrWhiteSpace(name)) return descendants;
 
             var symbol = new DdfDocumentSymbol(name, definition.Ide.SymbolKind.Value,
-                definition.Ide.Detail, node.Start, node.Length, selection.Start, selection.Length,
+                GetSymbolDetail(node, definition, grammar, source), node.Start, node.Length,
+                selection.Start, selection.Length,
                 descendants.OrderBy(item => item.Start).ToList().AsReadOnly());
             return new List<DdfDocumentSymbol> { symbol };
+        }
+
+        private static string GetSymbolDetail(DdfGenericSyntaxNode node, DdfGrammarNodeDefinition definition,
+            DdfCompiledGrammar grammar, string source)
+        {
+            string type = Slice(source, GetFieldNode(node, definition.Ide.TypeField)).Trim();
+            if (!string.IsNullOrWhiteSpace(type)) return type;
+            string returnType = Slice(source, GetFieldNode(node, definition.Ide.ReturnTypeField)).Trim();
+            if (!string.IsNullOrWhiteSpace(definition.Ide.ParametersField) &&
+                node.Fields.TryGetValue(definition.Ide.ParametersField,
+                    out IReadOnlyList<DdfGenericSyntaxNode> parameters))
+            {
+                var types = new List<string>();
+                foreach (DdfGenericSyntaxNode parameter in parameters)
+                {
+                    if (grammar.TryGetNodeDefinition(parameter.RuleName,
+                        out DdfGrammarNodeDefinition parameterDefinition))
+                        types.Add(Slice(source, GetFieldNode(parameter, parameterDefinition.Ide.TypeField)).Trim());
+                }
+                return "(" + string.Join(", ", types) + ") → " + returnType;
+            }
+            return definition.Ide.Detail;
+        }
+
+        private static DdfDocumentSymbol WithKind(DdfDocumentSymbol symbol, DdfSymbolKind kind)
+        {
+            return new DdfDocumentSymbol(symbol.Name, kind, symbol.Detail, symbol.Start, symbol.Length,
+                symbol.SelectionStart, symbol.SelectionLength, symbol.Children);
         }
 
         private static void CollectFoldingRanges(DdfGenericSyntaxNode node, DdfCompiledGrammar grammar,

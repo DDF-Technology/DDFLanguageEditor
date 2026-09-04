@@ -179,7 +179,7 @@ namespace DDFLanguageEditor.Core
 
             DdfParseResult parseResult = DdfParser.Parse(source, lexResult, language);
             cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult.Root).Symbols;
+            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, source).Symbols;
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(source, parseResult.Root);
             cancellationToken.ThrowIfCancellationRequested();
             string expectedType = libraryContext ? string.Empty :
@@ -189,7 +189,7 @@ namespace DDFLanguageEditor.Core
 
             if (libraryContext)
             {
-                AddLibrarySymbols(candidates, symbols);
+                AddLibrarySymbols(candidates, symbols, language.Intellisense.CurrentDocumentOrigin, directiveStart);
                 AddLibraryTokens(candidates, source, lexResult, language);
             }
             else
@@ -201,19 +201,19 @@ namespace DDFLanguageEditor.Core
                         keyword.Text,
                         keyword.Text,
                         keyword.TokenKind == DdfTokenKind.DataTypeKeyword ? DdfCompletionKind.Type : DdfCompletionKind.Keyword,
-                        DescribeKeyword(keyword),
+                        DescribeKeyword(keyword, language.Intellisense),
                         keyword.TokenKind == DdfTokenKind.DataTypeKeyword ? keyword.Text : string.Empty,
-                        "linguaggio DDF",
+                        language.Intellisense.KeywordOrigin,
                         int.MaxValue));
                 }
 
                 foreach (string literal in language.BooleanLiterals)
                 {
                     candidates.Add(new DdfCompletionItem(literal, literal, DdfCompletionKind.Boolean,
-                        "valore booleano", "bool", "linguaggio DDF", int.MaxValue));
+                        language.Intellisense.BooleanDetail, "bool", language.Intellisense.BooleanOrigin, int.MaxValue));
                 }
 
-                foreach (DdfSnippetTemplate snippet in DdfSnippetCatalog.Templates)
+                foreach (DdfSnippetTemplate snippet in language.Intellisense.Snippets)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     if (snippet.RequiresKeyword && !language.TryGetKeyword(snippet.Prefix, out DdfKeywordDefinition ignored))
@@ -224,7 +224,7 @@ namespace DDFLanguageEditor.Core
                         DdfCompletionKind.Snippet,
                         snippet.Description,
                         string.Empty,
-                        "snippet DDF",
+                        language.Intellisense.SnippetOrigin,
                         int.MaxValue,
                         snippet));
                 }
@@ -236,23 +236,27 @@ namespace DDFLanguageEditor.Core
                         standard.Name,
                         standard.Name,
                         DdfCompletionKind.Function,
-                        "funzione standard — " + standard.Signature,
+                        language.Intellisense.StandardFunctionDetailPrefix + standard.Signature,
                         standard.ReturnType,
-                        "libreria standard",
+                        language.Intellisense.StandardLibraryOrigin,
                         int.MaxValue));
                 }
 
                 foreach (DdfDocumentSymbol symbol in semanticModel.GetVisibleSymbols(position))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    AddSymbol(candidates, symbol, "documento corrente", Math.Abs(position - symbol.SelectionStart));
+                    DdfDocumentSymbol packageSymbol = Flatten(symbols).FirstOrDefault(candidate =>
+                        candidate.SelectionStart == symbol.SelectionStart &&
+                        string.Equals(candidate.Name, symbol.Name, StringComparison.Ordinal)) ?? symbol;
+                    AddSymbol(candidates, packageSymbol, language.Intellisense.CurrentDocumentOrigin,
+                        Math.Abs(position - packageSymbol.SelectionStart));
                 }
                 if (externalSymbols != null)
                 {
                     foreach (DdfDocumentSymbol symbol in externalSymbols)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        AddSymbol(candidates, symbol, "workspace", int.MaxValue - 1);
+                        AddSymbol(candidates, symbol, language.Intellisense.WorkspaceOrigin, int.MaxValue - 1);
                     }
                 }
                 if (externalItems != null) candidates.AddRange(externalItems);
@@ -324,11 +328,13 @@ namespace DDFLanguageEditor.Core
             return directiveStart >= 0;
         }
 
-        private static void AddLibrarySymbols(List<DdfCompletionItem> result, IReadOnlyList<DdfDocumentSymbol> symbols)
+        private static void AddLibrarySymbols(List<DdfCompletionItem> result,
+            IReadOnlyList<DdfDocumentSymbol> symbols, string origin, int activeDirectiveStart)
         {
             foreach (DdfDocumentSymbol library in Flatten(symbols).Where(symbol => symbol.Kind == DdfSymbolKind.Library))
             {
-                AddSymbol(result, library, "documento corrente", 0);
+                if (library.Start == activeDirectiveStart) continue;
+                AddSymbol(result, library, origin, 0);
             }
         }
 
@@ -345,7 +351,8 @@ namespace DDFLanguageEditor.Core
                         rule.End, 0, rule.End.Length) != 0) continue;
                 string name = source.Substring(contentStart, contentLength);
                 result.Add(new DdfCompletionItem(name, name, DdfCompletionKind.Library,
-                    "libreria", string.Empty, "documento corrente", 0));
+                    language.Intellisense.GetSymbolLabel(DdfSymbolKind.Library), string.Empty,
+                    language.Intellisense.CurrentDocumentOrigin, 0));
             }
         }
 
@@ -384,11 +391,11 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        private static string DescribeKeyword(DdfKeywordDefinition keyword)
+        private static string DescribeKeyword(DdfKeywordDefinition keyword, DdfIntellisenseDefinition intellisense)
         {
-            if (keyword.TokenKind == DdfTokenKind.DataTypeKeyword) return "tipo";
-            if (keyword.TokenKind == DdfTokenKind.ControlFlowKeyword) return "controllo di flusso";
-            return "parola chiave";
+            if (keyword.TokenKind == DdfTokenKind.DataTypeKeyword) return intellisense.TypeDetail;
+            if (keyword.TokenKind == DdfTokenKind.ControlFlowKeyword) return intellisense.ControlFlowDetail;
+            return intellisense.KeywordDetail;
         }
 
         private static string SymbolType(DdfDocumentSymbol symbol, DdfCompletionKind kind)

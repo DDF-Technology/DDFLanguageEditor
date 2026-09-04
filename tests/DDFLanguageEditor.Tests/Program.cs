@@ -74,6 +74,7 @@ namespace DDFLanguageEditor.Tests
             Run("loads the embedded DDF language package", LoadsEmbeddedDdfLanguagePackage);
             Run("parses the canonical EBNF grammar", ParsesCanonicalEbnfGrammar);
             Run("drives structural IDE services from grammar metadata", DrivesStructuralIdeServicesFromGrammarMetadata);
+            Run("drives IntelliSense presentation from its package section", DrivesIntellisenseFromPackageSection);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
@@ -982,6 +983,8 @@ namespace DDFLanguageEditor.Tests
             DdfSymbolIndex symbols = DdfSymbolIndex.Create(parse, source);
             SequenceEqual(new[] { "Console", "main" }, symbols.Symbols.Select(item => item.Name));
             SequenceEqual(new[] { "input", "value" }, symbols.Symbols[1].Children.Select(item => item.Name));
+            Equal("(int) → int", symbols.Symbols[1].Detail);
+            Equal("int", symbols.Symbols[1].Children[0].Detail);
 
             IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parse, source);
             Equal(2, folding.Count);
@@ -1016,6 +1019,66 @@ namespace DDFLanguageEditor.Tests
                 DdfLanguagePackageLoadResult invalid = DdfLanguagePackageLoader.Load(root);
                 Equal(false, invalid.Success);
                 Equal(true, invalid.Diagnostics.Any(item => item.Code == "DDFL064"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DrivesIntellisenseFromPackageSection()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-intellisense-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "intellisense.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                document["completion"].AsObject()["controlFlowDetail"] = "costrutto configurato";
+                document["completion"].AsObject()["snippetOrigin"] = "pacchetto utente";
+                document["signatureHelp"].AsObject()["currentDocumentOrigin"] = "sorgente configurata";
+                JsonObject functionPresentation = document["symbolKinds"].AsArray()
+                    .Select(item => item.AsObject())
+                    .Single(item => item["kind"].GetValue<string>() == "Function");
+                functionPresentation["label"] = "routine";
+                functionPresentation["documentation"] = "Documentazione definita dal pacchetto.";
+                document["snippets"].AsArray().Add(new JsonObject
+                {
+                    ["prefix"] = "choose",
+                    ["displayText"] = "choose — personalizzato",
+                    ["description"] = "Snippet aggiunto senza ricompilazione",
+                    ["body"] = "if(${1:true})\n{\n    ${2:ret 0};\n}${0}",
+                    ["requiresKeyword"] = false
+                });
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                if (!load.Success)
+                    throw new InvalidOperationException(string.Join(" | ", load.Diagnostics.Select(item => item.ToString())));
+                DdfLanguageDefinition language = load.Package.Language;
+
+                DdfCompletionItem keyword = DdfCompletionService.GetCompletions("i", 1, false, language)
+                    .Items.Single(item => item.DisplayText == "if");
+                Equal("costrutto configurato", keyword.Detail);
+                const string snippetSource = "main() out int { choose";
+                DdfCompletionItem snippet = DdfCompletionService.GetCompletions(
+                    snippetSource, snippetSource.Length, false, language).Items
+                    .Single(item => item.DisplayText == "choose — personalizzato");
+                Equal("pacchetto utente", snippet.Origin);
+
+                const string source = "sum(int value) out int { ret value; }\nmain() out int { ret sum(1); }";
+                DdfParseResult parse = DdfParser.Parse(source, language);
+                DdfDocumentSymbol function = DdfSymbolIndex.Create(parse, source).Symbols.First();
+                DdfHoverInfo hover = DdfHoverService.CreateForSymbol(function, null, source,
+                    "test", null, language);
+                Equal("routine", hover.Kind);
+                Equal("Documentazione definita dal pacchetto.", hover.Documentation);
+                int callPosition = source.LastIndexOf("sum(1", StringComparison.Ordinal) + 5;
+                DdfSignatureHelpResult signature = DdfSignatureHelpService.GetSignatureHelp(
+                    source, callPosition, null, language);
+                Equal("sorgente configurata", signature.Signature.Origin);
+                Equal("sum(int value) out int", signature.Signature.Signature);
             }
             finally
             {
