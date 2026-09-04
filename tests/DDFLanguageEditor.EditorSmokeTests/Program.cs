@@ -776,7 +776,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         item.Name == "toolbarLanguageButton" && item is ToolStripDropDownButton &&
                         item.ToolTipText.Contains("DDF")),
                     "La barra strumenti non espone il selettore del linguaggio attivo.");
-                FindMenuItem(form, "languagePackageInfoMenuItem").PerformClick();
+                ToolStripMenuItem languageMenu = FindMenuItem(form, "languagePackageInfoMenuItem");
+                Require(languageMenu.DropDownItems.Count > 0,
+                    "La voce Linguaggio deve essere soltanto il contenitore dei relativi comandi.");
+                languageMenu.PerformClick();
+                PumpMessages(30);
+                Require(!Application.OpenForms.Cast<Form>().Any(openForm =>
+                        openForm.Name == "LanguagePackageInfoForm" && openForm.Owner == form),
+                    "Un clic sulla voce padre Linguaggio non deve eseguire un comando.");
+                FindMenuItem(form, "languagePackageDetailsMenuItem").PerformClick();
                 PumpMessages(80);
 
                 Form packageInfo = Application.OpenForms.Cast<Form>()

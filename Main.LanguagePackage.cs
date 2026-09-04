@@ -48,6 +48,7 @@ namespace DDF___Program_Language_Editor
             };
             useEmbeddedLanguageMenuItem.Click += useEmbeddedLanguageMenuItem_Click;
 
+            languagePackageInfoMenuItem.Click -= languagePackageInfoMenuItem_Click;
             languagePackageInfoMenuItem.Text = "&Linguaggio";
             languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageArchiveMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageFolderMenuItem);
