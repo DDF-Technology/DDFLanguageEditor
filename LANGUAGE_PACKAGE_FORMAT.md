@@ -26,6 +26,8 @@ Lo schema pubblico del manifest è in
 [`language-grammar.schema.json`](language-grammar.schema.json) descrivono il
 lessico e la grammatica. [`language-intellisense.schema.json`](language-intellisense.schema.json)
 descrive completamento, presentazione dei simboli, Signature Help e snippet.
+[`language-formatting.schema.json`](language-formatting.schema.json) descrive le
+regole di layout, indentazione, coppie automatiche e Quick Fix lessicali.
 Il pacchetto DDF di riferimento è in
 [`language-packages/ddf`](language-packages/ddf).
 
@@ -59,6 +61,13 @@ I tipi e le firme delle dichiarazioni locali sono estratti dai campi
 `typeField`, `returnTypeField` e `parametersField` dichiarati sui nodi della
 grammatica; `childSymbolKind` consente, per esempio, di presentare come campi le
 variabili annidate in una struttura.
+
+La sezione `formatting.json` assegna ruoli ai delimitatori già riconosciuti dal
+lessico, configura le coppie automatiche e i trigger di indentazione, decide se
+separare le istruzioni con una riga vuota e associa correzioni sicure ai codici
+diagnostici lessicali. Le Quick Fix per token sintattici mancanti continuano a
+usare direttamente il token atteso dal parser e quindi non replicano le
+produzioni EBNF.
 
 Le altre sezioni dichiarano adapter interni versionati che mantengono
 invariato il comportamento dei motori DDF correnti. Le successive versioni

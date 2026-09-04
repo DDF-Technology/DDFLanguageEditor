@@ -69,8 +69,10 @@ namespace DDFLanguageEditor.Core
             int selectionStart,
             int selectionLength,
             int tabSize = DefaultTabSize,
-            bool useTabs = false)
+            bool useTabs = false,
+            DdfFormattingDefinition formatting = null)
         {
+            formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
             ValidateSelection(text, selectionStart, selectionLength);
             if (tabSize <= 0)
             {
@@ -82,15 +84,14 @@ namespace DDFLanguageEditor.Core
             string indentation = GetLeadingWhitespace(beforeCaret);
             string trimmed = beforeCaret.TrimEnd();
             if (selectionLength == 0 && selectionStart > 0 && selectionStart < text.Length &&
-                text[selectionStart - 1] == '{' && text[selectionStart] == '}')
+                text[selectionStart - 1] == formatting.BlockOpen && text[selectionStart] == formatting.BlockClose)
             {
                 string innerIndentation = indentation + (useTabs ? "\t" : new string(' ', tabSize));
                 string blockReplacement = "\n" + innerIndentation + "\n" + indentation;
                 return new EditorEdit(selectionStart, 0, blockReplacement,
                     selectionStart + 1 + innerIndentation.Length, 0);
             }
-            if (trimmed.EndsWith("{", StringComparison.Ordinal) ||
-                trimmed.EndsWith("(", StringComparison.Ordinal))
+            if (formatting.IndentAfter.Any(token => trimmed.EndsWith(token, StringComparison.Ordinal)))
             {
                 indentation += useTabs ? "\t" : new string(' ', tabSize);
             }
@@ -104,25 +105,28 @@ namespace DDFLanguageEditor.Core
                 0);
         }
 
-        public static EditorEdit CreateClosingBraceEdit(string text, int selectionStart, int selectionLength)
+        public static EditorEdit CreateClosingBraceEdit(string text, int selectionStart, int selectionLength,
+            DdfFormattingDefinition formatting = null)
         {
+            formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
+            string closingText = formatting.BlockClose.ToString();
             ValidateSelection(text, selectionStart, selectionLength);
             if (selectionLength > 0)
             {
-                return new EditorEdit(selectionStart, selectionLength, "}", selectionStart + 1, 0);
+                return new EditorEdit(selectionStart, selectionLength, closingText, selectionStart + 1, 0);
             }
 
             int lineStart = FindLineStart(text, selectionStart);
             string beforeCaret = text.Substring(lineStart, selectionStart - lineStart);
             if (beforeCaret.Any(character => character != ' ' && character != '\t'))
             {
-                return new EditorEdit(selectionStart, 0, "}", selectionStart + 1, 0);
+                return new EditorEdit(selectionStart, 0, closingText, selectionStart + 1, 0);
             }
 
-            int openingBrace = FindUnmatchedOpeningBrace(text, selectionStart);
+            int openingBrace = FindUnmatchedOpeningBrace(text, selectionStart, formatting);
             if (openingBrace < 0)
             {
-                return new EditorEdit(selectionStart, 0, "}", selectionStart + 1, 0);
+                return new EditorEdit(selectionStart, 0, closingText, selectionStart + 1, 0);
             }
 
             int openingLineStart = FindLineStart(text, openingBrace);
@@ -131,7 +135,7 @@ namespace DDFLanguageEditor.Core
             return new EditorEdit(
                 lineStart,
                 selectionStart - lineStart,
-                indentation + "}",
+                indentation + closingText,
                 lineStart + indentation.Length + 1,
                 0);
         }
@@ -140,12 +144,13 @@ namespace DDFLanguageEditor.Core
             string text,
             int selectionStart,
             int selectionLength,
-            char character)
+            char character,
+            DdfFormattingDefinition formatting = null)
         {
+            formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
             ValidateSelection(text, selectionStart, selectionLength);
-            char closing = GetClosingCharacter(character);
-            bool isOpening = closing != '\0';
-            bool isClosing = character == ')' || character == ']' || character == '}' || character == '"' || character == '\'';
+            bool isOpening = formatting.TryGetClosing(character, out char closing);
+            bool isClosing = formatting.IsClosing(character);
             if (!isOpening && !isClosing) return null;
 
             if (selectionLength > 0 && isOpening)
@@ -171,13 +176,15 @@ namespace DDFLanguageEditor.Core
             return null;
         }
 
-        public static EditorEdit CreatePairedBackspaceEdit(string text, int selectionStart, int selectionLength)
+        public static EditorEdit CreatePairedBackspaceEdit(string text, int selectionStart, int selectionLength,
+            DdfFormattingDefinition formatting = null)
         {
+            formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
             ValidateSelection(text, selectionStart, selectionLength);
             if (selectionLength != 0 || selectionStart == 0 || selectionStart >= text.Length) return null;
             char opening = text[selectionStart - 1];
             char closing = text[selectionStart];
-            if (GetClosingCharacter(opening) != closing) return null;
+            if (!formatting.TryGetClosing(opening, out char expected) || expected != closing) return null;
             return new EditorEdit(selectionStart - 1, 2, string.Empty, selectionStart - 1, 0);
         }
 
@@ -345,19 +352,6 @@ namespace DDFLanguageEditor.Core
             return mapped;
         }
 
-        private static char GetClosingCharacter(char opening)
-        {
-            switch (opening)
-            {
-                case '(': return ')';
-                case '[': return ']';
-                case '{': return '}';
-                case '"': return '"';
-                case '\'': return '\'';
-                default: return '\0';
-            }
-        }
-
         private static LineRange GetSelectedLineRange(string text, int selectionStart, int selectionLength)
         {
             int selectionEnd = selectionStart + selectionLength;
@@ -506,7 +500,7 @@ namespace DDFLanguageEditor.Core
             return value.Substring(0, index);
         }
 
-        private static int FindUnmatchedOpeningBrace(string text, int position)
+        private static int FindUnmatchedOpeningBrace(string text, int position, DdfFormattingDefinition formatting)
         {
             var stack = new List<int>();
             DdfLexResult lexResult = DdfLexer.Lex(text);
@@ -515,8 +509,8 @@ namespace DDFLanguageEditor.Core
                 if (token.Start >= position) break;
                 if (token.Kind != DdfTokenKind.Punctuation || token.Length != 1) continue;
                 char character = text[token.Start];
-                if (character == '{') stack.Add(token.Start);
-                else if (character == '}' && stack.Count > 0) stack.RemoveAt(stack.Count - 1);
+                if (character == formatting.BlockOpen) stack.Add(token.Start);
+                else if (character == formatting.BlockClose && stack.Count > 0) stack.RemoveAt(stack.Count - 1);
             }
 
             return stack.Count == 0 ? -1 : stack[stack.Count - 1];

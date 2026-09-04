@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/formatting-1.0.json",
+  "title": "DDF language package formatting 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "tokens", "autoPairs", "indentAfter", "blankLineBetweenStatements", "quickFixes" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-formatter-v1" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "tokens": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "blockOpen", "blockClose", "groupOpen", "groupClose", "indexOpen", "indexClose", "statementTerminator", "separator" ],
+      "properties": {
+        "blockOpen": { "$ref": "#/$defs/character" }, "blockClose": { "$ref": "#/$defs/character" },
+        "groupOpen": { "$ref": "#/$defs/character" }, "groupClose": { "$ref": "#/$defs/character" },
+        "indexOpen": { "$ref": "#/$defs/character" }, "indexClose": { "$ref": "#/$defs/character" },
+        "statementTerminator": { "$ref": "#/$defs/character" }, "separator": { "$ref": "#/$defs/character" }
+      }
+    },
+    "autoPairs": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": [ "open", "close" ],
+        "properties": { "open": { "$ref": "#/$defs/character" }, "close": { "$ref": "#/$defs/character" } } }
+    },
+    "indentAfter": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "blankLineBetweenStatements": { "type": "boolean" },
+    "quickFixes": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false,
+        "required": [ "diagnosticCode", "title", "replacement" ],
+        "properties": { "diagnosticCode": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 }, "replacement": { "type": "string" } } }
+    }
+  },
+  "$defs": { "character": { "type": "string", "minLength": 1, "maxLength": 1 } }
+}

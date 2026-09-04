@@ -169,7 +169,9 @@ namespace DDFLanguageEditor.Core
                             ? read<GrammarDto>(reader, file, diagnostics)
                             : section == "intellisense"
                                 ? read<IntellisenseDto>(reader, file, diagnostics)
-                                : read<SectionDto>(reader, file, diagnostics);
+                                : section == "formatting"
+                                    ? read<FormattingDto>(reader, file, diagnostics)
+                                    : read<SectionDto>(reader, file, diagnostics);
                     if (document != null)
                     {
                         sectionDocuments[section] = document;
@@ -188,6 +190,10 @@ namespace DDFLanguageEditor.Core
                 if (hasErrors(diagnostics) || grammar == null)
                     return new DdfLanguagePackageLoadResult(null, diagnostics);
                 language.Grammar = grammar;
+                language.Formatting = createFormatting((FormattingDto)sectionDocuments["formatting"], language,
+                    manifest.Sections["formatting"], diagnostics);
+                if (hasErrors(diagnostics) || language.Formatting == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
                 language.Intellisense = createIntellisense(
                     (IntellisenseDto)sectionDocuments["intellisense"],
                     manifest.Sections["intellisense"], diagnostics);
@@ -399,6 +405,46 @@ namespace DDFLanguageEditor.Core
                 diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL074", exception.Message, file, "$"));
                 return null;
             }
+        }
+
+        private static DdfFormattingDefinition createFormatting(FormattingDto value,
+            DdfLanguageDefinition language, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try
+            {
+                require(value.Tokens != null && value.AutoPairs != null && value.IndentAfter != null &&
+                    value.QuickFixes != null, diagnostics, "DDFL080",
+                    "Configurazione formatter incompleta.", file, "$");
+                if (hasErrors(diagnostics)) return null;
+                string[] structuralTokens = { value.Tokens.BlockOpen, value.Tokens.BlockClose,
+                    value.Tokens.GroupOpen, value.Tokens.GroupClose, value.Tokens.IndexOpen,
+                    value.Tokens.IndexClose, value.Tokens.StatementTerminator, value.Tokens.Separator };
+                require(structuralTokens.All(token => !string.IsNullOrEmpty(token) && token.Length == 1 &&
+                    language.Punctuation.Contains(token[0])), diagnostics, "DDFL082",
+                    "I delimitatori del formatter devono essere punteggiatura dichiarata nel lessico.",
+                    file, "$.tokens");
+                if (hasErrors(diagnostics)) return null;
+                return new DdfFormattingDefinition(value.Tokens.BlockOpen, value.Tokens.BlockClose,
+                    value.Tokens.GroupOpen, value.Tokens.GroupClose, value.Tokens.IndexOpen,
+                    value.Tokens.IndexClose, value.Tokens.StatementTerminator, value.Tokens.Separator,
+                    value.AutoPairs.Select(item => new KeyValuePair<char, char>(one(item.Open), one(item.Close))),
+                    value.IndentAfter, value.BlankLineBetweenStatements,
+                    value.QuickFixes.Select(item => new DdfQuickFixRule(item.DiagnosticCode, item.Title, item.Replacement)));
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL081", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
+        private static char one(string value)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length != 1)
+                throw new ArgumentException("Le coppie automatiche richiedono caratteri singoli.");
+            return value[0];
         }
 
         private static T? parseOptionalEnum<T>(string value, string property) where T : struct
@@ -619,6 +665,10 @@ namespace DDFLanguageEditor.Core
         private sealed class SignatureHelpDto { public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string StandardLibraryOrigin { get; set; } }
         private sealed class SymbolPresentationDto { public string Kind { get; set; } public string Label { get; set; } public string Documentation { get; set; } }
         private sealed class SnippetDto { public string Prefix { get; set; } public string DisplayText { get; set; } public string Description { get; set; } public string Body { get; set; } public bool RequiresKeyword { get; set; } }
+        private sealed class FormattingDto : SectionDto { public FormattingTokensDto Tokens { get; set; } public List<AutoPairDto> AutoPairs { get; set; } public List<string> IndentAfter { get; set; } public bool BlankLineBetweenStatements { get; set; } public List<QuickFixDto> QuickFixes { get; set; } }
+        private sealed class FormattingTokensDto { public string BlockOpen { get; set; } public string BlockClose { get; set; } public string GroupOpen { get; set; } public string GroupClose { get; set; } public string IndexOpen { get; set; } public string IndexClose { get; set; } public string StatementTerminator { get; set; } public string Separator { get; set; } }
+        private sealed class AutoPairDto { public string Open { get; set; } public string Close { get; set; } }
+        private sealed class QuickFixDto { public string DiagnosticCode { get; set; } public string Title { get; set; } public string Replacement { get; set; } }
         private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
         private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }

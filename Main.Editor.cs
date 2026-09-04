@@ -647,7 +647,8 @@ namespace DDF___Program_Language_Editor
                     e.Handled = true;
                     applyMultiEditorEdits(range => EditorEditing.CreateNewLineEdit(
                         richTextBoxMainEditor.Text, range.Start, range.Length,
-                        editorSettings.IndentSize, editorSettings.UseTabs));
+                        editorSettings.IndentSize, editorSettings.UseTabs,
+                        DdfLanguageCatalog.Default.Formatting));
                     return;
                 }
                 if (e.KeyCode == Keys.Back)
@@ -709,14 +710,16 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength,
                     editorSettings.IndentSize,
-                    editorSettings.UseTabs));
+                    editorSettings.UseTabs,
+                    DdfLanguageCatalog.Default.Formatting));
             }
             else if (e.KeyCode == Keys.Back && richTextBoxMainEditor.SelectionLength == 0)
             {
                 EditorEdit edit = EditorEditing.CreatePairedBackspaceEdit(
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
-                    richTextBoxMainEditor.SelectionLength);
+                    richTextBoxMainEditor.SelectionLength,
+                    DdfLanguageCatalog.Default.Formatting);
                 if (edit != null)
                 {
                     e.SuppressKeyPress = true;
@@ -732,7 +735,8 @@ namespace DDF___Program_Language_Editor
             {
                 e.Handled = true;
                 applyMultiEditorEdits(range => EditorEditing.CreatePairedCharacterEdit(
-                    richTextBoxMainEditor.Text, range.Start, range.Length, e.KeyChar) ??
+                    richTextBoxMainEditor.Text, range.Start, range.Length, e.KeyChar,
+                    DdfLanguageCatalog.Default.Formatting) ??
                     new EditorEdit(range.Start, range.Length, e.KeyChar.ToString(), range.Start + 1, 0));
                 return;
             }
@@ -741,7 +745,8 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
                 richTextBoxMainEditor.SelectionLength,
-                e.KeyChar);
+                e.KeyChar,
+                DdfLanguageCatalog.Default.Formatting);
             if (pairedEdit != null)
             {
                 e.Handled = true;
@@ -749,13 +754,14 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            if (e.KeyChar == '}')
+            if (e.KeyChar == DdfLanguageCatalog.Default.Formatting.BlockClose)
             {
                 e.Handled = true;
                 applyEdit(EditorEditing.CreateClosingBraceEdit(
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
-                    richTextBoxMainEditor.SelectionLength));
+                    richTextBoxMainEditor.SelectionLength,
+                    DdfLanguageCatalog.Default.Formatting));
             }
         }
 

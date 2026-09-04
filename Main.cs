@@ -14,7 +14,8 @@ namespace DDF___Program_Language_Editor
         private const string DocumentFilter = "Sorgenti DDF (*.ddf)|*.ddf|Tutti i file (*.*)|*.*";
         private DocumentSession documentSession;
         private readonly IncrementalDdfLexer incrementalLexer = new IncrementalDdfLexer();
-        private readonly DdfQuickFixService quickFixService = DdfQuickFixService.CreateDefault();
+        private readonly DdfQuickFixService quickFixService =
+            DdfQuickFixService.CreateDefault(DdfLanguageCatalog.Default.Formatting);
         private readonly Timer highlightTimer;
         private readonly Timer delimiterHighlightTimer;
         private DdfLexResult lastLexResult;

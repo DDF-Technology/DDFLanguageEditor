@@ -9,6 +9,8 @@
 - verificare che una modifica al solo pacchetto cambi il breadcrumb senza ricompilare il motore;
 - caricare da `intellisense.json` snippet, descrizioni di completamento, origini di Signature Help ed etichette/documentazione hover;
 - derivare tipi, firme e classificazione contestuale dei simboli dai campi dichiarati nell'AST generico;
+- caricare da `formatting.json` ruoli dei delimitatori, separazione delle istruzioni, trigger di indentazione, coppie automatiche e Quick Fix lessicali;
+- mantenere le Quick Fix sintattiche collegate ai token attesi dal parser senza duplicare le produzioni EBNF;
 
 ## 0.9.6.2 - 2026-09-02
 

@@ -75,6 +75,7 @@ namespace DDFLanguageEditor.Tests
             Run("parses the canonical EBNF grammar", ParsesCanonicalEbnfGrammar);
             Run("drives structural IDE services from grammar metadata", DrivesStructuralIdeServicesFromGrammarMetadata);
             Run("drives IntelliSense presentation from its package section", DrivesIntellisenseFromPackageSection);
+            Run("drives formatting editing and Quick Fixes from the package", DrivesFormattingFromPackageSection);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
@@ -1079,6 +1080,47 @@ namespace DDFLanguageEditor.Tests
                     source, callPosition, null, language);
                 Equal("sorgente configurata", signature.Signature.Origin);
                 Equal("sum(int value) out int", signature.Signature.Signature);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DrivesFormattingFromPackageSection()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-formatting-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "formatting.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                document["blankLineBetweenStatements"] = false;
+                document["indentAfter"].AsArray().Add(":");
+                document["autoPairs"].AsArray().Add(new JsonObject { ["open"] = "<", ["close"] = ">" });
+                JsonObject stringFix = document["quickFixes"].AsArray().Select(item => item.AsObject())
+                    .Single(item => item["diagnosticCode"].GetValue<string>() == "DDF001");
+                stringFix["title"] = "Completa stringa dal pacchetto";
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                Equal(true, load.Success);
+                DdfLanguageDefinition language = load.Package.Language;
+                Equal("main() out int\n{\n    int a;\n    int b;\n    ret 0;\n}",
+                    DdfFormatter.Format("main()out int{int a;int b;ret 0;}", language).Text);
+
+                EditorEdit indentation = EditorEditing.CreateNewLineEdit("label:", 6, 0, 4, false,
+                    language.Formatting);
+                Equal("\n    ", indentation.Replacement);
+                EditorEdit pair = EditorEditing.CreatePairedCharacterEdit(string.Empty, 0, 0, '<',
+                    language.Formatting);
+                Equal("<>", pair.Replacement);
+
+                DdfDiagnostic diagnostic = DdfLexer.Lex("\"open", language).Diagnostics.Single();
+                DdfQuickFix fix = DdfQuickFixService.CreateDefault(language.Formatting)
+                    .GetFixes("\"open", diagnostic).Single();
+                Equal("Completa stringa dal pacchetto", fix.Title);
             }
             finally
             {

@@ -68,11 +68,12 @@ namespace DDFLanguageEditor.Core
             this.providers = providers.Where(provider => provider != null).ToList().AsReadOnly();
         }
 
-        public static DdfQuickFixService CreateDefault()
+        public static DdfQuickFixService CreateDefault(DdfFormattingDefinition formatting = null)
         {
+            formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
             return new DdfQuickFixService(new IDdfQuickFixProvider[]
             {
-                new DdfTerminatorQuickFixProvider(),
+                new DdfTerminatorQuickFixProvider(formatting),
                 new DdfBadTokenQuickFixProvider(),
                 new DdfMissingTokenQuickFixProvider()
             });
@@ -122,26 +123,25 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfTerminatorQuickFixProvider : IDdfQuickFixProvider
     {
+        private readonly DdfFormattingDefinition formatting;
+
+        public DdfTerminatorQuickFixProvider(DdfFormattingDefinition formatting = null)
+        {
+            this.formatting = formatting ?? DdfLanguageCatalog.Default.Formatting;
+        }
+
         public IEnumerable<DdfQuickFix> GetFixes(string source, DdfDiagnostic diagnostic)
         {
-            string terminator;
-            string title;
-            switch (diagnostic.Code)
-            {
-                case "DDF001": terminator = "\""; title = "Chiudi la stringa con \""; break;
-                case "DDF002": terminator = "*/"; title = "Chiudi il commento con */"; break;
-                case "DDF003": terminator = "'"; title = "Chiudi la direttiva libreria con '"; break;
-                default: yield break;
-            }
+            if (!formatting.TryGetQuickFix(diagnostic.Code, out DdfQuickFixRule rule)) yield break;
 
             int insertion = Math.Min(source.Length, diagnostic.End);
             yield return new DdfQuickFix(
                 diagnostic,
-                title,
+                rule.Title,
                 insertion,
                 0,
-                terminator,
-                insertion + terminator.Length);
+                rule.Replacement,
+                insertion + rule.Replacement.Length);
         }
     }
 

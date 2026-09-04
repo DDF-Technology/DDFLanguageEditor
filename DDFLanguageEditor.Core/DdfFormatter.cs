@@ -133,7 +133,8 @@ namespace DDFLanguageEditor.Core
                     bool nextIsInlineComment = next != null &&
                         (next.Kind == DdfTokenKind.LineComment || next.Kind == DdfTokenKind.BlockComment) &&
                         IsSameSourceLine(source, token, next);
-                    FormatPunctuation(writer, token, text, nextText, nextIsInlineComment);
+                    FormatPunctuation(writer, token, text, nextText, nextIsInlineComment,
+                        language.Formatting, language);
                     continue;
                 }
 
@@ -146,7 +147,7 @@ namespace DDFLanguageEditor.Core
                 if (language.TryGetKeyword(text, out DdfKeywordDefinition keyword) &&
                     keyword.Role == DdfKeywordRole.Do)
                     writer.MarkNextBlockAsDo();
-                if (NeedsWordSeparator(previous, previousText, language)) writer.Space();
+                if (NeedsWordSeparator(previous, previousText, language, language.Formatting)) writer.Space();
                 writer.WriteToken(token, text);
             }
 
@@ -158,57 +159,43 @@ namespace DDFLanguageEditor.Core
             DdfToken token,
             string text,
             string nextText,
-            bool nextIsInlineComment)
+            bool nextIsInlineComment,
+            DdfFormattingDefinition formatting,
+            DdfLanguageDefinition language)
         {
-            switch (text)
+            if (text == formatting.BlockOpen.ToString())
             {
-                case "{":
-                    writer.NewLine();
-                    writer.WriteToken(token, text);
-                    writer.OpenBlock();
-                    writer.NewLine();
-                    break;
-                case "}":
-                    bool closesDoBlock = writer.CloseBlock();
-                    writer.NewLine();
-                    writer.WriteToken(token, text);
-                    if (string.Equals(nextText, ";", StringComparison.Ordinal)) break;
-                    if (closesDoBlock && string.Equals(nextText, "while", StringComparison.Ordinal)) writer.Space();
-                    else if (string.Equals(nextText, "}", StringComparison.Ordinal) || nextIsInlineComment) writer.NewLine();
-                    else writer.BlankLine();
-                    break;
-                case ";":
-                    writer.TrimTrailingSpace();
-                    writer.WriteToken(token, text);
-                    if (writer.ParenthesisDepth > 0) writer.Space();
-                    else if (string.Equals(nextText, "}", StringComparison.Ordinal) || nextIsInlineComment) writer.NewLine();
-                    else writer.BlankLine();
-                    break;
-                case ",":
-                    writer.TrimTrailingSpace();
-                    writer.WriteToken(token, text);
-                    writer.Space();
-                    break;
-                case "(":
-                    writer.TrimTrailingSpace();
-                    writer.WriteToken(token, text);
-                    writer.ParenthesisDepth++;
-                    break;
-                case ")":
-                    writer.TrimTrailingSpace();
-                    writer.WriteToken(token, text);
-                    writer.ParenthesisDepth = Math.Max(0, writer.ParenthesisDepth - 1);
-                    break;
-                case "[":
-                case "]":
-                case ".":
-                    writer.TrimTrailingSpace();
-                    writer.WriteToken(token, text);
-                    break;
-                default:
-                    writer.WriteToken(token, text);
-                    break;
+                writer.NewLine(); writer.WriteToken(token, text); writer.OpenBlock(); writer.NewLine(); return;
             }
+            if (text == formatting.BlockClose.ToString())
+            {
+                bool closesDoBlock = writer.CloseBlock(); writer.NewLine(); writer.WriteToken(token, text);
+                if (nextText == formatting.StatementTerminator.ToString()) return;
+                bool nextIsWhile = language.TryGetKeyword(nextText ?? string.Empty, out DdfKeywordDefinition nextKeyword) &&
+                                   nextKeyword.Role == DdfKeywordRole.While;
+                if (closesDoBlock && nextIsWhile) writer.Space();
+                else if (nextText == formatting.BlockClose.ToString() || nextIsInlineComment) writer.NewLine();
+                else if (formatting.BlankLineBetweenStatements) writer.BlankLine(); else writer.NewLine();
+                return;
+            }
+            if (text == formatting.StatementTerminator.ToString())
+            {
+                writer.TrimTrailingSpace(); writer.WriteToken(token, text);
+                if (writer.ParenthesisDepth > 0) writer.Space();
+                else if (nextText == formatting.BlockClose.ToString() || nextIsInlineComment ||
+                         !formatting.BlankLineBetweenStatements) writer.NewLine();
+                else writer.BlankLine();
+                return;
+            }
+            if (text == formatting.Separator.ToString())
+            { writer.TrimTrailingSpace(); writer.WriteToken(token, text); writer.Space(); return; }
+            if (text == formatting.GroupOpen.ToString())
+            { writer.TrimTrailingSpace(); writer.WriteToken(token, text); writer.ParenthesisDepth++; return; }
+            if (text == formatting.GroupClose.ToString())
+            { writer.TrimTrailingSpace(); writer.WriteToken(token, text); writer.ParenthesisDepth = Math.Max(0, writer.ParenthesisDepth - 1); return; }
+            if (text == formatting.IndexOpen.ToString() || text == formatting.IndexClose.ToString() || text == ".")
+            { writer.TrimTrailingSpace(); writer.WriteToken(token, text); return; }
+            writer.WriteToken(token, text);
         }
 
         private static void FormatOperator(
@@ -222,7 +209,7 @@ namespace DDFLanguageEditor.Core
             language.TryGetOperator(text, out DdfOperatorDefinition definition);
             bool postfix = definition != null && definition.IsPostfix && definition.BinaryPrecedence == 0;
             bool prefix = definition != null && definition.IsPrefix &&
-                          (definition.BinaryPrecedence == 0 || IsUnaryPosition(previous, previousText));
+                          (definition.BinaryPrecedence == 0 || IsUnaryPosition(previous, previousText, language.Formatting));
             if (postfix)
             {
                 writer.TrimTrailingSpace();
@@ -230,7 +217,7 @@ namespace DDFLanguageEditor.Core
             }
             else if (prefix)
             {
-                if (NeedsWordSeparator(previous, previousText, language)) writer.Space();
+                if (NeedsWordSeparator(previous, previousText, language, language.Formatting)) writer.Space();
                 writer.WriteToken(token, text);
             }
             else
@@ -241,27 +228,32 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        private static bool NeedsWordSeparator(DdfToken previous, string previousText, DdfLanguageDefinition language)
+        private static bool NeedsWordSeparator(DdfToken previous, string previousText,
+            DdfLanguageDefinition language, DdfFormattingDefinition formatting)
         {
             if (previous == null) return false;
             if (previous.Kind == DdfTokenKind.Operator &&
                 language.TryGetOperator(previousText, out DdfOperatorDefinition definition) &&
-                definition.IsPrefix && (definition.BinaryPrecedence == 0 || IsUnaryPosition(null, null)))
+                definition.IsPrefix && (definition.BinaryPrecedence == 0 || IsUnaryPosition(null, null, formatting)))
             {
                 return false;
             }
 
             return previous.Kind != DdfTokenKind.Punctuation ||
-                   (previousText != "(" && previousText != "[" && previousText != ".");
+                   (previousText != formatting.GroupOpen.ToString() &&
+                    previousText != formatting.IndexOpen.ToString() && previousText != ".");
         }
 
-        private static bool IsUnaryPosition(DdfToken previous, string previousText)
+        private static bool IsUnaryPosition(DdfToken previous, string previousText, DdfFormattingDefinition formatting)
         {
             if (previous == null) return true;
             if (previous.Kind == DdfTokenKind.Operator) return true;
             return previous.Kind == DdfTokenKind.Punctuation &&
-                   (previousText == "(" || previousText == "[" || previousText == "{" ||
-                    previousText == "," || previousText == ";");
+                   (previousText == formatting.GroupOpen.ToString() ||
+                    previousText == formatting.IndexOpen.ToString() ||
+                    previousText == formatting.BlockOpen.ToString() ||
+                    previousText == formatting.Separator.ToString() ||
+                    previousText == formatting.StatementTerminator.ToString());
         }
 
         private static bool IsSameSourceLine(string source, DdfToken previous, DdfToken current)
