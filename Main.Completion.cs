@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
         private CancellationTokenSource completionCancellation;
         private long completionRequestVersion;
         private long completionAppliedVersion;
+        private long completionAppliedLanguageRevision;
 
         private void initializeCompletion()
         {
@@ -137,6 +138,7 @@ namespace DDF___Program_Language_Editor
             int position = richTextBoxMainEditor.SelectionStart;
             IReadOnlyList<DdfCompletionItem> externalItems = getWorkspaceCompletionItems();
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
+            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
             long version = ++completionRequestVersion;
             cancelPendingCompletion();
             var cancellation = new CancellationTokenSource();
@@ -151,6 +153,7 @@ namespace DDF___Program_Language_Editor
                         source,
                         position,
                         includeAll,
+                        languageSnapshot.Language,
                         externalItems: externalItems,
                         externalRoots: externalRoots,
                         cancellationToken: cancellation.Token);
@@ -168,13 +171,17 @@ namespace DDF___Program_Language_Editor
                 cancellation.Dispose();
             }
 
-            if (version != completionRequestVersion) return;
-            postEditorCallback(() => applyCompletionSnapshot(source, position, version, result));
+            if (version != completionRequestVersion ||
+                languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
+            postEditorCallback(() => applyCompletionSnapshot(
+                source, position, version, languageSnapshot.Revision, result));
         }
 
-        private void applyCompletionSnapshot(string source, int position, long version, DdfCompletionResult result)
+        private void applyCompletionSnapshot(
+            string source, int position, long version, long languageRevision, DdfCompletionResult result)
         {
             if (version != completionRequestVersion || IsDisposed || Disposing ||
+                languageRevision != DdfLanguageCatalog.Revision ||
                 richTextBoxMainEditor.IsDisposed || richTextBoxFoldedView.Visible ||
                 richTextBoxMainEditor.SelectionLength > 0 ||
                 richTextBoxMainEditor.SelectionStart != position ||
@@ -187,6 +194,7 @@ namespace DDF___Program_Language_Editor
             }
 
             completionAppliedVersion = version;
+            completionAppliedLanguageRevision = languageRevision;
             activeCompletionResult = result;
             completionListBox.BeginUpdate();
             try

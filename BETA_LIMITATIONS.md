@@ -1,4 +1,4 @@
-# Beta 0.9.6.2 limitations
+# Beta 0.9.6.3 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -41,11 +41,11 @@ This release is intended for interface and language-design evaluation only.
 - periodic and pre-save external-file conflict detection with side-by-side comparison, reload, keep and postpone choices;
 - repeatable p95 performance budgets for input, selection, scroll/gutter, full highlighting and Command Palette opening;
 - accelerated multi-document endurance smoke with latency, memory, handle and GDI/USER resource-growth gates;
-- versioned DDF language package loadable from a directory or `.ddflang` archive, with atomic validation and embedded fallback;
+- versioned DDF language package selectable at runtime from a directory or `.ddflang` archive, with persistent choice, atomic validation and embedded fallback;
 - declarative lexical rules shared by tokenization, classification, completion prefixes and rename validation;
 - canonical EBNF grammar loaded and validated from the language package, with generic typed-by-kind syntax nodes;
 - extensible keyword role identifiers and DDF `if/else` parsing, analysis and execution;
-- active language-package information and fallback diagnostics available from the Help menu;
+- package-driven IDE services plus active-package selection, information and fallback diagnostics available from the Help menu;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
@@ -76,7 +76,7 @@ This release is intended for interface and language-design evaluation only.
 - complete standard library, non-interactive input streams or step-by-step execution;
 - project files, dependency graphs or build configurations;
 - extension or plug-in APIs;
-- user-facing package installation/selection and fully declarative grammar, semantics, runtime or build adapters;
+- package authoring/registry UI and fully declarative semantics, runtime or build adapters;
 - full text-rendering minimap (the lightweight marker overview is implemented instead);
 - stability guarantees for the DDF syntax.
 

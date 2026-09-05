@@ -43,6 +43,9 @@ namespace DDF___Program_Language_Editor
         public const int RealisticDocumentLines = 2000;
         public const int RealisticWorkspaceDocuments = 40;
         public const int RealisticWorkspaceLinesPerDocument = 100;
+        public const int RealisticPackageKeywords = 256;
+        public const int RealisticPackageSnippets = 96;
+        public const int RealisticPackageSwitches = 6;
         public const int EnduranceIterations = 160;
         public const double EnduranceP95CeilingMilliseconds = 750D;
         public const long EnduranceManagedGrowthBytes = 64L * 1024L * 1024L;
@@ -81,6 +84,10 @@ namespace DDF___Program_Language_Editor
             "large-workspace-input", "Input documento/workspace realistico", 16D, 120D,
             "20 inserimenti in 2000 righe con un workspace indicizzato di 40 file");
 
+        public static readonly EditorPerformanceBudget LanguagePackageSwitch = new EditorPerformanceBudget(
+            "language-package-switch", "Cambio pacchetto linguaggio realistico", 500D, 5000D,
+            "6 attivazioni con 256 keyword, 96 snippet, documento da 2000 righe e workspace da 40 file");
+
         public static IReadOnlyList<EditorPerformanceBudget> All { get; } = new[]
         {
             Input,
@@ -90,7 +97,8 @@ namespace DDF___Program_Language_Editor
             Popup,
             BackgroundAnalysisDispatch,
             WorkspaceLoadDispatch,
-            LargeWorkspaceInput
+            LargeWorkspaceInput,
+            LanguagePackageSwitch
         };
     }
 }

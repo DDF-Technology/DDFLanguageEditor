@@ -31,6 +31,20 @@ the measurement output and becomes optimization work for the following steps.
 | Large-document analysis dispatch | schedule cancellable analysis for 2,000 DDF lines | 16 ms | 120 ms |
 | Workspace-load dispatch | start or supersede indexing of 40 files × 100 lines | 50 ms | 250 ms |
 | Large workspace input | 20 insertions in 2,000 lines with 40 indexed files | 16 ms | 120 ms |
+| Language-package switch | 6 alternating activations with 256 keywords, 96 snippets, 2,000 active lines and 40 indexed files | 500 ms | 5000 ms |
+
+## Language-package generation gate
+
+From `0.9.6.3`, every successful package activation advances an atomic catalog
+revision. Background analysis, completion and workspace indexing capture both
+the language definition and that revision before dispatch. Their result can be
+applied only while the revision is still current, independently of ordinary
+document/request versioning.
+
+The package-switch smoke workload alternates two independently loaded packages
+six times while an analysis and workspace indexing are active. It then verifies
+that diagnostics/outline, completion and workspace all expose the final package
+revision and that the final package-specific completion item is available.
 
 ## Endurance gate
 

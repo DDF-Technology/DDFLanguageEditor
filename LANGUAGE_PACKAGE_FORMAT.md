@@ -139,6 +139,9 @@ incorporato. L'attivazione riuscita viene memorizzata tra gli avvii, rigenera i
 servizi configurabili dell'editor e reindicizza l'eventuale workspace usando le
 estensioni dichiarate nel manifest. Un errore lascia invece invariato il
 pacchetto già attivo e viene esposto nel messaggio e nel tooltip di stato.
+Ogni attivazione valida incrementa inoltre una revisione interna: risultati di
+analisi, completamento o indicizzazione avviati con una revisione precedente
+vengono ignorati anche se terminano dopo il cambio di linguaggio.
 
 Ogni diagnostica del loader contiene:
 

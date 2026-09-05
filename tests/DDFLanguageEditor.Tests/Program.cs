@@ -938,7 +938,7 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.9.6.2", result.Package.PackageVersion);
+            Equal("0.9.6.3", result.Package.PackageVersion);
             Equal(17, result.Package.Language.Keywords.Count);
             Equal(22, result.Package.Language.Operators.Count);
             Equal(true, result.Package.Grammar != null);
@@ -1207,15 +1207,20 @@ namespace DDFLanguageEditor.Tests
                 File.WriteAllText(manifestPath, manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
                     new UTF8Encoding(false));
 
+                long initialRevision = DdfLanguageCatalog.Revision;
                 DdfLanguagePackageLoadResult activated = DdfLanguageCatalog.TryActivate(root);
                 Equal(true, activated.Success);
                 Equal("DDF Test Active", DdfLanguageCatalog.DefaultPackage.Name);
+                Equal(true, DdfLanguageCatalog.Revision > initialRevision);
+                Equal(DdfLanguageCatalog.Revision, DdfLanguageCatalog.Capture().Revision);
                 DdfLanguagePackage active = DdfLanguageCatalog.DefaultPackage;
+                long activeRevision = DdfLanguageCatalog.Revision;
 
                 DdfLanguagePackageLoadResult rejected = DdfLanguageCatalog.TryActivate(
                     Path.Combine(root, "missing"));
                 Equal(false, rejected.Success);
                 Equal(true, ReferenceEquals(active, DdfLanguageCatalog.DefaultPackage));
+                Equal(activeRevision, DdfLanguageCatalog.Revision);
             }
             finally
             {

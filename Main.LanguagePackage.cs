@@ -13,6 +13,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem loadLanguageFolderMenuItem;
         private ToolStripMenuItem useEmbeddedLanguageMenuItem;
         private ToolStripDropDownButton toolbarLanguageButton;
+        private Action<string> saveLanguagePackagePathSetting;
         private IReadOnlyList<DdfLanguagePackageDiagnostic> languagePackageActivationDiagnostics =
             Array.Empty<DdfLanguagePackageDiagnostic>();
 
@@ -32,6 +33,7 @@ namespace DDF___Program_Language_Editor
 
         private void initializeLanguagePackageCommands()
         {
+            saveLanguagePackagePathSetting = AppSettingsStore.SaveLanguagePackagePath;
             loadLanguageArchiveMenuItem = new ToolStripMenuItem("Carica archivio .ddflang...")
             {
                 Name = "loadLanguageArchiveMenuItem"
@@ -173,7 +175,7 @@ namespace DDF___Program_Language_Editor
             languagePackageActivationDiagnostics = result.Diagnostics;
             try
             {
-                AppSettingsStore.SaveLanguagePackagePath(persistedPath ?? string.Empty);
+                saveLanguagePackagePathSetting(persistedPath ?? string.Empty);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {

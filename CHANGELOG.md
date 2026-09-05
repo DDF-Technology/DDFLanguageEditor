@@ -1,6 +1,6 @@
 # Changelog
 
-## In sviluppo - 0.9.6.3
+## 0.9.6.3 - 2026-09-05
 
 - dichiarare in `grammar.json` i metadati IDE per simboli, folding, breadcrumb e nodi selezionabili;
 - alimentare Outline, folding, breadcrumb, selezione sintattica e navigazione workspace dall'AST generico del pacchetto;
@@ -14,6 +14,9 @@
 - consentire il cambio atomico del pacchetto attivo da cartella o archivio `.ddflang`, con ripristino esplicito del DDF incorporato;
 - persistere la scelta e aggiornare servizi editor, workspace, filtri file, menu, impostazioni, icon bar e barra di stato senza riavvio;
 - mantenere attivo il linguaggio precedente e mostrare le diagnostiche quando il nuovo pacchetto non supera la validazione;
+- associare una revisione atomica a ogni pacchetto attivo e scartare analisi, completamenti e indicizzazioni prodotti da revisioni superate;
+- verificare sei cambi consecutivi fra pacchetti da 256 keyword e 96 snippet con un documento da 2.000 righe e un workspace da 40 file;
+- aggiungere un budget p95 dedicato al cambio di pacchetto e chiudere tutti i requisiti della milestone `0.9.6.3`;
 
 ## 0.9.6.2 - 2026-09-02
 

@@ -439,7 +439,7 @@ host arbitrario.
 - [x] Derivare completamento, Signature Help, hover, snippet e simboli dalle regole del pacchetto.
 - [x] Rendere formatter, indentazione, coppie automatiche e Quick Fix configurabili senza duplicare la grammatica.
 - [x] Aggiornare menu, impostazioni, icon bar e stato applicazione quando cambia il linguaggio attivo.
-- [ ] Mantenere cancellazione, versionamento degli snapshot e budget prestazionali con pacchetti utente realistici.
+- [x] Mantenere cancellazione, versionamento degli snapshot e budget prestazionali con pacchetti utente realistici.
 
 ### 0.9.6.4 — Tipi, semantica e rappresentazione intermedia
 

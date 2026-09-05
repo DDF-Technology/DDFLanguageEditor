@@ -247,9 +247,10 @@ namespace DDF___Program_Language_Editor
 
             cancelBackgroundAnalysis();
             long version = ++analysisRequestVersion;
+            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
             string text = richTextBoxMainEditor.Text;
             DdfLexUpdate update = incrementalLexer.Update(text);
-            DdfParseResult parseResult = DdfParser.Parse(text, update.Result);
+            DdfParseResult parseResult = DdfParser.Parse(text, update.Result, languageSnapshot.Language);
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
             DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
                 text,
@@ -263,7 +264,7 @@ namespace DDF___Program_Language_Editor
                 typeCheckResult,
                 DdfSymbolIndex.Create(parseResult, text).Symbols,
                 DdfFoldingRangeProvider.Create(parseResult, text));
-            applyAnalysisSnapshot(snapshot, update.RelexStart, version);
+            applyAnalysisSnapshot(snapshot, update.RelexStart, version, languageSnapshot.Revision);
         }
 
         private async void startBackgroundAnalysis()
@@ -272,6 +273,7 @@ namespace DDF___Program_Language_Editor
 
             string text = richTextBoxMainEditor.Text;
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
+            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
             long version = ++analysisRequestVersion;
             cancelBackgroundAnalysis();
             var cancellation = new CancellationTokenSource();
@@ -280,17 +282,19 @@ namespace DDF___Program_Language_Editor
             try
             {
                 EditorAnalysisSnapshot snapshot = await Task.Run(
-                    () => createAnalysisSnapshot(text, externalRoots, cancellation.Token),
+                    () => createAnalysisSnapshot(text, externalRoots, languageSnapshot.Language, cancellation.Token),
                     cancellation.Token);
-                if (cancellation.IsCancellationRequested || version != analysisRequestVersion) return;
+                if (cancellation.IsCancellationRequested || version != analysisRequestVersion ||
+                    languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
                 postEditorCallback(() =>
                 {
                     if (version != analysisRequestVersion || IsDisposed || Disposing ||
+                        languageSnapshot.Revision != DdfLanguageCatalog.Revision ||
                         richTextBoxMainEditor.IsDisposed ||
                         !string.Equals(text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
                     int formatStart = findChangedLineStart(lastAnalyzedText, text);
                     incrementalLexer.Reset();
-                    applyAnalysisSnapshot(snapshot, formatStart, version);
+                    applyAnalysisSnapshot(snapshot, formatStart, version, languageSnapshot.Revision);
                 });
             }
             catch (OperationCanceledException)
@@ -307,12 +311,13 @@ namespace DDF___Program_Language_Editor
         private static EditorAnalysisSnapshot createAnalysisSnapshot(
             string text,
             IReadOnlyList<CompilationUnitSyntax> externalRoots,
+            DdfLanguageDefinition language,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            DdfLexResult lexResult = DdfLexer.Lex(text);
+            DdfLexResult lexResult = DdfLexer.Lex(text, language);
             cancellationToken.ThrowIfCancellationRequested();
-            DdfParseResult parseResult = DdfParser.Parse(text, lexResult);
+            DdfParseResult parseResult = DdfParser.Parse(text, lexResult, language);
             cancellationToken.ThrowIfCancellationRequested();
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
             cancellationToken.ThrowIfCancellationRequested();
@@ -323,9 +328,11 @@ namespace DDF___Program_Language_Editor
             return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, symbols, folding);
         }
 
-        private void applyAnalysisSnapshot(EditorAnalysisSnapshot snapshot, int changedStart, long version)
+        private void applyAnalysisSnapshot(
+            EditorAnalysisSnapshot snapshot, int changedStart, long version, long languageRevision)
         {
             if (snapshot == null || version != analysisRequestVersion ||
+                languageRevision != DdfLanguageCatalog.Revision ||
                 !string.Equals(snapshot.Text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
             int selectionStart = richTextBoxMainEditor.SelectionStart;
@@ -413,6 +420,7 @@ namespace DDF___Program_Language_Editor
             lastTypeCheckResult = snapshot.TypeCheckResult;
             updateFoldingRanges(snapshot.FoldingRanges);
             analysisAppliedVersion = version;
+            analysisAppliedLanguageRevision = languageRevision;
             updateBreadcrumb();
             refreshEditorOverviewViewport();
             refreshDelimiterHighlight();

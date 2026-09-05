@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.6.2 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.6.3 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -13,10 +13,10 @@ evidenziazione delle regole note e indentazione assistita.
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
-- pacchetto DDF esterno versionato, caricabile da cartella o archivio `.ddflang`, con validazione atomica e fallback incorporato;
+- pacchetto DDF esterno versionato, selezionabile a runtime da cartella o archivio `.ddflang`, con scelta persistente, validazione atomica e fallback incorporato;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
-- finestra `Help > Pacchetto linguaggio attivo` con versione, origine, sorgente e diagnostiche di caricamento;
+- menu `Help > Linguaggio` per cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
@@ -54,7 +54,7 @@ evidenziazione delle regole note e indentazione assistita.
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra a 44 icone per i principali comandi File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, folding, breakpoint ed esecuzione;
+- barra con 44 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, folding, breakpoint ed esecuzione;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
@@ -223,7 +223,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.6.2 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.6.3 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

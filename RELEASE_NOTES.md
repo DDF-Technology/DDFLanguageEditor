@@ -1,22 +1,34 @@
-# DDFLanguageEditor 0.9.6.2
+# DDFLanguageEditor 0.9.6.3
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
+Version 0.9.6.3 derives Outline, folding, breadcrumb, syntax selection,
+completion, Signature Help, hover, snippets, formatting, indentation, automatic
+pairs and lexical Quick Fixes from language-package metadata. The typed DDF AST
+remains only as a compatibility projection for semantic and runtime services.
+
+The active language can now be changed at runtime from a package directory or
+`.ddflang` archive through Help or the icon bar. The selection persists between
+launches and updates editor services, workspace extensions, file dialogs,
+Settings and status without restarting. Invalid packages are rejected
+atomically and leave the previous language active.
+
+Every successful activation advances a catalog revision. Analysis, completion
+and workspace results carry the revision that created them and cannot update the
+UI after a newer package becomes active. Dynamic smoke coverage alternates six
+realistic packages containing 256 additional keywords and 96 snippets while a
+2,000-line document and a 40-file workspace are active; the measured package
+switch p95 remains guarded by its dedicated performance budget.
+
+Previous version notes follow.
+
 Version 0.9.6.2 makes `grammar.ebnf` the canonical syntax definition of the DDF
-package. `grammar.json` now contains only compilation settings and typed-by-kind
+package. `grammar.json` contains compilation settings and typed-by-kind
 node/field metadata. Package activation compiles and validates EBNF references,
-start rules, deterministic alternatives and unsupported left recursion.
-
-Parsing through a loaded package also produces a generic syntax tree with exact
-source spans, declared fields, a missing-syntax recovery node and navigable
-`DDFG101` diagnostics. The existing typed DDF AST remains a compatibility
-projection for the current IDE, semantic and runtime services until 0.9.6.3.
-
-Keyword roles are now extensible string identifiers rather than a loader enum
-restriction. The default DDF package adds `else`, including typed parsing,
-symbol traversal, folding, breakpoints, type checking and runtime execution.
-The new grammar schema and regression tests cover valid, invalid and incomplete
-sources plus atomic rejection of left-recursive packages.
+start rules, deterministic alternatives and unsupported left recursion. Parsing
+also produces a generic syntax tree with exact source spans and recoverable
+missing syntax. Keyword roles are extensible string identifiers and the default
+DDF package includes `else` throughout parsing, IDE services and runtime.
 
 Previous version notes follow.
 

@@ -7,6 +7,8 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Windows.Forms;
 using DDF___Program_Language_Editor;
@@ -43,6 +45,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                 AssertProlongedEditingSession(visible);
                 RunMenuScenarios(visible);
+                AssertRealisticLanguagePackageSwitching(visible);
                 if (UiExceptions.Count > 0)
                 {
                     throw new InvalidOperationException(
@@ -86,7 +89,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
                     .Items["statusEncodingLabel"];
                 Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
-                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.2", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.3", StringComparison.Ordinal) &&
                         languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
@@ -438,6 +441,120 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 if (Directory.Exists(firstDirectory)) Directory.Delete(firstDirectory, true);
                 if (Directory.Exists(targetDirectory)) Directory.Delete(targetDirectory, true);
             }
+        }
+
+        private static void AssertRealisticLanguagePackageSwitching(bool visible)
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-package-stress-" + Guid.NewGuid().ToString("N"));
+            string firstPackage = Path.Combine(root, "first");
+            string secondPackage = Path.Combine(root, "second");
+            string workspaceRoot = Path.Combine(root, "workspace");
+            try
+            {
+                CreateRealisticLanguagePackage(firstPackage, "DDF Stress A", "ak");
+                CreateRealisticLanguagePackage(secondPackage, "DDF Stress B", "bk");
+                Directory.CreateDirectory(workspaceRoot);
+                for (int index = 0; index < EditorPerformanceBudgets.RealisticWorkspaceDocuments; index++)
+                {
+                    DdfDocumentFile.Save(Path.Combine(workspaceRoot, "module" + index.ToString("D2") + ".ddf"),
+                        CreateGeneratedSource(EditorPerformanceBudgets.RealisticWorkspaceLinesPerDocument,
+                            "stress" + index.ToString("D2")));
+                }
+
+                using (var form = ShowSmokeForm(visible))
+                {
+                    SetPrivateField(form, "saveLanguagePackagePathSetting", new Action<string>(value => { }));
+                    Require((bool)InvokePrivate(form, "openWorkspace", workspaceRoot),
+                        "Il workspace per il cambio pacchetto non viene accettato.");
+                    PumpUntil(() => GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")?.Documents.Count ==
+                            EditorPerformanceBudgets.RealisticWorkspaceDocuments,
+                        12000, "Il workspace per il cambio pacchetto non completa il caricamento iniziale.");
+
+                    RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                    editor.Text = CreateGeneratedSource(EditorPerformanceBudgets.RealisticDocumentLines, "main");
+                    editor.Select(editor.TextLength, 0);
+                    StopInteractiveTimers(form);
+                    InvokePrivate(form, "startBackgroundAnalysis");
+
+                    var samples = new List<double>();
+                    for (int index = 0; index < EditorPerformanceBudgets.RealisticPackageSwitches; index++)
+                    {
+                        string packagePath = index % 2 == 0 ? firstPackage : secondPackage;
+                        samples.Add(MeasureMilliseconds(() => InvokePrivate(form, "activateLanguagePackage", packagePath)));
+                        PumpMessages(10);
+                    }
+
+                    long currentRevision = DdfLanguageCatalog.Revision;
+                    PumpUntil(() =>
+                        GetPrivateValue<long>(form, "analysisAppliedLanguageRevision") == currentRevision &&
+                        GetPrivateValue<long>(form, "workspaceLoadAppliedLanguageRevision") == currentRevision &&
+                        GetPrivateValue<long>(form, "workspaceLoadAppliedVersion") ==
+                            GetPrivateValue<long>(form, "workspaceLoadRequestVersion"),
+                        15000, "Uno snapshot del vecchio pacchetto è rimasto applicato dopo il cambio linguaggio.");
+
+                    editor.Text = "bk";
+                    editor.Select(editor.TextLength, 0);
+                    editor.Focus();
+                    InvokePrivate(form, "showCompletion", true);
+                    PumpUntil(() => GetPrivateValue<long>(form, "completionAppliedLanguageRevision") == currentRevision,
+                        5000, "Il completamento non applica lo snapshot del pacchetto corrente.");
+                    DdfCompletionResult completion = GetPrivateField<DdfCompletionResult>(form, "activeCompletionResult");
+                    Require(completion != null && completion.Items.Any(item => item.DisplayText == "bk000"),
+                        "Il completamento non riflette il contenuto del pacchetto finale.");
+                    Require(FindControl<StatusStrip>(form, "statusStripMain").Items.Cast<ToolStripItem>()
+                            .Any(item => item.Name == "statusEncodingLabel" && item.Text.Contains("DDF Stress B")),
+                        "La barra di stato non riflette il pacchetto finale dello stress test.");
+                    AssertPerformanceBudget(EditorPerformanceBudgets.LanguagePackageSwitch, samples);
+                }
+            }
+            finally
+            {
+                DdfLanguageCatalog.ActivateEmbedded();
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void CreateRealisticLanguagePackage(string path, string name, string keywordPrefix)
+        {
+            DdfLanguagePackageLoader.ExportEmbeddedDefault(path);
+
+            string manifestPath = Path.Combine(path, "manifest.json");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath, Encoding.UTF8)).AsObject();
+            manifest["name"] = name;
+            File.WriteAllText(manifestPath,
+                manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+            string lexiconPath = Path.Combine(path, "lexicon.json");
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(lexiconPath, Encoding.UTF8)).AsObject();
+            JsonArray keywords = lexicon["keywords"].AsArray();
+            for (int index = 0; index < EditorPerformanceBudgets.RealisticPackageKeywords; index++)
+            {
+                keywords.Add(new JsonObject
+                {
+                    ["text"] = keywordPrefix + index.ToString("D3"),
+                    ["tokenKind"] = "ControlFlowKeyword",
+                    ["role"] = "None"
+                });
+            }
+            File.WriteAllText(lexiconPath,
+                lexicon.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+            string intellisensePath = Path.Combine(path, "intellisense.json");
+            JsonObject intellisense = JsonNode.Parse(File.ReadAllText(intellisensePath, Encoding.UTF8)).AsObject();
+            JsonArray snippets = intellisense["snippets"].AsArray();
+            for (int index = 0; index < EditorPerformanceBudgets.RealisticPackageSnippets; index++)
+            {
+                string prefix = "snippet" + index.ToString("D3");
+                snippets.Add(new JsonObject
+                {
+                    ["prefix"] = prefix,
+                    ["displayText"] = prefix + " — stress",
+                    ["description"] = "Snippet generato per il carico realistico",
+                    ["body"] = "ret ${1:0};${0}"
+                });
+            }
+            File.WriteAllText(intellisensePath,
+                intellisense.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
         }
 
         private static string CreateGeneratedSource(int lineCount, string functionName)
@@ -793,7 +910,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
                 Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
-                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.2") &&
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.3") &&
                         FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
@@ -813,7 +930,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.2") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.3") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
