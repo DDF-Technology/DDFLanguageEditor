@@ -63,13 +63,28 @@ namespace DDFLanguageEditor.Core
         public static DdfExecutionResult Execute(string source, DdfExecutionOptions options = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            DdfParseResult parse = DdfParser.Parse(source);
+            DdfLanguageDefinition language = DdfLanguageCatalog.Default;
+            DdfParseResult parse = DdfParser.Parse(source, language);
             if (parse.Diagnostics.Count > 0)
                 return new DdfExecutionResult(null, 0, false, false, parse.Diagnostics, new DdfRuntimeStackFrame[0]);
-            return Execute(source, parse.Root, options);
+            DdfIrBuildResult lowered = DdfIrLowerer.Lower(source, parse, language);
+            if (!lowered.Success)
+                return new DdfExecutionResult(null, 0, false, false, lowered.Diagnostics, new DdfRuntimeStackFrame[0]);
+            return Execute(source, lowered.Program, options);
         }
 
-        public static DdfExecutionResult Execute(string source, CompilationUnitSyntax root, DdfExecutionOptions options = null)
+        public static DdfExecutionResult Execute(string source, CompilationUnitSyntax root,
+            DdfExecutionOptions options = null)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (root == null) throw new ArgumentNullException(nameof(root));
+            DdfIrBuildResult lowered = DdfIrLowerer.Lower(source, root);
+            if (!lowered.Success)
+                return new DdfExecutionResult(null, 0, false, false, lowered.Diagnostics, new DdfRuntimeStackFrame[0]);
+            return Execute(source, lowered.Program, options);
+        }
+
+        public static DdfExecutionResult Execute(string source, DdfIrProgram root, DdfExecutionOptions options = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
@@ -79,16 +94,16 @@ namespace DDFLanguageEditor.Core
         private sealed class Runner
         {
             private readonly string source;
-            private readonly CompilationUnitSyntax root;
+            private readonly DdfIrProgram root;
             private readonly DdfExecutionOptions options;
-            private readonly Dictionary<string, FunctionDeclarationSyntax> functions = new Dictionary<string, FunctionDeclarationSyntax>(StringComparer.Ordinal);
-            private readonly Dictionary<string, StructDeclarationSyntax> structures = new Dictionary<string, StructDeclarationSyntax>(StringComparer.Ordinal);
+            private readonly Dictionary<string, DdfIrFunction> functions = new Dictionary<string, DdfIrFunction>(StringComparer.Ordinal);
+            private readonly Dictionary<string, DdfIrStructure> structures = new Dictionary<string, DdfIrStructure>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, Cell>> scopes = new List<Dictionary<string, Cell>>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
             private readonly List<DdfRuntimeStackFrame> callStack = new List<DdfRuntimeStackFrame>();
             private int instructions;
 
-            public Runner(string source, CompilationUnitSyntax root, DdfExecutionOptions options)
+            public Runner(string source, DdfIrProgram root, DdfExecutionOptions options)
             {
                 this.source = source;
                 this.root = root;
@@ -105,23 +120,24 @@ namespace DDFLanguageEditor.Core
                 {
                     IndexDeclarations();
                     PushScope();
-                    foreach (MemberSyntax member in root.Members)
-                        if (member is GlobalStatementSyntax global) ExecuteStatement(global.Statement);
+                    foreach (DdfIrMember member in root.Members)
+                        if (member is DdfIrGlobal global) ExecuteStatement(global.Statement);
 
                     if (!string.IsNullOrWhiteSpace(options.EntryPoint))
                     {
-                        if (!functions.TryGetValue(options.EntryPoint, out FunctionDeclarationSyntax entry))
+                        if (!functions.TryGetValue(options.EntryPoint, out DdfIrFunction entry))
                             Fail("DDF401", "Funzione di ingresso '" + options.EntryPoint + "' non trovata.", root);
                         returnValue = Invoke(entry, new object[0], null);
                     }
                 }
                 catch (ReturnSignal signal) { returnValue = signal.Value; }
-                catch (BreakSignal) { diagnostics.Add(CreateDiagnostic("DDF403", "'brk' può essere usato soltanto in un ciclo.", root)); }
+                catch (BreakSignal) { diagnostics.Add(CreateDiagnostic("DDF403", "'brk' può essere usato soltanto in un ciclo.", root,
+                    DdfDiagnosticDomain.Source)); }
                 catch (EndSignal) { terminated = true; }
                 catch (CancelledSignal) { cancelled = true; }
                 catch (RuntimeSignal signal)
                 {
-                    diagnostics.Add(CreateDiagnostic(signal.Code, signal.Message, signal.Node));
+                    diagnostics.Add(CreateDiagnostic(signal.Code, signal.Message, signal.Node, signal.Domain));
                     stackTrace = signal.DdfStackTrace;
                 }
                 catch (Exception exception) { diagnostics.Add(CreateDiagnostic("DDF499", "Errore runtime interno: " + exception.Message, root)); }
@@ -135,14 +151,14 @@ namespace DDFLanguageEditor.Core
 
             private void IndexDeclarations()
             {
-                foreach (MemberSyntax member in root.Members)
+                foreach (DdfIrMember member in root.Members)
                 {
-                    if (member is FunctionDeclarationSyntax function && !string.IsNullOrEmpty(function.Name)) functions[function.Name] = function;
-                    else if (member is StructDeclarationSyntax structure && !string.IsNullOrEmpty(structure.Name)) structures[structure.Name] = structure;
+                    if (member is DdfIrFunction function && !string.IsNullOrEmpty(function.Name)) functions[function.Name] = function;
+                    else if (member is DdfIrStructure structure && !string.IsNullOrEmpty(structure.Name)) structures[structure.Name] = structure;
                 }
             }
 
-            private object Invoke(FunctionDeclarationSyntax function, IList<object> arguments, DdfSyntaxNode invocation)
+            private object Invoke(DdfIrFunction function, IList<object> arguments, DdfIrNode invocation)
             {
                 callStack.Add(CreateFrame(
                     function.Name,
@@ -167,38 +183,38 @@ namespace DDFLanguageEditor.Core
                 finally { callStack.RemoveAt(callStack.Count - 1); }
             }
 
-            private void ExecuteStatement(StatementSyntax statement)
+            private void ExecuteStatement(DdfIrStatement statement)
             {
                 if (statement == null) return;
-                if (!(statement is BlockStatementSyntax) && options.DebuggerSession != null &&
+                if (!(statement is DdfIrBlock) && options.DebuggerSession != null &&
                     !options.DebuggerSession.BeforeStatement(source, statement, options.CancellationRequested))
                     throw new CancelledSignal();
                 Tick(statement);
-                if (statement is BlockStatementSyntax block) ExecuteBlock(block, true);
-                else if (statement is VariableDeclarationStatementSyntax variable)
+                if (statement is DdfIrBlock block) ExecuteBlock(block, true);
+                else if (statement is DdfIrVariableDeclaration variable)
                 {
                     object value = variable.Initializer == null ? CreateDefault(variable.Type) : ConvertForType(Evaluate(variable.Initializer), variable.Type, variable);
                     Declare(variable.Name, value);
                 }
-                else if (statement is ExpressionStatementSyntax expression) Evaluate(expression.Expression);
-                else if (statement is IfStatementSyntax conditional)
+                else if (statement is DdfIrExpressionStatement expression) Evaluate(expression.Expression);
+                else if (statement is DdfIrIf conditional)
                 {
                     if (AsBoolean(Evaluate(conditional.Condition), conditional.Condition)) ExecuteStatement(conditional.Body);
                     else if (conditional.ElseBody != null) ExecuteStatement(conditional.ElseBody);
                 }
-                else if (statement is WhileStatementSyntax loop)
+                else if (statement is DdfIrWhile loop)
                 {
                     while (AsBoolean(Evaluate(loop.Condition), loop.Condition))
                     {
                         try { ExecuteStatement(loop.Body); } catch (BreakSignal) { break; }
                     }
                 }
-                else if (statement is DoWhileStatementSyntax doLoop)
+                else if (statement is DdfIrDoWhile doLoop)
                 {
                     do { try { ExecuteStatement(doLoop.Body); } catch (BreakSignal) { break; } }
                     while (AsBoolean(Evaluate(doLoop.Condition), doLoop.Condition));
                 }
-                else if (statement is ForStatementSyntax forLoop)
+                else if (statement is DdfIrFor forLoop)
                 {
                     PushScope();
                     try
@@ -212,67 +228,68 @@ namespace DDFLanguageEditor.Core
                     }
                     finally { PopScope(); }
                 }
-                else if (statement is ReturnStatementSyntax returned) throw new ReturnSignal(returned.Expression == null ? null : Evaluate(returned.Expression));
-                else if (statement is BreakStatementSyntax) throw new BreakSignal();
-                else if (statement is EndStatementSyntax) throw new EndSignal();
+                else if (statement is DdfIrReturn returned) throw new ReturnSignal(returned.Expression == null ? null : Evaluate(returned.Expression));
+                else if (statement is DdfIrBreak) throw new BreakSignal();
+                else if (statement is DdfIrEnd) throw new EndSignal();
             }
 
-            private void ExecuteBlock(BlockStatementSyntax block, bool createScope)
+            private void ExecuteBlock(DdfIrBlock block, bool createScope)
             {
                 if (createScope) PushScope();
-                try { foreach (StatementSyntax statement in block.Statements) ExecuteStatement(statement); }
+                try { foreach (DdfIrStatement statement in block.Statements) ExecuteStatement(statement); }
                 finally { if (createScope) PopScope(); }
             }
 
-            private object Evaluate(ExpressionSyntax expression)
+            private object Evaluate(DdfIrExpression expression)
             {
-                if (expression == null || expression is MissingExpressionSyntax) return null;
+                if (expression == null || expression is DdfIrMissingExpression) return null;
                 Tick(expression);
-                if (expression is LiteralExpressionSyntax literal) return ParseLiteral(literal.Text);
-                if (expression is NameExpressionSyntax name) return FindCell(name.Name, name).Value;
-                if (expression is ParenthesizedExpressionSyntax parenthesized) return Evaluate(parenthesized.Expression);
-                if (expression is UnaryExpressionSyntax unary)
+                if (expression is DdfIrLiteral literal) return ParseLiteral(literal.Text);
+                if (expression is DdfIrName name) return FindCell(name.Name, name).Value;
+                if (expression is DdfIrGroup parenthesized) return Evaluate(parenthesized.Expression);
+                if (expression is DdfIrUnary unary)
                 {
                     object operand = Evaluate(unary.Operand);
                     if (unary.OperatorText == "!") return !AsBoolean(operand, unary);
                     if (unary.OperatorText == "-") return IsFloating(operand) ? (object)(-ToDouble(operand, unary)) : -ToInt(operand, unary);
                     if (unary.OperatorText == "+") return operand;
                 }
-                if (expression is BinaryExpressionSyntax binary) return EvaluateBinary(binary);
-                if (expression is PostfixExpressionSyntax postfix)
+                if (expression is DdfIrBinary binary) return EvaluateBinary(binary);
+                if (expression is DdfIrPostfix postfix)
                 {
                     Cell cell = ResolveCell(postfix.Operand);
                     object old = cell.Value;
                     cell.Value = IsFloating(old) ? (object)(ToDouble(old, postfix) + (postfix.OperatorText == "++" ? 1 : -1)) : ToInt(old, postfix) + (postfix.OperatorText == "++" ? 1 : -1);
                     return old;
                 }
-                if (expression is CallExpressionSyntax call)
+                if (expression is DdfIrCall call)
                 {
-                    var target = call.Target as NameExpressionSyntax;
-                    if (target != null && functions.TryGetValue(target.Name, out FunctionDeclarationSyntax function))
+                    var target = call.Target as DdfIrName;
+                    if (target != null && functions.TryGetValue(target.Name, out DdfIrFunction function))
                     {
                         var userArguments = new List<object>();
-                        foreach (ExpressionSyntax argument in call.Arguments) userArguments.Add(Evaluate(argument));
+                        foreach (DdfIrExpression argument in call.Arguments) userArguments.Add(Evaluate(argument));
                         return Invoke(function, userArguments, call.Target);
                     }
                     if (target != null && DdfRuntimeCatalog.TryGetStandardFunction(target.Name, out DdfStandardFunction standard))
                     {
                         var standardArguments = new List<object>();
-                        foreach (ExpressionSyntax argument in call.Arguments) standardArguments.Add(Evaluate(argument));
+                        foreach (DdfIrExpression argument in call.Arguments) standardArguments.Add(Evaluate(argument));
                         return InvokeStandard(standard, standardArguments, call);
                     }
                     Fail("DDF402", "Funzione non trovata.", call.Target);
                     return null;
                 }
-                if (expression is IndexExpressionSyntax || expression is MemberAccessExpressionSyntax) return ResolveCell(expression).Value;
-                Fail("DDF403", "Espressione non supportata dal runtime.", expression);
+                if (expression is DdfIrIndex || expression is DdfIrMemberAccess) return ResolveCell(expression).Value;
+                Fail("DDFE001", "Espressione non supportata dal runtime.", expression,
+                    DdfDiagnosticDomain.EngineCapability);
                 return null;
             }
 
-            private object InvokeStandard(DdfStandardFunction function, IList<object> arguments, DdfSyntaxNode node)
+            private object InvokeStandard(DdfStandardFunction function, IList<object> arguments, DdfIrNode node)
             {
-                var call = node as CallExpressionSyntax;
-                DdfSyntaxNode invocation = call == null ? node : call.Target;
+                var call = node as DdfIrCall;
+                DdfIrNode invocation = call == null ? node : call.Target;
                 callStack.Add(CreateFrame(function.Name, invocation.Start, invocation.Length));
                 try
                 {
@@ -299,13 +316,14 @@ namespace DDFLanguageEditor.Core
                         if (double.TryParse(arguments[0] as string, NumberStyles.Float, CultureInfo.InvariantCulture, out double floating)) return floating;
                         Fail("DDF408", "Impossibile convertire il testo in float.", node);
                     }
-                    Fail("DDF402", "Funzione standard non implementata: '" + function.Name + "'.", node);
+                    Fail("DDFE002", "Funzione standard non implementata: '" + function.Name + "'.", node,
+                        DdfDiagnosticDomain.EngineCapability);
                     return null;
                 }
                 finally { callStack.RemoveAt(callStack.Count - 1); }
             }
 
-            private object EvaluateBinary(BinaryExpressionSyntax binary)
+            private object EvaluateBinary(DdfIrBinary binary)
             {
                 string op = binary.OperatorText;
                 if (op == "<<")
@@ -317,9 +335,10 @@ namespace DDFLanguageEditor.Core
                 }
                 if (op == ">>")
                 {
-                    var destination = binary.Right as NameExpressionSyntax;
+                    var destination = binary.Right as DdfIrName;
                     if (destination == null || destination.Name != DdfRuntimeCatalog.ConsoleOutput)
-                        Fail("DDF403", "Destinazione di output non supportata.", binary.Right);
+                        Fail("DDFE003", "Destinazione di output non supportata.", binary.Right,
+                            DdfDiagnosticDomain.EngineCapability);
                     object value = Evaluate(binary.Left);
                     options.Output?.Invoke(FormatValue(value));
                     return value;
@@ -353,14 +372,15 @@ namespace DDFLanguageEditor.Core
                 if (op == "/") { if (b == 0) Fail("DDF404", "Divisione per zero.", binary); return NumericResult(left, right, a / b); }
                 if (op == "^") return NumericResult(left, right, Math.Pow(a, b));
                 if (op == "^/") { if (b == 0) Fail("DDF404", "Indice della radice uguale a zero.", binary); return Math.Pow(a, 1d / b); }
-                Fail("DDF403", "Operatore runtime non supportato: '" + op + "'.", binary);
+                Fail("DDFE004", "Operatore runtime non supportato: '" + op + "'.", binary,
+                    DdfDiagnosticDomain.EngineCapability);
                 return null;
             }
 
-            private Cell ResolveCell(ExpressionSyntax expression)
+            private Cell ResolveCell(DdfIrExpression expression)
             {
-                if (expression is NameExpressionSyntax name) return FindCell(name.Name, name);
-                if (expression is IndexExpressionSyntax index)
+                if (expression is DdfIrName name) return FindCell(name.Name, name);
+                if (expression is DdfIrIndex index)
                 {
                     object target = Evaluate(index.Target);
                     int offset = ToInt(Evaluate(index.Index), index.Index);
@@ -369,7 +389,7 @@ namespace DDFLanguageEditor.Core
                     if (offset < 0 || offset >= array.Length) Fail("DDF405", "Indice array fuori intervallo: " + offset + ".", index.Index);
                     return array[offset];
                 }
-                if (expression is MemberAccessExpressionSyntax member)
+                if (expression is DdfIrMemberAccess member)
                 {
                     var instance = Evaluate(member.Target) as Dictionary<string, Cell>;
                     Cell field = null;
@@ -380,21 +400,21 @@ namespace DDFLanguageEditor.Core
                 return null;
             }
 
-            private object CreateDefault(TypeReferenceSyntax type)
+            private object CreateDefault(DdfIrType type)
             {
                 if (type.ArrayLengths.Count > 0)
                 {
                     int length = type.ArrayLengths[0] == null ? 0 : ToInt(Evaluate(type.ArrayLengths[0]), type.ArrayLengths[0]);
                     if (length < 0) Fail("DDF405", "La lunghezza di un array non può essere negativa.", type);
                     var cells = new Cell[length];
-                    var elementType = new TypeReferenceSyntax(type.Name, new ExpressionSyntax[0], type.Start, type.Length);
+                    var elementType = new DdfIrType(type.Name, new DdfIrExpression[0], type.Start, type.Length);
                     for (int index = 0; index < cells.Length; index++) cells[index] = new Cell(CreateDefault(elementType));
                     return cells;
                 }
-                if (structures.TryGetValue(type.Name, out StructDeclarationSyntax structure))
+                if (structures.TryGetValue(type.Name, out DdfIrStructure structure))
                 {
                     var fields = new Dictionary<string, Cell>(StringComparer.Ordinal);
-                    foreach (VariableDeclarationStatementSyntax field in structure.Fields) fields[field.Name] = new Cell(field.Initializer == null ? CreateDefault(field.Type) : Evaluate(field.Initializer));
+                    foreach (DdfIrVariableDeclaration field in structure.Fields) fields[field.Name] = new Cell(field.Initializer == null ? CreateDefault(field.Type) : Evaluate(field.Initializer));
                     return fields;
                 }
                 if (type.Name == "bool") return false;
@@ -405,7 +425,7 @@ namespace DDFLanguageEditor.Core
                 return null;
             }
 
-            private object ConvertForType(object value, TypeReferenceSyntax type, DdfSyntaxNode node)
+            private object ConvertForType(object value, DdfIrType type, DdfIrNode node)
             {
                 if (value == null) return CreateDefault(type);
                 if (type.ArrayLengths.Count > 0 || structures.ContainsKey(type.Name)) return value;
@@ -429,7 +449,7 @@ namespace DDFLanguageEditor.Core
                 return text.Replace("\\\"", "\"").Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t").Replace("\\\\", "\\");
             }
 
-            private Cell FindCell(string name, DdfSyntaxNode node)
+            private Cell FindCell(string name, DdfIrNode node)
             {
                 for (int index = scopes.Count - 1; index >= 0; index--)
                     if (scopes[index].TryGetValue(name, out Cell cell)) return cell;
@@ -445,7 +465,7 @@ namespace DDFLanguageEditor.Core
             private void PushScope() => scopes.Add(new Dictionary<string, Cell>(StringComparer.Ordinal));
             private void PopScope() => scopes.RemoveAt(scopes.Count - 1);
 
-            private void Tick(DdfSyntaxNode node)
+            private void Tick(DdfIrNode node)
             {
                 if (options.CancellationRequested != null && options.CancellationRequested()) throw new CancelledSignal();
                 instructions++;
@@ -453,14 +473,14 @@ namespace DDFLanguageEditor.Core
                     Fail("DDF407", "Limite di " + options.MaxInstructions + " istruzioni superato.", node);
             }
 
-            private bool AsBoolean(object value, DdfSyntaxNode node)
+            private bool AsBoolean(object value, DdfIrNode node)
             {
                 if (value is bool boolean) return boolean;
                 Fail("DDF403", "Era atteso un valore bool.", node);
                 return false;
             }
 
-            private double ToDouble(object value, DdfSyntaxNode node)
+            private double ToDouble(object value, DdfIrNode node)
             {
                 if (value is int integer) return integer;
                 if (value is double floating) return floating;
@@ -469,7 +489,7 @@ namespace DDFLanguageEditor.Core
                 return 0;
             }
 
-            private int ToInt(object value, DdfSyntaxNode node)
+            private int ToInt(object value, DdfIrNode node)
             {
                 if (value is int integer) return integer;
                 if (value is char character) return character;
@@ -490,7 +510,11 @@ namespace DDFLanguageEditor.Core
                 return Convert.ToString(value, CultureInfo.InvariantCulture);
             }
 
-            private void Fail(string code, string message, DdfSyntaxNode node) { throw new RuntimeSignal(code, message, node, CaptureStackTrace()); }
+            private void Fail(string code, string message, DdfIrNode node,
+                DdfDiagnosticDomain domain = DdfDiagnosticDomain.Runtime)
+            {
+                throw new RuntimeSignal(code, message, node, CaptureStackTrace(), domain);
+            }
 
             private IReadOnlyList<DdfRuntimeStackFrame> CaptureStackTrace()
             {
@@ -511,26 +535,31 @@ namespace DDFLanguageEditor.Core
                 return new DdfRuntimeStackFrame(functionName, safeStart, Math.Max(1, length), line, column);
             }
 
-            private DdfDiagnostic CreateDiagnostic(string code, string message, DdfSyntaxNode node)
+            private DdfDiagnostic CreateDiagnostic(string code, string message, DdfIrNode node,
+                DdfDiagnosticDomain domain = DdfDiagnosticDomain.Runtime)
             {
                 int start = Math.Min(node?.Start ?? 0, Math.Max(0, source.Length - 1));
                 int line = 1, column = 1;
                 for (int index = 0; index < Math.Min(start, source.Length); index++) { if (source[index] == '\n') { line++; column = 1; } else if (source[index] != '\r') column++; }
-                return new DdfDiagnostic(code, message, start, Math.Max(1, node?.Length ?? 1), line, column);
+                return new DdfDiagnostic(code, message, start, Math.Max(1, node?.Length ?? 1), line, column,
+                    DdfDiagnosticSeverity.Error, null, null, domain);
             }
 
             private sealed class Cell { public Cell(object value) { Value = value; } public object Value { get; set; } }
             private sealed class RuntimeSignal : Exception
             {
-                public RuntimeSignal(string code, string message, DdfSyntaxNode node, IReadOnlyList<DdfRuntimeStackFrame> stackTrace) : base(message)
+                public RuntimeSignal(string code, string message, DdfIrNode node,
+                    IReadOnlyList<DdfRuntimeStackFrame> stackTrace, DdfDiagnosticDomain domain) : base(message)
                 {
                     Code = code;
                     Node = node;
                     DdfStackTrace = stackTrace;
+                    Domain = domain;
                 }
                 public string Code { get; }
-                public DdfSyntaxNode Node { get; }
+                public DdfIrNode Node { get; }
                 public IReadOnlyList<DdfRuntimeStackFrame> DdfStackTrace { get; }
+                public DdfDiagnosticDomain Domain { get; }
             }
             private sealed class ReturnSignal : Exception { public ReturnSignal(object value) { Value = value; } public object Value { get; } }
             private sealed class BreakSignal : Exception { }

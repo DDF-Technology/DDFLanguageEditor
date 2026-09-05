@@ -201,6 +201,7 @@ namespace DDF___Program_Language_Editor
                 delimiterHighlightTimer.Stop();
                 if (currentView != null)
                 {
+                    captureDocumentViewport(currentView);
                     currentView.Buffer.UpdateSource(richTextBoxMainEditor.Text, false);
                     richTextBoxMainEditor.Visible = false;
                     richTextBoxMainEditor.Name = "documentEditor_" + currentView.Buffer.Id;
@@ -225,12 +226,13 @@ namespace DDF___Program_Language_Editor
 
             applyHighlighting();
             updateDocumentUi();
-            updateLineNumbers();
             refreshBreakpointsPalette();
             updateCaretPosition();
             updateBreadcrumb();
-            refreshEditorOverview();
             richTextBoxMainEditor.Focus();
+            restoreDocumentViewport(view);
+            updateLineNumbers();
+            refreshEditorOverview();
         }
 
         private void resetActiveAnalysis()
@@ -254,6 +256,20 @@ namespace DDF___Program_Language_Editor
             if (isSwitchingDocument || documentTabs.SelectedTab == null) return;
             string id = documentTabs.SelectedTab.Tag as string;
             if (!string.IsNullOrEmpty(id) && documentViews.TryGetValue(id, out DocumentView view)) activateDocument(view);
+        }
+
+        private static void captureDocumentViewport(DocumentView view)
+        {
+            if (view == null) return;
+            if (!RichTextBoxUpdateScope.TryGetScrollPosition(view.Editor, out Point position)) return;
+            view.ScrollPosition = position;
+            view.HasScrollPosition = true;
+        }
+
+        private static void restoreDocumentViewport(DocumentView view)
+        {
+            if (view?.HasScrollPosition != true) return;
+            RichTextBoxUpdateScope.SetScrollPosition(view.Editor, view.ScrollPosition);
         }
 
         private void documentTabs_MouseDown(object sender, MouseEventArgs e)
@@ -402,6 +418,8 @@ namespace DDF___Program_Language_Editor
             public List<DdfTextRange> MultiSelections { get; } = new List<DdfTextRange>();
             public int? LastEditPosition { get; set; }
             public DateTime? LastEditUtc { get; set; }
+            public Point ScrollPosition { get; set; }
+            public bool HasScrollPosition { get; set; }
         }
     }
 }

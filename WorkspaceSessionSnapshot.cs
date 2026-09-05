@@ -10,6 +10,8 @@ namespace DDF___Program_Language_Editor
         public string Path { get; set; }
         public int SelectionStart { get; set; }
         public int SelectionLength { get; set; }
+        public int? ScrollX { get; set; }
+        public int? ScrollY { get; set; }
         public List<int> BreakpointLines { get; set; } = new List<int>();
     }
 
@@ -49,6 +51,8 @@ namespace DDF___Program_Language_Editor
         {
             document.SelectionStart = Math.Max(0, document.SelectionStart);
             document.SelectionLength = Math.Max(0, document.SelectionLength);
+            if (document.ScrollX.HasValue) document.ScrollX = Math.Max(0, document.ScrollX.Value);
+            if (document.ScrollY.HasValue) document.ScrollY = Math.Max(0, document.ScrollY.Value);
             document.BreakpointLines = (document.BreakpointLines ?? new List<int>())
                 .Where(line => line > 0).Distinct().OrderBy(line => line).ToList();
             return document;

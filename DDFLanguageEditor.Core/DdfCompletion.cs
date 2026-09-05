@@ -183,7 +183,8 @@ namespace DDFLanguageEditor.Core
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(source, parseResult.Root);
             cancellationToken.ThrowIfCancellationRequested();
             string expectedType = libraryContext ? string.Empty :
-                DdfExpectedTypeService.GetExpectedType(source, parseResult.Root, prefixStart, externalRoots);
+                DdfExpectedTypeService.GetExpectedType(
+                    source, parseResult.Root, prefixStart, externalRoots, language.Types);
             DdfCompletionContextKind context = GetContext(source, prefixStart, libraryContext, expectedType, language);
             var candidates = new List<DdfCompletionItem>();
 

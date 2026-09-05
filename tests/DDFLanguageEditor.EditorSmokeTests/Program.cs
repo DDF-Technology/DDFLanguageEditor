@@ -19,6 +19,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
     internal static class Program
     {
         private const int WmLeftButtonDown = 0x0201;
+        private const int EmGetScrollPos = 0x0400 + 221;
         private const string Source =
             "@@'Console'\n" +
             "main() out int {\n" +
@@ -40,6 +41,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             try
             {
                 RunEditorScenarios(visible);
+                AssertDocumentViewportPersistence(visible);
                 AssertRestoredMultiFileGutter(visible);
                 AssertPerformanceBudgets(visible);
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
@@ -89,7 +91,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
                     .Items["statusEncodingLabel"];
                 Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
-                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.3", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.4", StringComparison.Ordinal) &&
                         languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
@@ -192,6 +194,91 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     }
                 }
                 Console.WriteLine("PASS gutter continuo dopo ripristino workspace multifile");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void AssertDocumentViewportPersistence(bool visible)
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-viewport-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            string path = Path.Combine(root, "viewport.ddf");
+            File.WriteAllText(path, string.Join("\n", Enumerable.Range(1, 140)
+                .Select(line => "int value" + line + "<<" + line + ";")));
+            string sessionData = null;
+            try
+            {
+                using (var form = ShowSmokeForm(visible))
+                {
+                    DisableRecentFilePersistence(form);
+                    EditorSettings current = GetPrivateField<EditorSettings>(form, "editorSettings");
+                    SetPrivateField(form, "editorSettings", new EditorSettings(
+                        current.FontFamily, current.FontSize, current.ZoomPercent, current.Theme,
+                        current.UseTabs, current.IndentSize, current.LineEnding, true,
+                        current.AutoSaveEnabled, current.AutoSaveDelaySeconds, current.HotExitEnabled,
+                        current.RestoreSessionEnabled, current.CrashRecoveryEnabled,
+                        current.HighlightCurrentLine, current.ShowWhitespace, current.ShowIndentGuides,
+                        false, current.ShowOverview));
+                    InvokePrivate(form, "applyEditorSettings");
+
+                    Require((bool)InvokePrivate(form, "openDocument", path),
+                        "Lo smoke viewport non riesce ad aprire il documento lungo.");
+                    PumpMessages(180);
+                    RichTextBox editor = GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor");
+                    Require(GetEditorScrollPosition(editor).Y <= 2,
+                        "Un nuovo documento non viene aperto dall'inizio della viewport.");
+
+                    editor.Select(editor.GetFirstCharIndexFromLine(90), 0);
+                    editor.ScrollToCaret();
+                    PumpMessages(60);
+                    Point beforeSave = GetEditorScrollPosition(editor);
+                    Require(beforeSave.Y > 0, "Lo smoke viewport non ha spostato lo scroll verticale.");
+                    Require((bool)InvokePrivate(form, "saveDocument", false),
+                        "Il salvataggio con formattazione non è riuscito nello smoke viewport.");
+                    PumpMessages(180);
+                    Point afterSave = GetEditorScrollPosition(editor);
+                    Require(Math.Abs(afterSave.Y - beforeSave.Y) <= 2,
+                        "Salva o Formatta al salvataggio sposta la viewport verticale.");
+
+                    TabControl tabs = FindControl<TabControl>(form, "documentTabs");
+                    TabPage savedTab = tabs.SelectedTab;
+                    FindMenuItem(form, "newMenuItem").PerformClick();
+                    PumpMessages(50);
+                    tabs.SelectedTab = savedTab;
+                    PumpMessages(180);
+                    editor = GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor");
+                    Point afterTabSwitch = GetEditorScrollPosition(editor);
+                    Require(Math.Abs(afterTabSwitch.Y - afterSave.Y) <= 2,
+                        "Il cambio scheda perde la posizione verticale del documento.");
+
+                    SetPrivateField(form, "saveWorkspaceSessionSetting",
+                        new Action<string>(value => sessionData = value));
+                    InvokePrivate(form, "persistWorkspaceSession");
+                    WorkspaceSessionSnapshot snapshot = WorkspaceSessionSnapshot.Parse(sessionData);
+                    WorkspaceSessionDocumentSnapshot saved = snapshot.Documents.Single(item =>
+                        string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase));
+                    Require(saved.ScrollY.HasValue && Math.Abs(saved.ScrollY.Value - afterTabSwitch.Y) <= 2,
+                        "La sessione progetto non conserva la viewport verticale.");
+                }
+
+                using (var restored = ShowSmokeForm(visible))
+                {
+                    DisableRecentFilePersistence(restored);
+                    SetPrivateField(restored, "loadWorkspaceSessionSetting", new Func<string>(() => sessionData));
+                    InvokePrivate(restored, "restoreWorkspaceSession");
+                    PumpMessages(220);
+                    RichTextBox editor = GetPrivateField<RichTextBox>(restored, "richTextBoxMainEditor");
+                    WorkspaceSessionSnapshot snapshot = WorkspaceSessionSnapshot.Parse(sessionData);
+                    int expectedY = snapshot.Documents.Single(item =>
+                        string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)).ScrollY.Value;
+                    Require(Math.Abs(GetEditorScrollPosition(editor).Y - expectedY) <= 2,
+                        "La riapertura del progetto non ripristina la viewport verticale salvata.");
+                }
+
+                Console.WriteLine("PASS viewport verticale stabile in apertura, salvataggio, schede e sessione progetto");
             }
             finally
             {
@@ -910,12 +997,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
                 Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
-                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.3") &&
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.4") &&
                         FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
                 Require(FindControl<ListBox>(packageInfo, "languagePackageDiagnosticsListBox").Items.Count > 0,
                     "La finestra non espone lo stato delle diagnostiche di caricamento.");
+                Require(FindControl<Label>(packageInfo, "languagePackageNativeExtensionsValueLabel").Text == "Nessuno",
+                    "La finestra non espone i requisiti dei plug-in nativi del pacchetto.");
                 FindControl<Button>(packageInfo, "languagePackageCloseButton").PerformClick();
                 PumpMessages(40);
                 Require(packageInfo.IsDisposed, "Il pulsante Chiudi non ha terminato le informazioni pacchetto.");
@@ -930,7 +1019,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.3") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.4") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -3626,8 +3715,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SendMessage(gutter.Handle, WmLeftButtonDown, new IntPtr(1), new IntPtr(packedPoint));
         }
 
+        private static Point GetEditorScrollPosition(RichTextBox editor)
+        {
+            Point position = Point.Empty;
+            SendMessage(editor.Handle, EmGetScrollPos, IntPtr.Zero, ref position);
+            return position;
+        }
+
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, ref Point lParam);
 
         [DllImport("user32.dll")]
         private static extern int GetGuiResources(IntPtr process, int flags);

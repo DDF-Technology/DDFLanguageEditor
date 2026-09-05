@@ -148,6 +148,8 @@ namespace DDFLanguageEditor.Core
             publicPunctuation = new List<char>(this.punctuation).AsReadOnly();
             Intellisense = DdfIntellisenseDefinition.CreateLegacyDefault();
             Formatting = DdfFormattingDefinition.CreateLegacyDefault();
+            Types = DdfTypeSystemDefinition.CreateDdfCompatibleDefault();
+            Semantics = DdfSemanticDefinition.CreateEmpty();
         }
 
         public IReadOnlyCollection<DdfKeywordDefinition> Keywords => publicKeywords;
@@ -158,6 +160,8 @@ namespace DDFLanguageEditor.Core
         public DdfCompiledGrammar Grammar { get; internal set; }
         public DdfIntellisenseDefinition Intellisense { get; internal set; }
         public DdfFormattingDefinition Formatting { get; internal set; }
+        public DdfTypeSystemDefinition Types { get; internal set; }
+        public DdfSemanticDefinition Semantics { get; internal set; }
 
         public bool TryGetKeyword(string text, out DdfKeywordDefinition definition)
         {

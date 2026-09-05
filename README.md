@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.6.3 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.9.6.4 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -14,6 +14,7 @@ evidenziazione delle regole note e indentazione assistita.
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
 - pacchetto DDF esterno versionato, selezionabile a runtime da cartella o archivio `.ddflang`, con scelta persistente, validazione atomica e fallback incorporato;
+- requisiti opzionali per plug-in nativi identificati esattamente e soggetti ad autorizzazione separata per capacità, senza caricamento implicito di codice host;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
 - menu `Help > Linguaggio` per cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
@@ -48,7 +49,7 @@ evidenziazione delle regole note e indentazione assistita.
 - selezione sintattica progressiva/riducibile e salto tra delimitatori corrispondenti;
 - cursori multipli con `Alt+Click`, `Ctrl+D` per l'occorrenza successiva e `Ctrl+Shift+L` per tutte;
 - type checker per primitivi, strutture e array con diagnostiche `DDF3xx` e hover tipizzato;
-- interprete AST interno con funzioni, scope, controllo di flusso, array e strutture;
+- interprete IR interno con funzioni, scope, controllo di flusso, array e strutture;
 - menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
@@ -200,10 +201,14 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
 - `LANGUAGE_PACKAGE_FORMAT.md`: contratto, struttura, sicurezza e versionamento dei pacchetti `.ddflang`;
+- `INTERMEDIATE_REPRESENTATION.md`: pipeline, modello e contratto della IR comune usata dal runtime;
+- `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
 - `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
 - `language-formatting.schema.json`: schema JSON di layout, indentazione, coppie automatiche e Quick Fix lessicali;
+- `language-types.schema.json`: schema JSON di primitivi, conversioni, compatibilità, mutabilità, scope e firme;
+- `language-semantics.schema.json`: schema JSON dei collegamenti a operazioni semantiche sicure e versionate;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
@@ -223,11 +228,11 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.6.3 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.9.6.4 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
-external compiler or complete debugger. Its internal AST interpreter reports
+external compiler or complete debugger. Its internal IR interpreter reports
 navigable runtime failures and DDF call stacks, and supports line breakpoints
 with pause/continue. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.6.4 - 2026-09-05
+
+- trasformare `types.json` in un contratto dichiarativo validato per primitivi, conversioni, compatibilità, mutabilità, scope, firme, literal, numeri e indicizzazione;
+- collegare il type checker e il tipo atteso dell'IntelliSense allo stesso snapshot del pacchetto usato da lexer e parser;
+- consentire di modificare una conversione nel pacchetto e osservarne l'effetto senza ricompilare l'editor;
+- rifiutare atomicamente riferimenti e categorie di tipo incoerenti con diagnostiche `DDFL09x`;
+- pubblicare `language-types.schema.json` e includerlo negli output e nelle pubblicazioni self-contained;
+- collegare le produzioni dell'AST generico al catalogo chiuso `ddf-safe-semantics` `1.0` tramite `semantics.json`;
+- validare regole, campi, argomenti e identificatori delle operazioni prima dell'attivazione del pacchetto;
+- produrre un piano semantico con intervalli sorgente senza consentire script, reflection, delegate o codice host arbitrario;
+- pubblicare `language-semantics.schema.json` e includerlo negli output e nelle pubblicazioni self-contained;
+- introdurre la IR pubblica `1.0` con nodi propri per programma, dichiarazioni, flusso, tipi ed espressioni;
+- conservare piano semantico e intervalli sorgente nella IR per backend, diagnostiche, breakpoint e stack trace;
+- spostare completamente l'interprete dalle classi `*Syntax` ai nodi `DdfIr*`, mantenendo un overload legacy che effettua il lowering;
+- costruire la IR negli snapshot dell'editor e bloccare Run sulle eventuali diagnostiche di lowering;
+- classificare ogni diagnostica come codice sorgente, definizione del linguaggio, funzionalità del motore o runtime;
+- distinguere le incompatibilità di adapter, API e operazioni sicure dalle definizioni JSON non valide durante il caricamento atomico;
+- mostrare l'origine nelle righe, negli hover e nel riepilogo della palette Diagnostica, usando codici `DDFE00x` per i limiti del motore incontrati in esecuzione;
+- aggiungere al manifest requisiti opzionali per plug-in nativi identificati da ID, autore, versione esatta, SHA-256 e capacità richieste;
+- applicare una policy deny-by-default che autorizza separatamente ogni identità e capacità senza consentire al pacchetto di approvare se stesso;
+- mostrare i requisiti nativi nelle informazioni del pacchetto senza cercare, caricare o eseguire assembly esterni;
+- mantenere stabile la viewport verticale durante apertura, formattazione, salvataggio e cambio scheda, persistendola inoltre per ogni documento nella sessione del progetto;
+
 ## 0.9.6.3 - 2026-09-05
 
 - dichiarare in `grammar.json` i metadati IDE per simboli, folding, breadcrumb e nodi selezionabili;

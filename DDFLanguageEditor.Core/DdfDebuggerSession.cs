@@ -59,7 +59,7 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        internal bool BeforeStatement(string source, DdfSyntaxNode node, Func<bool> cancellationRequested)
+        internal bool BeforeStatement(string source, DdfIrStatement node, Func<bool> cancellationRequested)
         {
             GetPosition(source, node == null ? 0 : node.Start, out int line, out int column);
             Action<DdfDebugPauseInfo> callback;

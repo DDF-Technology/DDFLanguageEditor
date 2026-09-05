@@ -76,6 +76,15 @@ namespace DDFLanguageEditor.Tests
             Run("drives structural IDE services from grammar metadata", DrivesStructuralIdeServicesFromGrammarMetadata);
             Run("drives IntelliSense presentation from its package section", DrivesIntellisenseFromPackageSection);
             Run("drives formatting editing and Quick Fixes from the package", DrivesFormattingFromPackageSection);
+            Run("drives type checking from the package", DrivesTypeCheckingFromPackageSection);
+            Run("rejects invalid type systems atomically", RejectsInvalidTypeSystemsAtomically);
+            Run("plans safe semantic operations from the package", PlansSafeSemanticOperationsFromPackage);
+            Run("rejects unsafe semantic operations atomically", RejectsUnsafeSemanticOperationsAtomically);
+            Run("separates diagnostic domains", SeparatesDiagnosticDomains);
+            Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
+            Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
+            Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
+            Run("executes and diagnoses from intermediate representation", ExecutesAndDiagnosesFromIntermediateRepresentation);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
@@ -938,9 +947,10 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.9.6.3", result.Package.PackageVersion);
+            Equal("0.9.6.4", result.Package.PackageVersion);
             Equal(17, result.Package.Language.Keywords.Count);
             Equal(22, result.Package.Language.Operators.Count);
+            Equal(0, result.Package.NativeExtensions.Count);
             Equal(true, result.Package.Grammar != null);
             Equal("compilation-unit", result.Package.Grammar.StartRule);
 
@@ -1128,6 +1138,316 @@ namespace DDFLanguageEditor.Tests
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void DrivesTypeCheckingFromPackageSection()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-types-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "types.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                document["conversions"].AsArray().Add(new JsonObject
+                {
+                    ["from"] = "float",
+                    ["to"] = "int",
+                    ["context"] = "General"
+                });
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                if (!load.Success)
+                    throw new InvalidOperationException(string.Join(" | ", load.Diagnostics.Select(item => item.ToString())));
+                DdfTypeSystemDefinition types = load.Package.Language.Types;
+                Equal(7, types.Primitives.Count);
+                Equal(false, types.CanDeclareVariable("void"));
+                Equal("char", types.GetIndexedElementType("string"));
+                Equal(true, types.Scopes.AllowShadowing);
+                Equal(true, types.Mutability.VariablesMutable);
+                Equal(true, types.Signatures.ExactArity);
+
+                const string source = "main() out int { int value << 1.5; ret value; }";
+                DdfParseResult parse = DdfParser.Parse(source, load.Package.Language);
+                Equal(true, DdfTypeChecker.Check(source, parse.Root, null,
+                    DdfTypeSystemDefinition.CreateDdfCompatibleDefault()).Diagnostics.Any(item => item.Code == "DDF301"));
+                Equal(0, DdfTypeChecker.Check(source, parse.Root, null, types).Diagnostics.Count);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsInvalidTypeSystemsAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-invalid-types-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "types.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                document["numeric"].AsObject()["dominantType"] = "string";
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(root);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL095" && item.File == "types.json"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void PlansSafeSemanticOperationsFromPackage()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            Equal(DdfSafeSemanticOperationCatalog.OperationSet, package.Language.Semantics.OperationSet);
+            Equal("1.0", package.Language.Semantics.OperationSetVersion);
+            Equal(14, package.Language.Semantics.Bindings.Count);
+
+            const string source = "main() out int { int value << 1; if(value > 0) { ret value; } ret 0; }";
+            DdfParseResult parse = DdfParser.Parse(source, package.Language);
+            IReadOnlyList<DdfPlannedSemanticOperation> plan = DdfSemanticOperationPlanner.Create(
+                parse.GenericRoot, package.Language.Semantics);
+            DdfPlannedSemanticOperation function = plan.Single(item => item.Id == "DeclareFunction");
+            Equal("function-declaration", function.Rule);
+            DdfGenericSyntaxNode name = function.Arguments["name"].Single();
+            DdfGenericSyntaxNode returnType = function.Arguments["returnType"].Single();
+            Equal("main", source.Substring(name.Start, name.Length));
+            Equal("int", source.Substring(returnType.Start, returnType.Length));
+            Equal(true, plan.Any(item => item.Id == "DeclareVariable"));
+            Equal(true, plan.Any(item => item.Id == "Branch"));
+            Equal(true, plan.Count(item => item.Id == "Return") == 2);
+            Equal(false, typeof(DdfSemanticOperationDefinition).GetProperties()
+                .Any(property => typeof(Delegate).IsAssignableFrom(property.PropertyType)));
+
+            string root = Path.Combine(Path.GetTempPath(), "ddf-custom-semantics-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "semantics.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                JsonObject statementBinding = document["bindings"].AsArray().Select(item => item.AsObject())
+                    .Single(item => item["rule"].GetValue<string>() == "expression-statement");
+                statementBinding["operations"].AsArray()[0].AsObject()["id"] = "Return";
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult custom = DdfLanguagePackageLoader.Load(root);
+                Equal(true, custom.Success);
+                DdfParseResult customParse = DdfParser.Parse("main() out int { 1; ret 0; }", custom.Package.Language);
+                IReadOnlyList<DdfPlannedSemanticOperation> customPlan = DdfSemanticOperationPlanner.Create(
+                    customParse.GenericRoot, custom.Package.Language.Semantics);
+                Equal(true, customPlan.Any(item => item.Rule == "expression-statement" && item.Id == "Return"));
+                Equal(false, customPlan.Any(item => item.Id == "EvaluateStatement"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsUnsafeSemanticOperationsAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-unsafe-semantics-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "semantics.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                JsonObject operation = document["bindings"].AsArray()[0].AsObject()["operations"]
+                    .AsArray()[0].AsObject();
+                operation["id"] = "ExecuteDotNet";
+                operation["arguments"] = new JsonObject();
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(root);
+                Equal(false, result.Success);
+                Equal(true, result.Package == null);
+                Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL106" &&
+                    item.Domain == DdfDiagnosticDomain.EngineCapability &&
+                    item.Message.Contains("Unsupported safe semantic operation", StringComparison.Ordinal)));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void SeparatesDiagnosticDomains()
+        {
+            var source = new DdfDiagnostic("DDF100", "Errore sintattico.", 0, 1, 1, 1);
+            var runtime = new DdfDiagnostic("DDF404", "Divisione per zero.", 0, 1, 1, 1,
+                domain: DdfDiagnosticDomain.Runtime);
+            var language = new DdfLanguagePackageDiagnostic("DDFL040", "Voce duplicata.");
+            var capability = new DdfLanguagePackageDiagnostic("DDFL021", "API motore non supportata.",
+                domain: DdfDiagnosticDomain.EngineCapability);
+
+            Equal(DdfDiagnosticDomain.Source, source.Domain);
+            Equal(DdfDiagnosticDomain.Runtime, runtime.Domain);
+            Equal(DdfDiagnosticDomain.LanguageDefinition, language.Domain);
+            Equal(DdfDiagnosticDomain.EngineCapability, capability.Domain);
+            Equal(true, source.ToString().Contains("[Codice sorgente]", StringComparison.Ordinal));
+            Equal(true, runtime.ToHoverText().Contains("[Runtime]", StringComparison.Ordinal));
+            Equal(true, language.ToString().Contains("[Definizione linguaggio]", StringComparison.Ordinal));
+            Equal(true, capability.ToString().Contains("[Funzionalità motore]", StringComparison.Ordinal));
+        }
+
+        private static void RequiresExplicitNativeExtensionAuthorization()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-native-extension-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string manifestPath = Path.Combine(root, "manifest.json");
+                JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath, Encoding.UTF8)).AsObject();
+                manifest["nativeExtensions"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["id"] = "ddf.console-plus",
+                        ["publisher"] = "ddf.technology",
+                        ["version"] = "1.2.0",
+                        ["sha256"] = new string('a', 64),
+                        ["capabilities"] = new JsonArray("runtime:function", "runtime:output")
+                    }
+                };
+                File.WriteAllText(manifestPath,
+                    manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                Equal(true, load.Success);
+                DdfNativeExtensionRequirement requirement = load.Package.NativeExtensions.Single();
+                Equal("ddf.console-plus", requirement.Id);
+                Equal("ddf.technology", requirement.Publisher);
+                Equal("1.2.0", requirement.Version);
+                Equal(new string('a', 64), requirement.Sha256);
+
+                DdfNativeExtensionAuthorizationResult result =
+                    DdfNativeExtensionAuthorizationPolicy.Evaluate(load.Package.NativeExtensions, null).Single();
+                Equal(DdfNativeExtensionAuthorizationStatus.AuthorizationRequired, result.Status);
+                Equal(2, result.MissingCapabilities.Count);
+
+                var mismatched = new DdfNativeExtensionAuthorization(requirement.Id, requirement.Publisher,
+                    requirement.Version, new string('b', 64), requirement.Capabilities);
+                result = DdfNativeExtensionAuthorizationPolicy.Evaluate(load.Package.NativeExtensions,
+                    new[] { mismatched }).Single();
+                Equal(DdfNativeExtensionAuthorizationStatus.IdentityMismatch, result.Status);
+
+                var partial = new DdfNativeExtensionAuthorization(requirement.Id, requirement.Publisher,
+                    requirement.Version, requirement.Sha256, new[] { "runtime:function" });
+                result = DdfNativeExtensionAuthorizationPolicy.Evaluate(load.Package.NativeExtensions,
+                    new[] { partial }).Single();
+                Equal(DdfNativeExtensionAuthorizationStatus.CapabilityNotAuthorized, result.Status);
+                SequenceEqual(new[] { "runtime:output" }, result.MissingCapabilities);
+
+                var complete = new DdfNativeExtensionAuthorization(requirement.Id, requirement.Publisher,
+                    requirement.Version, requirement.Sha256, requirement.Capabilities);
+                result = DdfNativeExtensionAuthorizationPolicy.Evaluate(load.Package.NativeExtensions,
+                    new[] { complete }).Single();
+                Equal(DdfNativeExtensionAuthorizationStatus.Authorized, result.Status);
+                Equal(true, result.IsAuthorized);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsInvalidNativeExtensionIdentitiesAtomically()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-invalid-native-extension-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string manifestPath = Path.Combine(root, "manifest.json");
+                JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath, Encoding.UTF8)).AsObject();
+                manifest["nativeExtensions"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["id"] = "ddf.console-plus",
+                        ["publisher"] = "ddf.technology",
+                        ["version"] = "1.0",
+                        ["sha256"] = "not-a-hash",
+                        ["capabilities"] = new JsonArray("runtime:function", "runtime:function")
+                    },
+                    new JsonObject
+                    {
+                        ["id"] = "ddf.console-plus",
+                        ["publisher"] = "ddf.technology",
+                        ["version"] = "1.0",
+                        ["sha256"] = new string('b', 64),
+                        ["capabilities"] = new JsonArray("runtime:output")
+                    }
+                };
+                File.WriteAllText(manifestPath,
+                    manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(root);
+                Equal(false, load.Success);
+                Equal(true, load.Package == null);
+                Equal(true, load.Diagnostics.Any(item => item.Code == "DDFL110" &&
+                    item.JsonPath == "$.nativeExtensions[1].id"));
+                Equal(true, load.Diagnostics.Any(item => item.Code == "DDFL113"));
+                Equal(true, load.Diagnostics.Any(item => item.Code == "DDFL114"));
+                Equal(true, load.Diagnostics.Where(item => item.Code.StartsWith("DDFL11", StringComparison.Ordinal))
+                    .All(item => item.Domain == DdfDiagnosticDomain.LanguageDefinition));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void LowersDdfToCommonIntermediateRepresentation()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            const string source = "struct Box { int value; }\n" +
+                "increment(int value) out int { ret value + 1; }\n" +
+                "main() out int { int current << 0; while(current < 2) { current++; } ret increment(current); }";
+            DdfParseResult parse = DdfParser.Parse(source, package.Language);
+            DdfIrBuildResult result = DdfIrLowerer.Lower(source, parse, package.Language);
+
+            Equal(true, result.Success);
+            Equal("1.0", DdfIrProgram.FormatVersion);
+            Equal(true, result.Program.SemanticOperations.Count > 0);
+            Equal(1, result.Program.Members.OfType<DdfIrStructure>().Count());
+            Equal(2, result.Program.Members.OfType<DdfIrFunction>().Count());
+            DdfIrFunction main = result.Program.Members.OfType<DdfIrFunction>()
+                .Single(item => item.Name == "main");
+            Equal(source.IndexOf("main", StringComparison.Ordinal), main.NameStart);
+            Equal(true, main.Body.Statements.Any(item => item is DdfIrWhile));
+            Equal(true, main.Body.Statements.Any(item => item is DdfIrReturn));
+        }
+
+        private static void ExecutesAndDiagnosesFromIntermediateRepresentation()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            const string valid = "main() out int\n{\n int value << 2;\n ret value + 3;\n}";
+            DdfParseResult validParse = DdfParser.Parse(valid, package.Language);
+            DdfIrProgram validIr = DdfIrLowerer.Lower(valid, validParse, package.Language).Program;
+            DdfExecutionResult validResult = DdfInterpreter.Execute(valid, validIr);
+            Equal(5L, Convert.ToInt64(validResult.ReturnValue));
+            Equal(0, validResult.Diagnostics.Count);
+
+            const string invalidRuntime = "divide() out int\n{\n ret 1 / 0;\n}\nmain() out int\n{\n ret divide();\n}";
+            DdfParseResult invalidParse = DdfParser.Parse(invalidRuntime, package.Language);
+            DdfIrProgram invalidIr = DdfIrLowerer.Lower(invalidRuntime, invalidParse, package.Language).Program;
+            DdfExecutionResult failed = DdfInterpreter.Execute(invalidRuntime, invalidIr);
+            DdfDiagnostic diagnostic = failed.Diagnostics.Single();
+            Equal("DDF404", diagnostic.Code);
+            Equal(DdfDiagnosticDomain.Runtime, diagnostic.Domain);
+            Equal(3, diagnostic.Line);
+            Equal(true, failed.StackTrace.Count >= 2);
+            Equal("divide", failed.StackTrace[0].FunctionName);
+            Equal("main", failed.StackTrace[1].FunctionName);
         }
 
         private static void AcceptsExtensibleKeywordRolesAndElseBranches()
@@ -1346,6 +1666,7 @@ namespace DDFLanguageEditor.Tests
                 DdfLanguagePackageDiagnostic diagnostic = result.Diagnostics.Single(item => item.Code == "DDFL040");
                 Equal("lexicon.json", diagnostic.File);
                 Equal("$.keywords", diagnostic.JsonPath);
+                Equal(DdfDiagnosticDomain.LanguageDefinition, diagnostic.Domain);
 
                 string incompatibleDirectory = Path.Combine(root, "incompatible");
                 DdfLanguagePackageLoader.ExportEmbeddedDefault(incompatibleDirectory);
@@ -1358,6 +1679,7 @@ namespace DDFLanguageEditor.Tests
                 Equal(false, result.Success);
                 Equal(true, result.Package == null);
                 Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL021" &&
+                    item.Domain == DdfDiagnosticDomain.EngineCapability &&
                     item.JsonPath == "$.engineApi"));
 
                 string unsafeDirectory = Path.Combine(root, "unsafe-reference");

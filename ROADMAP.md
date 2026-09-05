@@ -443,11 +443,11 @@ host arbitrario.
 
 ### 0.9.6.4 — Tipi, semantica e rappresentazione intermedia
 
-- [ ] Definire dichiarativamente tipi primitivi, conversioni, compatibilità, mutabilità, scope e firme.
-- [ ] Collegare le produzioni a un insieme versionato di operazioni semantiche sicure, non a codice host arbitrario.
-- [ ] Introdurre una rappresentazione intermedia comune consumata da diagnostica, interprete, debugger e futuri backend.
-- [ ] Distinguere errori del sorgente, errori nella definizione del linguaggio e operazioni non supportate dal motore.
-- [ ] Prevedere estensioni native opzionali soltanto come plug-in espliciti, identificabili e autorizzabili separatamente.
+- [x] Definire dichiarativamente tipi primitivi, conversioni, compatibilità, mutabilità, scope e firme.
+- [x] Collegare le produzioni a un insieme versionato di operazioni semantiche sicure, non a codice host arbitrario.
+- [x] Introdurre una rappresentazione intermedia comune consumata da diagnostica, interprete, debugger e futuri backend.
+- [x] Distinguere errori del sorgente, errori nella definizione del linguaggio, operazioni non supportate dal motore ed errori runtime.
+- [x] Prevedere estensioni native opzionali soltanto come plug-in espliciti, identificabili e autorizzabili separatamente.
 
 ### 0.9.6.5 — Runtime generico e libreria standard
 

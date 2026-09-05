@@ -3,6 +3,29 @@ using System.Globalization;
 
 namespace DDFLanguageEditor.Core
 {
+    public enum DdfDiagnosticDomain
+    {
+        Source,
+        LanguageDefinition,
+        EngineCapability,
+        Runtime
+    }
+
+    public static class DdfDiagnosticDomainNames
+    {
+        public static string GetDisplayName(DdfDiagnosticDomain domain)
+        {
+            switch (domain)
+            {
+                case DdfDiagnosticDomain.Source: return "Codice sorgente";
+                case DdfDiagnosticDomain.LanguageDefinition: return "Definizione linguaggio";
+                case DdfDiagnosticDomain.EngineCapability: return "Funzionalità motore";
+                case DdfDiagnosticDomain.Runtime: return "Runtime";
+                default: return domain.ToString();
+            }
+        }
+    }
+
     public enum DdfDiagnosticSeverity
     {
         Warning,
@@ -20,7 +43,8 @@ namespace DDFLanguageEditor.Core
             int column,
             DdfDiagnosticSeverity severity = DdfDiagnosticSeverity.Error,
             int? insertionPosition = null,
-            int? contextStart = null)
+            int? contextStart = null,
+            DdfDiagnosticDomain domain = DdfDiagnosticDomain.Source)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -56,6 +80,7 @@ namespace DDFLanguageEditor.Core
             Severity = severity;
             InsertionPosition = insertionPosition;
             ContextStart = contextStart;
+            Domain = domain;
         }
 
         public string Code { get; }
@@ -78,16 +103,19 @@ namespace DDFLanguageEditor.Core
 
         public int? ContextStart { get; }
 
+        public DdfDiagnosticDomain Domain { get; }
+
         public string ToHoverText()
         {
             string severity = Severity == DdfDiagnosticSeverity.Warning ? "Avviso" : "Errore";
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "{0} {1} — riga {2}, colonna {3}\n{4}",
+                "{0} {1} — riga {2}, colonna {3}\n[{4}] {5}",
                 severity,
                 Code,
                 Line,
                 Column,
+                DdfDiagnosticDomainNames.GetDisplayName(Domain),
                 Message);
         }
 
@@ -95,10 +123,11 @@ namespace DDFLanguageEditor.Core
         {
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "Riga {0}, colonna {1} — {2}: {3}",
+                "Riga {0}, colonna {1} — {2} [{3}]: {4}",
                 Line,
                 Column,
                 Code,
+                DdfDiagnosticDomainNames.GetDisplayName(Domain),
                 Message);
         }
     }

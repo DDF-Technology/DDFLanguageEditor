@@ -33,8 +33,8 @@ namespace DDF___Program_Language_Editor
             }
 
             eventMask = SendMessage(editor.Handle, EmGetEventMask, IntPtr.Zero, IntPtr.Zero);
-            Point currentScrollPosition = Point.Empty;
-            hasScrollPosition = SendMessage(editor.Handle, EmGetScrollPos, IntPtr.Zero, ref currentScrollPosition) != IntPtr.Zero;
+            Point currentScrollPosition;
+            hasScrollPosition = TryGetScrollPosition(editor, out currentScrollPosition);
             scrollPosition = currentScrollPosition;
             SendMessage(editor.Handle, EmSetEventMask, IntPtr.Zero, IntPtr.Zero);
             SendMessage(editor.Handle, WmSetRedraw, IntPtr.Zero, IntPtr.Zero);
@@ -66,8 +66,7 @@ namespace DDF___Program_Language_Editor
                 textDocument?.Undo(TomResume, IntPtr.Zero);
                 if (hasScrollPosition)
                 {
-                    Point originalScrollPosition = scrollPosition;
-                    SendMessage(editor.Handle, EmSetScrollPos, IntPtr.Zero, ref originalScrollPosition);
+                    SetScrollPosition(editor, scrollPosition);
                 }
             }
             finally
@@ -76,6 +75,20 @@ namespace DDF___Program_Language_Editor
                 SendMessage(editor.Handle, WmSetRedraw, new IntPtr(1), IntPtr.Zero);
                 editor.Invalidate();
             }
+        }
+
+        internal static bool TryGetScrollPosition(RichTextBox target, out Point position)
+        {
+            position = Point.Empty;
+            return target != null && !target.IsDisposed && target.IsHandleCreated &&
+                   SendMessage(target.Handle, EmGetScrollPos, IntPtr.Zero, ref position) != IntPtr.Zero;
+        }
+
+        internal static void SetScrollPosition(RichTextBox target, Point position)
+        {
+            if (target == null || target.IsDisposed || !target.IsHandleCreated) return;
+            Point safePosition = new Point(Math.Max(0, position.X), Math.Max(0, position.Y));
+            SendMessage(target.Handle, EmSetScrollPos, IntPtr.Zero, ref safePosition);
         }
 
         private static ITextDocument TryGetTextDocument(IntPtr handle)

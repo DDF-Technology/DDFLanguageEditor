@@ -255,13 +255,16 @@ namespace DDF___Program_Language_Editor
             DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
                 text,
                 parseResult.Root,
-                getWorkspaceTypeRoots());
+                getWorkspaceTypeRoots(),
+                languageSnapshot.Language.Types);
+            DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, languageSnapshot.Language);
             var snapshot = new EditorAnalysisSnapshot(
                 text,
                 update.Result,
                 parseResult,
                 semanticModel,
                 typeCheckResult,
+                ir,
                 DdfSymbolIndex.Create(parseResult, text).Symbols,
                 DdfFoldingRangeProvider.Create(parseResult, text));
             applyAnalysisSnapshot(snapshot, update.RelexStart, version, languageSnapshot.Revision);
@@ -321,11 +324,15 @@ namespace DDF___Program_Language_Editor
             cancellationToken.ThrowIfCancellationRequested();
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
             cancellationToken.ThrowIfCancellationRequested();
-            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(text, parseResult.Root, externalRoots);
+            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
+                text, parseResult.Root, externalRoots, language.Types);
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, language);
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, text).Symbols;
             IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parseResult, text);
-            return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, symbols, folding);
+            return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, ir,
+                symbols, folding);
         }
 
         private void applyAnalysisSnapshot(
@@ -348,6 +355,7 @@ namespace DDF___Program_Language_Editor
                 if (!isResolvedByWorkspace(diagnostic, text)) allDiagnostics.Add(diagnostic);
             }
             allDiagnostics.AddRange(snapshot.TypeCheckResult.Diagnostics);
+            allDiagnostics.AddRange(snapshot.IntermediateRepresentation.Diagnostics);
             allDiagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
             int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue
@@ -461,6 +469,7 @@ namespace DDF___Program_Language_Editor
         {
             public EditorAnalysisSnapshot(string text, DdfLexResult lexResult, DdfParseResult parseResult,
                 DdfSemanticModel semanticModel, DdfTypeCheckResult typeCheckResult,
+                DdfIrBuildResult intermediateRepresentation,
                 IReadOnlyList<DdfDocumentSymbol> symbols, IReadOnlyList<DdfFoldingRange> foldingRanges)
             {
                 Text = text;
@@ -468,6 +477,7 @@ namespace DDF___Program_Language_Editor
                 ParseResult = parseResult;
                 SemanticModel = semanticModel;
                 TypeCheckResult = typeCheckResult;
+                IntermediateRepresentation = intermediateRepresentation;
                 Symbols = symbols;
                 FoldingRanges = foldingRanges;
             }
@@ -477,6 +487,7 @@ namespace DDF___Program_Language_Editor
             public DdfParseResult ParseResult { get; }
             public DdfSemanticModel SemanticModel { get; }
             public DdfTypeCheckResult TypeCheckResult { get; }
+            public DdfIrBuildResult IntermediateRepresentation { get; }
             public IReadOnlyList<DdfDocumentSymbol> Symbols { get; }
             public IReadOnlyList<DdfFoldingRange> FoldingRanges { get; }
         }
@@ -824,6 +835,7 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_VScroll(object sender, EventArgs e)
         {
+            captureDocumentViewport(findDocumentView(sender as RichTextBox));
             updateLineNumbers();
             refreshEditorOverviewViewport();
         }
@@ -925,9 +937,14 @@ namespace DDF___Program_Language_Editor
             }
 
             int count = diagnostics.Count;
-            labelDiagnostics.Text = count == 1
-                ? "Diagnostica sorgente — 1 problema"
-                : "Diagnostica sorgente — " + count + " problemi";
+            string domainSummary = string.Join(", ", diagnostics
+                .GroupBy(item => item.Domain)
+                .OrderBy(group => group.Key)
+                .Select(group => DdfDiagnosticDomainNames.GetDisplayName(group.Key) + ": " + group.Count()));
+            labelDiagnostics.Text = count == 0
+                ? "Diagnostica — nessun problema"
+                : "Diagnostica — " + count + (count == 1 ? " problema" : " problemi") +
+                  (domainSummary.Length == 0 ? string.Empty : " (" + domainSummary + ")");
             panelDiagnostics.Visible = true;
             updateLineNumbers();
         }
@@ -938,6 +955,7 @@ namespace DDF___Program_Language_Editor
             foreach (DdfDiagnostic diagnostic in diagnostics)
             {
                 signature.Append(diagnostic.Code).Append(':').Append((int)diagnostic.Severity).Append(':')
+                    .Append((int)diagnostic.Domain).Append(':')
                     .Append(diagnostic.Start).Append(':').Append(diagnostic.Length).Append(':')
                     .Append(diagnostic.Line).Append(':').Append(diagnostic.Column).Append(':')
                     .Append(diagnostic.Message).Append('|');

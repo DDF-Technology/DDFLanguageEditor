@@ -1,1 +1,43 @@
-{ "schemaVersion": "1.0", "adapter": "ddf-types-v1", "dependsOn": [ "grammar" ], "description": "Tipi DDF correnti." }
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-types-v1",
+  "dependsOn": [ "grammar" ],
+  "primitives": [
+    { "name": "int", "category": "Integer", "canDeclareVariable": true },
+    { "name": "float", "category": "Floating", "canDeclareVariable": true },
+    { "name": "char", "category": "Character", "canDeclareVariable": true },
+    { "name": "bool", "category": "Boolean", "canDeclareVariable": true },
+    { "name": "void", "category": "Void", "canDeclareVariable": false },
+    { "name": "string", "category": "String", "canDeclareVariable": true, "indexedElementType": "char" },
+    { "name": "dict", "category": "Dictionary", "canDeclareVariable": true }
+  ],
+  "conversions": [
+    { "from": "int", "to": "float", "context": "General" },
+    { "from": "char", "to": "float", "context": "General" },
+    { "from": "string", "to": "char", "context": "VariableInitializerSingleCharacterLiteral" }
+  ],
+  "compatibility": { "arraysInvariant": true, "userTypesNominal": true, "errorTypeCompatible": true },
+  "mutability": {
+    "variablesMutable": true,
+    "parametersMutable": true,
+    "fieldsMutable": true,
+    "assignmentTargets": [ "Name", "Index", "Member" ]
+  },
+  "scopes": {
+    "functionParameters": true,
+    "blocks": true,
+    "forInitializers": true,
+    "structureFields": true,
+    "allowShadowing": true
+  },
+  "signatures": {
+    "exactArity": true,
+    "requireReturnForNonVoid": true,
+    "voidType": "void",
+    "parameterOrder": "declared"
+  },
+  "literals": { "integer": "int", "decimal": "float", "boolean": "bool", "string": "string" },
+  "numeric": { "resultType": "int", "dominantType": "float" },
+  "indexing": { "indexType": "int" },
+  "description": "Tipi, conversioni, compatibilità, mutabilità, scope e firme DDF correnti."
+}

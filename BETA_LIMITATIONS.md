@@ -1,4 +1,4 @@
-# Beta 0.9.6.3 limitations
+# Beta 0.9.6.4 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -46,11 +46,15 @@ This release is intended for interface and language-design evaluation only.
 - canonical EBNF grammar loaded and validated from the language package, with generic typed-by-kind syntax nodes;
 - extensible keyword role identifiers and DDF `if/else` parsing, analysis and execution;
 - package-driven IDE services plus active-package selection, information and fallback diagnostics available from the Help menu;
+- declarative primitive types, conversions, compatibility, mutability, scopes and function-signature policies;
+- versioned safe semantic-operation bindings and a common source-positioned intermediate representation consumed by Run and debugger;
+- explicit diagnostic domains for source, language definitions, engine capabilities and runtime failures;
+- inert native-extension requirements pinned by ID, publisher, version and SHA-256, with separate deny-by-default capability authorization;
 - deduplicated gutter, Outline and Diagnostics rendering with viewport-preserving syntax-format updates;
 - cancellable, versioned workspace loading and source-only buffer snapshots that avoid parsing on the input path;
 - cancellable workspace-wide text and declaration search with live unsaved-buffer snapshots and navigable results;
 - primitive/structure/array type checking with stable semantic diagnostics;
-- internal AST interpreter with functions, control flow, arrays and structures;
+- internal IR interpreter with functions, control flow, arrays and structures;
 - Run/Stop commands, cooperative cancellation, instruction limit and Output palette;
 - navigable runtime diagnostics and DDF call stacks in the Output palette;
 - minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
@@ -67,6 +71,7 @@ This release is intended for interface and language-design evaluation only.
 - duplicate/move/delete line commands and context-aware multiline paste indentation;
 - progressive syntax selection with per-tab shrink history and matching-delimiter navigation;
 - multiple cursors/selections with token-aware occurrence selection and single-step Undo;
+- per-document viewport preservation across formatting, save, tab switches and restored project sessions;
 
 ## Not implemented
 
@@ -75,8 +80,8 @@ This release is intended for interface and language-design evaluation only.
 - compiler, bytecode VM, native runtime or full debugger;
 - complete standard library, non-interactive input streams or step-by-step execution;
 - project files, dependency graphs or build configurations;
-- extension or plug-in APIs;
-- package authoring/registry UI and fully declarative semantics, runtime or build adapters;
+- native plug-in loading, isolation, registry and consent UI;
+- package authoring/registry UI and fully declarative runtime, build or standard-library adapters;
 - full text-rendering minimap (the lightweight marker overview is implemented instead);
 - stability guarantees for the DDF syntax.
 
@@ -97,14 +102,15 @@ there is no certain error location or original block intent to reconstruct; the
 result must be reviewed manually instead of applying a speculative edit.
 
 The first interpreter executes only the current document through `main`. It is
-bounded to 100,000 syntax-node instructions per run and does not yet load
+bounded to 100,000 IR-node instructions per run and does not yet load
 functions from other workspace documents at runtime. Output through `>>` is
 currently textual; interactive input is not defined.
 
-`lexicon.json` now directly defines the complete lexical layer. Grammar, types,
-semantics, formatting, runtime, build and standard-library sections still select
-fixed, safe DDF adapters; making their rules fully declarative is deliberately
-split across the remaining `0.9.6.x` roadmap.
+`lexicon.json`, `grammar.ebnf`, `types.json` and `semantics.json` now define their
+respective layers through validated data and safe operation identifiers.
+Formatting, runtime, build and standard-library sections still retain fixed,
+versioned DDF adapters; their migration is split across the remaining
+`0.9.6.x` roadmap.
 
 New documents are not persisted until they are saved. Crash recovery and Hot
 Exit keep local copies, but they are not a replacement for source control or

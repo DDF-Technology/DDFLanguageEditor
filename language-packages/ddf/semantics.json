@@ -1,1 +1,24 @@
-{ "schemaVersion": "1.0", "adapter": "ddf-semantics-v1", "dependsOn": [ "grammar", "types" ], "description": "Risoluzione simboli DDF corrente." }
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-semantics-v1",
+  "dependsOn": [ "grammar", "types" ],
+  "operationSet": "ddf-safe-semantics",
+  "operationSetVersion": "1.0",
+  "bindings": [
+    { "rule": "compilation-unit", "operations": [ { "id": "VisitCompilationUnit", "arguments": { "members": "members" } } ] },
+    { "rule": "library-directive", "operations": [ { "id": "ImportLibrary", "arguments": {} } ] },
+    { "rule": "struct-declaration", "operations": [ { "id": "DeclareStructure", "arguments": { "name": "name", "body": "body" } } ] },
+    { "rule": "function-declaration", "operations": [ { "id": "DeclareFunction", "arguments": { "name": "name", "parameters": "parameters", "returnType": "returnType", "body": "body" } } ] },
+    { "rule": "parameter", "operations": [ { "id": "DeclareParameter", "arguments": { "type": "type", "name": "name" } } ] },
+    { "rule": "if-statement", "operations": [ { "id": "Branch", "arguments": { "condition": "condition", "branches": "branches" } } ] },
+    { "rule": "while-statement", "operations": [ { "id": "PreconditionLoop", "arguments": { "condition": "condition", "body": "body" } } ] },
+    { "rule": "do-while-statement", "operations": [ { "id": "PostconditionLoop", "arguments": { "condition": "condition", "body": "body" } } ] },
+    { "rule": "for-statement", "operations": [ { "id": "CountedLoop", "arguments": { "body": "body" } } ] },
+    { "rule": "block", "operations": [ { "id": "CreateScope", "arguments": { "statements": "statements" } } ] },
+    { "rule": "variable-declaration", "operations": [ { "id": "DeclareVariable", "arguments": { "type": "type", "name": "name", "initializer": "initializer" } } ] },
+    { "rule": "return-statement", "operations": [ { "id": "Return", "arguments": { "expression": "expression" } } ] },
+    { "rule": "expression-statement", "operations": [ { "id": "EvaluateStatement", "arguments": { "expression": "expression" } } ] },
+    { "rule": "expression", "operations": [ { "id": "InferExpression", "arguments": {} } ] }
+  ],
+  "description": "Collegamenti DDF all'insieme chiuso e versionato di operazioni semantiche sicure."
+}

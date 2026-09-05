@@ -61,19 +61,20 @@ namespace DDF___Program_Language_Editor
                 ColumnCount = 2,
                 Location = new Point(24, 91),
                 Name = "languagePackageDetailsTable",
-                RowCount = 5,
-                Size = new Size(672, 142)
+                RowCount = 6,
+                Size = new Size(672, 169)
             };
             details.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
             details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             AddDetail(details, 0, "Linguaggio", package.Name + " " + package.LanguageVersion, "languagePackageLanguageValueLabel");
             AddDetail(details, 1, "Pacchetto", package.Id + " " + package.PackageVersion, "languagePackageVersionValueLabel");
             AddDetail(details, 2, "Origine", OriginText(package.Origin), "languagePackageOriginValueLabel");
-            AddDetail(details, 3, "Estensioni", string.Join(", ", package.FileExtensions), "languagePackageExtensionsValueLabel");
+            AddDetail(details, 3, "Estensioni file", string.Join(", ", package.FileExtensions), "languagePackageExtensionsValueLabel");
+            AddDetail(details, 4, "Plug-in nativi", NativeExtensionSummary(), "languagePackageNativeExtensionsValueLabel");
 
             var sourceCaption = CreateCaption("Sorgente");
             details.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            details.Controls.Add(sourceCaption, 0, 4);
+            details.Controls.Add(sourceCaption, 0, 5);
             var sourceTextBox = new TextBox
             {
                 BackColor = AppTheme.Surface,
@@ -83,13 +84,13 @@ namespace DDF___Program_Language_Editor
                 ReadOnly = true,
                 Text = package.Source
             };
-            details.Controls.Add(sourceTextBox, 1, 4);
+            details.Controls.Add(sourceTextBox, 1, 5);
 
             var diagnosticsLabel = new Label
             {
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Location = new Point(24, 249),
+                Location = new Point(24, 276),
                 Name = "languagePackageDiagnosticsLabel",
                 Text = "Diagnostiche di caricamento"
             };
@@ -100,9 +101,9 @@ namespace DDF___Program_Language_Editor
                 ForeColor = AppTheme.Text,
                 HorizontalScrollbar = true,
                 IntegralHeight = false,
-                Location = new Point(27, 274),
+                Location = new Point(27, 301),
                 Name = "languagePackageDiagnosticsListBox",
-                Size = new Size(669, 135)
+                Size = new Size(669, 108)
             };
             if (diagnostics.Count == 0)
                 diagnosticsList.Items.Add("Nessuna diagnostica: caricamento completato correttamente.");
@@ -178,6 +179,13 @@ namespace DDF___Program_Language_Editor
                 : origin == DdfLanguagePackageOrigin.Archive ? "Archivio .ddflang" : "Fallback incorporato";
         }
 
+        private string NativeExtensionSummary()
+        {
+            if (package.NativeExtensions.Count == 0) return "Nessuno";
+            return string.Join(", ", package.NativeExtensions.Select(item =>
+                item.Id + " " + item.Version + " (autorizzazione richiesta)"));
+        }
+
         private string BuildDetailsText()
         {
             var result = new StringBuilder();
@@ -186,6 +194,18 @@ namespace DDF___Program_Language_Editor
             result.AppendLine("Origine: " + OriginText(package.Origin));
             result.AppendLine("Sorgente: " + package.Source);
             result.AppendLine("Estensioni: " + string.Join(", ", package.FileExtensions));
+            result.AppendLine("Plug-in nativi:");
+            if (package.NativeExtensions.Count == 0) result.AppendLine("Nessuno.");
+            else
+            {
+                foreach (DdfNativeExtensionRequirement extension in package.NativeExtensions)
+                {
+                    result.AppendLine("- " + extension.Id + " " + extension.Version +
+                        "; autore=" + extension.Publisher + "; sha256=" + extension.Sha256);
+                    result.AppendLine("  capacità richieste: " + string.Join(", ", extension.Capabilities));
+                    result.AppendLine("  stato: non caricato; autorizzazione separata richiesta");
+                }
+            }
             result.AppendLine("Diagnostiche:");
             if (diagnostics.Count == 0) result.AppendLine("Nessuna.");
             else foreach (DdfLanguagePackageDiagnostic diagnostic in diagnostics) result.AppendLine(diagnostic.ToString());

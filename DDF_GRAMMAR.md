@@ -1,4 +1,4 @@
-# DDF grammar — declarative grammar subset 0.9.6.3
+# DDF grammar — declarative grammar subset 0.9.6.4
 
 La fonte canonica della sintassi è ora
 [`language-packages/ddf/grammar.ebnf`](language-packages/ddf/grammar.ebnf),

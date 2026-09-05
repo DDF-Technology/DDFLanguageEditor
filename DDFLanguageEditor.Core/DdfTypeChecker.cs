@@ -91,6 +91,7 @@ namespace DDFLanguageEditor.Core
         {
             private readonly string source;
             private readonly CompilationUnitSyntax root;
+            private readonly DdfTypeSystemDefinition typeSystem;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfTypeSymbol> globals = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal);
@@ -99,10 +100,12 @@ namespace DDFLanguageEditor.Core
             private readonly List<DdfTypedSpan> spans = new List<DdfTypedSpan>();
             private DdfTypeSymbol currentReturnType = DdfTypeSymbol.Error;
 
-            public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots)
+            public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
+                DdfTypeSystemDefinition typeSystem)
             {
                 this.source = source;
                 this.root = root;
+                this.typeSystem = typeSystem;
                 var roots = new List<CompilationUnitSyntax> { root };
                 if (externalRoots != null) roots.AddRange(externalRoots.Where(item => item != null));
                 CollectDeclarations(roots);
@@ -187,7 +190,8 @@ namespace DDFLanguageEditor.Core
                     AddSpan(parameter.NameStart, parameter.NameLength, type);
                 }
                 CheckStatement(function.Body);
-                if (!currentReturnType.IsError && currentReturnType.Name != "void" && !ContainsReturn(function.Body))
+                if (typeSystem.Signatures.RequireReturnForNonVoid && !currentReturnType.IsError &&
+                    currentReturnType.Name != typeSystem.Signatures.VoidType && !ContainsReturn(function.Body))
                 {
                     Report("DDF307", "La funzione '" + function.Name + "' deve restituire un valore " + currentReturnType + ".", function.NameStart, Math.Max(1, function.NameLength));
                 }
@@ -232,7 +236,9 @@ namespace DDFLanguageEditor.Core
                 }
                 else if (statement is ReturnStatementSyntax returnStatement)
                 {
-                    DdfTypeSymbol actual = returnStatement.Expression == null ? new DdfTypeSymbol("void") : CheckExpression(returnStatement.Expression);
+                    DdfTypeSymbol actual = returnStatement.Expression == null
+                        ? new DdfTypeSymbol(typeSystem.Signatures.VoidType)
+                        : CheckExpression(returnStatement.Expression);
                     if (!CanAssign(currentReturnType, actual)) Report("DDF304", "Il valore restituito è " + actual + ", ma la funzione richiede " + currentReturnType + ".", returnStatement);
                 }
                 else if (statement is ExpressionStatementSyntax expressionStatement) CheckExpression(expressionStatement.Expression);
@@ -242,12 +248,15 @@ namespace DDFLanguageEditor.Core
             {
                 DdfTypeSymbol declared = ResolveType(variable.Type, true);
                 AddSpan(variable.Type, declared);
-                if (declared.Name == "void" && !declared.IsError) Report("DDF305", "Una variabile non può avere tipo void.", variable.Type);
+                if (!declared.IsError && !typeSystem.CanDeclareVariable(declared.Name))
+                    Report("DDF305", "Una variabile non può avere tipo " + declared.Name + ".", variable.Type);
                 if (variable.Initializer != null)
                 {
                     DdfTypeSymbol actual = CheckExpression(variable.Initializer);
-                    bool charLiteral = declared.Name == "char" && actual.Name == "string" && IsSingleCharacterLiteral(variable.Initializer);
-                    if (!charLiteral && !CanAssign(declared, actual))
+                    DdfConversionContext context = IsSingleCharacterLiteral(variable.Initializer)
+                        ? DdfConversionContext.VariableInitializerSingleCharacterLiteral
+                        : DdfConversionContext.General;
+                    if (!CanAssign(declared, actual, context))
                         Report("DDF301", "Impossibile inizializzare " + declared + " con " + actual + ".", variable.Initializer);
                 }
                 Declare(variable.Name, declared);
@@ -255,7 +264,8 @@ namespace DDFLanguageEditor.Core
                 foreach (ExpressionSyntax length in variable.Type.ArrayLengths)
                 {
                     DdfTypeSymbol lengthType = CheckExpression(length);
-                    if (!lengthType.IsError && (lengthType.Name != "int" || lengthType.ArrayRank != 0)) Report("DDF305", "La dimensione di un array deve essere int.", length);
+                    if (!lengthType.IsError && (lengthType.Name != typeSystem.IndexType || lengthType.ArrayRank != 0))
+                        Report("DDF305", "La dimensione di un array deve essere " + typeSystem.IndexType + ".", length);
                 }
             }
 
@@ -265,9 +275,13 @@ namespace DDFLanguageEditor.Core
                 DdfTypeSymbol result;
                 if (expression is LiteralExpressionSyntax literal)
                 {
-                    result = literal.Text.StartsWith("\"", StringComparison.Ordinal) ? new DdfTypeSymbol("string") :
-                        literal.Text.IndexOf('.') >= 0 ? new DdfTypeSymbol("float") :
-                        literal.Text == "true" || literal.Text == "false" || literal.Text == "True" || literal.Text == "False" ? new DdfTypeSymbol("bool") : new DdfTypeSymbol("int");
+                    result = literal.Text.StartsWith("\"", StringComparison.Ordinal)
+                        ? new DdfTypeSymbol(typeSystem.Literals.String)
+                        : literal.Text.IndexOf('.') >= 0
+                            ? new DdfTypeSymbol(typeSystem.Literals.Decimal)
+                            : literal.Text == "true" || literal.Text == "false" || literal.Text == "True" || literal.Text == "False"
+                                ? new DdfTypeSymbol(typeSystem.Literals.Boolean)
+                                : new DdfTypeSymbol(typeSystem.Literals.Integer);
                 }
                 else if (expression is NameExpressionSyntax name)
                 {
@@ -279,7 +293,7 @@ namespace DDFLanguageEditor.Core
                 else if (expression is PostfixExpressionSyntax postfix)
                 {
                     DdfTypeSymbol operand = CheckExpression(postfix.Operand);
-                    result = operand.IsNumeric ? operand : InvalidOperator(postfix.OperatorText, operand, null, postfix);
+                    result = IsNumeric(operand) ? operand : InvalidOperator(postfix.OperatorText, operand, null, postfix);
                 }
                 else if (expression is CallExpressionSyntax call) result = CheckCall(call);
                 else if (expression is IndexExpressionSyntax index) result = CheckIndex(index);
@@ -292,8 +306,8 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol CheckUnary(UnaryExpressionSyntax unary)
             {
                 DdfTypeSymbol operand = CheckExpression(unary.Operand);
-                if (unary.OperatorText == "!") return operand.IsBoolean ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
-                return operand.IsNumeric ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
+                if (unary.OperatorText == "!") return IsBoolean(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
+                return IsNumeric(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
             }
 
             private DdfTypeSymbol CheckBinary(BinaryExpressionSyntax binary)
@@ -303,17 +317,20 @@ namespace DDFLanguageEditor.Core
                 string op = binary.OperatorText;
                 if (op == "<<")
                 {
-                    if (!(binary.Left is NameExpressionSyntax) && !(binary.Left is IndexExpressionSyntax) && !(binary.Left is MemberAccessExpressionSyntax))
+                    if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
                         Report("DDF308", "La destinazione dell'assegnazione non è modificabile.", binary.Left);
                     if (!CanAssign(left, right)) Report("DDF301", "Impossibile assegnare " + right + " a " + left + ".", binary);
                     return left;
                 }
                 if (op == ">>") return left;
-                if (op == "||" || op == "|&|" || op == "&") return left.IsBoolean && right.IsBoolean ? new DdfTypeSymbol("bool") : InvalidOperator(op, left, right, binary);
-                if (op == "==" || op == "!!") return CanAssign(left, right) || CanAssign(right, left) ? new DdfTypeSymbol("bool") : InvalidOperator(op, left, right, binary);
+                if (op == "||" || op == "|&|" || op == "&") return IsBoolean(left) && IsBoolean(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
+                if (op == "==" || op == "!!") return CanAssign(left, right) || CanAssign(right, left) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
                 if (op == "<" || op == "<=" || op == ">" || op == ">=" || op == ">><<" || op == "<<>>")
-                    return left.IsNumeric && right.IsNumeric ? new DdfTypeSymbol("bool") : InvalidOperator(op, left, right, binary);
-                if (left.IsNumeric && right.IsNumeric) return left.Name == "float" || right.Name == "float" ? new DdfTypeSymbol("float") : new DdfTypeSymbol("int");
+                    return IsNumeric(left) && IsNumeric(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
+                if (IsNumeric(left) && IsNumeric(right))
+                    return new DdfTypeSymbol(left.Name == typeSystem.NumericDominantType || right.Name == typeSystem.NumericDominantType
+                        ? typeSystem.NumericDominantType
+                        : typeSystem.NumericResultType);
                 return InvalidOperator(op, left, right, binary);
             }
 
@@ -322,7 +339,7 @@ namespace DDFLanguageEditor.Core
                 var target = call.Target as NameExpressionSyntax;
                 List<DdfTypeSymbol> arguments = call.Arguments.Select(CheckExpression).ToList();
                 if (target == null || !functions.TryGetValue(target.Name, out FunctionInfo function)) return DdfTypeSymbol.Error;
-                if (arguments.Count != function.Parameters.Count)
+                if (typeSystem.Signatures.ExactArity && arguments.Count != function.Parameters.Count)
                     Report("DDF303", "La funzione '" + function.Name + "' richiede " + function.Parameters.Count + " argomenti, ricevuti " + arguments.Count + ".", call);
                 int count = Math.Min(arguments.Count, function.Parameters.Count);
                 for (int index = 0; index < count; index++)
@@ -335,10 +352,11 @@ namespace DDFLanguageEditor.Core
             {
                 DdfTypeSymbol target = CheckExpression(index.Target);
                 DdfTypeSymbol offset = CheckExpression(index.Index);
-                if (!offset.IsError && (offset.Name != "int" || offset.ArrayRank != 0)) Report("DDF305", "L'indice deve essere int.", index.Index);
+                if (!offset.IsError && (offset.Name != typeSystem.IndexType || offset.ArrayRank != 0))
+                    Report("DDF305", "L'indice deve essere " + typeSystem.IndexType + ".", index.Index);
                 if (target.ArrayRank > 0) return target.ElementType;
-                if (target.Name == "string") return new DdfTypeSymbol("char");
-                if (target.Name == "dict") return DdfTypeSymbol.Error;
+                string indexedElementType = typeSystem.GetIndexedElementType(target.Name);
+                if (!string.IsNullOrEmpty(indexedElementType)) return new DdfTypeSymbol(indexedElementType);
                 if (!target.IsError) Report("DDF305", "Il tipo " + target + " non è indicizzabile.", index.Target);
                 return DdfTypeSymbol.Error;
             }
@@ -358,7 +376,7 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol ResolveType(TypeReferenceSyntax type, bool reportUnknown)
             {
                 if (type == null || string.IsNullOrEmpty(type.Name)) return DdfTypeSymbol.Error;
-                bool known = type.Name == "int" || type.Name == "float" || type.Name == "char" || type.Name == "bool" || type.Name == "void" || type.Name == "string" || type.Name == "dict" || structures.ContainsKey(type.Name);
+                bool known = typeSystem.IsKnownPrimitive(type.Name) || structures.ContainsKey(type.Name);
                 if (!known)
                 {
                     if (reportUnknown) Report("DDF305", "Tipo sconosciuto: '" + type.Name + "'.", type.Start, Math.Max(1, type.Name.Length));
@@ -386,7 +404,8 @@ namespace DDFLanguageEditor.Core
 
             private void RequireBoolean(DdfTypeSymbol type, DdfSyntaxNode node)
             {
-                if (!type.IsError && !type.IsBoolean) Report("DDF306", "La condizione deve essere bool, non " + type + ".", node);
+                if (!type.IsError && !IsBoolean(type)) Report("DDF306", "La condizione deve essere " +
+                    typeSystem.Literals.Boolean + ", non " + type + ".", node);
             }
 
             private DdfTypeSymbol InvalidOperator(string op, DdfTypeSymbol left, DdfTypeSymbol right, DdfSyntaxNode node)
@@ -396,11 +415,31 @@ namespace DDFLanguageEditor.Core
                 return DdfTypeSymbol.Error;
             }
 
-            private static bool CanAssign(DdfTypeSymbol target, DdfTypeSymbol value)
+            private bool CanAssign(DdfTypeSymbol target, DdfTypeSymbol value,
+                DdfConversionContext context = DdfConversionContext.General)
             {
-                if (target.IsError || value.IsError) return true;
+                if (target.IsError || value.IsError) return typeSystem.Compatibility.ErrorTypeCompatible;
                 if (target.Name == value.Name && target.ArrayRank == value.ArrayRank) return true;
-                return target.ArrayRank == 0 && value.ArrayRank == 0 && target.Name == "float" && (value.Name == "int" || value.Name == "char");
+                if (target.ArrayRank > 0 || value.ArrayRank > 0)
+                {
+                    if (typeSystem.Compatibility.ArraysInvariant || target.ArrayRank != value.ArrayRank) return false;
+                    return typeSystem.CanImplicitlyConvert(value.Name, target.Name, context);
+                }
+                return target.ArrayRank == 0 && value.ArrayRank == 0 &&
+                    typeSystem.CanImplicitlyConvert(value.Name, target.Name, context);
+            }
+
+            private bool IsNumeric(DdfTypeSymbol type) => !type.IsError && type.ArrayRank == 0 &&
+                                                           typeSystem.IsNumeric(type.Name);
+            private bool IsBoolean(DdfTypeSymbol type) => !type.IsError && type.ArrayRank == 0 &&
+                                                           typeSystem.IsBoolean(type.Name);
+
+            private static string GetAssignmentTargetKind(ExpressionSyntax expression)
+            {
+                if (expression is NameExpressionSyntax) return "Name";
+                if (expression is IndexExpressionSyntax) return "Index";
+                if (expression is MemberAccessExpressionSyntax) return "Member";
+                return string.Empty;
             }
 
             private static bool ContainsReturn(StatementSyntax statement)
@@ -448,11 +487,13 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        public static DdfTypeCheckResult Check(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots = null)
+        public static DdfTypeCheckResult Check(string source, CompilationUnitSyntax root,
+            IEnumerable<CompilationUnitSyntax> externalRoots = null, DdfTypeSystemDefinition typeSystem = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
-            return new Checker(source, root, externalRoots).Check();
+            return new Checker(source, root, externalRoots,
+                typeSystem ?? DdfLanguageCatalog.Default.Types).Check();
         }
     }
 }

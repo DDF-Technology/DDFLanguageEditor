@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/types-1.0.json",
+  "title": "DDF language package type system 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "primitives", "conversions", "compatibility", "mutability", "scopes", "signatures", "literals", "numeric", "indexing" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-types-v1" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "primitives": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [ "name", "category", "canDeclareVariable" ],
+        "properties": {
+          "name": { "$ref": "#/$defs/name" },
+          "category": { "enum": [ "Void", "Boolean", "Integer", "Floating", "Character", "String", "Dictionary" ] },
+          "canDeclareVariable": { "type": "boolean" },
+          "indexedElementType": { "$ref": "#/$defs/name" }
+        }
+      }
+    },
+    "conversions": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [ "from", "to", "context" ],
+        "properties": {
+          "from": { "$ref": "#/$defs/name" }, "to": { "$ref": "#/$defs/name" },
+          "context": { "enum": [ "General", "VariableInitializerSingleCharacterLiteral" ] }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "arraysInvariant", "userTypesNominal", "errorTypeCompatible" ],
+      "properties": { "arraysInvariant": { "type": "boolean" }, "userTypesNominal": { "type": "boolean" }, "errorTypeCompatible": { "type": "boolean" } }
+    },
+    "mutability": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "variablesMutable", "parametersMutable", "fieldsMutable", "assignmentTargets" ],
+      "properties": {
+        "variablesMutable": { "type": "boolean" }, "parametersMutable": { "type": "boolean" }, "fieldsMutable": { "type": "boolean" },
+        "assignmentTargets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": [ "Name", "Index", "Member" ] } }
+      }
+    },
+    "scopes": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "functionParameters", "blocks", "forInitializers", "structureFields", "allowShadowing" ],
+      "properties": {
+        "functionParameters": { "type": "boolean" }, "blocks": { "type": "boolean" }, "forInitializers": { "type": "boolean" },
+        "structureFields": { "type": "boolean" }, "allowShadowing": { "type": "boolean" }
+      }
+    },
+    "signatures": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "exactArity", "requireReturnForNonVoid", "voidType", "parameterOrder" ],
+      "properties": {
+        "exactArity": { "type": "boolean" }, "requireReturnForNonVoid": { "type": "boolean" },
+        "voidType": { "$ref": "#/$defs/name" }, "parameterOrder": { "const": "declared" }
+      }
+    },
+    "literals": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "integer", "decimal", "boolean", "string" ],
+      "properties": { "integer": { "$ref": "#/$defs/name" }, "decimal": { "$ref": "#/$defs/name" }, "boolean": { "$ref": "#/$defs/name" }, "string": { "$ref": "#/$defs/name" } }
+    },
+    "numeric": {
+      "type": "object", "additionalProperties": false, "required": [ "resultType", "dominantType" ],
+      "properties": { "resultType": { "$ref": "#/$defs/name" }, "dominantType": { "$ref": "#/$defs/name" } }
+    },
+    "indexing": {
+      "type": "object", "additionalProperties": false, "required": [ "indexType" ],
+      "properties": { "indexType": { "$ref": "#/$defs/name" } }
+    }
+  },
+  "$defs": { "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$" } }
+}

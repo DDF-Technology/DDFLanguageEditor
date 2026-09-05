@@ -49,11 +49,14 @@ namespace DDF___Program_Language_Editor
                     Documents = buffers.Select(buffer =>
                     {
                         DocumentView view = documentViews[buffer.Id];
+                        captureDocumentViewport(view);
                         return new WorkspaceSessionDocumentSnapshot
                         {
                             Path = buffer.Session.CurrentPath,
                             SelectionStart = view.Editor.SelectionStart,
                             SelectionLength = view.Editor.SelectionLength,
+                            ScrollX = view.HasScrollPosition ? view.ScrollPosition.X : (int?)null,
+                            ScrollY = view.HasScrollPosition ? view.ScrollPosition.Y : (int?)null,
                             BreakpointLines = buffer.BreakpointLines.OrderBy(line => line).ToList()
                         };
                     }).ToList()
@@ -161,6 +164,9 @@ namespace DDF___Program_Language_Editor
                 int selectionStart = Math.Max(0, Math.Min(source.Length, snapshot.SelectionStart));
                 int selectionLength = Math.Max(0, Math.Min(source.Length - selectionStart, snapshot.SelectionLength));
                 view.Editor.Select(selectionStart, selectionLength);
+                view.ScrollPosition = new System.Drawing.Point(
+                    snapshot.ScrollX.GetValueOrDefault(), snapshot.ScrollY.GetValueOrDefault());
+                view.HasScrollPosition = snapshot.ScrollX.HasValue && snapshot.ScrollY.HasValue;
                 view.Editor.ClearUndo();
                 view.Editor.Modified = false;
                 view.Buffer.UpdateSource(source, false);

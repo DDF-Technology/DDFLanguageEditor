@@ -1,6 +1,34 @@
-# DDFLanguageEditor 0.9.6.3
+# DDFLanguageEditor 0.9.6.4
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.9.6.4 makes primitive types, conversions, compatibility, mutability,
+scope and signature policies declarative through a validated `types.json`.
+Grammar productions are connected to the closed and versioned
+`ddf-safe-semantics` operation catalog without allowing package-provided host
+code.
+
+A public source-positioned IR now separates execution from concrete syntax.
+Run and debugger consume `DdfIr*` nodes; the typed DDF AST remains only as a
+temporary lowering input. Diagnostics explicitly distinguish source errors,
+language-definition errors, unsupported engine capabilities and runtime
+failures.
+
+Language manifests can declare inert native-extension requirements using exact
+ID, publisher, version, SHA-256 and requested capabilities. Authorization is
+separate, capability-specific and deny-by-default; this release does not load
+native binaries. The language-package information dialog exposes the declared
+requirements.
+
+Editor viewports are now stable across formatting, normal and format-on-save
+workflows and tab switches. Horizontal and vertical positions are persisted per
+document and restored with the project session.
+
+The automated Core suite contains 161 passing tests. The dynamic WinForms smoke
+also covers viewport restoration, long documents, performance budgets and all
+57 menu commands.
+
+Previous version notes follow.
 
 Version 0.9.6.3 derives Outline, folding, breadcrumb, syntax selection,
 completion, Signature Help, hover, snippets, formatting, indentation, automatic

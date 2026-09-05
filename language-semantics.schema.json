@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/semantics-1.0.json",
+  "title": "DDF language package safe semantics 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "operationSet", "operationSetVersion", "bindings" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-semantics-v1" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "operationSet": { "const": "ddf-safe-semantics" },
+    "operationSetVersion": { "const": "1.0" },
+    "description": { "type": "string" },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "rule", "operations" ],
+        "properties": {
+          "rule": { "type": "string", "minLength": 1 },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [ "id", "arguments" ],
+              "properties": {
+                "id": {
+                  "enum": [
+                    "VisitCompilationUnit", "ImportLibrary", "DeclareStructure", "DeclareFunction",
+                    "DeclareParameter", "Branch", "PreconditionLoop", "PostconditionLoop",
+                    "CountedLoop", "CreateScope", "DeclareVariable", "Return",
+                    "EvaluateStatement", "InferExpression"
+                  ]
+                },
+                "arguments": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

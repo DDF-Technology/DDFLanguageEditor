@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -177,10 +178,11 @@ namespace DDF___Program_Language_Editor
             refreshRecentWorkspacesMenu();
             updateDocumentUi();
             applyHighlighting();
-            updateLineNumbers();
-            refreshEditorOverview();
             updateCaretPosition();
             richTextBoxMainEditor.Focus();
+            restoreDocumentViewport(activeDocumentView);
+            updateLineNumbers();
+            refreshEditorOverview();
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -301,6 +303,8 @@ namespace DDF___Program_Language_Editor
                 {
                     view.Editor.Text = content;
                     view.Editor.Select(0, 0);
+                    view.ScrollPosition = Point.Empty;
+                    view.HasScrollPosition = true;
                     view.Editor.ClearUndo();
                     view.Editor.Modified = false;
                 }
@@ -351,6 +355,9 @@ namespace DDF___Program_Language_Editor
                 }
             }
 
+            Point viewportPosition;
+            bool preserveViewport = RichTextBoxUpdateScope.TryGetScrollPosition(
+                richTextBoxMainEditor, out viewportPosition);
             try
             {
                 if (!canWriteDocument(activeDocumentView, path)) return false;
@@ -372,6 +379,16 @@ namespace DDF___Program_Language_Editor
             {
                 showDocumentError("Impossibile salvare il documento", path, exception);
                 return false;
+            }
+            finally
+            {
+                if (preserveViewport)
+                {
+                    RichTextBoxUpdateScope.SetScrollPosition(richTextBoxMainEditor, viewportPosition);
+                    captureDocumentViewport(activeDocumentView);
+                    updateLineNumbers();
+                    refreshEditorOverviewViewport();
+                }
             }
         }
 
@@ -471,7 +488,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.6.3 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.9.6.4 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

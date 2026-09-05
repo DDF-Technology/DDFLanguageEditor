@@ -36,10 +36,14 @@ namespace DDF___Program_Language_Editor
             }
 
             string source = richTextBoxMainEditor.Text;
-            DdfParseResult parse = DdfParser.Parse(source);
-            DdfTypeCheckResult types = DdfTypeChecker.Check(source, parse.Root, getWorkspaceTypeRoots());
+            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
+            DdfParseResult parse = DdfParser.Parse(source, languageSnapshot.Language);
+            DdfTypeCheckResult types = DdfTypeChecker.Check(
+                source, parse.Root, getWorkspaceTypeRoots(), languageSnapshot.Language.Types);
+            DdfIrBuildResult ir = DdfIrLowerer.Lower(source, parse, languageSnapshot.Language);
             var blockingDiagnostics = new List<DdfDiagnostic>(parse.Diagnostics);
             blockingDiagnostics.AddRange(types.Diagnostics);
+            blockingDiagnostics.AddRange(ir.Diagnostics);
             if (blockingDiagnostics.Count > 0)
             {
                 overviewDiagnosticsSource = source;
@@ -54,13 +58,13 @@ namespace DDF___Program_Language_Editor
             runtimeDocumentId = openDocuments.ActiveDocument.Id;
             tabControlBottom.SelectedTab = tabPageOutput;
             expandDiagnosticsPalette();
-            appendOutput("DDF 0.9.6.3 Beta — avvio di main()");
+            appendOutput("DDF 0.9.6.4 Beta — avvio di main()");
             executionCancellation = new CancellationTokenSource();
             CancellationToken token = executionCancellation.Token;
             debuggerSession = new DdfDebuggerSession { Paused = onDebuggerPaused };
             debuggerSession.SetBreakpoints(getEnabledBreakpointLines(openDocuments.ActiveDocument));
             updateExecutionCommands(true);
-            executionTask = Task.Run(() => DdfInterpreter.Execute(source, parse.Root, new DdfExecutionOptions
+            executionTask = Task.Run(() => DdfInterpreter.Execute(source, ir.Program, new DdfExecutionOptions
             {
                 EntryPoint = DdfRuntimeCatalog.DefaultEntryPoint,
                 MaxInstructions = DdfRuntimeCatalog.DefaultInstructionLimit,

@@ -8,7 +8,8 @@ radice del contenitore.
 ## Struttura
 
 `manifest.json` identifica pacchetto e linguaggio, dichiara la versione minima
-dell'API del motore e riferisce queste nove sezioni obbligatorie:
+dell'API del motore, gli eventuali requisiti nativi e riferisce queste nove
+sezioni obbligatorie:
 
 - `lexicon`: keyword, letterali booleani, operatori, precedenza e punteggiatura;
 - `grammar`: grammatica e forma dell'albero sintattico;
@@ -28,6 +29,11 @@ lessico e la grammatica. [`language-intellisense.schema.json`](language-intellis
 descrive completamento, presentazione dei simboli, Signature Help e snippet.
 [`language-formatting.schema.json`](language-formatting.schema.json) descrive le
 regole di layout, indentazione, coppie automatiche e Quick Fix lessicali.
+[`language-types.schema.json`](language-types.schema.json) descrive tipi primitivi,
+conversioni, compatibilità, mutabilità, scope, firme, tipi dei literal e regole
+di indicizzazione.
+[`language-semantics.schema.json`](language-semantics.schema.json) descrive il
+collegamento fra produzioni grammaticali e operazioni semantiche sicure.
 Il pacchetto DDF di riferimento è in
 [`language-packages/ddf`](language-packages/ddf).
 
@@ -69,7 +75,43 @@ diagnostici lessicali. Le Quick Fix per token sintattici mancanti continuano a
 usare direttamente il token atteso dal parser e quindi non replicano le
 produzioni EBNF.
 
-Le altre sezioni dichiarano adapter interni versionati che mantengono
+Dalla `0.9.6.4`, `types.json` non è più una sezione segnaposto. Ogni primitivo
+dichiara nome, categoria, possibilità di essere usato per una variabile e,
+quando previsto, tipo dell'elemento indicizzato. Le conversioni implicite sono
+direzionali e possono valere in generale oppure soltanto per un literal di un
+carattere usato come inizializzatore. La stessa sezione dichiara in modo
+esplicito compatibilità degli array e dei tipi utente, destinazioni assegnabili,
+mutabilità di variabili, parametri e campi, confini degli scope e vincoli delle
+firme. I riferimenti devono puntare a primitivi definiti e le categorie dei tipi
+usati per literal, `void` e calcoli numerici devono essere coerenti.
+
+Il type checker riceve lo snapshot del pacchetto usato da lexer e parser, così
+un cambio di conversione, tipo booleano, tipo indice, arità o destinazione
+assegnabile entra in vigore senza ricompilare l'editor. Le politiche di scope e
+mutabilità sono già parte del contratto validato; il loro collegamento completo
+all'esecuzione avverrà durante la costruzione della rappresentazione intermedia
+nei passi successivi. Un pacchetto incoerente viene rifiutato atomicamente
+con diagnostica `DDFL09x` riferita a `types.json`.
+
+La sezione `semantics.json` seleziona un insieme di operazioni e una sua versione,
+quindi associa ogni regola che produce un nodo a una o più operazioni. La mappa
+`arguments` traduce i nomi stabili richiesti dall'operazione nei nomi dei campi
+dichiarati in `grammar.json`: per esempio, `DeclareFunction` riceve `name`,
+`parameters`, `returnType` e `body`, indipendentemente da come un altro linguaggio
+decida di chiamare quei campi nella propria grammatica.
+
+L'insieme `ddf-safe-semantics` versione `1.0` è un catalogo chiuso e interrogabile
+di operazioni dati. Il loader verifica versione, identificatori, argomenti
+obbligatori e facoltativi, regole e riferimenti ai campi prima di attivare il
+pacchetto. Il planner attraversa poi l'AST generico e produce operazioni con
+intervalli sorgente e nodi-argomento, senza eseguirle ancora. Il JSON non può
+fornire delegate, reflection, script, assembly o nomi di metodi host; un'operazione
+non presente nel catalogo viene rifiutata con una diagnostica `DDFL10x`. Questo
+piano sintattico-semantico costituisce il confine sicuro usato dal lowerer della
+rappresentazione intermedia `1.0`; il ponte dall'AST DDF legacy verrà eliminato
+gradualmente mentre il runtime generico acquisisce tutte le operazioni necessarie.
+
+Le sezioni ancora non migrate dichiarano adapter interni versionati che mantengono
 invariato il comportamento dei motori DDF correnti. Le successive versioni
 `0.9.6.x` sostituiranno questi adapter, una sezione alla volta, con regole
 dichiarative.
@@ -77,6 +119,21 @@ dichiarative.
 Un pacchetto dati non carica assembly, script o nomi di tipi .NET. Il campo
 `adapter` deve corrispondere a un identificatore già supportato dall'applicazione:
 il JSON non può quindi autorizzare l'esecuzione di codice host arbitrario.
+
+## Estensioni native opzionali
+
+La proprietà opzionale `nativeExtensions` del manifest dichiara soltanto
+requisiti inerti. Ogni elemento deve specificare `id`, `publisher`, `version`,
+un'impronta `sha256` di 64 cifre esadecimali e almeno una voce in `capabilities`.
+Identificatori, capacità e riferimenti duplicati o non validi causano il rifiuto
+atomico con diagnostiche `DDFL110`–`DDFL114`.
+
+La presenza di un requisito non carica alcun binario. L'host deve fornire un
+grant separato che coincida esattamente per ID, autore, versione e impronta e che
+autorizzi individualmente tutte le capacità richieste. Il pacchetto non contiene
+grant e non può autorizzare se stesso. Il contratto di sicurezza e lo stato
+dell'implementazione sono descritti in
+[`NATIVE_EXTENSIONS.md`](NATIVE_EXTENSIONS.md).
 
 ## Regole lessicali 1.0
 
@@ -147,11 +204,15 @@ Ogni diagnostica del loader contiene:
 
 - un codice stabile `DDFLxxx`;
 - gravità e messaggio;
+- un dominio: `Definizione linguaggio` per dati incoerenti oppure
+  `Funzionalità motore` per versioni, adapter e operazioni che il motore corrente
+  non supporta;
 - nome del file;
 - percorso JSON, per esempio `$.keywords` o `$.sections.grammar`.
 
 File e percorso JSON rendono il problema direttamente localizzabile senza
-attivare una configurazione parziale.
+attivare una configurazione parziale. La stessa distinzione appare nella finestra
+del pacchetto, nei messaggi di attivazione e nel tooltip della barra di stato.
 
 ## Versionamento
 

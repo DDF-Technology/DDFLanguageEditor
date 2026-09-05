@@ -17,17 +17,20 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfLanguagePackageDiagnostic
     {
         public DdfLanguagePackageDiagnostic(string code, string message, string file = null,
-            string jsonPath = null, DdfLanguagePackageDiagnosticSeverity severity = DdfLanguagePackageDiagnosticSeverity.Error)
+            string jsonPath = null, DdfLanguagePackageDiagnosticSeverity severity = DdfLanguagePackageDiagnosticSeverity.Error,
+            DdfDiagnosticDomain domain = DdfDiagnosticDomain.LanguageDefinition)
         {
             Code = code; Message = message; File = file ?? string.Empty;
-            JsonPath = jsonPath ?? string.Empty; Severity = severity;
+            JsonPath = jsonPath ?? string.Empty; Severity = severity; Domain = domain;
         }
         public string Code { get; }
         public string Message { get; }
         public string File { get; }
         public string JsonPath { get; }
         public DdfLanguagePackageDiagnosticSeverity Severity { get; }
-        public override string ToString() => Code + ": " + Message +
+        public DdfDiagnosticDomain Domain { get; }
+        public override string ToString() => "[" + DdfDiagnosticDomainNames.GetDisplayName(Domain) + "] " +
+            Code + ": " + Message +
             (string.IsNullOrEmpty(File) ? string.Empty : " [" + File +
              (string.IsNullOrEmpty(JsonPath) ? string.Empty : ":" + JsonPath) + "]");
     }
@@ -36,10 +39,13 @@ namespace DDFLanguageEditor.Core
     {
         internal DdfLanguagePackage(string id, string name, string packageVersion, string languageVersion,
             IReadOnlyList<string> extensions, DdfLanguageDefinition language, DdfCompiledGrammar grammar,
+            IReadOnlyList<DdfNativeExtensionRequirement> nativeExtensions,
             DdfLanguagePackageOrigin origin, string source)
         {
             Id = id; Name = name; PackageVersion = packageVersion; LanguageVersion = languageVersion;
-            FileExtensions = extensions; Language = language; Grammar = grammar; Origin = origin; Source = source;
+            FileExtensions = extensions; Language = language; Grammar = grammar;
+            NativeExtensions = nativeExtensions ?? Array.Empty<DdfNativeExtensionRequirement>();
+            Origin = origin; Source = source;
         }
         public string Id { get; }
         public string Name { get; }
@@ -48,6 +54,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<string> FileExtensions { get; }
         public DdfLanguageDefinition Language { get; }
         public DdfCompiledGrammar Grammar { get; }
+        public IReadOnlyList<DdfNativeExtensionRequirement> NativeExtensions { get; }
         public DdfLanguagePackageOrigin Origin { get; }
         public string Source { get; }
     }
@@ -167,6 +174,10 @@ namespace DDFLanguageEditor.Core
                         ? read<LexiconDto>(reader, file, diagnostics)
                         : section == "grammar"
                             ? read<GrammarDto>(reader, file, diagnostics)
+                            : section == "types"
+                                ? read<TypesDto>(reader, file, diagnostics)
+                            : section == "semantics"
+                                ? read<SemanticsDto>(reader, file, diagnostics)
                             : section == "intellisense"
                                 ? read<IntellisenseDto>(reader, file, diagnostics)
                                 : section == "formatting"
@@ -190,6 +201,14 @@ namespace DDFLanguageEditor.Core
                 if (hasErrors(diagnostics) || grammar == null)
                     return new DdfLanguagePackageLoadResult(null, diagnostics);
                 language.Grammar = grammar;
+                language.Types = createTypes((TypesDto)sectionDocuments["types"],
+                    manifest.Sections["types"], diagnostics);
+                if (hasErrors(diagnostics) || language.Types == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
+                language.Semantics = createSemantics((SemanticsDto)sectionDocuments["semantics"], grammar,
+                    manifest.Sections["semantics"], diagnostics);
+                if (hasErrors(diagnostics) || language.Semantics == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
                 language.Formatting = createFormatting((FormattingDto)sectionDocuments["formatting"], language,
                     manifest.Sections["formatting"], diagnostics);
                 if (hasErrors(diagnostics) || language.Formatting == null)
@@ -202,7 +221,10 @@ namespace DDFLanguageEditor.Core
 
                 var package = new DdfLanguagePackage(manifest.Id, manifest.Name,
                     manifest.PackageVersion, manifest.LanguageVersion,
-                    manifest.FileExtensions.AsReadOnly(), language, grammar, origin, source);
+                    manifest.FileExtensions.AsReadOnly(), language, grammar,
+                    manifest.NativeExtensions.Select(item => new DdfNativeExtensionRequirement(
+                        item.Id, item.Publisher, item.Version, item.Sha256,
+                        item.Capabilities)).ToList().AsReadOnly(), origin, source);
                 return new DdfLanguagePackageLoadResult(package, diagnostics);
             }
         }
@@ -231,9 +253,11 @@ namespace DDFLanguageEditor.Core
         private static void validateManifest(ManifestDto manifest, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
         {
             require(manifest.SchemaVersion == SupportedSchemaVersion, diagnostics, "DDFL020",
-                "schemaVersion non supportata: " + manifest.SchemaVersion, "manifest.json", "$.schemaVersion");
+                "schemaVersion non supportata: " + manifest.SchemaVersion, "manifest.json", "$.schemaVersion",
+                DdfDiagnosticDomain.EngineCapability);
             require(manifest.EngineApi == SupportedEngineApi, diagnostics, "DDFL021",
-                "engineApi non compatibile: " + manifest.EngineApi, "manifest.json", "$.engineApi");
+                "engineApi non compatibile: " + manifest.EngineApi, "manifest.json", "$.engineApi",
+                DdfDiagnosticDomain.EngineCapability);
             require(!string.IsNullOrWhiteSpace(manifest.Id) && Regex.IsMatch(manifest.Id, "^[a-z][a-z0-9.-]*$"),
                 diagnostics, "DDFL022", "Identificatore pacchetto non valido.", "manifest.json", "$.id");
             require(!string.IsNullOrWhiteSpace(manifest.Name), diagnostics, "DDFL023",
@@ -261,15 +285,49 @@ namespace DDFLanguageEditor.Core
             require(manifest.Sections.Values.Where(value => value != null).Distinct(StringComparer.OrdinalIgnoreCase).Count() ==
                     manifest.Sections.Values.Count, diagnostics, "DDFL028", "Due sezioni riferiscono lo stesso file.",
                 "manifest.json", "$.sections");
+            manifest.NativeExtensions = manifest.NativeExtensions ?? new List<NativeExtensionDto>();
+            validateNativeExtensions(manifest.NativeExtensions, diagnostics);
+        }
+
+        private static void validateNativeExtensions(IReadOnlyList<NativeExtensionDto> extensions,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (int index = 0; index < extensions.Count; index++)
+            {
+                NativeExtensionDto extension = extensions[index] ?? new NativeExtensionDto();
+                string path = "$.nativeExtensions[" + index + "]";
+                require(!string.IsNullOrWhiteSpace(extension.Id) &&
+                        Regex.IsMatch(extension.Id, "^[a-z][a-z0-9.-]*$") && ids.Add(extension.Id),
+                    diagnostics, "DDFL110", "Identificatore plug-in nativo mancante, non valido o duplicato.",
+                    "manifest.json", path + ".id");
+                require(!string.IsNullOrWhiteSpace(extension.Publisher) &&
+                        Regex.IsMatch(extension.Publisher, "^[a-z][a-z0-9.-]*$"),
+                    diagnostics, "DDFL111", "Identificatore dell'autore del plug-in non valido.",
+                    "manifest.json", path + ".publisher");
+                require(Version.TryParse(extension.Version, out _), diagnostics, "DDFL112",
+                    "Versione del plug-in nativo non valida.", "manifest.json", path + ".version");
+                require(!string.IsNullOrWhiteSpace(extension.Sha256) &&
+                        Regex.IsMatch(extension.Sha256, "^[A-Fa-f0-9]{64}$"),
+                    diagnostics, "DDFL113", "Impronta SHA-256 del plug-in nativo non valida.",
+                    "manifest.json", path + ".sha256");
+                extension.Capabilities = extension.Capabilities ?? new List<string>();
+                require(extension.Capabilities.Count > 0 && uniqueExact(extension.Capabilities) &&
+                        extension.Capabilities.All(item => !string.IsNullOrWhiteSpace(item) &&
+                            Regex.IsMatch(item, "^[a-z][a-z0-9.-]*(?::[a-z][a-z0-9.-]*)*$")),
+                    diagnostics, "DDFL114", "Capacità del plug-in mancanti, duplicate o non valide.",
+                    "manifest.json", path + ".capabilities");
+            }
         }
 
         private static void validateSection(string name, string file, SectionDto section,
             IReadOnlyDictionary<string, string> sectionFiles, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
         {
             require(section.SchemaVersion == SupportedSchemaVersion, diagnostics, "DDFL030",
-                "Versione sezione non supportata.", file, "$.schemaVersion");
+                "Versione sezione non supportata.", file, "$.schemaVersion", DdfDiagnosticDomain.EngineCapability);
             require(SupportedAdapters[name] == section.Adapter, diagnostics, "DDFL031",
-                "Adapter non supportato per " + name + ": " + section.Adapter, file, "$.adapter");
+                "Adapter non supportato per " + name + ": " + section.Adapter, file, "$.adapter",
+                DdfDiagnosticDomain.EngineCapability);
             foreach (string dependency in section.DependsOn ?? new List<string>())
                 require(sectionFiles.ContainsKey(dependency), diagnostics, "DDFL032",
                     "Dipendenza di sezione sconosciuta: " + dependency, file, "$.dependsOn");
@@ -323,9 +381,11 @@ namespace DDFLanguageEditor.Core
         {
             if (grammar == null) return null;
             require(grammar.Notation == "ebnf-1.0", diagnostics, "DDFL060",
-                "Notazione grammaticale non supportata: " + grammar.Notation + ".", file, "$.notation");
+                "Notazione grammaticale non supportata: " + grammar.Notation + ".", file, "$.notation",
+                DdfDiagnosticDomain.EngineCapability);
             require(grammar.ChoiceStrategy == "longest", diagnostics, "DDFL061",
-                "Strategia delle alternative non supportata: " + grammar.ChoiceStrategy + ".", file, "$.choiceStrategy");
+                "Strategia delle alternative non supportata: " + grammar.ChoiceStrategy + ".", file, "$.choiceStrategy",
+                DdfDiagnosticDomain.EngineCapability);
             require(safeResourceFile(grammar.EbnfFile) && reader.Exists(grammar.EbnfFile), diagnostics, "DDFL062",
                 "File EBNF mancante o non sicuro.", file, "$.ebnfFile");
             require(!string.IsNullOrWhiteSpace(grammar.StartRule), diagnostics, "DDFL063",
@@ -403,6 +463,152 @@ namespace DDFLanguageEditor.Core
             catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
             {
                 diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL074", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
+        private static DdfTypeSystemDefinition createTypes(TypesDto value, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try
+            {
+                require(value.Primitives != null && value.Primitives.Count > 0, diagnostics, "DDFL090",
+                    "Almeno un tipo primitivo è richiesto.", file, "$.primitives");
+                require(value.Conversions != null, diagnostics, "DDFL091",
+                    "Elenco conversioni richiesto.", file, "$.conversions");
+                require(value.Compatibility != null && value.Mutability != null && value.Scopes != null &&
+                        value.Signatures != null && value.Literals != null && value.Numeric != null &&
+                        value.Indexing != null,
+                    diagnostics, "DDFL092", "Configurazione del sistema di tipi incompleta.", file, "$");
+                if (hasErrors(diagnostics)) return null;
+
+                validateUnique(value.Primitives.Select(item => item?.Name), "tipo primitivo", file,
+                    "$.primitives", diagnostics);
+                validateUnique(value.Conversions.Select(item => item == null ? null :
+                    item.From + "->" + item.To + "@" + item.Context), "conversione", file,
+                    "$.conversions", diagnostics);
+                require(value.Mutability.AssignmentTargets != null && value.Mutability.AssignmentTargets.Count > 0,
+                    diagnostics, "DDFL093", "Destinazioni di assegnazione richieste.", file,
+                    "$.mutability.assignmentTargets");
+                require(value.Mutability.AssignmentTargets != null &&
+                        value.Mutability.AssignmentTargets.All(item => item == "Name" || item == "Index" || item == "Member") &&
+                        value.Mutability.AssignmentTargets.Distinct(StringComparer.Ordinal).Count() == value.Mutability.AssignmentTargets.Count,
+                    diagnostics, "DDFL093", "Destinazioni di assegnazione non supportate o duplicate.", file,
+                    "$.mutability.assignmentTargets");
+                require(allFlagsPresent(value), diagnostics, "DDFL094",
+                    "I criteri booleani di compatibilità, mutabilità, scope e firme sono obbligatori.", file, "$");
+                if (hasErrors(diagnostics)) return null;
+
+                var primitives = value.Primitives.Select(item => new DdfPrimitiveTypeDefinition(
+                    item.Name, parseRequiredEnum<DdfPrimitiveTypeCategory>(item.Category, "primitive category"),
+                    item.CanDeclareVariable.Value, item.IndexedElementType));
+                var conversions = value.Conversions.Select(item => new DdfTypeConversionDefinition(
+                    item.From, item.To, parseRequiredEnum<DdfConversionContext>(item.Context, "conversion context")));
+                return new DdfTypeSystemDefinition(
+                    primitives,
+                    conversions,
+                    new DdfTypeCompatibilityDefinition(value.Compatibility.ArraysInvariant.Value,
+                        value.Compatibility.UserTypesNominal.Value, value.Compatibility.ErrorTypeCompatible.Value),
+                    new DdfMutabilityDefinition(value.Mutability.VariablesMutable.Value,
+                        value.Mutability.ParametersMutable.Value, value.Mutability.FieldsMutable.Value,
+                        value.Mutability.AssignmentTargets),
+                    new DdfScopeDefinition(value.Scopes.FunctionParameters.Value, value.Scopes.Blocks.Value,
+                        value.Scopes.ForInitializers.Value, value.Scopes.StructureFields.Value,
+                        value.Scopes.AllowShadowing.Value),
+                    new DdfSignatureDefinition(value.Signatures.ExactArity.Value,
+                        value.Signatures.RequireReturnForNonVoid.Value, value.Signatures.VoidType,
+                        value.Signatures.ParameterOrder),
+                    new DdfLiteralTypeDefinition(value.Literals.Integer, value.Literals.Decimal,
+                        value.Literals.Boolean, value.Literals.String),
+                    value.Numeric.ResultType, value.Numeric.DominantType, value.Indexing.IndexType);
+            }
+            catch (DdfEngineCapabilityException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL096", exception.Message, file, "$",
+                    DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
+                return null;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL095", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
+        private static bool allFlagsPresent(TypesDto value)
+        {
+            return value.Primitives.All(item => item?.CanDeclareVariable.HasValue == true) &&
+                   value.Compatibility.ArraysInvariant.HasValue && value.Compatibility.UserTypesNominal.HasValue &&
+                   value.Compatibility.ErrorTypeCompatible.HasValue && value.Mutability.VariablesMutable.HasValue &&
+                   value.Mutability.ParametersMutable.HasValue && value.Mutability.FieldsMutable.HasValue &&
+                   value.Scopes.FunctionParameters.HasValue && value.Scopes.Blocks.HasValue &&
+                   value.Scopes.ForInitializers.HasValue && value.Scopes.StructureFields.HasValue &&
+                   value.Scopes.AllowShadowing.HasValue && value.Signatures.ExactArity.HasValue &&
+                   value.Signatures.RequireReturnForNonVoid.HasValue;
+        }
+
+        private static DdfSemanticDefinition createSemantics(SemanticsDto value, DdfCompiledGrammar grammar,
+            string file, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            require(!string.IsNullOrWhiteSpace(value.OperationSet) &&
+                    !string.IsNullOrWhiteSpace(value.OperationSetVersion), diagnostics, "DDFL100",
+                "Insieme e versione delle operazioni semantiche sono richiesti.", file, "$");
+            require(value.Bindings != null, diagnostics, "DDFL101",
+                "Elenco dei collegamenti semantici richiesto.", file, "$.bindings");
+            if (hasErrors(diagnostics)) return null;
+
+            validateUnique(value.Bindings.Select(item => item?.Rule), "regola semantica", file,
+                "$.bindings", diagnostics);
+            for (int bindingIndex = 0; bindingIndex < value.Bindings.Count; bindingIndex++)
+            {
+                SemanticBindingDto binding = value.Bindings[bindingIndex];
+                string bindingPath = "$.bindings[" + bindingIndex + "]";
+                if (binding == null) continue;
+                if (!grammar.TryGetNodeDefinition(binding.Rule, out DdfGrammarNodeDefinition node))
+                {
+                    diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL102",
+                        "La regola semantica non produce un nodo dichiarato: " + binding.Rule + ".",
+                        file, bindingPath + ".rule"));
+                    continue;
+                }
+                require(binding.Operations != null && binding.Operations.Count > 0, diagnostics, "DDFL103",
+                    "Almeno un'operazione semantica è richiesta.", file, bindingPath + ".operations");
+                if (binding.Operations == null) continue;
+                for (int operationIndex = 0; operationIndex < binding.Operations.Count; operationIndex++)
+                {
+                    SemanticOperationDto operation = binding.Operations[operationIndex];
+                    string operationPath = bindingPath + ".operations[" + operationIndex + "]";
+                    require(operation != null && !string.IsNullOrWhiteSpace(operation.Id) &&
+                            operation.Arguments != null, diagnostics, "DDFL104",
+                        "Identificatore e argomenti dell'operazione semantica sono richiesti.", file,
+                        operationPath);
+                    if (operation?.Arguments == null) continue;
+                    foreach (KeyValuePair<string, string> argument in operation.Arguments)
+                        require(node.Fields.Any(field => field.Name == argument.Value), diagnostics, "DDFL104",
+                            "L'argomento '" + argument.Key + "' riferisce il campo grammaticale sconosciuto '" +
+                            argument.Value + "'.", file, operationPath + ".arguments." + argument.Key);
+                }
+            }
+            if (hasErrors(diagnostics)) return null;
+
+            try
+            {
+                return new DdfSemanticDefinition(value.OperationSet, value.OperationSetVersion,
+                    value.Bindings.Select(binding => new DdfSemanticBindingDefinition(binding.Rule,
+                        binding.Operations.Select(operation => new DdfSemanticOperationDefinition(
+                            operation.Id, operation.Arguments)))));
+            }
+            catch (DdfEngineCapabilityException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL106", exception.Message, file, "$",
+                    DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
+                return null;
+            }
+            catch (ArgumentException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL105", exception.Message, file, "$"));
                 return null;
             }
         }
@@ -611,13 +817,19 @@ namespace DDFLanguageEditor.Core
                         "Definizione " + label + " duplicata: " + value + ".", file, path));
         }
         private static bool unique(IEnumerable<string> values) => values.Distinct(StringComparer.OrdinalIgnoreCase).Count() == values.Count();
+        private static bool uniqueExact(IEnumerable<string> values) => values.Distinct(StringComparer.Ordinal).Count() == values.Count();
         private static bool validRole(string role) => !string.IsNullOrWhiteSpace(role) && Regex.IsMatch(role, "^[A-Z][A-Za-z0-9.]*$");
         private static bool safeFile(string file) => !string.IsNullOrWhiteSpace(file) && Path.GetFileName(file) == file && file.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
         private static bool safeResourceFile(string file) => !string.IsNullOrWhiteSpace(file) && Path.GetFileName(file) == file &&
             (file.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || file.EndsWith(".ebnf", StringComparison.OrdinalIgnoreCase));
         private static bool hasErrors(IEnumerable<DdfLanguagePackageDiagnostic> diagnostics) => diagnostics.Any(item => item.Severity == DdfLanguagePackageDiagnosticSeverity.Error);
         private static void require(bool condition, ICollection<DdfLanguagePackageDiagnostic> diagnostics,
-            string code, string message, string file, string path) { if (!condition) diagnostics.Add(new DdfLanguagePackageDiagnostic(code, message, file, path)); }
+            string code, string message, string file, string path,
+            DdfDiagnosticDomain domain = DdfDiagnosticDomain.LanguageDefinition)
+        {
+            if (!condition) diagnostics.Add(new DdfLanguagePackageDiagnostic(code, message, file, path,
+                DdfLanguagePackageDiagnosticSeverity.Error, domain));
+        }
         private static DdfLanguagePackageLoadResult Failure(string code, string message, string file = null) =>
             new DdfLanguagePackageLoadResult(null, new[] { new DdfLanguagePackageDiagnostic(code, message, file) });
 
@@ -660,6 +872,19 @@ namespace DDFLanguageEditor.Core
         private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } public GrammarIdeDto Ide { get; set; } }
         private sealed class GrammarFieldDto { public string Name { get; set; } public string SourceRule { get; set; } public bool Multiple { get; set; } }
         private sealed class GrammarIdeDto { public string SymbolKind { get; set; } public string NameField { get; set; } public string NamePrefix { get; set; } public string NameSuffix { get; set; } public string Detail { get; set; } public string FoldingKind { get; set; } public string FoldingField { get; set; } public string BreadcrumbKind { get; set; } public string BreadcrumbLabel { get; set; } public string BreadcrumbSelectionField { get; set; } public int BreadcrumbSelectionLength { get; set; } public bool Selectable { get; set; } public string TypeField { get; set; } public string ReturnTypeField { get; set; } public string ParametersField { get; set; } public string ChildSymbolKind { get; set; } }
+        private sealed class TypesDto : SectionDto { public List<PrimitiveTypeDto> Primitives { get; set; } public List<TypeConversionDto> Conversions { get; set; } public TypeCompatibilityDto Compatibility { get; set; } public MutabilityDto Mutability { get; set; } public ScopesDto Scopes { get; set; } public SignaturesDto Signatures { get; set; } public LiteralTypesDto Literals { get; set; } public NumericTypesDto Numeric { get; set; } public IndexingDto Indexing { get; set; } }
+        private sealed class PrimitiveTypeDto { public string Name { get; set; } public string Category { get; set; } public bool? CanDeclareVariable { get; set; } public string IndexedElementType { get; set; } }
+        private sealed class TypeConversionDto { public string From { get; set; } public string To { get; set; } public string Context { get; set; } }
+        private sealed class TypeCompatibilityDto { public bool? ArraysInvariant { get; set; } public bool? UserTypesNominal { get; set; } public bool? ErrorTypeCompatible { get; set; } }
+        private sealed class MutabilityDto { public bool? VariablesMutable { get; set; } public bool? ParametersMutable { get; set; } public bool? FieldsMutable { get; set; } public List<string> AssignmentTargets { get; set; } }
+        private sealed class ScopesDto { public bool? FunctionParameters { get; set; } public bool? Blocks { get; set; } public bool? ForInitializers { get; set; } public bool? StructureFields { get; set; } public bool? AllowShadowing { get; set; } }
+        private sealed class SignaturesDto { public bool? ExactArity { get; set; } public bool? RequireReturnForNonVoid { get; set; } public string VoidType { get; set; } public string ParameterOrder { get; set; } }
+        private sealed class LiteralTypesDto { public string Integer { get; set; } public string Decimal { get; set; } public string Boolean { get; set; } public string String { get; set; } }
+        private sealed class NumericTypesDto { public string ResultType { get; set; } public string DominantType { get; set; } }
+        private sealed class IndexingDto { public string IndexType { get; set; } }
+        private sealed class SemanticsDto : SectionDto { public string OperationSet { get; set; } public string OperationSetVersion { get; set; } public List<SemanticBindingDto> Bindings { get; set; } }
+        private sealed class SemanticBindingDto { public string Rule { get; set; } public List<SemanticOperationDto> Operations { get; set; } }
+        private sealed class SemanticOperationDto { public string Id { get; set; } public Dictionary<string, string> Arguments { get; set; } }
         private sealed class IntellisenseDto : SectionDto { public CompletionDto Completion { get; set; } public SignatureHelpDto SignatureHelp { get; set; } public List<SymbolPresentationDto> SymbolKinds { get; set; } public List<SnippetDto> Snippets { get; set; } }
         private sealed class CompletionDto { public string KeywordOrigin { get; set; } public string BooleanOrigin { get; set; } public string SnippetOrigin { get; set; } public string StandardLibraryOrigin { get; set; } public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string TypeDetail { get; set; } public string ControlFlowDetail { get; set; } public string KeywordDetail { get; set; } public string BooleanDetail { get; set; } public string StandardFunctionDetailPrefix { get; set; } }
         private sealed class SignatureHelpDto { public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string StandardLibraryOrigin { get; set; } }
@@ -677,6 +902,7 @@ namespace DDFLanguageEditor.Core
         private sealed class DelimitedTokenDto { public string TokenKind { get; set; } public string Start { get; set; } public string End { get; set; } public bool EndsAtLineBreak { get; set; } public bool AllowLineBreak { get; set; } = true; public string EscapeCharacter { get; set; } public string UnterminatedCode { get; set; } public string UnterminatedMessage { get; set; } }
         private sealed class KeywordDto { public string Text { get; set; } public string TokenKind { get; set; } public string Role { get; set; } }
         private sealed class OperatorDto { public string Text { get; set; } public int BinaryPrecedence { get; set; } public string Associativity { get; set; } public int PrefixPrecedence { get; set; } public int PostfixPrecedence { get; set; } public string Role { get; set; } }
-        private sealed class ManifestDto { public string SchemaVersion { get; set; } public string EngineApi { get; set; } public string Id { get; set; } public string Name { get; set; } public string PackageVersion { get; set; } public string LanguageVersion { get; set; } public List<string> FileExtensions { get; set; } public Dictionary<string, string> Sections { get; set; } }
+        private sealed class NativeExtensionDto { public string Id { get; set; } public string Publisher { get; set; } public string Version { get; set; } public string Sha256 { get; set; } public List<string> Capabilities { get; set; } }
+        private sealed class ManifestDto { public string SchemaVersion { get; set; } public string EngineApi { get; set; } public string Id { get; set; } public string Name { get; set; } public string PackageVersion { get; set; } public string LanguageVersion { get; set; } public List<string> FileExtensions { get; set; } public Dictionary<string, string> Sections { get; set; } public List<NativeExtensionDto> NativeExtensions { get; set; } }
     }
 }
