@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -20,6 +21,8 @@ namespace DDF___Program_Language_Editor
         private bool visualPaintDeferred;
         private bool visualRefreshPending;
         private string visualSource = string.Empty;
+        private int debugExecutionLine = -1;
+        private readonly HashSet<int> breakpointLines = new HashSet<int>();
 
         public event EventHandler<AltCursorEventArgs> AltCursorRequested;
 
@@ -35,6 +38,28 @@ namespace DDF___Program_Language_Editor
         [DefaultValue(4)]
         public int VisualIndentSize { get; set; } = 4;
 
+        [DefaultValue(-1)]
+        public int DebugExecutionLine
+        {
+            get => debugExecutionLine;
+            set
+            {
+                int normalized = value < 0 ? -1 : value;
+                if (debugExecutionLine == normalized) return;
+                debugExecutionLine = normalized;
+                Invalidate();
+            }
+        }
+
+        public void SetBreakpointLines(IEnumerable<int> zeroBasedLines)
+        {
+            var replacement = new HashSet<int>(zeroBasedLines ?? Array.Empty<int>());
+            if (breakpointLines.SetEquals(replacement)) return;
+            breakpointLines.Clear();
+            breakpointLines.UnionWith(replacement);
+            Invalidate();
+        }
+
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int VisualRenderCount { get; private set; }
@@ -46,6 +71,10 @@ namespace DDF___Program_Language_Editor
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public int LastRenderedIndentGuideCount { get; private set; }
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public int BreakpointLineCount => breakpointLines.Count;
 
         protected override void WndProc(ref Message message)
         {
@@ -115,7 +144,9 @@ namespace DDF___Program_Language_Editor
                 using (Graphics graphics = Graphics.FromHwnd(Handle))
                 {
                     graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    drawBreakpointLines(graphics);
                     if (HighlightCurrentLine && SelectionLength == 0) drawCurrentLine(graphics);
+                    if (DebugExecutionLine >= 0) drawDebugExecutionLine(graphics);
                     LastRenderedIndentGuideCount = ShowIndentGuides ? drawIndentGuides(graphics) : 0;
                     LastRenderedWhitespaceCount = ShowWhitespace ? drawWhitespace(graphics) : 0;
                     VisualRenderCount++;
@@ -136,6 +167,50 @@ namespace DDF___Program_Language_Editor
             int height = visualLineHeight();
             if (position.Y + height < 0 || position.Y > ClientSize.Height) return;
             Color tint = isDarkBackground() ? Color.FromArgb(22, 255, 255, 255) : Color.FromArgb(15, 0, 90, 180);
+            using (var brush = new SolidBrush(tint))
+                graphics.FillRectangle(brush, 0, position.Y, ClientSize.Width, height);
+        }
+
+        private void drawBreakpointLines(Graphics graphics)
+        {
+            if (breakpointLines.Count == 0) return;
+            Color tint = isDarkBackground()
+                ? Color.FromArgb(38, 255, 76, 76)
+                : Color.FromArgb(30, 210, 35, 35);
+            using (var brush = new SolidBrush(tint))
+                foreach (int line in breakpointLines)
+                {
+                    int start = GetFirstCharIndexFromLine(line);
+                    if (start < 0) continue;
+                    Point position = GetPositionFromCharIndex(start);
+                    int height = visualLineHeight();
+                    int next = GetFirstCharIndexFromLine(line + 1);
+                    if (next >= 0)
+                    {
+                        Point nextPosition = GetPositionFromCharIndex(next);
+                        if (nextPosition.Y > position.Y) height = nextPosition.Y - position.Y;
+                    }
+                    if (position.Y + height >= 0 && position.Y <= ClientSize.Height)
+                        graphics.FillRectangle(brush, 0, position.Y, ClientSize.Width, height);
+                }
+        }
+
+        private void drawDebugExecutionLine(Graphics graphics)
+        {
+            int start = GetFirstCharIndexFromLine(DebugExecutionLine);
+            if (start < 0) return;
+            Point position = GetPositionFromCharIndex(start);
+            int height = visualLineHeight();
+            int next = GetFirstCharIndexFromLine(DebugExecutionLine + 1);
+            if (next >= 0)
+            {
+                Point nextPosition = GetPositionFromCharIndex(next);
+                if (nextPosition.Y > position.Y) height = nextPosition.Y - position.Y;
+            }
+            if (position.Y + height < 0 || position.Y > ClientSize.Height) return;
+            Color tint = isDarkBackground()
+                ? Color.FromArgb(82, 255, 205, 40)
+                : Color.FromArgb(68, 255, 190, 0);
             using (var brush = new SolidBrush(tint))
                 graphics.FillRectangle(brush, 0, position.Y, ClientSize.Width, height);
         }

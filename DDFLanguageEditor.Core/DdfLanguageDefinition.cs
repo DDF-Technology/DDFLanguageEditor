@@ -150,6 +150,9 @@ namespace DDFLanguageEditor.Core
             Formatting = DdfFormattingDefinition.CreateLegacyDefault();
             Types = DdfTypeSystemDefinition.CreateDdfCompatibleDefault();
             Semantics = DdfSemanticDefinition.CreateEmpty();
+            Runtime = DdfRuntimeDefinition.CreateDdfCompatibleDefault();
+            StandardLibrary = DdfStandardLibraryDefinition.CreateDdfCompatibleDefault();
+            Build = DdfBuildDefinition.CreateDdfCompatibleDefault();
         }
 
         public IReadOnlyCollection<DdfKeywordDefinition> Keywords => publicKeywords;
@@ -162,6 +165,9 @@ namespace DDFLanguageEditor.Core
         public DdfFormattingDefinition Formatting { get; internal set; }
         public DdfTypeSystemDefinition Types { get; internal set; }
         public DdfSemanticDefinition Semantics { get; internal set; }
+        public DdfRuntimeDefinition Runtime { get; internal set; }
+        public DdfStandardLibraryDefinition StandardLibrary { get; internal set; }
+        public DdfBuildDefinition Build { get; internal set; }
 
         public bool TryGetKeyword(string text, out DdfKeywordDefinition definition)
         {

@@ -103,6 +103,7 @@ namespace DDF___Program_Language_Editor
             initializeEditorVisuals();
             initializeEditorOverview();
             initializeCommandPalette();
+            initializeFloatingToolbars();
             initializeShortcutSettings();
             initializeAutoSaveAndHotExit();
             initializeWorkspaceSessionPersistence();
@@ -150,6 +151,7 @@ namespace DDF___Program_Language_Editor
             disposeWorkspaceSearch();
             disposeWorkspaceLoading();
             disposePaletteBehavior();
+            disposeFloatingToolbars();
             disposeAutoSaveAndHotExit();
             disposeCrashRecovery();
             disposeExternalChangeMonitoring();
@@ -201,6 +203,8 @@ namespace DDF___Program_Language_Editor
             persistRecentFiles();
             persistRecentWorkspaces();
             persistPaletteLayout();
+            persistToolbarLayout();
+            persistWatchExpressions();
             persistWorkspaceSession();
             clearCrashRecoverySafely();
         }
@@ -488,7 +492,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.9.6.4 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.11.0 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -503,6 +507,13 @@ namespace DDF___Program_Language_Editor
 
         private void editMenuItem_DropDownOpening(object sender, EventArgs e)
         {
+            if (debugUiLocked)
+            {
+                applyDebugUnsafeCommandLock();
+                copyMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
+                selectAllMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+                return;
+            }
             if (richTextBoxFoldedView.Visible)
             {
                 undoMenuItem.Enabled = false;

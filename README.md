@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.9.6.4 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.11.0 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -10,14 +10,28 @@ evidenziazione delle regole note e indentazione assistita.
 
 ## Funzioni attualmente disponibili
 
+Le decisioni di architettura e gli sviluppi pianificati sono raccolti in
+[ECOSYSTEM_ARCHITECTURE.md](ECOSYSTEM_ARCHITECTURE.md) e nella
+[roadmap](ROADMAP.md): editor incorporabile, profili sintattici, modalità
+didattica opzionale, flowchart, backend .NET + Roslyn e assistenza IA locale/cloud.
+Questa direzione futura è distinta dalle funzionalità già disponibili elencate sotto.
+
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;
 - pacchetto DDF esterno versionato, selezionabile a runtime da cartella o archivio `.ddflang`, con scelta persistente, validazione atomica e fallback incorporato;
 - requisiti opzionali per plug-in nativi identificati esattamente e soggetti ad autorizzazione separata per capacità, senza caricamento implicito di codice host;
+- VM IR indipendente dalla sintassi concreta, con operatori tradotti in operazioni controllate e libreria standard dichiarata dal pacchetto;
+- manifest `ddf-project.json` separato dal pacchetto, con sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
+- comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
+- runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
+- ricevuta di build deterministica e buffer non salvati opzionali senza salvataggi impliciti;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
 - menu `Help > Linguaggio` per cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
+- gestione persistente di installazione, aggiornamento, selezione e disattivazione dei pacchetti di linguaggio;
+- playground isolato per token, albero sintattico, diagnostiche e anteprima del formatter;
+- test dichiarativi del pacchetto eseguiti come gate prima dell'attivazione;
 - indice gerarchico e outline navigabile di strutture, funzioni e variabili;
 - evidenziazione dei delimitatori corrispondenti e compressione colorata simultanea di più blocchi;
 - completamento contestuale ordinato per tipo atteso, scope, frequenza e prossimità, con categoria, tipo e origine;
@@ -49,13 +63,13 @@ evidenziazione delle regole note e indentazione assistita.
 - selezione sintattica progressiva/riducibile e salto tra delimitatori corrispondenti;
 - cursori multipli con `Alt+Click`, `Ctrl+D` per l'occorrenza successiva e `Ctrl+Shift+L` per tutte;
 - type checker per primitivi, strutture e array con diagnostiche `DDF3xx` e hover tipizzato;
-- interprete IR interno con funzioni, scope, controllo di flusso, array e strutture;
-- menu Esegui con Run (`F5`), Stop (`Shift+F5`) e palette Output;
+- VM IR indipendente dalla sintassi concreta con funzioni, scope, controllo di flusso, array e strutture;
+- menu Esegui con Convalida, Build (`Ctrl+Shift+B`), Run (`Ctrl+F5`), Debug (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
-- breakpoint di riga attivabili dal gutter o con `F9`, con pausa e continuazione tramite `F5`;
+- breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`, Entra nella funzione con `F11`, Passo successivo con `F10` ed Esci dalla funzione con `Shift+F11`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- barra con 44 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, folding, breakpoint ed esecuzione;
+- sette barre mobili con 52 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, build e debug;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
@@ -80,6 +94,45 @@ evidenziazione delle regole note e indentazione assistita.
 - taglia, copia, incolla, annulla e seleziona tutto instradati alla casella di testo focalizzata, con menu contestuale coerente anche nei popup;
 - editor locale senza rete, account o telemetria;
 - bozza storica della sintassi in `DDF - Program Language Spec.txt`.
+
+## Watch — 0.10.0
+
+La palette inferiore **Espressioni di controllo** permette di inserire un nome
+come `value`, un campo come `point.x`, un indice calcolato come `values[index]`
+oppure un'espressione pura come `(value + 1) * 2` o `value > limit & enabled`.
+Premere **Aggiungi** o Invio; selezionare una riga e usare **Rimuovi** per eliminarla.
+I valori vengono letti alla pausa prima dell'istruzione evidenziata; durante
+Continua restano quelli dell'ultima pausa, indicati come tali. Alla fine vengono
+svuotati, mentre l'elenco delle espressioni viene conservato separatamente per
+ogni cartella progetto e ripristinato tornando a quel workspace.
+
+La scheda **Variabili** non richiede l'inserimento manuale dei simboli: durante
+una pausa mostra automaticamente parametri, variabili locali e globali con tipo
+dichiarato e valore. Array e strutture possono essere espansi ad albero; tutti i
+contenuti provengono dallo snapshot immutabile della pausa e vengono rimossi al
+termine della sessione di debug.
+
+La scheda **Call Stack** elenca il frame corrente seguito dai chiamanti e mostra
+funzione, riga, colonna e documento. Doppio clic o Invio raggiungono il punto di
+chiamata. Selezionando un frame, la palette Variabili passa ai parametri e ai
+locali di quello scope; le variabili dei diversi chiamanti non vengono mescolate.
+`F5` continua fino al prossimo breakpoint o alla fine: non si arresta automaticamente
+nel chiamante. Per terminare la funzione corrente e fermarsi alla successiva
+istruzione del chiamante usare **Esci dalla funzione** (`Shift+F11`); non occorre
+aggiungere un breakpoint di ritorno.
+
+Quando la riga sospesa richiama una funzione DDF, **Entra nella funzione** (`F11`)
+si arresta sulla prima istruzione eseguita nel nuovo frame. Su una riga senza
+chiamate avanza semplicemente alla prossima istruzione, aggiornando le palette di debug.
+
+Prova: aprire `samples/watch-smoke-test.ddf`, inserire `value` e `values[0]`, mettere
+un breakpoint sulla riga `value++;` e avviare con F5. Premere ancora F5 per le pause
+successive: i valori passano da 0 a 1 a 2. L'esecuzione termina alla continuazione
+successiva. Le Watch supportano aritmetica, confronti, logica, parentesi, campi e
+indici calcolati usando il pacchetto attivo. Chiamate, assegnazioni, output e
+`++`/`--` sono deliberatamente vietati per evitare effetti collaterali. La Watch
+e la palette Variabili mostrano il tipo dichiarato dei valori.
+Gli snapshot sono limitati a 8 livelli e 4096 elementi/campi per pausa.
 
 ## Ricerca nel workspace
 
@@ -120,8 +173,8 @@ dei menu, senza duplicarne il comportamento.
 
 ## Limiti della beta
 
-- nessun compilatore, esecuzione passo-passo, ispezione variabili o runtime multi-file;
-- nessun overload, generico, conversione personalizzata o sistema di build/progetto;
+- nessun compilatore nativo, esecuzione passo-passo, ispezione variabili o runtime multi-file;
+- nessun overload, generico, conversione personalizzata o risoluzione automatica delle dipendenze;
 - l'analisi in background mantiene reattiva l'interfaccia ma rielabora ancora
   l'intero documento; non è ancora ottimizzata per sorgenti molto grandi;
 - una correzione rapida può ricostruire solo errori diagnosticabili: se la rimozione
@@ -168,7 +221,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 57 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 73 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:
@@ -176,6 +229,11 @@ eseguito:
 ```powershell
 .\tests\run-dynamic-smoke.ps1 -Visible
 ```
+
+La icon bar è organizzata in sette barre mobili per categoria. Ogni barra può
+essere trascinata nell'area superiore oppure mostrata e nascosta da
+**Visualizza > Barre degli strumenti**; visibilità, ordine, riga e posizione
+vengono ripristinati all'avvio successivo.
 
 Per eseguire soltanto i test del core dopo una build Debug:
 
@@ -197,18 +255,25 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/formatter-smoke-test.ddf`: controllo manuale di formattazione, idempotenza e Undo;
 - `samples/lexer/`: corpus lessicale valido e non valido;
 - `samples/parser/`: corpus sintattico valido e non valido;
+- `samples/project/`: workspace con `ddf-project.json` pronto per Convalida, Build, Run e Debug;
 - `LANGUAGE_REFERENCE.md`: sottoinsieme sintattico riconosciuto dall'editor;
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
 - `LANGUAGE_PACKAGE_FORMAT.md`: contratto, struttura, sicurezza e versionamento dei pacchetti `.ddflang`;
+- `LANGUAGE_AUTHORING.md`: guida ai confini dichiarativi, estensioni del motore, plug-in e futuro editor assistito;
 - `INTERMEDIATE_REPRESENTATION.md`: pipeline, modello e contratto della IR comune usata dal runtime;
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
+- `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
 - `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
 - `language-formatting.schema.json`: schema JSON di layout, indentazione, coppie automatiche e Quick Fix lessicali;
 - `language-types.schema.json`: schema JSON di primitivi, conversioni, compatibilità, mutabilità, scope e firme;
 - `language-semantics.schema.json`: schema JSON dei collegamenti a operazioni semantiche sicure e versionate;
+- `language-runtime.schema.json`: schema JSON della VM, dei limiti e dei mapping fra token e operazioni;
+- `language-standard-library.schema.json`: schema JSON di firme, documentazione e binding host controllati;
+- `language-build.schema.json`: schema dei backend e del formato artefatto supportati dal pacchetto;
+- `ddf-project.schema.json`: schema del manifest indipendente del workspace;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
@@ -228,13 +293,13 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.9.6.4 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.11.0 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no
-external compiler or complete debugger. Its internal IR interpreter reports
-navigable runtime failures and DDF call stacks, and supports line breakpoints
-with pause/continue. A live document outline indexes structures,
+external compiler or complete debugger. Its syntax-independent IR VM reports
+navigable runtime failures and DDF call stacks, and supports line breakpoints,
+pause/continue, Step Over and Step Out. A live document outline indexes structures,
 functions, parameters and variables. Matching delimiters and a source-preserving
 read-only fold projection are included. Contextual completion ranks catalog,
 local and workspace symbols by expected type, scope, usage and proximity, and

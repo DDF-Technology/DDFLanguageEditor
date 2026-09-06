@@ -1,0 +1,14 @@
+main() out int
+{
+    int value << 0;
+    int[2] values;
+
+    while(value < 3)
+    {
+        values[0] << value;
+        values[1] << value - 1;
+        value++;
+    }
+
+    ret value;
+}

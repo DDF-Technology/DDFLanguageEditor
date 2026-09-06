@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/runtime-1.0.json",
+  "title": "DDF language package runtime 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "instructionSet", "entryPoint", "defaultInstructionLimit", "outputTarget", "vmOperations", "expressionOperations" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-runtime-v2" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "instructionSet": { "const": "ddf-ir-vm-1.0" },
+    "entryPoint": { "$ref": "#/$defs/name" },
+    "defaultInstructionLimit": { "type": "integer", "minimum": 1 },
+    "outputTarget": { "$ref": "#/$defs/name" },
+    "vmOperations": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": [ "value.declare", "value.load", "value.store", "scope.create", "call.invoke", "flow.branch", "flow.while", "flow.do-while", "flow.for", "flow.return", "flow.break", "flow.end", "array.create", "array.index", "structure.create", "structure.member", "host.call" ] }
+    },
+    "expressionOperations": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "unary", "binary", "postfix" ],
+      "properties": {
+        "unary": { "$ref": "#/$defs/bindings" },
+        "binary": { "$ref": "#/$defs/bindings" },
+        "postfix": { "$ref": "#/$defs/bindings" }
+      }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$" },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [ "token", "operation" ],
+        "properties": {
+          "token": { "type": "string", "minLength": 1 },
+          "operation": { "enum": [ "assign", "output", "logical.or", "logical.xor", "logical.and", "logical.not", "compare.equal", "compare.not-equal", "compare.between-exclusive", "compare.outside-exclusive", "compare.less", "compare.less-or-equal", "compare.greater", "compare.greater-or-equal", "numeric.add", "numeric.subtract", "numeric.multiply", "numeric.divide", "numeric.power", "numeric.root", "numeric.positive", "numeric.negate", "numeric.increment", "numeric.decrement" ] }
+        }
+      }
+    }
+  }
+}

@@ -23,6 +23,20 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<DdfPlannedSemanticOperation> SemanticOperations { get; }
     }
 
+    public sealed class DdfIrModule
+    {
+        public DdfIrModule(string documentPath, string source, DdfIrProgram program)
+        {
+            DocumentPath = documentPath ?? string.Empty;
+            Source = source ?? throw new ArgumentNullException(nameof(source));
+            Program = program ?? throw new ArgumentNullException(nameof(program));
+        }
+
+        public string DocumentPath { get; }
+        public string Source { get; }
+        public DdfIrProgram Program { get; }
+    }
+
     public abstract class DdfIrMember : DdfIrNode
     {
         protected DdfIrMember(int start, int length) : base(start, length) { }
@@ -187,26 +201,29 @@ namespace DDFLanguageEditor.Core
     }
     public sealed class DdfIrUnary : DdfIrExpression
     {
-        internal DdfIrUnary(string operatorText, DdfIrExpression operand, int start, int length) : base(start, length)
-        { OperatorText = operatorText; Operand = operand; }
+        internal DdfIrUnary(string operatorText, string operationId, DdfIrExpression operand, int start, int length) : base(start, length)
+        { OperatorText = operatorText; OperationId = operationId; Operand = operand; }
         public string OperatorText { get; }
+        public string OperationId { get; }
         public DdfIrExpression Operand { get; }
     }
     public sealed class DdfIrBinary : DdfIrExpression
     {
-        internal DdfIrBinary(DdfIrExpression left, string operatorText, DdfIrExpression right,
+        internal DdfIrBinary(DdfIrExpression left, string operatorText, string operationId, DdfIrExpression right,
             int start, int length) : base(start, length)
-        { Left = left; OperatorText = operatorText; Right = right; }
+        { Left = left; OperatorText = operatorText; OperationId = operationId; Right = right; }
         public DdfIrExpression Left { get; }
         public string OperatorText { get; }
+        public string OperationId { get; }
         public DdfIrExpression Right { get; }
     }
     public sealed class DdfIrPostfix : DdfIrExpression
     {
-        internal DdfIrPostfix(DdfIrExpression operand, string operatorText, int start, int length) : base(start, length)
-        { Operand = operand; OperatorText = operatorText; }
+        internal DdfIrPostfix(DdfIrExpression operand, string operatorText, string operationId, int start, int length) : base(start, length)
+        { Operand = operand; OperatorText = operatorText; OperationId = operationId; }
         public DdfIrExpression Operand { get; }
         public string OperatorText { get; }
+        public string OperationId { get; }
     }
     public sealed class DdfIrCall : DdfIrExpression
     {
@@ -249,20 +266,22 @@ namespace DDFLanguageEditor.Core
             IReadOnlyList<DdfPlannedSemanticOperation> plan = parseResult.GenericRoot == null
                 ? Array.Empty<DdfPlannedSemanticOperation>()
                 : DdfSemanticOperationPlanner.Create(parseResult.GenericRoot, language.Semantics);
-            return Lower(source, parseResult.Root, plan, parseResult.GrammarDiagnostics);
+            return Lower(source, parseResult.Root, plan, parseResult.GrammarDiagnostics, language.Runtime);
         }
 
         public static DdfIrBuildResult Lower(string source, CompilationUnitSyntax root,
             IEnumerable<DdfPlannedSemanticOperation> semanticOperations = null,
-            IEnumerable<DdfDiagnostic> inputDiagnostics = null)
+            IEnumerable<DdfDiagnostic> inputDiagnostics = null,
+            DdfRuntimeDefinition runtime = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
             var diagnostics = new List<DdfDiagnostic>(inputDiagnostics ?? Array.Empty<DdfDiagnostic>());
+            runtime = runtime ?? DdfRuntimeDefinition.CreateDdfCompatibleDefault();
             var members = new List<DdfIrMember>();
             foreach (MemberSyntax member in root.Members)
             {
-                DdfIrMember lowered = LowerMember(source, member, diagnostics);
+                DdfIrMember lowered = LowerMember(source, member, diagnostics, runtime);
                 if (lowered != null) members.Add(lowered);
             }
             var program = new DdfIrProgram(members,
@@ -270,63 +289,65 @@ namespace DDFLanguageEditor.Core
             return new DdfIrBuildResult(program, diagnostics);
         }
 
-        private static DdfIrMember LowerMember(string source, MemberSyntax member, ICollection<DdfDiagnostic> diagnostics)
+        private static DdfIrMember LowerMember(string source, MemberSyntax member, ICollection<DdfDiagnostic> diagnostics,
+            DdfRuntimeDefinition runtime)
         {
             if (member is LibraryDirectiveSyntax library)
                 return new DdfIrLibrary(library.Text, library.Start, library.Length);
             if (member is StructDeclarationSyntax structure)
                 return new DdfIrStructure(structure.Name, structure.NameStart, structure.NameLength,
-                    structure.Fields.Select(field => LowerVariable(source, field, diagnostics)),
+                    structure.Fields.Select(field => LowerVariable(source, field, diagnostics, runtime)),
                     structure.Start, structure.Length);
             if (member is FunctionDeclarationSyntax function)
                 return new DdfIrFunction(function.Name, function.NameStart, function.NameLength,
-                    function.Parameters.Select(parameter => new DdfIrParameter(LowerType(source, parameter.Type, diagnostics),
+                    function.Parameters.Select(parameter => new DdfIrParameter(LowerType(source, parameter.Type, diagnostics, runtime),
                         parameter.Name, parameter.NameStart, parameter.NameLength, parameter.Start, parameter.Length)),
-                    LowerType(source, function.ReturnType, diagnostics),
-                    (DdfIrBlock)LowerStatement(source, function.Body, diagnostics), function.Start, function.Length);
+                    LowerType(source, function.ReturnType, diagnostics, runtime),
+                    (DdfIrBlock)LowerStatement(source, function.Body, diagnostics, runtime), function.Start, function.Length);
             if (member is GlobalStatementSyntax global)
-                return new DdfIrGlobal(LowerStatement(source, global.Statement, diagnostics));
+                return new DdfIrGlobal(LowerStatement(source, global.Statement, diagnostics, runtime));
             ReportUnsupported(source, member, diagnostics, "member");
             return null;
         }
 
-        private static DdfIrType LowerType(string source, TypeReferenceSyntax type, ICollection<DdfDiagnostic> diagnostics) =>
+        private static DdfIrType LowerType(string source, TypeReferenceSyntax type, ICollection<DdfDiagnostic> diagnostics,
+            DdfRuntimeDefinition runtime) =>
             type == null
                 ? new DdfIrType(string.Empty, Array.Empty<DdfIrExpression>(), 0, 0)
-                : new DdfIrType(type.Name, type.ArrayLengths.Select(value => LowerExpression(source, value, diagnostics)),
+                : new DdfIrType(type.Name, type.ArrayLengths.Select(value => LowerExpression(source, value, diagnostics, runtime)),
                     type.Start, type.Length);
 
         private static DdfIrVariableDeclaration LowerVariable(string source,
-            VariableDeclarationStatementSyntax variable, ICollection<DdfDiagnostic> diagnostics) =>
-            new DdfIrVariableDeclaration(LowerType(source, variable.Type, diagnostics), variable.Name,
-                variable.Initializer == null ? null : LowerExpression(source, variable.Initializer, diagnostics),
+            VariableDeclarationStatementSyntax variable, ICollection<DdfDiagnostic> diagnostics, DdfRuntimeDefinition runtime) =>
+            new DdfIrVariableDeclaration(LowerType(source, variable.Type, diagnostics, runtime), variable.Name,
+                variable.Initializer == null ? null : LowerExpression(source, variable.Initializer, diagnostics, runtime),
                 variable.Start, variable.Length);
 
         private static DdfIrStatement LowerStatement(string source, StatementSyntax statement,
-            ICollection<DdfDiagnostic> diagnostics)
+            ICollection<DdfDiagnostic> diagnostics, DdfRuntimeDefinition runtime)
         {
             if (statement == null) return null;
             if (statement is BlockStatementSyntax block)
-                return new DdfIrBlock(block.Statements.Select(value => LowerStatement(source, value, diagnostics)), block.Start, block.Length);
-            if (statement is VariableDeclarationStatementSyntax variable) return LowerVariable(source, variable, diagnostics);
+                return new DdfIrBlock(block.Statements.Select(value => LowerStatement(source, value, diagnostics, runtime)), block.Start, block.Length);
+            if (statement is VariableDeclarationStatementSyntax variable) return LowerVariable(source, variable, diagnostics, runtime);
             if (statement is ExpressionStatementSyntax expression)
-                return new DdfIrExpressionStatement(LowerExpression(source, expression.Expression, diagnostics), expression.Start, expression.Length);
+                return new DdfIrExpressionStatement(LowerExpression(source, expression.Expression, diagnostics, runtime), expression.Start, expression.Length);
             if (statement is IfStatementSyntax conditional)
-                return new DdfIrIf(LowerExpression(source, conditional.Condition, diagnostics),
-                    LowerStatement(source, conditional.Body, diagnostics), LowerStatement(source, conditional.ElseBody, diagnostics),
+                return new DdfIrIf(LowerExpression(source, conditional.Condition, diagnostics, runtime),
+                    LowerStatement(source, conditional.Body, diagnostics, runtime), LowerStatement(source, conditional.ElseBody, diagnostics, runtime),
                     conditional.Start, conditional.Length);
             if (statement is WhileStatementSyntax loop)
-                return new DdfIrWhile(LowerExpression(source, loop.Condition, diagnostics),
-                    LowerStatement(source, loop.Body, diagnostics), loop.Start, loop.Length);
+                return new DdfIrWhile(LowerExpression(source, loop.Condition, diagnostics, runtime),
+                    LowerStatement(source, loop.Body, diagnostics, runtime), loop.Start, loop.Length);
             if (statement is DoWhileStatementSyntax postLoop)
-                return new DdfIrDoWhile(LowerStatement(source, postLoop.Body, diagnostics),
-                    LowerExpression(source, postLoop.Condition, diagnostics), postLoop.Start, postLoop.Length);
+                return new DdfIrDoWhile(LowerStatement(source, postLoop.Body, diagnostics, runtime),
+                    LowerExpression(source, postLoop.Condition, diagnostics, runtime), postLoop.Start, postLoop.Length);
             if (statement is ForStatementSyntax forLoop)
-                return new DdfIrFor(LowerStatement(source, forLoop.Initializer, diagnostics),
-                    LowerExpression(source, forLoop.Condition, diagnostics), LowerExpression(source, forLoop.Increment, diagnostics),
-                    LowerStatement(source, forLoop.Body, diagnostics), forLoop.Start, forLoop.Length);
+                return new DdfIrFor(LowerStatement(source, forLoop.Initializer, diagnostics, runtime),
+                    LowerExpression(source, forLoop.Condition, diagnostics, runtime), LowerExpression(source, forLoop.Increment, diagnostics, runtime),
+                    LowerStatement(source, forLoop.Body, diagnostics, runtime), forLoop.Start, forLoop.Length);
             if (statement is ReturnStatementSyntax returned)
-                return new DdfIrReturn(LowerExpression(source, returned.Expression, diagnostics), returned.Start, returned.Length);
+                return new DdfIrReturn(LowerExpression(source, returned.Expression, diagnostics, runtime), returned.Start, returned.Length);
             if (statement is BreakStatementSyntax) return new DdfIrBreak(statement.Start, statement.Length);
             if (statement is EndStatementSyntax) return new DdfIrEnd(statement.Start, statement.Length);
             ReportUnsupported(source, statement, diagnostics, "statement");
@@ -334,32 +355,42 @@ namespace DDFLanguageEditor.Core
         }
 
         private static DdfIrExpression LowerExpression(string source, ExpressionSyntax expression,
-            ICollection<DdfDiagnostic> diagnostics)
+            ICollection<DdfDiagnostic> diagnostics, DdfRuntimeDefinition runtime)
         {
             if (expression == null) return null;
             if (expression is MissingExpressionSyntax) return new DdfIrMissingExpression(expression.Start);
             if (expression is LiteralExpressionSyntax literal) return new DdfIrLiteral(literal.Text, literal.Start, literal.Length);
             if (expression is NameExpressionSyntax name) return new DdfIrName(name.Name, name.Start, name.Length);
             if (expression is ParenthesizedExpressionSyntax group)
-                return new DdfIrGroup(LowerExpression(source, group.Expression, diagnostics), group.Start, group.Length);
+                return new DdfIrGroup(LowerExpression(source, group.Expression, diagnostics, runtime), group.Start, group.Length);
             if (expression is UnaryExpressionSyntax unary)
-                return new DdfIrUnary(unary.OperatorText, LowerExpression(source, unary.Operand, diagnostics), unary.Start, unary.Length);
+                return new DdfIrUnary(unary.OperatorText, ResolveOperation(runtime.TryGetUnaryOperation, unary.OperatorText),
+                    LowerExpression(source, unary.Operand, diagnostics, runtime), unary.Start, unary.Length);
             if (expression is BinaryExpressionSyntax binary)
-                return new DdfIrBinary(LowerExpression(source, binary.Left, diagnostics), binary.OperatorText,
-                    LowerExpression(source, binary.Right, diagnostics), binary.Start, binary.Length);
+                return new DdfIrBinary(LowerExpression(source, binary.Left, diagnostics, runtime), binary.OperatorText,
+                    ResolveOperation(runtime.TryGetBinaryOperation, binary.OperatorText),
+                    LowerExpression(source, binary.Right, diagnostics, runtime), binary.Start, binary.Length);
             if (expression is PostfixExpressionSyntax postfix)
-                return new DdfIrPostfix(LowerExpression(source, postfix.Operand, diagnostics), postfix.OperatorText, postfix.Start, postfix.Length);
+                return new DdfIrPostfix(LowerExpression(source, postfix.Operand, diagnostics, runtime), postfix.OperatorText,
+                    ResolveOperation(runtime.TryGetPostfixOperation, postfix.OperatorText), postfix.Start, postfix.Length);
             if (expression is CallExpressionSyntax call)
-                return new DdfIrCall(LowerExpression(source, call.Target, diagnostics),
-                    call.Arguments.Select(value => LowerExpression(source, value, diagnostics)), call.Start, call.Length);
+                return new DdfIrCall(LowerExpression(source, call.Target, diagnostics, runtime),
+                    call.Arguments.Select(value => LowerExpression(source, value, diagnostics, runtime)), call.Start, call.Length);
             if (expression is IndexExpressionSyntax index)
-                return new DdfIrIndex(LowerExpression(source, index.Target, diagnostics),
-                    LowerExpression(source, index.Index, diagnostics), index.Start, index.Length);
+                return new DdfIrIndex(LowerExpression(source, index.Target, diagnostics, runtime),
+                    LowerExpression(source, index.Index, diagnostics, runtime), index.Start, index.Length);
             if (expression is MemberAccessExpressionSyntax member)
-                return new DdfIrMemberAccess(LowerExpression(source, member.Target, diagnostics), member.Name,
+                return new DdfIrMemberAccess(LowerExpression(source, member.Target, diagnostics, runtime), member.Name,
                     member.Start, member.Length);
             ReportUnsupported(source, expression, diagnostics, "expression");
             return new DdfIrMissingExpression(expression.Start);
+        }
+
+        private delegate bool TryResolveOperation(string token, out string operation);
+
+        private static string ResolveOperation(TryResolveOperation resolver, string token)
+        {
+            return resolver(token, out string operation) ? operation : string.Empty;
         }
 
         private static void ReportUnsupported(string source, DdfSyntaxNode node,

@@ -44,7 +44,8 @@ namespace DDFLanguageEditor.Core
             DdfDiagnosticSeverity severity = DdfDiagnosticSeverity.Error,
             int? insertionPosition = null,
             int? contextStart = null,
-            DdfDiagnosticDomain domain = DdfDiagnosticDomain.Source)
+            DdfDiagnosticDomain domain = DdfDiagnosticDomain.Source,
+            string documentPath = null)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -81,6 +82,7 @@ namespace DDFLanguageEditor.Core
             InsertionPosition = insertionPosition;
             ContextStart = contextStart;
             Domain = domain;
+            DocumentPath = documentPath ?? string.Empty;
         }
 
         public string Code { get; }
@@ -104,6 +106,8 @@ namespace DDFLanguageEditor.Core
         public int? ContextStart { get; }
 
         public DdfDiagnosticDomain Domain { get; }
+
+        public string DocumentPath { get; }
 
         public string ToHoverText()
         {

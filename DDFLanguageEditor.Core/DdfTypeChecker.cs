@@ -92,6 +92,7 @@ namespace DDFLanguageEditor.Core
             private readonly string source;
             private readonly CompilationUnitSyntax root;
             private readonly DdfTypeSystemDefinition typeSystem;
+            private readonly DdfStandardLibraryDefinition standardLibrary;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfTypeSymbol> globals = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal);
@@ -101,11 +102,12 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol currentReturnType = DdfTypeSymbol.Error;
 
             public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
-                DdfTypeSystemDefinition typeSystem)
+                DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary)
             {
                 this.source = source;
                 this.root = root;
                 this.typeSystem = typeSystem;
+                this.standardLibrary = standardLibrary;
                 var roots = new List<CompilationUnitSyntax> { root };
                 if (externalRoots != null) roots.AddRange(externalRoots.Where(item => item != null));
                 CollectDeclarations(roots);
@@ -158,7 +160,7 @@ namespace DDFLanguageEditor.Core
                         }
                     }
                 }
-                foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
+                foreach (DdfStandardFunction standard in standardLibrary.Functions)
                 {
                     if (!functions.ContainsKey(standard.Name))
                         functions.Add(standard.Name, new FunctionInfo
@@ -248,7 +250,7 @@ namespace DDFLanguageEditor.Core
             {
                 DdfTypeSymbol declared = ResolveType(variable.Type, true);
                 AddSpan(variable.Type, declared);
-                if (!declared.IsError && !typeSystem.CanDeclareVariable(declared.Name))
+                if (!declared.IsError && !structures.ContainsKey(declared.Name) && !typeSystem.CanDeclareVariable(declared.Name))
                     Report("DDF305", "Una variabile non può avere tipo " + declared.Name + ".", variable.Type);
                 if (variable.Initializer != null)
                 {
@@ -488,12 +490,14 @@ namespace DDFLanguageEditor.Core
         }
 
         public static DdfTypeCheckResult Check(string source, CompilationUnitSyntax root,
-            IEnumerable<CompilationUnitSyntax> externalRoots = null, DdfTypeSystemDefinition typeSystem = null)
+            IEnumerable<CompilationUnitSyntax> externalRoots = null, DdfTypeSystemDefinition typeSystem = null,
+            DdfStandardLibraryDefinition standardLibrary = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
             return new Checker(source, root, externalRoots,
-                typeSystem ?? DdfLanguageCatalog.Default.Types).Check();
+                typeSystem ?? DdfLanguageCatalog.Default.Types,
+                standardLibrary ?? DdfLanguageCatalog.Default.StandardLibrary).Check();
         }
     }
 }

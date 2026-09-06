@@ -54,7 +54,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 57 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 73 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -72,6 +72,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ResetEditorSettingsForSmoke(form);
                 ResetShortcutSettingsForSmoke(form);
                 ResetPaletteLayoutForSmoke(form);
+                ResetToolbarLayoutForSmoke(form);
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
                 form.Location = visible ? new Point(80, 80) : new Point(-32000, -32000);
@@ -91,7 +92,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
                     .Items["statusEncodingLabel"];
                 Require(languageStatus.Text.Contains("DDF 0.9", StringComparison.Ordinal) &&
-                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.4", StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.9.6.7", StringComparison.Ordinal) &&
                         languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
@@ -131,7 +132,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertQuickFixes(form, editor, diagnostics);
                 AssertTypeChecking(form, editor, diagnostics);
                 AssertWorkspaceNavigation(form, editor, diagnostics);
-                AssertProgramExecution(form, editor);
+                try
+                {
+                    AssertProgramExecution(form, editor);
+                }
+                catch (Exception exception)
+                {
+                    Console.Error.WriteLine("DETTAGLIO scenario interprete/debug: " + exception);
+                    throw;
+                }
             }
         }
 
@@ -293,6 +302,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 originalClipboard = Clipboard.GetDataObject();
                 AssertMenuStructureAndShortcuts(visible);
+                AssertToolbarLayoutRestoration(visible);
                 AssertEditAndFindReplaceMenus(visible);
                 AssertViewMenu(visible);
                 AssertHelpMenu(visible);
@@ -302,6 +312,56 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 RestoreClipboard(originalClipboard);
             }
+        }
+
+        private static void AssertToolbarLayoutRestoration(bool visible)
+        {
+            using (var form = new MainForm
+            {
+                ShowInTaskbar = visible,
+                StartPosition = FormStartPosition.Manual,
+                Location = visible ? new Point(100, 100) : new Point(-32000, -32000),
+                WindowState = FormWindowState.Normal
+            })
+            {
+                DisableRecentFilePersistence(form);
+                ResetEditorSettingsForSmoke(form);
+                ResetShortcutSettingsForSmoke(form);
+                ResetPaletteLayoutForSmoke(form);
+                ResetToolbarLayoutForSmoke(form);
+                const string saved =
+                    "debug.visible=True\ndebug.row=0\ndebug.order=0\ndebug.x=10\ndebug.y=1\n" +
+                    "file.visible=True\nfile.row=0\nfile.order=1\nfile.x=210\nfile.y=1\n" +
+                    "code.visible=True\ncode.row=0\ncode.order=2\ncode.x=410\ncode.y=1\n" +
+                    "view.visible=False\nview.row=1\nview.order=0\nview.x=10\nview.y=34\n" +
+                    "project.visible=True\nproject.row=1\nproject.order=1\nproject.x=210\nproject.y=34\n" +
+                    "navigation.visible=True\nnavigation.row=2\nnavigation.order=0\nnavigation.x=10\nnavigation.y=67\n" +
+                    "edit.visible=True\nedit.row=3\nedit.order=0\nedit.x=10\nedit.y=100";
+                Type settingsType = typeof(MainForm).Assembly.GetType(
+                    "DDF___Program_Language_Editor.ToolbarLayoutSettings", true);
+                object settings = settingsType.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public)
+                    .Invoke(null, new object[] { saved, new[] { "file", "edit", "code", "navigation", "view", "project", "debug" } });
+                SetPrivateField(form, "toolbarLayoutSettings", settings);
+                SetPrivateField(form, "saveToolbarLayoutSetting", new Action<string>(value => { }));
+                form.Show();
+                PumpMessages(180);
+
+                ToolStrip debug = FindControl<ToolStrip>(form, "toolStripDebug");
+                ToolStrip file = FindControl<ToolStrip>(form, "toolStripMain");
+                ToolStrip code = FindControl<ToolStrip>(form, "toolStripCode");
+                Require(debug.Top == file.Top && file.Top == code.Top && debug.Left < file.Left && file.Left < code.Left,
+                    "Il ripristino non conserva riga e ordine delle barre salvate.");
+                Require(!FindControl<ToolStrip>(form, "toolStripView").Visible,
+                    "Il ripristino non conserva una barra nascosta.");
+                string roundTrip = null;
+                SetPrivateField(form, "saveToolbarLayoutSetting", new Action<string>(value => roundTrip = value));
+                InvokePrivate(form, "persistToolbarLayout");
+                Require(roundTrip != null && roundTrip.Contains("debug.row=0") &&
+                        roundTrip.Contains("debug.order=0") && roundTrip.Contains("file.order=1") &&
+                        roundTrip.Contains("code.order=2"),
+                    "Il salvataggio non conserva esplicitamente riga e ordine delle barre.");
+            }
+            Console.WriteLine("PASS ripristino deterministico di posizione, riga, ordine e visibilità toolbar");
         }
 
         private static void AssertPerformanceBudgets(bool visible)
@@ -921,7 +981,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "quickFixMenuItem", Keys.Control | Keys.OemPeriod },
                     { "goToDefinitionMenuItem", Keys.F12 },
                     { "renameSymbolMenuItem", Keys.F2 },
+                    { "buildProjectMenuItem", Keys.Control | Keys.Shift | Keys.B },
+                    { "runWithoutDebugMenuItem", Keys.Control | Keys.F5 },
                     { "runProgramMenuItem", Keys.F5 },
+                    { "stepIntoMenuItem", Keys.F11 },
+                    { "stepOverMenuItem", Keys.F10 },
+                    { "stepOutMenuItem", Keys.Shift | Keys.F11 },
                     { "toggleBreakpointMenuItem", Keys.F9 },
                     { "stopProgramMenuItem", Keys.Shift | Keys.F5 },
                     { "toggleFoldMenuItem", Keys.Control | Keys.M },
@@ -941,9 +1006,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "goToFileMenuItem", "goToSymbolMenuItem", "findReferencesMenuItem", "goToLineMenuItem", "goToLastEditMenuItem",
                     "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
-                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "runProgramMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
+                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "validateProjectMenuItem", "buildProjectMenuItem",
+                    "runWithoutDebugMenuItem", "runProgramMenuItem", "stepIntoMenuItem", "stepOverMenuItem", "stepOutMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "highlightCurrentLineMenuItem", "showWhitespaceMenuItem",
                     "showIndentGuidesMenuItem", "wordWrapMenuItem", "showOverviewMenuItem", "languagePackageInfoMenuItem",
+                    "showToolbarFileMenuItem", "showToolbarEditMenuItem", "showToolbarCodeMenuItem",
+                    "showToolbarNavigationMenuItem", "showToolbarViewMenuItem", "showToolbarProjectMenuItem",
+                    "showToolbarDebugMenuItem",
+                    "manageLanguagePackagesMenuItem", "validateLanguagePackageMenuItem", "languagePlaygroundMenuItem",
                     "aboutMenuItem", "commandPaletteMenuItem", "settingsMenuItem"
                 };
                 foreach (string command in commands)
@@ -962,7 +1032,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 46 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 51 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -975,8 +1045,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         FindControl<StatusStrip>(form, "statusStripMain").Items
                             .Cast<ToolStripItem>().Any(item => item.Name == "statusEncodingLabel" && item.Text.Contains("DDF")),
                     "Menu e stato non espongono la gestione del linguaggio attivo.");
-                ToolStrip languageToolbar = FindControl<ToolStrip>(form, "toolStripMain");
-                Require(languageToolbar.Items.Cast<ToolStripItem>().Any(item =>
+                Require(FindControl<ToolStrip>(form, "toolStripProject").Items.Cast<ToolStripItem>().Any(item =>
                         item.Name == "toolbarLanguageButton" && item is ToolStripDropDownButton &&
                         item.ToolTipText.Contains("DDF")),
                     "La barra strumenti non espone il selettore del linguaggio attivo.");
@@ -997,7 +1066,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
                 Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
-                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.4") &&
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.9.6.7") &&
                         FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
@@ -1009,6 +1078,55 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpMessages(40);
                 Require(packageInfo.IsDisposed, "Il pulsante Chiudi non ha terminato le informazioni pacchetto.");
 
+                string editorBeforePlayground = FindControl<RichTextBox>(form, "richTextBoxMainEditor").Text;
+                FindMenuItem(form, "languagePlaygroundMenuItem").PerformClick();
+                PumpMessages(80);
+                Form playground = Application.OpenForms.Cast<Form>()
+                    .FirstOrDefault(openForm => openForm.Name == "LanguagePlaygroundForm" && openForm.Owner == form);
+                Require(playground != null && playground.StartPosition == FormStartPosition.CenterScreen && IsLight(playground.BackColor),
+                    "Il Playground non è stato aperto come finestra chiara e centrata.");
+                Require(FindControl<RichTextBox>(playground, "languagePlaygroundTokensTextBox").Text.Contains("Identifier") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundTreeTextBox").Text.Contains("Compilation") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundDiagnosticsTextBox").Text.Contains("Nessuna") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundFormattedTextBox").Text.Contains("ret 0;"),
+                    "Il Playground non espone token, albero, diagnostiche e formattazione.");
+                FindControl<RichTextBox>(playground, "languagePlaygroundSourceTextBox").Text = "main() out int { ret ; }";
+                PumpMessages(40);
+                Require(!FindControl<RichTextBox>(playground, "languagePlaygroundDiagnosticsTextBox").Text.Contains("Nessuna"),
+                    "Il Playground non aggiorna le diagnostiche sul sorgente isolato.");
+                Require(FindControl<RichTextBox>(form, "richTextBoxMainEditor").Text == editorBeforePlayground,
+                    "Il Playground ha modificato il documento attivo.");
+                FindControl<Button>(playground, "languagePlaygroundCloseButton").PerformClick();
+                PumpMessages(40);
+                Require(playground.IsDisposed, "Chiudi non termina il Playground modeless.");
+
+                FindMenuItem(form, "manageLanguagePackagesMenuItem").PerformClick();
+                PumpMessages(80);
+                Form manager = Application.OpenForms.Cast<Form>()
+                    .FirstOrDefault(openForm => openForm.Name == "LanguagePackageManagerForm" && openForm.Owner == form);
+                Require(manager != null && manager.StartPosition == FormStartPosition.CenterScreen &&
+                        FindControl<ListView>(manager, "languagePackagesListView") != null &&
+                        FindControl<Button>(manager, "languagePackageInstallArchiveButton") != null &&
+                        FindControl<Button>(manager, "languagePackageDisableButton") != null,
+                    "La gestione pacchetti non espone installazione, selezione e disattivazione.");
+                foreach (Size size in new[] { manager.Size, manager.MinimumSize })
+                {
+                    manager.Size = size;
+                    PumpMessages(40);
+                    var close = FindControl<Button>(manager, "languagePackageManagerCloseButton");
+                    foreach (string name in new[] { "languagePackageValidateButton", "languagePackageActivateButton",
+                        "languagePackageDisableButton", "languagePackagePlaygroundButton" })
+                    {
+                        var action = FindControl<Button>(manager, name);
+                        Require(action.Top == close.Top && action.Height == close.Height,
+                            "Chiudi non è allineato agli altri comandi del gestore pacchetti.");
+                        Require(action.Bounds.Right <= close.Left, "I pulsanti del gestore pacchetti si sovrappongono.");
+                    }
+                    Require(close.Parent.ClientRectangle.Contains(close.Bounds), "Chiudi esce dall'area dei pulsanti.");
+                }
+                FindControl<Button>(manager, "languagePackageManagerCloseButton").PerformClick();
+                Require(manager.IsDisposed, "Chiudi non termina il gestore pacchetti.");
+
                 FindMenuItem(form, "aboutMenuItem").PerformClick();
                 PumpMessages(80);
 
@@ -1019,7 +1137,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.9.6.4") &&
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.11.0") &&
                         FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
@@ -1431,6 +1549,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             ResetEditorSettingsForSmoke(form);
             ResetShortcutSettingsForSmoke(form);
             ResetPaletteLayoutForSmoke(form);
+            ResetToolbarLayoutForSmoke(form);
             form.Show();
             PumpMessages(100);
             return form;
@@ -1452,6 +1571,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "loadCrashRecoverySetting", new Func<string>(() => string.Empty));
             SetPrivateField(form, "saveCrashRecoverySetting", new Action<string>(value => { }));
             SetPrivateField(form, "clearCrashRecoverySetting", new Action(() => { }));
+            SetPrivateField(form, "watchExpressionSettings", new WatchExpressionSettings());
+            SetPrivateField(form, "loadWatchExpressionsSetting", new Func<string>(() => string.Empty));
+            SetPrivateField(form, "saveWatchExpressionsSetting", new Action<string>(value => { }));
+            InvokePrivate(form, "switchWatchProject", (object)null);
             GetPrivateField<System.Windows.Forms.Timer>(form, "externalChangeTimer").Stop();
         }
 
@@ -1479,6 +1602,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
             SetPrivateField(form, "outlinePinned", true);
             SetPrivateField(form, "diagnosticsPinned", true);
             SetPrivateField(form, "savePaletteLayoutSetting", new Action<string>(value => { }));
+        }
+
+        private static void ResetToolbarLayoutForSmoke(MainForm form)
+        {
+            Type settingsType = typeof(MainForm).Assembly.GetType(
+                "DDF___Program_Language_Editor.ToolbarLayoutSettings", true);
+            object settings = settingsType.GetMethod("Parse", BindingFlags.Static | BindingFlags.Public)
+                .Invoke(null, new object[]
+                {
+                    string.Empty,
+                    new[] { "file", "edit", "code", "navigation", "view", "project", "debug" }
+                });
+            SetPrivateField(form, "toolbarLayoutSettings", settings);
+            SetPrivateField(form, "saveToolbarLayoutSetting", new Action<string>(value => { }));
         }
 
         private static void RestoreClipboard(IDataObject originalClipboard)
@@ -1555,8 +1692,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Controlli raggiungibili da tastiera senza nome accessibile: " +
                 string.Join(", ", unnamed.Select(control => control.Name)));
 
-            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
-            Require(toolbar.Items.OfType<ToolStripButton>().All(button =>
+            Require(FindToolbars(form).SelectMany(toolbar => toolbar.Items.OfType<ToolStripButton>()).All(button =>
                     !string.IsNullOrWhiteSpace(button.AccessibleName)),
                 "La toolbar contiene comandi senza nome accessibile.");
             Require(contrastRatio(form.ForeColor, form.BackColor) >= 4.5D,
@@ -1690,7 +1826,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Splitter outlineSplitter = FindControl<Splitter>(form, "splitterOutline");
             Splitter diagnosticsSplitter = FindControl<Splitter>(form, "splitterDiagnostics");
             StatusStrip status = FindControl<StatusStrip>(form, "statusStripMain");
-            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            ToolStripPanel toolbar = FindControl<ToolStripPanel>(form, "toolStripPanelMain");
             TabControl navigation = FindControl<TabControl>(form, "navigationTabs");
             Button outlinePin = FindControl<Button>(form, "buttonOutlinePin");
             Button diagnosticsPin = FindControl<Button>(form, "buttonDiagnosticsPin");
@@ -1700,8 +1836,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "La palette destra non misura i 300 px previsti all'avvio: " + outlinePanel.Width + " px.");
             Require(navigation.Appearance == TabAppearance.Normal,
                 "Workspace e Outline non usano schede standard come Diagnostica e Output.");
-            Require(outlinePanel.Top == toolbar.Bottom && outlinePanel.Bottom == status.Top,
-                "La palette destra non occupa tutta l'altezza utile della form.");
+            Require(outlinePanel.Top == 0 && outlinePanel.Bottom == status.Top && toolbar.Right == outlineSplitter.Left,
+                "La palette destra non occupa tutta l'altezza utile della form: outline=" + outlinePanel.Bounds +
+                ", barre=" + toolbar.Bounds + ", stato=" + status.Bounds + ".");
             Require(diagnosticsPanelFromForm.Right == outlineSplitter.Left && diagnosticsPanelFromForm.Width < form.ClientSize.Width,
                 "Diagnostica e Output non si adattano allo spazio lasciato dalla palette destra.");
             Require(diagnosticsSplitter.Dock == DockStyle.Bottom && diagnosticsSplitter.Cursor == Cursors.HSplit &&
@@ -2596,8 +2733,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Directory.CreateDirectory(Path.Combine(directory, "lib"));
                 string mainPath = Path.Combine(directory, "main.ddf");
                 string helperPath = Path.Combine(directory, "lib", "helpers.ddf");
-                DdfDocumentFile.Save(mainPath, "main() out int { ret helper(); }");
-                DdfDocumentFile.Save(helperPath, "// library declaration\nhelper() out int { ret 1; }");
+                DdfDocumentFile.Save(mainPath, "main() out int\n{\n    int value << helper();\n    ret value;\n}");
+                DdfDocumentFile.Save(helperPath, "// library declaration\nhelper() out int\n{\n    int value << 1;\n    ret value;\n}");
 
                 SetPrivateField(form, "showWorkspaceDialog", new Func<FolderBrowserDialog, DialogResult>(dialog =>
                 {
@@ -2625,6 +2762,23 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(editor.Text.Contains("helper()"), "Il doppio clic sul file workspace non ha aperto il documento.");
                 Require(!diagnostics.Items.Cast<object>().Any(item => item.ToString().Contains("DDF201")),
                     "Un simbolo definito in un altro file è ancora segnalato come non risolto.");
+
+                string buildDirectory = Path.Combine(directory, ".ddf-build");
+                FindMenuItem(form, "validateProjectMenuItem").PerformClick();
+                RichTextBox output = FindControl<RichTextBox>(form, "richTextBoxOutput");
+                Require(output.Text.Contains("Convalida completata", StringComparison.Ordinal) &&
+                        output.Text.Contains("Nessun file scritto", StringComparison.Ordinal) && !Directory.Exists(buildDirectory),
+                    "Convalida progetto non è rimasta in memoria o non ha comunicato l'esito.");
+                string diskSource = File.ReadAllText(mainPath);
+                editor.AppendText("\n// modifica non salvata");
+                FindMenuItem(form, "buildProjectMenuItem").PerformClick();
+                string receiptPath = Path.Combine(buildDirectory, "project.ddfbuild.json");
+                Require(File.Exists(receiptPath) && File.ReadAllText(receiptPath).Contains("\"fromUnsavedBuffer\": true", StringComparison.OrdinalIgnoreCase),
+                    "Compila progetto non ha prodotto una ricevuta riproducibile usando il buffer non salvato.");
+                Require(File.ReadAllText(mainPath) == diskSource,
+                    "Compila progetto ha scritto implicitamente il buffer non salvato sul sorgente.");
+                Require(output.Text.Contains("Fingerprint:", StringComparison.Ordinal) && output.Text.Contains(receiptPath, StringComparison.OrdinalIgnoreCase),
+                    "L'Output di compilazione non espone fingerprint e percorso artefatto.");
 
                 int helperReference = editor.Text.IndexOf("helper", StringComparison.Ordinal);
                 editor.Select(helperReference + 3, 0);
@@ -2654,6 +2808,32 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 Require(editor.SelectedText == "helper" && editor.Text.Contains("helper()"),
                     "F12 non ha aperto la definizione presente nell'altro documento.");
+
+                editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    editor.SelectedText.Contains("int value"), 4000,
+                    "Il runtime workspace non raggiunge il breakpoint nella funzione dell'altro file.");
+                ListView multiFileCallStack = FindControl<ListView>(form, "callStackListView");
+                Require(multiFileCallStack.Items.Count == 2 &&
+                        multiFileCallStack.Items[0].SubItems[1].Text == "helper()" &&
+                        multiFileCallStack.Items[1].SubItems[1].Text == "main()",
+                    "Il debug multi-file non mostra funzione esterna e chiamante nel Call Stack.");
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarStepOutButton").PerformClick();
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    FindControl<RichTextBox>(form, "richTextBoxMainEditor").SelectedText.Contains("ret value"), 4000,
+                    "Step Out non torna al chiamante nel file principale del workspace.");
+                Require(string.Equals(GetPrivateField<DocumentSession>(form, "documentSession").CurrentPath,
+                        mainPath, StringComparison.OrdinalIgnoreCase),
+                    "La pausa nel chiamante non ha attivato il documento principale.");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() => !FindToolbarButton(form, "toolbarStopButton").Enabled, 4000,
+                    "Il runtime multi-file non termina dopo Continua.");
+                Require(output.Text.Contains("Valore restituito: 1", StringComparison.Ordinal),
+                    "La chiamata runtime tra file non restituisce il valore previsto. Output: " + output.Text);
+                InvokePrivate(form, "clearBreakpoints");
 
                 FindMenuItem(form, "workspaceSearchMenuItem").PerformClick();
                 TextBox searchText = FindControl<TextBox>(form, "workspaceSearchTextBox");
@@ -2737,7 +2917,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }));
                 FindMenuItem(form, "goToFileMenuItem").PerformClick();
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
-                Require(editor.Text.Contains("ret helper()"), "Vai a file non ha aperto il documento scelto.");
+                Require(editor.Text.Contains("int value << helper()"), "Vai a file non ha aperto il documento scelto.");
 
                 SetPrivateField(form, "showNavigationDialog", new Func<NavigationForm, DialogResult>(dialog =>
                 {
@@ -2766,7 +2946,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }));
                 FindMenuItem(form, "findReferencesMenuItem").PerformClick();
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
-                Require(editor.SelectedText == "helper" && editor.Text.Contains("ret helper()"),
+                Require(editor.SelectedText == "helper" && editor.Text.Contains("int value << helper()"),
                     "Trova riferimenti non naviga all'utilizzo selezionato.");
 
                 SetPrivateField(form, "showNavigationDialog", new Func<NavigationForm, DialogResult>(dialog =>
@@ -2874,6 +3054,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     5000,
                     "Il drop della cartella non apre e aggiorna il workspace.");
                 FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+                InvokePrivate(form, "createUntitledDocument");
                 Console.WriteLine("PASS workspace, navigazione, recenti e drag-and-drop di file/cartelle");
             }
             finally
@@ -3047,10 +3228,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
         private static void AssertProgramExecution(MainForm form, RichTextBox editor)
         {
             editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+            InvokePrivate(form, "clearBreakpoints");
+            ToolStripStatusLabel debugStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
+                .Items["statusDebugLabel"];
+            Func<bool> debuggerIsIdle = () => debugStatus.Text == "MODIFICA" &&
+                FindToolbarButton(form, "toolbarRunButton").Enabled &&
+                !FindToolbarButton(form, "toolbarStopButton").Enabled;
             editor.Text = "main() out int\n{\n    int value << 2;\n    value + 3 >> Console;\n    ret value;\n}";
             PumpMessages(240);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
-            PumpMessages(500);
+            PumpUntil(debuggerIsIdle, 4000, "La prima esecuzione non torna allo stato Modifica.");
             RichTextBox output = FindControl<RichTextBox>(form, "richTextBoxOutput");
             TabControl tabs = FindControl<TabControl>(form, "tabControlBottom");
             Require(output.Text.Contains("5"), "L'output runtime non contiene il valore atteso.");
@@ -3061,51 +3248,172 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(tabs.SelectedTab.Name == "tabPageOutput", "La palette Output non viene selezionata durante Run.");
             Require(FindMenuItem(form, "runProgramMenuItem").Enabled, "Run non viene riabilitato al termine.");
 
-            editor.Text = "main() out int\n{\n    int value << 2;\n    value << value + 1;\n    ret value;\n}";
+            editor.Text = "main() out int\n{\n    int value << 2;\n    int[2] values;\n    values[0] << value;\n    value << value + 1;\n    ret value;\n}";
             PumpMessages(180);
             RichTextBox gutter = FindControl<RichTextBox>(form, "richTextBoxLineNumbers");
-            editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+            editor.Select(editor.GetFirstCharIndexFromLine(5), 0);
             FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
-            Require(gutter.Text.Contains("● 4"), "Il gutter non mostra il breakpoint attivo sulla riga 4.");
+            Require(gutter.Text.Contains("● 6"), "Il gutter non mostra il breakpoint attivo sulla riga 6.");
+            Require((int)editor.GetType().GetProperty("BreakpointLineCount").GetValue(editor) == 1,
+                "La riga con breakpoint non espone l'evidenziazione persistente nell'editor.");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
             PumpMessages(400);
-            Require(output.Text.Contains("Breakpoint raggiunto: riga 4"), "Il runtime non si sospende sul breakpoint.");
+            Require(output.Text.Contains("Breakpoint raggiunto: riga 6"), "Il runtime non si sospende sul breakpoint.");
             Require(FindMenuItem(form, "runProgramMenuItem").Enabled &&
                     FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"),
                 "F5 non passa allo stato Continua durante la pausa.");
             Require(editor.SelectedText.Contains("value << value + 1"),
                 "La pausa non evidenzia lo statement associato al breakpoint.");
+            Require((int)editor.GetType().GetProperty("DebugExecutionLine").GetValue(editor) == 5,
+                "La riga sospesa non espone l'evidenziazione gialla del debugger.");
+            Require(debugStatus.Text.Contains("DEBUG IN PAUSA") && form.Text.Contains("DEBUG IN PAUSA"),
+                "Lo stato di debug in pausa non è evidente nella barra di stato e nel titolo.");
+            Require(editor.ReadOnly && !FindControl<TabControl>(form, "documentTabs").Enabled &&
+                    !FindMenuItem(form, "saveMenuItem").Enabled && !FindToolbarButton(form, "toolbarSaveButton").Enabled,
+                "Durante il debug restano attivi controlli che possono modificare sorgente o documento.");
+            TreeView variables = FindControl<TreeView>(form, "treeViewVariables");
+            tabs.SelectedTab = FindControl<TabPage>(form, "tabPageVariables");
+            TreeNode localGroup = variables.Nodes["locals"];
+            TreeNode valueVariable = variables.Nodes.Find("value", true).FirstOrDefault();
+            TreeNode valuesVariable = variables.Nodes.Find("values", true).FirstOrDefault();
+            Require(localGroup != null && valueVariable != null && valueVariable.Text.Contains("int = 2") &&
+                    valuesVariable != null && valuesVariable.Text.Contains("int[] = [2]") &&
+                    valuesVariable.Nodes.Count == 2 && valuesVariable.Nodes[0].Text.Contains("int = 2"),
+                "La palette Variabili non mostra valori, tipi dichiarati o elementi array espandibili.");
+            ListView callStack = FindControl<ListView>(form, "callStackListView");
+            tabs.SelectedTab = FindControl<TabPage>(form, "tabPageCallStack");
+            Require(callStack.Items.Count == 1 && callStack.Items[0].SubItems[0].Text.Contains("0") &&
+                    callStack.Items[0].SubItems[1].Text == "main()" &&
+                    callStack.Items[0].SubItems[2].Text.Contains("riga 6"),
+                "La palette Call Stack non mostra il frame corrente con funzione e posizione.");
+            callStack.Items[0].Selected = true;
+            InvokePrivate(form, "navigateToSelectedCallStackFrame");
+            Require(editor.SelectedText.Contains("value << value + 1"),
+                "La navigazione dal Call Stack non raggiunge l'istruzione corrente del frame selezionato.");
+            var watchInput = FindControl<TextBox>(form, "watchExpressionTextBox");
+            var watchRows = FindControl<ListView>(form, "watchListView");
+            tabs.SelectedTab = FindControl<TabPage>(form, "tabPageWatch");
+            watchInput.Text = "value";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            Require(watchRows.Items.Count == 1 && watchRows.Items[0].SubItems[2].Text == "2",
+                "Watch non mostra il valore alla pausa.");
+            watchInput.Text = "value";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            Require(watchRows.Items.Count == 1, "Watch duplica una variabile già presente.");
+            watchInput.Text = "values[0]";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            watchInput.Text = "values[1]";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            Require(watchRows.Items.Count == 3 && watchRows.Items[1].SubItems[2].Text == "2" &&
+                    watchRows.Items[2].SubItems[2].Text == "0",
+                "Watch non risolve gli elementi dell'array nello snapshot della pausa.");
+            watchInput.Text = "value + values[0]";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            watchInput.Text = "value << 99";
+            FindControl<Button>(form, "watchAddButton").PerformClick();
+            Require(watchRows.Items.Count == 5 && watchRows.Items[3].SubItems[1].Text == "int" &&
+                    watchRows.Items[3].SubItems[2].Text == "4" &&
+                    watchRows.Items[4].SubItems[3].Text.Contains("effetti collaterali"),
+                "Watch non calcola le espressioni pure o non rifiuta un'assegnazione.");
+            FindToolbarButton(form, "toolbarStepOverButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                editor.SelectedText.Contains("ret value"), 4000,
+                "F10 non avanza di una singola istruzione fino alla riga successiva.");
+            Require(watchRows.Items[0].SubItems[2].Text == "3" && watchRows.Items[1].SubItems[2].Text == "2",
+                "Watch non aggiorna variabile ed elemento array dopo il passo successivo.");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
-            PumpMessages(400);
+            PumpUntil(debuggerIsIdle, 4000, "Continua non torna allo stato Modifica.");
             Require(output.Text.Contains("Valore restituito: 3") && output.Text.Contains("Esecuzione completata"),
-                "Continua non completa l'esecuzione sospesa.");
-            ClickGutterLine(gutter, 4);
-            Require(!gutter.Text.Contains("● 4"), "Il breakpoint non viene rimosso dal gutter.");
+                "Continua non completa l'esecuzione sospesa. Output: " + output.Text);
+            Require((int)editor.GetType().GetProperty("DebugExecutionLine").GetValue(editor) == -1,
+                "L'evidenziazione della riga sospesa resta visibile dopo Continua.");
+            Require(debugStatus.Text == "MODIFICA" && !editor.ReadOnly && FindControl<TabControl>(form, "documentTabs").Enabled,
+                "L'interfaccia non torna allo stato di modifica al termine del debug: stato=" + debugStatus.Text +
+                ", readonly=" + editor.ReadOnly + ", schede=" + FindControl<TabControl>(form, "documentTabs").Enabled + ".");
+            Require(watchRows.Items[0].SubItems[2].Text == "—", "Watch conserva valori dopo fine debug.");
+            Require(variables.Nodes.Count == 0,
+                "La palette Variabili conserva valori dopo la fine del debug.");
+            Require(callStack.Items.Count == 0,
+                "La palette Call Stack conserva frame dopo la fine del debug.");
+            foreach (ListViewItem row in watchRows.Items) row.Selected = true;
+            FindControl<Button>(form, "watchRemoveButton").PerformClick();
+            Require(watchRows.Items.Count == 0, "Watch non rimuove la selezione.");
+            ClickGutterLine(gutter, 6);
+            Require(!gutter.Text.Contains("● 6"), "Il breakpoint non viene rimosso dal gutter.");
+
+            editor.Text = "helper(int seed) out int\n{\nint localValue << seed;\nlocalValue++;\nret localValue;\n}\nmain() out int\n{\nint callerValue << 40;\nint result << helper(2);\nret result;\n}";
+            PumpMessages(180);
+            editor.Select(editor.GetFirstCharIndexFromLine(9), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"), 4000,
+                "Il debug non raggiunge la chiamata da usare per Step Into.");
+            Require(FindMenuItem(form, "stepIntoMenuItem").Enabled &&
+                    FindToolbarButton(form, "toolbarStepIntoButton").Enabled,
+                "Step Into non è disponibile durante la pausa.");
+            FindToolbarButton(form, "toolbarStepIntoButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                editor.SelectedText.Contains("int localValue"), 4000,
+                "F11 non entra nella prima istruzione della funzione chiamata.");
+            Require(callStack.Items.Count == 2 && callStack.Items[0].SubItems[1].Text == "helper()" &&
+                    callStack.Items[1].SubItems[1].Text == "main()",
+                "Step Into non aggiorna il Call Stack con funzione chiamata e chiamante.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(debuggerIsIdle, 4000, "Il debug non termina dopo Step Into e Continua.");
+            InvokePrivate(form, "clearBreakpoints");
+
+            editor.Text = "helper(int seed) out int\n{\nint localValue << seed;\nlocalValue++;\nret localValue;\n}\nmain() out int\n{\nint callerValue << 40;\nint result << helper(2);\nret result;\n}";
+            PumpMessages(180);
+            editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"), 4000,
+                "Il debug annidato non raggiunge il breakpoint nella funzione chiamata.");
+            Require(callStack.Items.Count == 2 && callStack.Items[0].SubItems[1].Text == "helper()" &&
+                    callStack.Items[1].SubItems[1].Text == "main()",
+                "Il Call Stack non ordina frame corrente e chiamante.");
+            callStack.Items[1].Selected = true;
+            PumpMessages(60);
+            TreeNode callerVariable = variables.Nodes.Find("callerValue", true).FirstOrDefault();
+            Require(callerVariable != null && callerVariable.Text.Contains("int = 40"),
+                "La selezione del frame chiamante non aggiorna la palette Variabili al relativo scope.");
+            Require(variables.Nodes.Find("localValue", true).Length == 0,
+                "La palette Variabili mescola lo scope corrente con quello del chiamante selezionato.");
+            InvokePrivate(form, "navigateToSelectedCallStackFrame");
+            Require(editor.SelectedText.Contains("helper"),
+                "La navigazione al frame chiamante non raggiunge il punto di chiamata. Selezione: '" +
+                editor.SelectedText + "'.");
+            FindToolbarButton(form, "toolbarStepOutButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                editor.SelectedText.Contains("ret result"), 4000,
+                "Shift+F11 non torna alla prima istruzione del chiamante.");
+            Require(callStack.Items.Count == 1 && callStack.Items[0].SubItems[1].Text == "main()",
+                "Esci dalla funzione non aggiorna il Call Stack al chiamante.");
+            Require(variables.Nodes.Find("result", true).FirstOrDefault()?.Text.Contains("int = 3") == true,
+                "Esci dalla funzione non espone lo stato aggiornato del chiamante.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(debuggerIsIdle, 4000, "Il debug annidato non termina dopo Esci dalla funzione e Continua.");
+            InvokePrivate(form, "clearBreakpoints");
 
             editor.Text = "main() out void { while(true) { } }";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
             Require(FindToolbarButton(form, "toolbarStopButton").Enabled, "Stop non viene abilitato durante l'esecuzione.");
             FindToolbarButton(form, "toolbarStopButton").PerformClick();
-            PumpMessages(300);
+            PumpUntil(debuggerIsIdle, 4000, "Run non viene riabilitato dopo Stop.");
             Require(output.Text.Contains("Esecuzione arrestata"), "Stop non arresta cooperativamente il runtime.");
-            Require(FindMenuItem(form, "runProgramMenuItem").Enabled, "Run non viene riabilitato dopo Stop.");
 
             SetPrivateField(form, "requestRuntimeInput", new Func<string>(() => "41"));
             editor.Text = "main() out int { string text << readLine(); print(text); ret toInt(text) + 1; }";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
-            PumpMessages(400);
+            PumpUntil(debuggerIsIdle, 4000, "L'esecuzione con input non torna allo stato Modifica.");
             Require(output.Text.Contains("41") && output.Text.Contains("Valore restituito: 42"),
                 "Input e funzioni standard non attraversano correttamente la UI.");
-            PumpMessages(300);
-            Require(FindMenuItem(form, "runProgramMenuItem").Enabled,
-                "Run non viene riabilitato dopo l'uso dell'input standard.");
-
             editor.Text = "fail() out int\n{\n    int zero << 0;\n    ret 10 / zero;\n}\nmiddle() out int\n{\n    ret fail();\n}\nmain() out int\n{\n    ret middle();\n}";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
-            PumpMessages(800);
+            PumpUntil(debuggerIsIdle, 4000, "L'errore runtime non chiude la sessione di debug.");
             Require(output.Text.Contains("DDF404") && output.Text.Contains("Stack chiamate DDF:"),
                 "L'errore runtime non mostra diagnostica e intestazione dello stack DDF. Output: " + output.Text);
             Require(output.Text.Contains("in fail()") && output.Text.Contains("in middle()") && output.Text.Contains("in main()"),
@@ -3120,12 +3428,162 @@ namespace DDFLanguageEditor.EditorSmokeTests
             InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
             Require(editor.SelectedText == "fail",
                 "Il doppio clic su un frame runtime non raggiunge il relativo punto di chiamata. Selezione: '" + editor.SelectedText + "'.");
-            Console.WriteLine("PASS interprete Run/Stop, breakpoint, pausa/continua, stack navigabile, input standard e palette Output");
+            Require(FindMenuItem(form, "newMenuItem").Enabled,
+                "Il debugger non riabilita i comandi documento dopo un errore runtime.");
+            FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+            FindMenuItem(form, "newMenuItem").PerformClick();
+            var untitledEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+            untitledEditor.Text = "main() out int\n{\nint value << 1;\nvalue++;\nret value;\n}";
+            PumpMessages(200);
+            untitledEditor.Select(untitledEditor.GetFirstCharIndexFromLine(3), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            Require(FindControl<RichTextBox>(form, "richTextBoxLineNumbers").Text.Contains("● 4"),
+                "Il breakpoint della scheda non salvata non viene registrato nel gutter.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"),
+                4000, "Il debug della scheda non salvata ignora il breakpoint. Output: " + output.Text);
+            Require(untitledEditor.SelectedText.Contains("value++"), "La pausa non torna al buffer senza percorso.");
+            Require(!FindMenuItem(form, "newMenuItem").Enabled && !FindControl<TabControl>(form, "documentTabs").Enabled,
+                "Durante la pausa è ancora possibile cambiare il documento in esecuzione.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(debuggerIsIdle, 4000, "Il documento non salvato non completa il debug.");
+            Require(output.Text.Contains("Valore restituito: 2"),
+                "Il documento non salvato non completa correttamente. Output: " + output.Text);
+
+            string workspaceRoot = Path.Combine(Path.GetTempPath(), "ddf-debug-workspace-" + Guid.NewGuid().ToString("N"));
+            string externalRoot = Path.Combine(Path.GetTempPath(), "ddf-debug-external-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(workspaceRoot);
+            Directory.CreateDirectory(externalRoot);
+            try
+            {
+                File.WriteAllText(Path.Combine(workspaceRoot, "main.ddf"),
+                    "main() out int\n{\nint result << helper(98);\nret result;\n}");
+                string unusedPath = Path.Combine(workspaceRoot, "unused.ddf");
+                File.WriteAllText(unusedPath,
+                    "helper(int seed) out int\n{\nint localValue << seed;\nlocalValue++;\nret localValue;\n}\n" +
+                    "unused() out int\n{\nint forgotten << 1;\nforgotten++;\nret forgotten;\n}");
+                string externalPath = Path.Combine(externalRoot, "watch-smoke-test.ddf");
+                File.WriteAllText(externalPath,
+                    "main() out int\n{\nint watched << 10;\nwatched++;\nret watched;\n}");
+                Require((bool)InvokePrivate(form, "openWorkspace", workspaceRoot),
+                    "Il workspace della regressione debug non viene aperto.");
+                PumpUntil(() => GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")?.RootPath ==
+                        Path.GetFullPath(workspaceRoot) &&
+                        GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex").Documents.Count == 2,
+                    4000, "Il workspace della regressione debug non viene indicizzato.");
+                string savedWatchSettings = null;
+                SetPrivateField(form, "saveWatchExpressionsSetting", new Action<string>(value => savedWatchSettings = value));
+                tabs.SelectedTab = FindControl<TabPage>(form, "tabPageWatch");
+                watchInput.Text = "forgotten + 1";
+                FindControl<Button>(form, "watchAddButton").PerformClick();
+                Require(!string.IsNullOrWhiteSpace(savedWatchSettings) &&
+                        WatchExpressionSettings.Parse(savedWatchSettings).GetExpressions(workspaceRoot)
+                            .SequenceEqual(new[] { "forgotten + 1" }),
+                    "La Watch non salva le espressioni nel profilo del progetto attivo. Progetto=" +
+                    GetPrivateField<string>(form, "activeWatchProjectPath") + ", righe=" + watchRows.Items.Count +
+                    ", dati=" + (savedWatchSettings ?? "<null>"));
+                InvokePrivate(form, "switchWatchProject", (object)null);
+                Require(watchRows.Items.Count == 0, "La Watch conserva le espressioni passando fuori dal progetto.");
+                InvokePrivate(form, "switchWatchProject", workspaceRoot);
+                Require(watchRows.Items.Count == 1 && watchRows.Items[0].Text == "forgotten + 1",
+                    "La Watch non ripristina le espressioni tornando al progetto.");
+                Require((bool)InvokePrivate(form, "openDocument", unusedPath),
+                    "Il file workspace privo di main non viene aperto.");
+                RichTextBox unusedEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                PumpMessages(200);
+                unusedEditor.Select(unusedEditor.GetFirstCharIndexFromLine(9), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(debuggerIsIdle, 4000,
+                    "Il breakpoint dimenticato nel codice non raggiungibile ha sospeso il debug.");
+                Require(output.Text.Contains("Valore restituito: 99") &&
+                        !output.Text.Contains("Breakpoint raggiunto: riga 4"),
+                    "Il debug del workspace non parte dall'unico main o considera breakpoint in codice non eseguito. Output: " +
+                    output.Text);
+                InvokePrivate(form, "clearBreakpoints");
+                string mainPath = Path.Combine(workspaceRoot, "main.ddf");
+                Require((bool)InvokePrivate(form, "openDocument", mainPath),
+                    "Il file main del workspace non viene aperto per la prova Step Into multifile.");
+                RichTextBox mainEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                mainEditor.Select(mainEditor.GetFirstCharIndexFromLine(2), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Session.CurrentPath == mainPath,
+                    4000, "Il debug multifile non raggiunge la chiamata nel file main.");
+                Require(mainEditor.SelectedText.Contains("helper(98)"),
+                    "La pausa iniziale non evidenzia la chiamata nel file main.");
+                Require(InvokeProcessCmdKey(form, Keys.F11),
+                    "La scorciatoia F11 non viene intercettata durante la pausa multifile.");
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    string.Equals(GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Session.CurrentPath,
+                        unusedPath, StringComparison.OrdinalIgnoreCase),
+                    4000, "Step Into non attiva automaticamente la scheda della funzione esterna.");
+                RichTextBox helperEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                TabControl documentTabs = FindControl<TabControl>(form, "documentTabs");
+                Require(string.Equals(documentTabs.SelectedTab?.Tag as string,
+                        GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Id,
+                        StringComparison.Ordinal),
+                    "La linguetta visibile non segue il documento attivato dal debugger.");
+                Require(helperEditor.SelectedText.Contains("int localValue"),
+                    "Step Into non evidenzia la prima istruzione della funzione esterna.");
+                Require(InvokeProcessCmdKey(form, Keys.F10),
+                    "La scorciatoia F10 non viene intercettata nella funzione esterna.");
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    helperEditor.SelectedText.Contains("localValue++"), 4000,
+                    "Step Over non percorre istruzione per istruzione la funzione esterna.");
+                Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F11),
+                    "La scorciatoia Shift+F11 non viene intercettata nella funzione esterna.");
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
+                    string.Equals(GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Session.CurrentPath,
+                        mainPath, StringComparison.OrdinalIgnoreCase),
+                    4000, "Step Out non riattiva automaticamente la scheda del chiamante.");
+                Require(FindControl<RichTextBox>(form, "richTextBoxMainEditor").SelectedText.Contains("ret result"),
+                    "Step Out non evidenzia l'istruzione successiva nel chiamante.");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(debuggerIsIdle, 4000, "Il debug multifile non termina dopo il ritorno al chiamante.");
+                InvokePrivate(form, "clearBreakpoints");
+                Require((bool)InvokePrivate(form, "openDocument", externalPath),
+                    "Il documento esterno al workspace non viene aperto.");
+                RichTextBox externalEditor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                PumpMessages(200);
+                externalEditor.Select(externalEditor.GetFirstCharIndexFromLine(3), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                OpenDocumentBuffer externalBuffer = GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument;
+                Require(externalBuffer != null && externalBuffer.Session.HasPath &&
+                        string.Equals(externalBuffer.Session.CurrentPath, externalPath, StringComparison.OrdinalIgnoreCase) &&
+                        externalBuffer.BreakpointLines.Contains(4) && !externalBuffer.UnboundBreakpointLines.Contains(4),
+                    "Il breakpoint del documento esterno non viene associato al buffer attivo.");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") ||
+                    !FindToolbarButton(form, "toolbarStopButton").Enabled,
+                    4000, "Il debug del documento esterno non raggiunge né la pausa né il completamento.");
+                Require(FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"),
+                    "Con un workspace aperto il debug ignora il breakpoint del documento esterno attivo. Output: " + output.Text);
+                Require(externalEditor.SelectedText.Contains("watched++"),
+                    "Con un workspace aperto il debugger seleziona l'entry point del progetto invece del documento esterno.");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(debuggerIsIdle, 4000, "Il documento esterno non completa il debug.");
+                Require(output.Text.Contains("Valore restituito: 11") && !output.Text.Contains("Valore restituito: 99"),
+                    "F5 ha eseguito il workspace invece del documento esterno attivo.");
+                FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
+                PumpMessages(240);
+            }
+            finally
+            {
+                if (Directory.Exists(workspaceRoot)) Directory.Delete(workspaceRoot, true);
+                if (Directory.Exists(externalRoot)) Directory.Delete(externalRoot, true);
+            }
+            Console.WriteLine("PASS interprete e debug: file salvati, buffer senza percorso, file esterni e breakpoint isolati per documento");
         }
 
         private static void AssertMainToolbar(MainForm form)
         {
-            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
+            Require(FindToolbarButton(form, "toolbarLanguageManagerButton").Text !=
+                FindToolbarButton(form, "toolbarSettingsButton").Text,
+                "Gestione pacchetti e Impostazioni usano la stessa icona.");
+            ToolStripPanel toolbarPanel = FindControl<ToolStripPanel>(form, "toolStripPanelMain");
+            ToolStrip[] toolbars = FindToolbars(form).ToArray();
             string[] expected =
             {
                 "toolbarNewButton", "toolbarOpenButton", "toolbarSaveButton", "toolbarSaveAllButton", "toolbarCloseDocumentButton",
@@ -3144,7 +3602,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarHighlightCurrentLineButton",
                 "toolbarShowWhitespaceButton", "toolbarShowIndentGuidesButton", "toolbarWordWrapButton",
                 "toolbarOverviewButton",
-                "toolbarBreakpointButton", "toolbarRunButton", "toolbarStopButton"
+                "toolbarValidateButton", "toolbarBuildButton", "toolbarRunWithoutDebugButton",
+                "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton",
+                "toolbarBreakpointButton", "toolbarRunButton", "toolbarStepIntoButton", "toolbarStepOverButton", "toolbarStepOutButton", "toolbarStopButton"
             };
             foreach (string name in expected)
             {
@@ -3156,9 +3616,38 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     Require(ColorDistance(button.ForeColor, button.BackColor) >= 80,
                         "L'icona toolbar non ha contrasto sufficiente: " + name);
             }
-            Require(toolbar.Items.OfType<ToolStripButton>().Count() == expected.Length,
-                "Numero inatteso di pulsanti nella toolbar principale.");
-            Require(toolbar.Top >= form.MainMenuStrip.Bottom, "La toolbar non è posizionata sotto il menu principale.");
+            Require(toolbars.SelectMany(item => item.Items.OfType<ToolStripButton>()).Count() == expected.Length,
+                "Numero inatteso di pulsanti nelle barre degli strumenti.");
+            Require(toolbars.Length == 7 && toolbars.All(item => item.GripStyle == ToolStripGripStyle.Visible),
+                "Le sette barre per categoria non sono indipendenti e trascinabili.");
+            Require(toolbarPanel.Top >= form.MainMenuStrip.Bottom,
+                "Le barre degli strumenti non sono posizionate sotto il menu principale: panel=" +
+                toolbarPanel.Bounds + ", menu=" + form.MainMenuStrip.Bounds + ".");
+            Require(toolbarPanel.Height <= 110,
+                "La disposizione iniziale delle barre occupa troppo spazio verticale: " + toolbarPanel.Height + " px; " +
+                string.Join(", ", toolbars.Select(item => item.Name + "=" + item.Bounds)) + ".");
+            ToolStripMenuItem toolbarMenu = FindMenuItem(form, "toolbarsMenuItem");
+            Require(toolbarMenu.DropDownItems.OfType<ToolStripMenuItem>().Count() == 7,
+                "Visualizza non espone tutte le categorie di barre degli strumenti.");
+            string persistedToolbarLayout = null;
+            SetPrivateField(form, "saveToolbarLayoutSetting", new Action<string>(value => persistedToolbarLayout = value));
+            ToolStripMenuItem codeVisibility = FindMenuItem(form, "showToolbarCodeMenuItem");
+            ToolStrip codeToolbar = FindControl<ToolStrip>(form, "toolStripCode");
+            codeVisibility.PerformClick();
+            Require(!codeToolbar.Visible && persistedToolbarLayout != null && persistedToolbarLayout.Contains("code.visible=False"),
+                "La barra Codice non viene nascosta o la preferenza non viene salvata.");
+            codeVisibility.PerformClick();
+            Require(codeToolbar.Visible && persistedToolbarLayout.Contains("code.visible=True"),
+                "La barra Codice non può essere riattivata dal menu Visualizza.");
+            Point originalToolbarLocation = codeToolbar.Location;
+            codeToolbar.Location = new Point(originalToolbarLocation.X + 6, originalToolbarLocation.Y);
+            InvokePrivate(form, "persistToolbarLayout");
+            Require(persistedToolbarLayout.Contains("code.x=" + codeToolbar.Left) &&
+                    persistedToolbarLayout.Contains("code.y=" + codeToolbar.Top) &&
+                    persistedToolbarLayout.Contains("code.row=") &&
+                    persistedToolbarLayout.Contains("code.order="),
+                "La posizione corrente della barra Codice non viene serializzata.");
+            codeToolbar.Location = originalToolbarLocation;
             using (Bitmap icon = form.Icon.ToBitmap())
             {
                 bool hasNavy = false, hasOrange = false;
@@ -3171,12 +3660,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS toolbar a icone con 44 comandi principali");
+            Console.WriteLine("PASS sette toolbar mobili per categoria con 52 comandi, posizione e visibilità persistenti");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
         {
             TabControl tabs = FindControl<TabControl>(form, "documentTabs");
+            ToolStripPanel toolbarPanel = FindControl<ToolStripPanel>(form, "toolStripPanelMain");
+            Point toolbarBottom = toolbarPanel.PointToScreen(new Point(0, toolbarPanel.ClientSize.Height));
+            Point tabsTop = tabs.PointToScreen(Point.Empty);
+            Require(tabs.Visible && tabsTop.Y >= toolbarBottom.Y,
+                "Le barre degli strumenti coprono le linguette dei documenti: barre=" +
+                toolbarPanel.Bounds + ", schede=" + tabs.Bounds + ".");
             Point tabsBottom = tabs.PointToScreen(new Point(0, tabs.ClientSize.Height));
             Point editorTop = editor.PointToScreen(Point.Empty);
             Require(editorTop.Y >= tabsBottom.Y,
@@ -3199,7 +3694,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             string[] lightControls =
             {
-                "toolStripMain", "breadcrumbPanel", "panelOutline", "navigationTabs", "workspaceTabPage", "outlineTabPage",
+                "toolStripPanelMain", "toolStripMain", "toolStripEdit", "toolStripCode", "toolStripNavigation",
+                "toolStripView", "toolStripProject", "toolStripDebug", "breadcrumbPanel", "panelOutline", "navigationTabs", "workspaceTabPage", "outlineTabPage",
                 "treeViewWorkspace", "treeViewOutline", "panelDiagnostics", "tabPageDiagnostics",
                 "tabPageOutput", "tabPageWorkspaceSearch", "workspaceSearchResultsListView",
                 "richTextBoxOutput", "listBoxDiagnostics", "buttonOutlinePin",
@@ -3415,6 +3911,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         !GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
                     "Ricarica da disco non sostituisce il buffer o non ripristina lo stato pulito.");
 
+                editor.Text = "main() out int {\n\tret 10;\n}";
+                File.WriteAllText(settingsSavePath, "main() out int {\r\n\tret 10;\r\n}");
+                int matchingDialogs = 0;
+                SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog =>
+                {
+                    matchingDialogs++;
+                    return DialogResult.Cancel;
+                }));
+                InvokeHandler(form, "externalChangeTimer_Tick", form, EventArgs.Empty);
+                Require(matchingDialogs == 0 && !GetPrivateField<DocumentSession>(form, "documentSession").IsDirty,
+                    "Un file uguale al buffer salvo le terminazioni di riga genera un falso conflitto esterno.");
+
                 editor.Text = "main() out int {\n\tret 7;\n}";
                 File.WriteAllText(settingsSavePath, "main() out int {\n\tret 8;\n}");
                 SetPrivateField(form, "showExternalChangeDialog", new Func<ExternalChangeForm, DialogResult>(dialog => DialogResult.No));
@@ -3589,11 +4097,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static ToolStripButton FindToolbarButton(Form form, string name)
         {
-            ToolStrip toolbar = FindControl<ToolStrip>(form, "toolStripMain");
-            ToolStripButton button = toolbar.Items.OfType<ToolStripButton>().FirstOrDefault(item => item.Name == name);
+            ToolStripButton button = FindToolbars(form).SelectMany(toolbar => toolbar.Items.OfType<ToolStripButton>())
+                .FirstOrDefault(item => item.Name == name);
             if (button == null) throw new InvalidOperationException("Pulsante toolbar non trovato: " + name);
             return button;
         }
+
+        private static IEnumerable<ToolStrip> FindToolbars(Form form) =>
+            form.Controls.Find("toolStripPanelMain", true).OfType<ToolStripPanel>()
+                .SelectMany(panel => panel.Controls.OfType<ToolStrip>());
 
         private static ToolStripMenuItem FindMenuItem(Form form, string name)
         {

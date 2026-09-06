@@ -1,0 +1,5 @@
+/// Funzione dimostrativa già visibile ai servizi IDE e al controllo tipi.
+doubleValue(int value) out int
+{
+    ret value * 2;
+}

@@ -10,11 +10,13 @@ namespace DDF___Program_Language_Editor
         private const string RecentWorkspacesSettingsFileName = "recent-workspaces.txt";
         private const string EditorSettingsFileName = "editor-settings.txt";
         private const string PaletteLayoutSettingsFileName = "palette-layout.txt";
+        private const string ToolbarLayoutSettingsFileName = "toolbar-layout.txt";
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
         private const string LanguagePackageSettingsFileName = "language-package.txt";
         private const string HotExitSnapshotFileName = "hot-exit.json";
         private const string WorkspaceSessionFileName = "workspace-session.json";
         private const string CrashRecoveryFileName = "crash-recovery.json";
+        private const string WatchExpressionsFileName = "watch-expressions.json";
 
         public static string LoadRecentFiles()
         {
@@ -80,6 +82,16 @@ namespace DDF___Program_Language_Editor
             Save(PaletteLayoutSettingsFileName, value);
         }
 
+        public static string LoadToolbarLayout()
+        {
+            return Load(ToolbarLayoutSettingsFileName);
+        }
+
+        public static void SaveToolbarLayout(string value)
+        {
+            Save(ToolbarLayoutSettingsFileName, value);
+        }
+
         public static string LoadShortcutSettings()
         {
             return Load(ShortcutSettingsFileName);
@@ -98,6 +110,12 @@ namespace DDF___Program_Language_Editor
         public static void SaveLanguagePackagePath(string value)
         {
             Save(LanguagePackageSettingsFileName, value ?? string.Empty);
+        }
+
+        public static string GetLanguagePackagesDirectory()
+        {
+            string localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return Path.Combine(localData, "DDF.Technology", "DDFLanguageEditor", "language-packages");
         }
 
         public static string LoadHotExitSnapshot()
@@ -146,6 +164,16 @@ namespace DDF___Program_Language_Editor
         {
             string path = GetSettingsPath(CrashRecoveryFileName);
             if (File.Exists(path)) File.Delete(path);
+        }
+
+        public static string LoadWatchExpressions()
+        {
+            return Load(WatchExpressionsFileName);
+        }
+
+        public static void SaveWatchExpressions(string value)
+        {
+            Save(WatchExpressionsFileName, value);
         }
 
         private static string Load(string fileName)

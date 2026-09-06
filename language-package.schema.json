@@ -38,13 +38,13 @@
     "sections": {
       "type": "object",
       "additionalProperties": false,
-      "required": [ "lexicon", "grammar", "types", "semantics", "formatting", "intellisense", "runtime", "build", "standardLibrary" ],
+      "required": [ "lexicon", "grammar", "types", "semantics", "formatting", "intellisense", "runtime", "build", "standardLibrary", "tests" ],
       "properties": {
         "lexicon": { "$ref": "#/$defs/path" }, "grammar": { "$ref": "#/$defs/path" },
         "types": { "$ref": "#/$defs/path" }, "semantics": { "$ref": "#/$defs/path" },
         "formatting": { "$ref": "#/$defs/path" }, "intellisense": { "$ref": "#/$defs/path" },
         "runtime": { "$ref": "#/$defs/path" }, "build": { "$ref": "#/$defs/path" },
-        "standardLibrary": { "$ref": "#/$defs/path" }
+        "standardLibrary": { "$ref": "#/$defs/path" }, "tests": { "$ref": "#/$defs/path" }
       }
     }
   },

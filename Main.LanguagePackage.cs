@@ -12,7 +12,12 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem loadLanguageArchiveMenuItem;
         private ToolStripMenuItem loadLanguageFolderMenuItem;
         private ToolStripMenuItem useEmbeddedLanguageMenuItem;
+        private ToolStripMenuItem manageLanguagePackagesMenuItem;
+        private ToolStripMenuItem validateLanguagePackageMenuItem;
+        private ToolStripMenuItem languagePlaygroundMenuItem;
         private ToolStripDropDownButton toolbarLanguageButton;
+        private LanguagePackageManagerForm languagePackageManagerForm;
+        private LanguagePlaygroundForm languagePlaygroundForm;
         private Action<string> saveLanguagePackagePathSetting;
         private IReadOnlyList<DdfLanguagePackageDiagnostic> languagePackageActivationDiagnostics =
             Array.Empty<DdfLanguagePackageDiagnostic>();
@@ -49,9 +54,28 @@ namespace DDF___Program_Language_Editor
                 Name = "useEmbeddedLanguageMenuItem"
             };
             useEmbeddedLanguageMenuItem.Click += useEmbeddedLanguageMenuItem_Click;
+            manageLanguagePackagesMenuItem = new ToolStripMenuItem("Gestisci pacchetti...")
+            {
+                Name = "manageLanguagePackagesMenuItem"
+            };
+            manageLanguagePackagesMenuItem.Click += manageLanguagePackagesMenuItem_Click;
+            validateLanguagePackageMenuItem = new ToolStripMenuItem("Convalida pacchetto attivo")
+            {
+                Name = "validateLanguagePackageMenuItem"
+            };
+            validateLanguagePackageMenuItem.Click += validateLanguagePackageMenuItem_Click;
+            languagePlaygroundMenuItem = new ToolStripMenuItem("Playground linguaggio...")
+            {
+                Name = "languagePlaygroundMenuItem"
+            };
+            languagePlaygroundMenuItem.Click += languagePlaygroundMenuItem_Click;
 
             languagePackageInfoMenuItem.Click -= languagePackageInfoMenuItem_Click;
             languagePackageInfoMenuItem.Text = "&Linguaggio";
+            languagePackageInfoMenuItem.DropDownItems.Add(manageLanguagePackagesMenuItem);
+            languagePackageInfoMenuItem.DropDownItems.Add(validateLanguagePackageMenuItem);
+            languagePackageInfoMenuItem.DropDownItems.Add(languagePlaygroundMenuItem);
+            languagePackageInfoMenuItem.DropDownItems.Add(new ToolStripSeparator());
             languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageArchiveMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageFolderMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(useEmbeddedLanguageMenuItem);
@@ -74,6 +98,10 @@ namespace DDF___Program_Language_Editor
                 Size = new System.Drawing.Size(38, 28),
                 Text = "\uE8F1"
             };
+            toolbarLanguageButton.DropDownItems.Add("Gestisci pacchetti...", null, manageLanguagePackagesMenuItem_Click);
+            toolbarLanguageButton.DropDownItems.Add("Convalida pacchetto attivo", null, validateLanguagePackageMenuItem_Click);
+            toolbarLanguageButton.DropDownItems.Add("Playground...", null, languagePlaygroundMenuItem_Click);
+            toolbarLanguageButton.DropDownItems.Add(new ToolStripSeparator());
             toolbarLanguageButton.DropDownItems.Add("Carica archivio .ddflang...", null, loadLanguageArchiveMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add("Carica da cartella...", null, loadLanguageFolderMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add("Ripristina incorporato", null, useEmbeddedLanguageMenuItem_Click);
@@ -150,6 +178,46 @@ namespace DDF___Program_Language_Editor
         {
             cancelBackgroundAnalysis();
             applyLanguagePackageResult(DdfLanguageCatalog.ActivateEmbedded(), string.Empty);
+        }
+
+        private void manageLanguagePackagesMenuItem_Click(object sender, EventArgs e)
+        {
+            if (languagePackageManagerForm == null || languagePackageManagerForm.IsDisposed)
+            {
+                var store = new DdfLanguagePackageStore(AppSettingsStore.GetLanguagePackagesDirectory());
+                languagePackageManagerForm = new LanguagePackageManagerForm(store,
+                    activateLanguagePackage,
+                    () => useEmbeddedLanguageMenuItem_Click(this, EventArgs.Empty),
+                    showLanguagePlayground);
+                languagePackageManagerForm.FormClosed += (closedSender, closedArgs) => languagePackageManagerForm = null;
+                languagePackageManagerForm.Show(this);
+                return;
+            }
+            languagePackageManagerForm.Activate();
+        }
+
+        private void validateLanguagePackageMenuItem_Click(object sender, EventArgs e)
+        {
+            DdfLanguagePackage active = DdfLanguageCatalog.DefaultPackage;
+            DdfLanguagePackageLoadResult result = active.Origin == DdfLanguagePackageOrigin.Embedded
+                ? DdfLanguagePackageLoader.LoadEmbeddedDefault()
+                : DdfLanguagePackageLoader.Load(active.Source);
+            string text = result.Success
+                ? "Struttura e test dichiarativi completati correttamente per " + active.Name + " " + active.PackageVersion + "."
+                : string.Join(Environment.NewLine, result.Diagnostics.Select(item => item.ToString()));
+            MessageBox.Show(this, text, "Convalida pacchetto linguaggio", MessageBoxButtons.OK,
+                result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+        }
+
+        private void languagePlaygroundMenuItem_Click(object sender, EventArgs e) =>
+            showLanguagePlayground(DdfLanguageCatalog.DefaultPackage);
+
+        private void showLanguagePlayground(DdfLanguagePackage package)
+        {
+            languagePlaygroundForm?.Close();
+            languagePlaygroundForm = new LanguagePlaygroundForm(package);
+            languagePlaygroundForm.FormClosed += (closedSender, closedArgs) => languagePlaygroundForm = null;
+            languagePlaygroundForm.Show(this);
         }
 
         private void activateLanguagePackage(string path)

@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.11.0 - 2026-09-06
+
+- La VM esegue ora un unico programma composto da tutti i sorgenti selezionati dal manifest, inclusi i buffer aperti modificati ma non salvati.
+- Funzioni, strutture e variabili globali sono risolte tra file: `main` può richiamare direttamente una funzione dichiarata in un altro modulo del progetto.
+- Breakpoint, Step Into/Over/Out, Call Stack, Watch, Variabili e diagnostiche runtime conservano documento e intervallo sorgente e navigano automaticamente tra le schede.
+- Lo switch del debugger forza ora anche l'aggiornamento visivo della linguetta mentre le schede sono protette; `F11`, `F10` e `Shift+F11` sono intercettati esplicitamente e percorrono istruzione per istruzione anche le funzioni esterne.
+- I breakpoint sono identificati da percorso e riga, evitando collisioni tra righe uguali di file differenti.
+- La build segnala dichiarazioni runtime duplicate con `DDFB010` e dipendenze globali in avanti o cicliche con `DDFB011`; l'ordine di inizializzazione è deterministico.
+- `@@'...'` resta una direttiva di libreria/capacità: i file del programma sono scelti esclusivamente da `sources` in `ddf-project.json`.
+- Aggiunti test Core e smoke WinForms end-to-end per chiamate, buffer non salvati, breakpoint, scorciatoie step, switch visibile e ritorno al chiamante tra file.
+
+## 0.10.1 - 2026-09-06
+
+- Il debugger aggiunge Entra nella funzione (`F11`): da una chiamata sospesa raggiunge la prima istruzione DDF eseguita nel nuovo frame; sulle altre istruzioni avanza al passo seguente.
+- Step Into aggiorna evidenziazione sorgente, Variabili, Watch e Call Stack e condivide gli stati sicuri di pausa, continuazione, arresto e fine esecuzione con Step Over e Step Out.
+- Il comando è disponibile dal menu Esegui e dalla barra mobile Esecuzione e debug, con shortcut configurabile e disabilitazione fuori dalla pausa.
+- I test Core e gli smoke WinForms coprono ingresso nella funzione, chiamante, proseguimento e coerenza dei comandi.
+
+## 0.10.0 - 2026-09-06
+
+- La singola icon bar è stata suddivisa in sette barre mobili per categoria (File, Modifica, Codice, Navigazione, Visualizzazione, Progetto/Linguaggio, Esecuzione/Debug); il menu Visualizza può mostrarle o nasconderle singolarmente e visibilità, ordine, riga e posizione persistono tra gli avvii anche con scaling DPI.
+- Il ripristino delle barre ricostruisce ora le righe in ordine deterministico invece di affidarsi all'ordine di inserimento del `ToolStripPanel`; uno smoke di riapertura verifica ordine personalizzato e barre nascoste.
+- L'area occupata da menu e barre mobili viene ora riservata nel layout dell'editor: le linguette dei documenti e le prime righe non possono più restare coperte, anche quando cambia la visibilità delle barre.
+- Il debugger espone ora Passo successivo (`F10`), aggiorna anche gli elementi array nella Watch a ogni pausa, evidenzia le righe con breakpoint prima dell'avvio e mostra uno stato visibile Esecuzione/Pausa bloccando i comandi che potrebbero modificare il sorgente durante la sessione.
+- La nuova palette Variabili elenca automaticamente parametri, locali e globali con tipo dichiarato e valore; array e strutture sono esplorabili ad albero tramite copie immutabili acquisite alla pausa.
+- La nuova palette Call Stack mostra il frame corrente e i chiamanti con funzione, riga, colonna e documento; doppio clic o Invio navigano al punto di chiamata e ogni frame conserva l'identità sorgente per la futura esecuzione multi-file.
+- Selezionando un frame del Call Stack, la palette Variabili mostra parametri e locali appartenenti esclusivamente a quello scope; il frame corrente indica l'istruzione sospesa e i chiamanti il relativo punto di chiamata.
+- Durante una pausa del debugger l'intera riga corrente è ora evidenziata in giallo senza alterare colori sintattici o testo; l'indicatore scompare con Continua, Stop e fine esecuzione.
+- F5 e Ctrl+F5 rispettano ora il documento attivo quando è esterno al workspace aperto o non è ancora salvato; i file appartenenti al workspace continuano invece a usare l'entry point del progetto.
+- Nei workspace privi di manifest, Debug e Run individuano ora l'unica `main` invece di usare la scheda attiva; più definizioni di `main` bloccano la build con `DDFB009` e i breakpoint appartenenti a sorgenti non eseguiti non sospendono la sessione.
+- Il debugger espone ora Esci dalla funzione (`Shift+F11`): completa il frame corrente, torna alla prima istruzione successiva nel chiamante e aggiorna riga, Call Stack, Variabili e Watch.
+- Il rilevamento delle modifiche esterne riconosce come uguali disco e buffer anche quando differiscono soltanto per terminazioni di riga; una scrittura esterna già coincidente viene sincronizzata senza mostrare un falso confronto.
+- La Watch valuta ora espressioni pure tramite lexer, precedenze e binding runtime del pacchetto attivo: aritmetica, confronti, logica, parentesi, campi e indici calcolati sono supportati senza invocare il runtime.
+- Assegnazioni, output, chiamate e operatori postfix vengono rifiutati prima della valutazione; lo snapshot acquisito alla pausa resta immutabile.
+- Le espressioni Watch vengono memorizzate separatamente per cartella progetto e ripristinate quando si riapre o si torna al workspace.
+
+- distinguere l'icona Gestione pacchetti da Impostazioni e allineare i comandi del gestore su due righe stabili;
+- correggere il pulsante Chiudi del Playground aperto in modalità non modale;
+- mantenere identità e breakpoint del buffer senza percorso durante il debug, senza sostituirli con quelli di un'altra scheda;
+- aggiungere smoke di chiusura reale, allineamento alla dimensione minima e pausa nei documenti non salvati.
+
+- aggiungere Espressioni di controllo (Watch) nella palette inferiore, con nomi, campi e indici costanti in sola lettura;
+- acquisire snapshot solo ai breakpoint e preservare campi/elementi senza riferimenti mutabili al runtime;
+- aggiornare i valori alle pause, indicare snapshot precedenti durante Continua e cancellare i valori a fine esecuzione;
+- escludere le variabili locali dei chiamanti dallo scope Watch e segnalare percorsi non disponibili;
+- mantenere la milestone aperta: espressioni pure, persistenza Watch e integrazione multi-file restano da completare.
+
+## 0.9.6.7 - 2026-09-05
+
+- aggiungere un archivio locale versionato per installare e aggiornare atomicamente pacchetti da cartella o `.ddflang`;
+- consentire selezione, convalida e disattivazione dei pacchetti dalla nuova finestra di gestione;
+- introdurre un playground isolato con token, albero sintattico, diagnostiche e anteprima del formatter;
+- aggiungere `tests.json` e il relativo schema, eseguendo il corpus dichiarativo prima di ogni attivazione;
+- rifiutare con `DDFT001` un pacchetto i cui test non passano, conservando il linguaggio già attivo;
+- documentare il confine fra personalizzazione dichiarativa, nuove operazioni del motore e plug-in autorizzati;
+- verificare un secondo linguaggio con keyword e operatori differenti senza ricompilare l'editor;
+- estendere la suite a 171 test Core, 63 comandi di menu e 49 pulsanti della toolbar;
+
+## 0.9.6.6 - 2026-09-05
+
+- separare il pacchetto linguaggio dal nuovo manifest workspace `ddf-project.json`;
+- selezionare sorgenti, entry point, dipendenze versionate, backend, output e opzioni senza modificare il pacchetto;
+- introdurre il contratto sostituibile `IDdfBuildBackend` e il primo backend `ddf-vm-ir-v1` basato sulla IR comune;
+- aggiungere i comandi Convalida, Compila, Avvia senza debug e Avvia debug anche nella icon bar;
+- usare opzionalmente i buffer aperti non salvati senza salvarli implicitamente;
+- produrre una ricevuta JSON deterministica con versione esatta, hash dei sorgenti e fingerprint della configurazione;
+- rendere navigabili dall'Output le diagnostiche di compilazione appartenenti a file diversi;
+- pubblicare `language-build.schema.json`, `ddf-project.schema.json`, documentazione e progetto di esempio;
+- verificare la pipeline con 168 test Core e smoke WinForms estesi ai 60 comandi di menu;
+
+## 0.9.6.5 - 2026-09-05
+
+- introdurre `DdfVirtualMachine` come consumer esclusivo della IR, lasciando parsing e lowering nella facciata di compatibilità;
+- tradurre gli operatori concreti in identificatori di operazione stabili durante il lowering, eliminando dalla VM i confronti con i simboli DDF;
+- definire un insieme chiuso di operazioni per valori, scope, chiamate, flusso, array, strutture e accesso host;
+- rendere entry point, limite predefinito, destinazione output e binding delle espressioni configurabili tramite `runtime.json`;
+- spostare nomi, firme, documentazione e binding delle funzioni standard in `standard-library.json`;
+- consentire soltanto binding host incorporati e validati, senza reflection, script o risoluzione di metodi dal JSON;
+- conservare cancellazione, limite istruzioni, coordinate sorgente, stack, breakpoint e snapshot immutabili dello stato runtime;
+- pubblicare gli schemi `language-runtime.schema.json` e `language-standard-library.schema.json`;
+- verificare esecuzione con un operatore di assegnazione rinominato nel pacchetto e con una funzione standard rinominata senza ricompilare il motore;
+
 ## 0.9.6.4 - 2026-09-05
 
 - trasformare `types.json` in un contratto dichiarativo validato per primitivi, conversioni, compatibilità, mutabilità, scope, firme, literal, numeri e indicizzazione;

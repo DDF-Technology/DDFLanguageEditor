@@ -34,6 +34,9 @@ conversioni, compatibilità, mutabilità, scope, firme, tipi dei literal e regol
 di indicizzazione.
 [`language-semantics.schema.json`](language-semantics.schema.json) descrive il
 collegamento fra produzioni grammaticali e operazioni semantiche sicure.
+[`language-runtime.schema.json`](language-runtime.schema.json) e
+[`language-standard-library.schema.json`](language-standard-library.schema.json)
+descrivono VM, mapping delle operazioni e funzioni host controllate.
 Il pacchetto DDF di riferimento è in
 [`language-packages/ddf`](language-packages/ddf).
 
@@ -111,10 +114,27 @@ piano sintattico-semantico costituisce il confine sicuro usato dal lowerer della
 rappresentazione intermedia `1.0`; il ponte dall'AST DDF legacy verrà eliminato
 gradualmente mentre il runtime generico acquisisce tutte le operazioni necessarie.
 
-Le sezioni ancora non migrate dichiarano adapter interni versionati che mantengono
-invariato il comportamento dei motori DDF correnti. Le successive versioni
-`0.9.6.x` sostituiranno questi adapter, una sezione alla volta, con regole
-dichiarative.
+`runtime.json` usa l'instruction set chiuso `ddf-ir-vm-1.0`. Dichiara entry point,
+limite istruzioni, destinazione output, operazioni VM richieste e la traduzione
+dei token unari, binari e postfix in ID stabili. Il lowerer risolve questa mappa;
+la VM non confronta mai la grafia concreta degli operatori. Operazioni mancanti,
+duplicate o non supportate causano il rifiuto atomico `DDFL12x`.
+
+`standard-library.json` dichiara nomi, tipi dei parametri, tipo restituito,
+documentazione e binding di ogni funzione standard. I binding ammessi sono un
+catalogo host chiuso (`host.output`, `host.input`, conversioni e lunghezza
+incorporate): non sono nomi di metodi e non attivano reflection. Tipi o binding
+non disponibili producono diagnostiche `DDFL13x`. Gli schemi completi sono
+`language-runtime.schema.json` e `language-standard-library.schema.json`.
+
+`build.json` usa l'adapter `ddf-build-v2` e dichiara backend consentiti e formato
+dell'artefatto. Il backend iniziale `ddf-vm-ir-v1` implementa il contratto
+`IDdfBuildBackend`: riceve sorgenti e IR senza dipendere dalla sintassi concreta.
+La configurazione del singolo programma non appartiene al pacchetto, ma al
+manifest separato `ddf-project.json`, descritto in [`PROJECT_BUILD.md`](PROJECT_BUILD.md).
+Un pacchetto può selezionare soltanto backend già supportati dal motore; non può
+fornire codice eseguibile attraverso il JSON. Lo schema è
+`language-build.schema.json`.
 
 Un pacchetto dati non carica assembly, script o nomi di tipi .NET. Il campo
 `adapter` deve corrispondere a un identificatore già supportato dall'applicazione:
@@ -216,6 +236,11 @@ del pacchetto, nei messaggi di attivazione e nel tooltip della barra di stato.
 
 ## Versionamento
 
+Per la direzione futura dei pacchetti come profili sintattici della piattaforma,
+la distinzione tra SDK host e plug-in e il backend .NET + Roslyn, vedere
+[ECOSYSTEM_ARCHITECTURE.md](ECOSYSTEM_ARCHITECTURE.md). I contratti descritti qui
+restano quelli attualmente implementati; le nuove capacità seguiranno la roadmap.
+
 - `schemaVersion` cambia quando cambia la forma dei documenti JSON;
 - `engineApi` dichiara il contratto richiesto all'applicazione;
 - `packageVersion` identifica la revisione del pacchetto;
@@ -231,7 +256,20 @@ cartella (non la cartella contenitore) in un normale ZIP e rinominare il file co
 estensione `.ddflang`. `manifest.json` deve quindi trovarsi alla radice
 dell'archivio.
 
-La selezione e installazione di pacchetti utente arriveranno nella `0.9.6.7`.
-Modificare oggi la copia DDF accanto all'eseguibile è utile per validare il
-contratto, ma soltanto le proprietà già gestite dagli adapter correnti producono
-un comportamento diverso.
+## Test dichiarativi e gestione dei pacchetti
+
+`tests.json` contiene casi eseguiti dal loader prima di ogni attivazione. Un caso
+può dichiarare sorgente, sequenza esatta dei token, codici diagnostici attesi,
+testo formattato e valore restituito dal runtime. Se una sola aspettativa fallisce,
+il pacchetto viene rifiutato atomicamente con diagnostica `DDFT001` e il linguaggio
+attivo resta invariato.
+
+`Help > Linguaggio > Gestisci pacchetti` installa o aggiorna in modo transazionale
+una cartella o un archivio `.ddflang` nel profilo locale, elenca le versioni valide,
+le convalida, le attiva oppure disattiva la selezione esterna tornando alla copia
+DDF incorporata. `Playground linguaggio` prova invece token, albero sintattico,
+diagnostiche e formatter senza modificare il documento aperto.
+
+La distinzione tra modifiche dichiarative, nuove operazioni del motore e plug-in
+nativi, insieme al progetto del futuro editor assistito, è descritta in
+`LANGUAGE_AUTHORING.md`.

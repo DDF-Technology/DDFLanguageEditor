@@ -230,7 +230,7 @@ namespace DDFLanguageEditor.Core
                         snippet));
                 }
 
-                foreach (DdfStandardFunction standard in DdfRuntimeCatalog.StandardFunctions)
+                foreach (DdfStandardFunction standard in language.StandardLibrary.Functions)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     candidates.Add(new DdfCompletionItem(

@@ -93,6 +93,12 @@ namespace DDF___Program_Language_Editor
                 target = richTextBoxOutput;
             else if (ReferenceEquals(tabs.SelectedTab, tabPageWorkspaceSearch))
                 target = workspaceSearchTextBox;
+            else if (ReferenceEquals(tabs.SelectedTab, tabPageVariables))
+                target = treeViewVariables;
+            else if (ReferenceEquals(tabs.SelectedTab, tabPageCallStack))
+                target = callStackListView;
+            else if (tabs.SelectedTab?.Name == "tabPageWatch")
+                target = watchExpressionTextBox;
 
             if (target?.CanFocus == true) target.Focus();
             else tabs.Focus();
@@ -101,6 +107,7 @@ namespace DDF___Program_Language_Editor
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            applyInitialToolbarPositions();
             if (paneFocusMessageFilterRegistered) return;
             Application.AddMessageFilter(this);
             paneFocusMessageFilterRegistered = true;

@@ -115,6 +115,7 @@ namespace DDF___Program_Language_Editor
         private void closeWorkspaceMenuItem_Click(object sender, EventArgs e)
         {
             cancelWorkspaceLoad();
+            switchWatchProject(null);
             workspaceIndex = null;
             treeViewWorkspace.Nodes.Clear();
             labelWorkspace.Text = "WORKSPACE — nessuna cartella";
@@ -196,6 +197,7 @@ namespace DDF___Program_Language_Editor
                 if (loaded.ContainsPath(document.Session.CurrentPath))
                     loaded = loaded.WithDocumentSource(document.Session.CurrentPath, document.Source);
             }
+            switchWatchProject(loaded.RootPath);
             workspaceIndex = loaded;
             workspaceLoadAppliedVersion = version;
             workspaceLoadAppliedLanguageRevision = languageRevision;

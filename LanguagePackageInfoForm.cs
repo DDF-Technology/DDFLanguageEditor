@@ -194,6 +194,11 @@ namespace DDF___Program_Language_Editor
             result.AppendLine("Origine: " + OriginText(package.Origin));
             result.AppendLine("Sorgente: " + package.Source);
             result.AppendLine("Estensioni: " + string.Join(", ", package.FileExtensions));
+            result.AppendLine("Runtime: " + package.Language.Runtime.InstructionSet +
+                "; entry point=" + package.Language.Runtime.EntryPoint +
+                "; limite=" + package.Language.Runtime.DefaultInstructionLimit);
+            result.AppendLine("Libreria standard: " + package.Language.StandardLibrary.Functions.Count +
+                " funzioni (" + string.Join(", ", package.Language.StandardLibrary.Functions.Select(item => item.Name)) + ")");
             result.AppendLine("Plug-in nativi:");
             if (package.NativeExtensions.Count == 0) result.AppendLine("Nessuno.");
             else

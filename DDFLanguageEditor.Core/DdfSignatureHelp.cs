@@ -122,7 +122,7 @@ namespace DDFLanguageEditor.Core
                 }
             }
 
-            if (DdfRuntimeCatalog.TryGetStandardFunction(activeCall.Name, out DdfStandardFunction standard))
+            if (language.StandardLibrary.TryGetFunction(activeCall.Name, out DdfStandardFunction standard))
             {
                 var parameters = standard.ParameterTypes
                     .Select(type => new DdfSignatureParameter(string.Empty, type))

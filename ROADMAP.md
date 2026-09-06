@@ -4,6 +4,8 @@ Questo documento guida lo sviluppo del progetto e viene aggiornato insieme al
 codice. Le attività completate vengono marcate, mentre cambiamenti di direzione
 e decisioni sul linguaggio vengono registrati nella sezione finale.
 
+Schema dell'ecosistema e stato dei componenti: [ECOSYSTEM_ARCHITECTURE.md](ECOSYSTEM_ARCHITECTURE.md).
+
 ## Obiettivo del progetto
 
 Costruire progressivamente un editor affidabile per il linguaggio sperimentale
@@ -16,7 +18,34 @@ DDF, mantenendo distinti tre livelli:
 Lo sviluppo del runtime è iniziato dopo la stabilizzazione della grammatica,
 del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 
+La direzione di prodotto comprende un editor incorporabile nelle applicazioni
+di terzi per automatizzarne funzionalità ed espanderne le potenzialità: accesso
+ai dati, calcoli matematici e logici, algoritmi su variabili personalizzate e
+procedure sugli oggetti dell'host. CAD e SCADA sono esempi di applicazioni possibili,
+non settori prioritari o percorsi di certificazione. L'applicazione standalone userà
+gli stessi componenti pubblici. Una flowchart dinamica affiancherà il codice
+per renderne comprensibile il controllo di flusso e, durante il debug, l'esecuzione.
+
+La modalità didattica è un'opzione trasversale sempre attivabile e disattivabile
+dall'utente nell'editor standalone e nel componente integrato. È indipendente dal
+profilo sintattico e dalla lingua; non cambia semantica, permessi o output della build.
+
+I pacchetti utente offriranno profili sintattici di una semantica comune: DDF,
+didattico italiano o sintassi ispirate a C/C#/Java/VB non equivalgono al supporto
+completo di quei linguaggi e delle loro librerie. Il cambio di profilo non
+traduce automaticamente un documento esistente. Il backend principale previsto
+è .NET + Roslyn: dalla IR si genera C#, compilato in assembly .NET, con mappe
+verso il sorgente originale. In modalità integrata si usano le API autorizzate
+dell'host; in modalità standalone si pubblica un EXE self-contained con dipendenze.
+
 ## Stato delle release
+
+Ordine operativo aggiornato il 2026-09-06: completata la `0.10.1`, lo sviluppo
+passerà direttamente alla `0.11.0` per abilitare runtime e debug multi-file.
+La flowchart dinamica resta lo step immediatamente successivo, con ambito e
+priorità invariati; l'identificativo storico `0.10.2` sarà riassegnato prima
+dell'avvio per mantenere una progressione di versione coerente. Tutte le
+milestone successive conservano l'ordine e l'ambito già stabiliti.
 
 | Release | Obiettivo | Stato |
 | --- | --- | --- |
@@ -50,11 +79,18 @@ del parser e del primo sistema dei tipi; resta separato dall'interfaccia.
 | `0.9.3` | Ricerca e navigazione del workspace | Completata (`0.9.3.0`–`0.9.3.7`) |
 | `0.9.4` | Personalizzazione, sessione e recovery | Completata (`0.9.4.6`) |
 | `0.9.5` | Fluidità, accessibilità e rifinitura | Completata (`0.9.5.6`) |
-| `0.9.6` | Pacchetti di linguaggio, grammatica dichiarativa e build configurabile | Pianificata |
-| `0.10.0` | Variabili e call stack durante la pausa | Pianificata |
-| `0.10.1` | Step Into, Step Over e Step Out | Pianificata |
-| `0.11.0` | Runtime multi-file del workspace | Pianificata |
-| `Dopo 0.11` | Progetti, build e backend compilati | Differita |
+| `0.9.6` | Pacchetti di linguaggio, grammatica dichiarativa e build configurabile | Completata (`0.9.6.7`) |
+| `0.10.0` | Variabili e call stack durante la pausa | Completata |
+| `0.10.1` | Step Into, Step Over e Step Out | Completata |
+| `0.11.0` | Runtime multi-file del workspace | Completata |
+| `0.10.2` (numero provvisorio) | Flowchart dinamica del codice e collegamento al debugger | Pianificata subito dopo la `0.11.0` |
+| `0.11.1` | Editor incorporabile e primo SDK per applicazioni host | Pianificata |
+| `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | Pianificata |
+| `0.13.x` | Compilatore, linker, loader e CLI | Pianificata |
+| `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Pianificata |
+| `0.15.x` | Extension SDK e host sicuro per plug-in eseguibili | Pianificata |
+| `0.16.x` | Assistente IA opzionale con fornitori locali e cloud | Pianificata |
+| `Dopo 0.16` | Backend aggiuntivi, distribuzione estesa e preparazione della 1.0 | Differita |
 
 ## 0.1.1 — Stabilizzazione
 
@@ -451,26 +487,26 @@ host arbitrario.
 
 ### 0.9.6.5 — Runtime generico e libreria standard
 
-- [ ] Eseguire la rappresentazione intermedia tramite una VM indipendente dalla sintassi concreta.
-- [ ] Definire operazioni controllate per valori, scope, chiamate, flusso, array, strutture e funzioni host.
-- [ ] Spostare funzioni standard, firme e collegamenti runtime nel pacchetto DDF.
-- [ ] Conservare limiti di esecuzione, cancellazione, posizioni sorgente e predisposizione per breakpoint e ispezione variabili.
+- [x] Eseguire la rappresentazione intermedia tramite una VM indipendente dalla sintassi concreta.
+- [x] Definire operazioni controllate per valori, scope, chiamate, flusso, array, strutture e funzioni host.
+- [x] Spostare funzioni standard, firme e collegamenti runtime nel pacchetto DDF.
+- [x] Conservare limiti di esecuzione, cancellazione, posizioni sorgente e predisposizione per breakpoint e ispezione variabili.
 
 ### 0.9.6.6 — Progetto e sistema di build
 
-- [ ] Separare il pacchetto di linguaggio dal manifest del progetto che sceglie sorgenti, entry point, dipendenze, backend e output.
-- [ ] Definire comandi distinti per convalida, Build, Run e Debug con diagnostiche navigabili.
-- [ ] Rendere il primo backend basato sulla VM generica e mantenere un contratto sostituibile per backend futuri.
-- [ ] Usare anche i buffer non salvati quando richiesto, senza scritture implicite o perdita delle modifiche.
-- [ ] Rendere riproducibili versione del linguaggio, opzioni e artefatti di build.
+- [x] Separare il pacchetto di linguaggio dal manifest del progetto che sceglie sorgenti, entry point, dipendenze, backend e output (`0.9.6.6`).
+- [x] Definire comandi distinti per convalida, Build, Run e Debug con diagnostiche navigabili (`0.9.6.6`).
+- [x] Rendere il primo backend basato sulla VM generica e mantenere un contratto sostituibile per backend futuri (`0.9.6.6`).
+- [x] Usare anche i buffer non salvati quando richiesto, senza scritture implicite o perdita delle modifiche (`0.9.6.6`).
+- [x] Rendere riproducibili versione del linguaggio, opzioni e artefatti di build (`0.9.6.6`).
 
 ### 0.9.6.7 — Autonomia dell'utente e strumenti di verifica
 
-- [ ] Consentire installazione, selezione, aggiornamento e disattivazione dei pacchetti di linguaggio.
-- [ ] Fornire anteprima di tokenizzazione, albero sintattico, diagnostiche e formattazione su un playground isolato.
-- [ ] Aggiungere test dichiarativi al pacchetto e un validatore eseguibile prima dell'attivazione.
-- [ ] Documentare quali personalizzazioni sono puramente dichiarative e quali richiedono una nuova operazione del motore o un plug-in.
-- [ ] Preparare in seguito un editor assistito delle definizioni senza rendere obbligatoria una UI visuale per creare un linguaggio.
+- [x] Consentire installazione, selezione, aggiornamento e disattivazione dei pacchetti di linguaggio (`0.9.6.7`).
+- [x] Fornire anteprima di tokenizzazione, albero sintattico, diagnostiche e formattazione su un playground isolato (`0.9.6.7`).
+- [x] Aggiungere test dichiarativi al pacchetto e un validatore eseguibile prima dell'attivazione (`0.9.6.7`).
+- [x] Documentare quali personalizzazioni sono puramente dichiarative e quali richiedono una nuova operazione del motore o un plug-in (`0.9.6.7`).
+- [x] Preparare l'architettura del futuro editor assistito mantenendo JSON ed EBNF come formato autorevole e sempre utilizzabile (`0.9.6.7`).
 
 ### Criteri di completamento della 0.9.6
 
@@ -483,40 +519,358 @@ host arbitrario.
 
 ## 0.10.0 — Variabili e call stack durante la pausa
 
-- [ ] Acquisire uno snapshot immutabile dello stato runtime a ogni breakpoint.
-- [ ] Mostrare parametri e variabili locali con nome, tipo e valore.
-- [ ] Distinguere lo scope corrente dagli scope esterni ancora attivi.
-- [ ] Rendere espandibili array e istanze di strutture senza esporre oggetti interni del runtime.
-- [ ] Mostrare il call stack attivo con navigazione al punto di chiamata.
-- [ ] Associare ogni frame e snapshot al documento sorgente corretto, preparando le pause multi-file.
-- [ ] Aggiornare e svuotare le palette in modo coerente su Pausa, Continua, Stop e fine esecuzione.
-- [ ] Coprire valori primitivi, array, strutture, shadowing e chiamate annidate con test Core e smoke WinForms.
+- [x] Suddividere la icon bar monolitica in barre mobili per categoria, attivabili singolarmente da Visualizza e con visibilità, ordine, riga e posizione persistenti (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Aggiungere la palette Espressioni di controllo (Watch), con inserimento/rimozione di variabili, campi e indici costanti in sola lettura (incremento locale del 2026-09-06).
+- [x] Aggiornare Watch alle pause, indicare che i valori sono dell'ultima pausa durante Continua e svuotarli alla fine; distinguere scope non disponibile, percorso non valido e limiti dello snapshot.
+- [x] Estendere Watch alle espressioni pure senza effetti collaterali e alla persistenza separata per progetto (`0.10.0`).
+
+- [x] Acquisire uno snapshot immutabile dello stato runtime a ogni breakpoint, con campi ed elementi copiati e limiti espliciti per profondità/dimensione.
+- [x] Mostrare automaticamente parametri, variabili locali e globali con nome, tipo dichiarato e valore (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Distinguere lo scope corrente dagli scope dei chiamanti ancora attivi e aggiornare la palette Variabili quando si seleziona un frame (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Rendere espandibili array e istanze di strutture usando esclusivamente lo snapshot immutabile, senza esporre oggetti interni del runtime (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Mostrare il call stack attivo, ordinato dal frame corrente ai chiamanti, con navigazione al punto di chiamata tramite doppio clic o Invio (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Associare ogni frame e snapshot al documento sorgente corretto nel runtime multi-file (`0.11.0`).
+- [x] Aggiornare e svuotare Watch e Variabili in modo coerente su Pausa, Continua, Stop e fine esecuzione (`0.10.0`, incremento locale del 2026-09-06).
+- [x] Coprire valori primitivi, array, strutture, shadowing, chiamate annidate, espressioni pure e rifiuto degli effetti collaterali con test Core e smoke WinForms (`0.10.0`).
 
 ## 0.10.1 — Esecuzione passo-passo
 
-- [ ] Aggiungere Step Into per entrare nelle funzioni chiamate.
-- [ ] Aggiungere Step Over per completare una chiamata restando nel frame corrente.
-- [ ] Aggiungere Step Out per raggiungere il chiamante della funzione corrente.
-- [ ] Evidenziare la prossima istruzione e sincronizzare comandi, scorciatoie e toolbar.
-- [ ] Integrare lo step con breakpoint, variabili, call stack, cicli e cancellazione.
-- [ ] Esporre Step Into, Step Over e Step Out nella icon bar con stati coerenti alla pausa.
+- [x] Aggiungere Step Into per entrare nelle funzioni chiamate (`F11`, `0.10.1`).
+- [x] Aggiungere Step Over per completare una chiamata restando nel frame corrente (`F10`, anticipato nella `0.10.0`).
+- [x] Aggiungere Step Out per raggiungere il chiamante della funzione corrente (`Shift+F11`, anticipato nella `0.10.0`).
+- [x] Evidenziare la prossima istruzione e sincronizzare i comandi Step Over/Step Out, le scorciatoie e la toolbar (incremento locale del 2026-09-06).
+- [x] Integrare lo step con breakpoint, variabili, call stack, cicli e cancellazione (`0.10.1`).
+- [x] Esporre Step Into, Step Over e Step Out nella icon bar con stati coerenti alla pausa (`0.10.1`).
+
+## 0.10.2 — Flowchart dinamica e didattica
+
+> Nota di sequenza: `0.10.2` è l'identificativo storico di questo blocco di
+> lavoro. La milestone verrà eseguita subito dopo la `0.11.0` e rinumerata
+> prima dell'implementazione; contenuti, priorità e dipendenze restano invariati.
+
+La prima versione è una vista del controllo di flusso derivata dall'analisi del
+codice. La digitazione resta la fonte autorevole; il disegno non esegue il
+programma. La modifica bidirezionale codice/diagramma sarà valutata separatamente.
+
+- [ ] Definire nel Core un modello di nodi e archi con intervalli sorgente e ruoli semantici, indipendente dal renderer.
+- [ ] Derivare ingresso, uscita, sequenze, condizioni, cicli, chiamate e ritorni da AST/IR e metadati del pacchetto, senza riconoscere keyword tramite testo.
+- [ ] Mostrare etichette per i rami delle condizioni e distinguere il flusso di controllo dal grafo delle chiamate e dal flusso dei dati.
+- [ ] Limitare inizialmente la vista alla funzione selezionata, con navigazione alle funzioni chiamate e gruppi comprimibili.
+- [ ] Aggiornare in background con ritardo breve, cancellazione e scarto degli snapshot obsoleti, preservando zoom, posizione e stabilità del layout.
+- [ ] Gestire codice incompleto mostrando nodi parziali o l'ultima vista valida chiaramente indicata come non aggiornata; segnalare costrutti non rappresentabili.
+- [ ] Collegare selezione codice/nodo e navigazione bidirezionale senza modificare testo o Undo.
+- [ ] Collegare pausa e passi del debugger al nodo corrente usando lo snapshot sorgente effettivamente in esecuzione.
+- [ ] Integrare la vista in una palette opzionale e nel futuro controllo incorporabile, con comandi accessibili da menu e toolbar.
+- [ ] Esporre un comando Modalità didattica On/Off sempre raggiungibile in entrambe le modalità, indipendente dal profilo sintattico; flowchart e strumenti ordinari di debug restano utilizzabili anche fuori dalla modalità didattica.
+- [ ] Preservare documento, selezione, Undo e stato di debug al cambio di modalità, senza avviare esecuzioni o modificare permessi e impostazioni di compilazione.
+- [ ] Memorizzare la preferenza nel contesto dell'utente o dell'istanza host e sospendere gli aggiornamenti esclusivamente didattici quando disattivata.
+- [ ] Esportare il diagramma in SVG/immagine per materiale didattico e documentazione.
+- [ ] Verificare rami annidati, cicli, ritorni anticipati, chiamate, errori transitori e budget di reattività con test Core e smoke UI.
+
+Criteri di completamento: il diagramma rappresenta correttamente i costrutti
+supportati, segue codice e debug senza spostamenti incontrollati, espone i propri
+limiti e non peggiora la fluidità della digitazione. La modalità didattica è
+commutabile in ogni contesto; successivi incrementi potranno aggiungere traccia
+dei passi, valori sui nodi ed esercizi guidati.
 
 ## 0.11.0 — Runtime multi-file
 
-- [ ] Implementare per DDF la visibilità tra moduli definita nel pacchetto di linguaggio della `0.9.6`.
-- [ ] Applicare la semantica formalizzata per `@@'...'` o per l'eventuale direttiva di import sostitutiva.
-- [ ] Costruire uno snapshot coerente di tutti i buffer, compresi quelli modificati ma non salvati, all'avvio del runtime.
-- [ ] Definire il caricamento runtime dei moduli del workspace e un unico grafo di dichiarazioni.
-- [ ] Risolvere funzioni, strutture e globali tra documenti indicizzati.
-- [ ] Definire conflitti di nome, ordine di inizializzazione delle variabili globali e dipendenze cicliche.
-- [ ] Rendere effettivi durante l'esecuzione i breakpoint per file introdotti nella `0.9.0.1`.
-- [ ] Conservare file e intervalli sorgente nelle diagnostiche, nello stack e nella navigazione.
-- [ ] Aggiungere test end-to-end su workspace temporanei multi-file.
+Priorità anticipata: questa milestone inizia immediatamente dopo il
+completamento della `0.10.1`, prima del blocco dedicato alla flowchart.
 
-## Dopo 0.11 — Progetti, build e backend compilati
+- [x] Implementare per DDF la visibilità di progetto: tutti i sorgenti selezionati dal manifest condividono funzioni, strutture e globali (`0.11.0`).
+- [x] Mantenere `@@'...'` come direttiva di libreria/capacità e non come inclusione di file; l'appartenenza dei moduli è definita da `sources` nel manifest (`0.11.0`).
+- [x] Costruire uno snapshot coerente di tutti i buffer, compresi quelli modificati ma non salvati, all'avvio del runtime (`0.11.0`).
+- [x] Definire il caricamento runtime dei moduli del workspace e un unico grafo di dichiarazioni (`0.11.0`).
+- [x] Risolvere funzioni, strutture e globali tra documenti indicizzati (`0.11.0`).
+- [x] Rifiutare nomi runtime duplicati (`DDFB010`) e dipendenze globali in avanti/cicliche (`DDFB011`); l'inizializzazione segue file e dichiarazioni in ordine deterministico (`0.11.0`).
+- [x] Rendere effettivi durante l'esecuzione i breakpoint per file introdotti nella `0.9.0.1`; Step Into/Over/Out cambiano visibilmente scheda e avanzano per istruzione anche nei file esterni (`0.11.0`).
+- [x] Conservare file e intervalli sorgente nelle diagnostiche, nello stack, nelle pause e nella navigazione (`0.11.0`).
+- [x] Aggiungere test end-to-end su workspace temporanei multi-file e buffer non salvati (`0.11.0`).
+
+## 0.11.1 — Editor incorporabile e SDK host iniziale
+
+Estrarre un componente riutilizzabile dalla shell standalone. Il primo host
+supportato sarà WinForms/.NET su Windows, coerente con l'implementazione corrente;
+integrazioni WPF, native o web richiederanno adapter e verifiche dedicate. Il Core
+rimarrà indipendente dalla tecnologia grafica. Questo SDK permette all'applicazione
+ospitante di integrare il componente; la gestione di plug-in installabili resta
+prevista nella `0.15`.
+
+- [ ] Separare superficie editor, servizi documentali e palette dalla MainForm, pubblicando controllo e contratti versionati.
+- [ ] Fare usare alla shell standalone lo stesso componente e le stesse API offerte agli integratori.
+- [ ] Consentire all'host di scegliere linguaggio, documenti, persistenza, tema, scorciatoie e palette visibili, inclusa la flowchart.
+- [ ] Esporre stato, comando ed evento della modalità didattica nello SDK; mantenere un controllo On/Off raggiungibile dal componente anche quando l'host personalizza menu e toolbar.
+- [ ] Verificare On/Off e persistenza in standalone e nell'applicazione host dimostrativa, con più istanze, profili differenti e debugger in pausa.
+- [ ] Consentire documenti virtuali senza percorsi fisici e gestione di progetti salvati nei contenitori dell'host.
+- [ ] Esporre eventi e comandi per modifiche, selezione, diagnostiche, navigazione, build, esecuzione e debug.
+- [ ] Isolare più istanze: nessuna intercettazione globale delle scorciatoie, stato condiviso involontario o scrittura implicita nel profilo dell'host.
+- [ ] Definire un catalogo host per tipi, oggetti, funzioni, firme, documentazione e permessi, condiviso da IntelliSense, type checker e runtime.
+- [ ] Esporre solo oggetti e operazioni registrati esplicitamente, con conversioni e durata dei riferimenti definite, senza reflection arbitraria dal sorgente.
+- [ ] Separare modalità sola scrittura/analisi, simulazione ed esecuzione con effetti sull'host.
+- [ ] Definire threading, chiamate asincrone, cancellazione, timeout, limiti e rilascio risorse; prevedere processo separato per script non fidati o non interrompibili cooperativamente.
+- [ ] Esporre variabili e oggetti personalizzati con tipi, valori iniziali, accesso in lettura/scrittura e restituzione dei risultati all'host.
+- [ ] Supportare procedure richiamabili manualmente o da eventi espliciti dell'host, con parametri e risultati tipizzati; definire concorrenza e gestione degli errori.
+- [ ] Offrire un contratto di accesso ai database tramite servizi host, con query parametrizzate, risultati tipizzati, cancellazione e transazioni gestite dall'applicazione; connessioni e credenziali restano sotto il controllo dell'host.
+- [ ] Esporre funzioni matematiche e logiche e dimostrare algoritmi personalizzati che elaborano dati e aggiornano gli oggetti dell'applicazione.
+- [ ] Definire quando applicare i risultati e come gestire gli errori parziali delle operazioni host, senza confondere Undo del testo con rollback delle azioni eseguite.
+- [ ] Realizzare un'applicazione dimostrativa separata che legge dati da un database di prova, applica una regola personalizzata e restituisce risultati all'host, con completamento, debug e flowchart.
+- [ ] Distribuire librerie SDK, esempio minimo e guida all'integrazione con test di lifecycle e più istanze.
+
+Criteri di completamento: un'applicazione separata incorpora l'editor senza
+modificarne i sorgenti, espone proprie API documentate e fa eseguire uno script
+sui propri oggetti simulati. Apertura, chiusura e più istanze preservano stato,
+scorciatoie e risorse dell'host. La prova sarà proposta a un primo integratore
+per validare tempi di integrazione e utilità prima di ampliare gli adapter.
+
+## 0.12 — Definizione completa del linguaggio DDF
+
+Questa linea non riguarda il formato generico dei pacchetti, già introdotto
+nella `0.9.6`, ma la progettazione intenzionale del DDF come linguaggio autonomo,
+originale, semplice e coerente. Il risultato dovrà essere una specifica leggibile,
+una grammatica formale e un pacchetto eseguibile che descrivono lo stesso linguaggio.
+
+### 0.12.0 — Identità e principi del linguaggio
+
+- [ ] Definire gli obiettivi del DDF, i casi d'uso prioritari e ciò che lo distingue dai linguaggi esistenti.
+- [ ] Stabilire i principi di leggibilità, semplicità, esplicitezza, sicurezza e prevedibilità.
+- [ ] Inventariare ogni comportamento storico, separando ciò che viene conservato, modificato o eliminato.
+- [ ] Confrontare in modo mirato DDF con C e con altri linguaggi affini, evitando compatibilità accidentali.
+- [ ] Registrare decisioni e alternative rifiutate in documenti di design versionati.
+
+### 0.12.1 — Lessico e sintassi definitiva
+
+- [ ] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
+- [ ] Definire precedenza, associatività e forme prefisse, infisse e postfisse senza ambiguità.
+- [ ] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
+- [ ] Eliminare contraddizioni e alias provvisori dalla specifica storica.
+- [ ] Allineare EBNF, metadati del pacchetto, formatter, snippet ed esempi canonici.
+- [ ] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, con risultati equivalenti.
+- [ ] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici.
+- [ ] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, segnalando incompatibilità e preservando i sorgenti.
+
+### 0.12.2 — Tipi e semantica definitiva
+
+- [ ] Formalizzare tipi primitivi e composti, inferenza, conversioni, mutabilità, scope e durata dei valori.
+- [ ] Definire assegnazione, confronto, uguaglianza, verità, overflow, valori assenti ed errori.
+- [ ] Specificare chiamate, parametri, valori restituiti, overload o la loro esclusione esplicita.
+- [ ] Stabilire regole di inizializzazione, shadowing, visibilità e diagnostiche semantiche.
+- [ ] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate.
+
+### 0.12.3 — Moduli e libreria standard
+
+- [ ] Consolidare il modello multi-file sperimentato nella `0.11.0` in una semantica formale dei moduli.
+- [ ] Decidere la forma definitiva di import/include al posto dell'uso provvisorio di `@@'...'`, se necessario.
+- [ ] Definire esportazioni, globali, ordine di inizializzazione, dipendenze cicliche e risoluzione dei nomi.
+- [ ] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor.
+- [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
+
+### 0.12.4 — Specifica verificabile e migrazione
+
+- [ ] Pubblicare una specifica DDF autonoma con sezioni normative ed esempi non normativi.
+- [ ] Creare corpus completi di programmi validi, non validi, incompleti e multi-file.
+- [ ] Rendere eseguibili gli esempi normativi tramite i test dichiarativi del pacchetto.
+- [ ] Definire versionamento del linguaggio, compatibilità, deprecazioni e migrazioni automatiche possibili.
+- [ ] Documentare le differenze rispetto alle beta e offrire una guida di aggiornamento dei sorgenti.
+
+### 0.12.5 — DDF Language Candidate
+
+- [ ] Congelare temporaneamente grammatica e semantica per un ciclo completo di utilizzo reale.
+- [ ] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e build sul corpus normativo.
+- [ ] Raccogliere e classificare i problemi senza modificare implicitamente la specifica.
+- [ ] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio.
+- [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.
+
+### Criteri di completamento della 0.12
+
+- specifica, EBNF, pacchetto DDF e comportamento runtime non presentano divergenze note;
+- ogni keyword, operatore, tipo, costrutto e funzione standard ha semantica ed esempi espliciti;
+- il corpus normativo viene eseguito automaticamente e include casi negativi e multi-file;
+- compatibilità, deprecazioni e migrazione dalle beta sono documentate;
+- nessun dettaglio essenziale del DDF dipende esclusivamente dal codice dell'editor.
+
+## 0.13 — Compilatore, linker, loader e CLI
+
+Costruire una toolchain utilizzabile indipendentemente dall'editor, dopo aver
+consolidato la specifica DDF. Il backend principale sarà .NET + Roslyn: IR comune
+verso C# generato, poi assembly IL e runtime CLR. La VM DDF rimane un riferimento
+durante la transizione; la sua conservazione successiva richiede un caso d'uso
+esplicito. Il collegamento iniziale usa riferimenti tra assembly e risoluzione
+delle dipendenze .NET, senza richiedere un linker nativo proprietario.
+
+Prima del backend completo, realizzare un prototipo verticale dello stesso
+programma come script integrato e EXE autonomo: includere una chiamata host,
+un errore, un breakpoint e il confronto con la VM. Roslyn non fornisce
+automaticamente il debugger del nostro linguaggio: mappatura e controllo della
+pausa sono attività esplicite della milestone.
+
+### 0.13.0 — Contratti e formato compilato
+
+- [ ] Definire unità di compilazione, interfacce esportate e separazione tra sorgente, IR e artefatti persistenti.
+- [ ] Definire assembly .NET, manifest versionato, dipendenze, simboli PDB e mappe verso profilo e sorgente originali.
+- [ ] Specificare compatibilità con runtime .NET e SDK host, diagnostiche per artefatti incompatibili e limiti di caricamento.
+
+### 0.13.1 — Compilazione separata
+
+- [ ] Compilare singoli moduli e librerie mantenendo i controlli della pipeline condivisa.
+- [ ] Generare C# dalla IR e compilare con Roslyn, conservando la semantica DDF di valori, conversioni, overflow, scope e ordine di valutazione.
+- [ ] Riportare diagnostiche e punti di pausa al codice originale e implementare l'ispezione delle variabili senza esporre nomi temporanei generati.
+- [ ] Conservare diagnostiche e informazioni di debug per file, riga, simbolo e scope.
+- [ ] Rendere riproducibili gli artefatti e definire invalidazione della cache per sorgenti, pacchetti e opzioni.
+- [ ] Verificare equivalenza osservabile tra esecuzione da sorgente e da modulo compilato.
+- [ ] Confrontare il backend .NET e la VM su risultati, errori e chiamate host prima di sostituire il percorso predefinito.
+
+### 0.13.2 — Linker e loader
+
+- [ ] Risolvere import ed export tra moduli compilati separatamente, segnalando simboli mancanti, duplicati o incompatibili.
+- [ ] Costruire il programma collegato con dipendenze e ordine di inizializzazione deterministici.
+- [ ] Caricare ed eseguire il programma senza richiedere i sorgenti originali o l'editor.
+- [ ] Validare struttura, istruzioni e riferimenti degli artefatti prima dell'esecuzione.
+- [ ] Conservare breakpoint, call stack e ispezione delle variabili tramite mappe di debug opzionali.
+- [ ] Definire caricamento/scaricamento degli assembly e compatibilità con il runtime dell'applicazione ospitante; per codice non fidato usare isolamento di processo e permessi del sistema operativo.
+
+### 0.13.3 — CLI e distribuzione
+
+- [ ] Esporre comandi CLI di convalida, build, run, test e packaging basati sullo stesso Core dell'IDE.
+- [ ] Definire codici di uscita, diagnostiche leggibili da strumenti e uso in CI.
+- [ ] Pubblicare EXE .NET self-contained per un sistema e un'architettura espliciti, con runtime, librerie e manifest necessari; valutare separatamente il file singolo.
+- [ ] Bloccare l'esportazione standalone quando mancano implementazioni delle API richieste all'host.
+- [ ] Separare dipendenze di compilazione Roslyn/SDK da dipendenze di esecuzione del programma pubblicato.
+- [ ] Includere licenze e avvisi dei componenti effettivamente redistribuiti, distinguendo sorgenti MIT, binari Windows e librerie di terzi.
+- [ ] Mantenere Native AOT e altri backend come estensioni successive, verificando i limiti su caricamento e generazione dinamica di codice.
+
+### Criteri di completamento della 0.13
+
+- almeno un programma multi-file viene compilato separatamente, collegato ed eseguito fuori dall'IDE;
+- esecuzione da sorgente e da artefatto produce gli stessi risultati sul corpus normativo;
+- build ripetute con gli stessi input producono artefatti deterministici;
+- moduli incompatibili o malformati vengono rifiutati con diagnostiche chiare;
+- debug e CLI condividono le regole del pacchetto senza implementazioni parallele del linguaggio.
+
+## 0.14 — DDF Language Package Studio
+
+Il Package Studio sarà inizialmente integrato nell'editor per riusare anteprima,
+diagnostiche e gestione dei pacchetti. La logica di authoring resterà però in un
+Core indipendente dalla UI, così da poter offrire successivamente anche un
+eseguibile autonomo. Non sarà un plug-in e JSON/EBNF resteranno i formati autorevoli.
+
+### 0.14.0 — Core di authoring indipendente
+
+- [ ] Modellare progetto di authoring, modifiche, validazione, migrazioni e generazione del pacchetto senza dipendenze WinForms.
+- [ ] Conservare commenti e contenuto non riconosciuto quando possibile, evitando riscritture distruttive.
+- [ ] Produrre anteprime e diff prima di applicare trasformazioni strutturali.
+- [ ] Rendere ogni operazione annullabile e coperta da test su file temporanei.
+
+### 0.14.1 — Editor assistito integrato
+
+- [ ] Creare e clonare un linguaggio da modello vuoto, dal DDF o da un pacchetto installato.
+- [ ] Offrire editor guidati per manifest, lessico, keyword, operatori, tipi, semantica, formatter, IntelliSense, runtime, build e libreria standard.
+- [ ] Aggiungere un editor EBNF con diagnostiche, riferimenti e anteprima dell'albero sintattico.
+- [ ] Integrare playground e test dichiarativi con aggiornamento immediato e navigazione agli errori.
+- [ ] Consentire sempre la visualizzazione e modifica diretta dei JSON e dell'EBNF sottostanti.
+- [ ] Aggiornare menu, Command Palette e icon bar con stato e comandi coerenti.
+
+### 0.14.2 — Validazione e distribuzione
+
+- [ ] Validare dipendenze tra sezioni, versioni del motore, operazioni richieste e copertura minima dei test.
+- [ ] Confrontare una nuova versione con quella precedente e segnalare modifiche incompatibili.
+- [ ] Generare archivi `.ddflang` riproducibili con manifest, checksum e report di convalida.
+- [ ] Installare il risultato soltanto dopo test superati, senza sovrascrivere una versione funzionante.
+- [ ] Preparare template, esempi e una guida completa alla pubblicazione manuale.
+
+### 0.14.3 — Distribuzione autonoma opzionale
+
+- [ ] Separare la shell del Package Studio dal Core condiviso senza duplicare la logica.
+- [ ] Valutare un eseguibile autonomo self-contained per autori che non necessitano dell'intero editor.
+- [ ] Garantire interoperabilità completa tra progetto di authoring, editor integrato e applicazione autonoma.
+- [ ] Mantenere utilizzabile il flusso manuale JSON/EBNF e da riga di comando.
+
+### Criteri di completamento della 0.14
+
+- un utente può creare, provare, convalidare, versionare e impacchettare un linguaggio senza modificare il codice dell'editor;
+- nessuna operazione visuale rende il pacchetto illeggibile o dipendente dalla UI;
+- errori e cambiamenti incompatibili sono mostrati prima dell'installazione;
+- il pacchetto generato supera lo stesso loader e gli stessi test usati dall'applicazione.
+
+## 0.15 — Extension SDK e host per plug-in
+
+I plug-in sono distinti dai pacchetti dichiarativi e dal Package Studio. Servono
+soltanto per nuove operazioni eseguibili, backend o accessi controllati al sistema
+host che non possono essere descritti in modo sicuro come dati.
+
+### 0.15.0 — Contratto e modello di sicurezza
+
+- [ ] Definire manifest, identità dell'editore, versione, compatibilità, hash e dipendenze del plug-in.
+- [ ] Definire capacità granulari per file, rete, processi, dispositivi, UI e codice nativo.
+- [ ] Adottare negazione predefinita, consenso esplicito, revoca e registro delle autorizzazioni.
+- [ ] Separare errori del plug-in da errori del linguaggio, del progetto e del motore.
+
+### 0.15.1 — SDK e punti di estensione
+
+- [ ] Pubblicare API versionate per operazioni semantiche/runtime, funzioni host e backend di build.
+- [ ] Evitare l'accesso diretto agli oggetti interni dell'editor e della VM.
+- [ ] Fornire template, esempi minimi, test contract e controlli di compatibilità.
+- [ ] Definire lifecycle, cancellazione, limiti di risorse e diagnostica dei plug-in.
+
+### 0.15.2 — Plugin host e gestione utente
+
+- [ ] Valutare e preferire isolamento fuori processo per codice non incorporato.
+- [ ] Installare, aggiornare, abilitare, disabilitare e rimuovere plug-in senza confonderli con i pacchetti linguaggio.
+- [ ] Mostrare provenienza, capacità richieste, stato, errori e impatto sul progetto.
+- [ ] Impedire che l'apertura di un sorgente o di un pacchetto attivi implicitamente codice eseguibile.
+- [ ] Coprire crash, timeout, revoca, incompatibilità e aggiornamenti con test di integrazione.
+
+### Criteri di completamento della 0.15
+
+- un pacchetto dichiarativo continua a non poter eseguire codice host arbitrario;
+- ogni plug-in attivo è identificato, compatibile e autorizzato per capacità esplicite;
+- un plug-in guasto o revocato non compromette documenti, impostazioni o fallback del linguaggio;
+- build e runtime registrano esattamente plug-in e versioni coinvolti.
+
+## 0.16 — Assistente IA locale e cloud
+
+Offrire assistenza alla scrittura, spiegazione degli errori, creazione di test e
+supporto didattico sia nell'editor standalone sia nel componente incorporato.
+Il servizio sarà opzionale e indipendente dal backend di esecuzione .NET/Roslyn.
+Fornitori previsti da verificare durante l'implementazione: server locali come
+LM Studio/Ollama e servizi cloud come OpenAI (GPT), Anthropic (Claude) e Moonshot
+(Kimi). I nomi indicano integrazioni pianificate, non compatibilità già implementata.
+
+### 0.16.0 — Contratto e contesto condiviso
+
+- [ ] Definire un adapter per fornitore con modello, endpoint, autenticazione, streaming, cancellazione, timeout e capacità dichiarate.
+- [ ] Gestire differenze tra API, limiti di contesto, output strutturati e tool calling senza presumere protocolli identici.
+- [ ] Costruire il contesto da profilo sintattico, esempi, codice selezionato, diagnostiche e catalogo delle API host.
+- [ ] Separare generazione di codice, spiegazioni e supporto didattico da esecuzione e autorizzazioni dell'host.
+
+### 0.16.1 — Connessioni locali e cloud
+
+- [ ] Consentire scelta esplicita di fornitore e modello e un test di connessione; nessun passaggio automatico da locale a cloud.
+- [ ] Esporre la configurazione nella shell standalone e tramite SDK host, con stato per istanza e indicazione del destinatario attivo.
+- [ ] Conservare credenziali fuori da sorgenti, pacchetti, log e manifest dei progetti; supportare un gestore di credenziali fornito dall'host.
+- [ ] Mostrare e limitare il contesto inviato; escludere segreti e dati del database per impostazione predefinita, lasciando all'host la selezione dei dati autorizzati.
+- [ ] Gestire indisponibilità, limiti del servizio e modelli locali troppo onerosi mantenendo reattivo e utilizzabile l'editor senza IA.
+- [ ] Mostrare consumo token e stime di costo quando disponibili, distinguendo stime da addebiti effettivi e rendendo configurabili i budget.
+
+### 0.16.2 — Assistenza verificabile
+
+- [ ] Proporre modifiche con anteprima, controllo della revisione del documento e applicazione annullabile su conferma dell'utente.
+- [ ] Validare le proposte con parser e type checker del profilo attivo, senza equiparare validità sintattica a correttezza dell'algoritmo.
+- [ ] Eseguire test o azioni host solo tramite comandi espliciti e autorizzati, con risultati distinguibili dalle spiegazioni generate.
+- [ ] In modalità didattica offrire spiegazioni e suggerimenti graduati; derivare sempre la flowchart dal codice analizzato.
+- [ ] Verificare adapter con servizi simulati e prove opt-in reali, coprendo cancellazione, contesto obsoleto, credenziali e isolamento tra istanze.
+
+Criteri di completamento: almeno un fornitore locale e uno cloud funzionano con
+lo stesso contratto in standalone e integrato; nessuna trasmissione cloud è
+implicita; l'utente può verificare le modifiche e continuare a lavorare senza IA.
+Gli altri adapter saranno aggiunti in base alle richieste degli integratori,
+verificando API, termini del servizio e licenze dei modelli al momento dell'uso.
+
+## Dopo 0.16 — Backend aggiuntivi e preparazione della 1.0
 
 - [ ] Estendere il manifest di progetto di base con dipendenze, configurazioni e distribuzione di pacchetti riutilizzabili.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
+- [ ] Definire i gate finali di compatibilità, distribuzione, documentazione e supporto per `1.0.0`.
 
 ## Principi di sviluppo
 
@@ -537,6 +891,18 @@ host arbitrario.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-05 | Prevedere assistenza IA opzionale locale e cloud con adapter sostituibili | Permettere di scegliere in base a hardware, qualità, riservatezza e costo, con configurazione esplicita sia standalone sia integrata e senza fallback cloud implicito. |
+| 2026-09-05 | Priorità allo scripting incorporabile per automazioni, dati e logiche personalizzate | CAD e SCADA erano esempi; l'obiettivo è estendere applicazioni generiche tramite variabili, servizi e comandi host, senza un percorso di certificazioni settoriali. |
+| 2026-09-05 | Rendere la modalità didattica sempre attivabile e disattivabile in standalone e integrato | Offrire assistenza didattica come opzione indipendente da sintassi e host, preservando codice, debug, permessi e risultato compilato. |
+| 2026-09-05 | Adottare .NET + Roslyn come backend principale | Generare C# dalla IR comune e assembly eseguibili nel CLR, riusando librerie e distribuzione .NET per integrazione host ed EXE autonomi. |
+| 2026-09-05 | Presentare i pacchetti come profili sintattici della piattaforma | Offrire familiarità e localizzazione didattica senza promettere compatibilità completa con C++, Java, C# o VB; semantica e capacità restano condivise. |
+| 2026-09-05 | Orientare il prodotto anche all'integrazione in CAD, SCADA, calcolo e formazione | Offrire scripting e strumenti di codice sulle API dell'applicazione ospitante tramite un componente riutilizzabile; primo SDK nella `0.11.1`. |
+| 2026-09-05 | Inserire flowchart dinamica nella `0.10.2`, inizialmente derivata dal codice | Rendere visibili struttura e passi runtime per autori e studenti mantenendo una fonte autorevole e riusando AST/IR e debugger. |
+| 2026-09-05 | Anticipare compilatore, linker, loader e CLI alla `0.13`, spostando Package Studio alla `0.14` e SDK alla `0.15` | Rendere il linguaggio definito nella `0.12` distribuibile ed eseguibile fuori dall'IDE prima di ampliare gli strumenti di authoring e le estensioni. |
+| 2026-09-05 | Dedicare la `0.12.x` alla definizione completa del DDF | Separare l'architettura generica dei pacchetti dalla progettazione normativa del linguaggio e arrivare alla 1.0 con specifica, corpus e migrazione verificabili. |
+| 2026-09-05 | Realizzare il Package Studio come UI integrata sopra un Core di authoring riutilizzabile | Offrire subito un flusso coerente con l'editor senza impedire una futura applicazione autonoma e senza rendere obbligatoria la UI. |
+| 2026-09-05 | Tenere Package Studio e plug-in come concetti distinti | L'authoring manipola dati dichiarativi sicuri; lo SDK della `0.15` riguarda esclusivamente codice eseguibile e capacità host esplicitamente autorizzate. |
+| 2026-09-06 | Anticipare la `0.11.0` subito dopo la `0.10.1` | Rendere disponibili runtime e debug multi-file prima della flowchart; il blocco flowchart resta subito successivo e sarà rinumerato senza alterare il resto della roadmap. |
 | 2026-09-01 | Introdurre pacchetti di linguaggio dichiarativi prima del debugger avanzato | Rendere DDF il linguaggio predefinito di una piattaforma configurabile ed evitare di consolidare parser, runtime e build hardcoded prima della 1.0. |
 | 2026-09-01 | Separare pacchetto di linguaggio, manifest di progetto e plug-in eseguibili | Permettere agli utenti di personalizzare grammatica e semantica sicura tramite dati, mantenendo riproducibilità e un confine esplicito per il codice host. |
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |

@@ -1,5 +1,10 @@
 # Rappresentazione intermedia DDF
 
+Direzione futura: la stessa IR alimenterà il backend .NET + Roslyn (generazione
+C# e compilazione in assembly), la flowchart e le mappe di debug sul sorgente
+originale. Il backend è pianificato nella `0.13.x`; quanto segue descrive la base
+attuale. Vedere [ECOSYSTEM_ARCHITECTURE.md](ECOSYSTEM_ARCHITECTURE.md).
+
 La IR `1.0` separa l'esecuzione dalla sintassi concreta del linguaggio. Il parser
 continua temporaneamente a produrre anche l'AST DDF legacy, ma il lowerer lo
 converte subito in nodi `DdfIr*`; l'interprete non legge più direttamente le
@@ -12,8 +17,9 @@ classi `*Syntax`.
 3. `DdfSemanticOperationPlanner` associa all'AST generico le operazioni sicure
    dichiarate in `semantics.json`;
 4. `DdfIrLowerer` crea un `DdfIrProgram` immutabile e conserva il piano semantico;
-5. diagnostica, Run e debugger consumano la IR e i suoi intervalli sorgente;
-6. interprete e futuri backend ricevono lo stesso modello, senza dipendere dai
+5. gli operatori concreti vengono risolti negli ID stabili dichiarati da `runtime.json`;
+6. diagnostica, Build, Run e debugger consumano la IR e i suoi intervalli sorgente;
+7. VM e futuri backend ricevono lo stesso modello, senza dipendere dai
    token o dalle classi sintattiche del parser.
 
 ## Modello 1.0
@@ -37,14 +43,18 @@ la categoria senza dedurla dal prefisso del codice.
 `DdfIrProgram.SemanticOperations` conserva inoltre il piano derivato dal
 pacchetto. Un backend può quindi ispezionare sia la struttura normalizzata sia
 le intenzioni semantiche dichiarate, senza eseguire codice proveniente dal JSON.
+Le espressioni unarie, binarie e postfix conservano il token soltanto per
+diagnostica, ma la VM esegue esclusivamente il relativo `OperationId`.
 
 ## Compatibilità e passo successivo
 
 La prima implementazione usa un lowerer DDF dalla proiezione AST legacy per
 garantire equivalenza completa con il runtime esistente. Il contratto pubblico
 della IR non contiene riferimenti a `CompilationUnitSyntax`, `StatementSyntax`
-o `ExpressionSyntax`, e l'interprete opera esclusivamente su nodi `DdfIr*`.
+o `ExpressionSyntax`, e `DdfVirtualMachine` opera esclusivamente su nodi `DdfIr*`.
 
-La successiva evoluzione sostituirà gradualmente il ponte legacy con il lowering
-diretto delle operazioni semantiche pianificate e definirà estensioni native
-opzionali soltanto tramite plug-in espliciti e autorizzabili.
+Il backend sostituibile `ddf-vm-ir-v1` usa già questo confine per produrre un
+artefatto in memoria e una ricevuta di build deterministica. La successiva
+evoluzione sostituirà gradualmente il ponte legacy con il lowering diretto delle
+operazioni semantiche pianificate; eventuali estensioni native resteranno
+plug-in espliciti e autorizzabili.

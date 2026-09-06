@@ -132,6 +132,7 @@ namespace DDF___Program_Language_Editor
                 ContextMenuStrip = editorContextMenu
             };
             editor.VScroll += richTextBoxMainEditor_VScroll;
+            editor.ReadOnly = debugUiLocked;
             editor.FontChanged += richTextBoxMainEditor_FontChanged;
             editor.SelectionChanged += richTextBoxMainEditor_SelectionChanged;
             editor.TextChanged += richTextBox_TextChanged;
@@ -183,9 +184,10 @@ namespace DDF___Program_Language_Editor
 
         private void activateDocument(DocumentView view)
         {
+            if (IsDisposed || Disposing || documentTabs.IsDisposed || documentTabs.Disposing) return;
             if (view == null || ReferenceEquals(view.Editor, richTextBoxMainEditor))
             {
-                if (view != null) documentTabs.SelectedTab = view.Tab;
+                if (view != null) selectDocumentTab(view.Tab);
                 return;
             }
 
@@ -216,7 +218,7 @@ namespace DDF___Program_Language_Editor
                 if (editorOverviewBar != null) editorOverviewBar.TargetEditor = richTextBoxMainEditor;
                 editorOverviewBar?.BringToFront();
                 richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
-                documentTabs.SelectedTab = view.Tab;
+                selectDocumentTab(view.Tab);
                 resetActiveAnalysis();
             }
             finally
@@ -233,6 +235,26 @@ namespace DDF___Program_Language_Editor
             restoreDocumentViewport(view);
             updateLineNumbers();
             refreshEditorOverview();
+        }
+
+        private void selectDocumentTab(TabPage tab)
+        {
+            if (tab == null || documentTabs == null || documentTabs.IsDisposed) return;
+            // Un TabControl Win32 disabilitato può non ridisegnare immediatamente una
+            // selezione impostata dal debugger. Lo abilitiamo soltanto per la durata
+            // atomica dello switch; l'utente continua a non poter cambiare documento.
+            bool restoreDisabled = !documentTabs.Enabled;
+            if (restoreDisabled) documentTabs.Enabled = true;
+            try
+            {
+                documentTabs.SelectedTab = tab;
+            }
+            finally
+            {
+                if (restoreDisabled) documentTabs.Enabled = false;
+                documentTabs.Invalidate();
+                documentTabs.Update();
+            }
         }
 
         private void resetActiveAnalysis()
@@ -253,7 +275,7 @@ namespace DDF___Program_Language_Editor
 
         private void documentTabs_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (isSwitchingDocument || documentTabs.SelectedTab == null) return;
+            if (IsDisposed || Disposing || documentTabs.Disposing || isSwitchingDocument || documentTabs.SelectedTab == null) return;
             string id = documentTabs.SelectedTab.Tag as string;
             if (!string.IsNullOrEmpty(id) && documentViews.TryGetValue(id, out DocumentView view)) activateDocument(view);
         }

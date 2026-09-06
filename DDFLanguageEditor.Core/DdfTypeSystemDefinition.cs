@@ -221,6 +221,8 @@ namespace DDFLanguageEditor.Core
         public string IndexType { get; }
 
         public bool IsKnownPrimitive(string name) => primitives.ContainsKey(name ?? string.Empty);
+        public bool TryGetPrimitive(string name, out DdfPrimitiveTypeDefinition primitive) =>
+            primitives.TryGetValue(name ?? string.Empty, out primitive);
         public bool IsNumeric(string name) => numericTypes.Contains(name ?? string.Empty);
         public bool IsBoolean(string name) => primitives.TryGetValue(name ?? string.Empty, out DdfPrimitiveTypeDefinition type) &&
                                                type.Category == DdfPrimitiveTypeCategory.Boolean;

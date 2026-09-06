@@ -80,6 +80,11 @@ namespace DDF___Program_Language_Editor
                 knownDiskStates[view.Buffer.Id] = current;
                 return ExternalChangeOutcome.None;
             }
+            if (current.Exists && hasSameEditorContent(current.Source, view.Editor.Text))
+            {
+                synchronizeMatchingDiskAndBuffer(view, current);
+                return ExternalChangeOutcome.None;
+            }
             if (known.HasSameContent(current))
             {
                 known.Postponed = null;
@@ -126,6 +131,28 @@ namespace DDF___Program_Language_Editor
                 isResolvingExternalChange = false;
             }
         }
+
+        private void synchronizeMatchingDiskAndBuffer(DocumentView view, KnownDiskState disk)
+        {
+            knownDiskStates[view.Buffer.Id] = disk;
+            if (!view.Buffer.Session.IsDirty) return;
+            view.Buffer.UpdateSource(view.Editor.Text, false);
+            view.Buffer.MarkSaved(view.Buffer.Session.CurrentPath);
+            view.Editor.Modified = false;
+            view.LastEditUtc = null;
+            markCrashRecoveryChanged();
+            updateWorkspaceDocument(view.Buffer.Session.CurrentPath, view.Editor.Text);
+            updateDocumentTab(view);
+            if (ReferenceEquals(view, activeDocumentView)) updateDocumentUi();
+            statusFileLabel.ToolTipText = "La versione su disco coincide già con il buffer: " +
+                view.Buffer.Session.DisplayName;
+        }
+
+        private static bool hasSameEditorContent(string left, string right) => string.Equals(
+            normalizeLineEndings(left), normalizeLineEndings(right), StringComparison.Ordinal);
+
+        private static string normalizeLineEndings(string source) =>
+            (source ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
 
         private bool canWriteDocument(DocumentView view, string targetPath)
         {
@@ -204,7 +231,7 @@ namespace DDF___Program_Language_Editor
             public bool HasSameContent(KnownDiskState other)
             {
                 return other != null && Exists == other.Exists &&
-                    string.Equals(Source, other.Source, StringComparison.Ordinal);
+                    hasSameEditorContent(Source, other.Source);
             }
         }
 

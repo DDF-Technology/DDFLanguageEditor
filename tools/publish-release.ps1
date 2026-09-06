@@ -86,17 +86,30 @@ $requiredLanguageFiles = @(
     'intellisense.json',
     'runtime.json',
     'build.json',
-    'standard-library.json'
+    'standard-library.json',
+    'tests.json'
 )
 $publishedLanguageDirectory = Join-Path $publishDirectory 'language-packages\ddf'
 $missingLanguageFiles = @($requiredLanguageFiles | Where-Object {
     -not (Test-Path -LiteralPath (Join-Path $publishedLanguageDirectory $_) -PathType Leaf)
 })
-if ($missingLanguageFiles.Count -gt 0 -or
-    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-package.schema.json') -PathType Leaf) -or
-    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-lexicon.schema.json') -PathType Leaf) -or
-    -not (Test-Path -LiteralPath (Join-Path $publishDirectory 'language-grammar.schema.json') -PathType Leaf)) {
-    throw "Pacchetto linguaggio DDF pubblicato incompleto. File mancanti: $($missingLanguageFiles -join ', ')"
+$requiredSchemas = @(
+    'language-package.schema.json',
+    'language-lexicon.schema.json',
+    'language-grammar.schema.json',
+    'language-types.schema.json',
+    'language-semantics.schema.json',
+    'language-runtime.schema.json',
+    'language-standard-library.schema.json',
+    'language-build.schema.json',
+    'language-tests.schema.json',
+    'ddf-project.schema.json'
+)
+$missingSchemas = @($requiredSchemas | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $publishDirectory $_) -PathType Leaf)
+})
+if ($missingLanguageFiles.Count -gt 0 -or $missingSchemas.Count -gt 0) {
+    throw "Pacchetto linguaggio DDF pubblicato incompleto. File mancanti: $(@($missingLanguageFiles + $missingSchemas) -join ', ')"
 }
 
 $applicationDll = Join-Path $publishDirectory 'DDFLanguageEditor.dll'

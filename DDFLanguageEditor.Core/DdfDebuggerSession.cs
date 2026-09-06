@@ -4,20 +4,76 @@ using System.Threading;
 
 namespace DDFLanguageEditor.Core
 {
+    public sealed class DdfSourceBreakpoint
+    {
+        public DdfSourceBreakpoint(string documentPath, int line)
+        { DocumentPath = documentPath ?? string.Empty; Line = line; }
+        public string DocumentPath { get; }
+        public int Line { get; }
+    }
+
+    public enum DdfRuntimeVariableKind
+    {
+        Local,
+        Parameter,
+        Global,
+        Field,
+        Element
+    }
+
     public sealed class DdfDebugPauseInfo
     {
-        internal DdfDebugPauseInfo(int line, int column, int start, int length)
+        internal DdfDebugPauseInfo(int line, int column, int start, int length,
+            DdfRuntimeStateSnapshot state, string documentPath)
         {
             Line = line;
             Column = column;
             Start = start;
             Length = length;
+            State = state;
+            DocumentPath = documentPath ?? string.Empty;
         }
 
         public int Line { get; }
         public int Column { get; }
         public int Start { get; }
         public int Length { get; }
+        public DdfRuntimeStateSnapshot State { get; }
+        public string DocumentPath { get; }
+    }
+
+    public sealed class DdfRuntimeVariableSnapshot
+    {
+        internal DdfRuntimeVariableSnapshot(string name, string displayValue, int scopeDepth,
+            DdfRuntimeVariableKind kind)
+        { Name = name; DisplayValue = displayValue; ScopeDepth = scopeDepth; Kind = kind; }
+        public string Name { get; }
+        public string DisplayValue { get; }
+        public int ScopeDepth { get; }
+        public DdfRuntimeVariableKind Kind { get; }
+        public string TypeName { get; internal set; }
+        public IReadOnlyList<DdfRuntimeVariableSnapshot> Children { get; internal set; } = Array.Empty<DdfRuntimeVariableSnapshot>();
+        public bool IsTruncated { get; internal set; }
+    }
+
+    public sealed class DdfRuntimeStateSnapshot
+    {
+        internal DdfRuntimeStateSnapshot(IReadOnlyList<DdfRuntimeVariableSnapshot> variables,
+            IReadOnlyList<DdfRuntimeStackFrame> callStack,
+            IReadOnlyList<DdfRuntimeFrameSnapshot> frames)
+        { Variables = variables; CallStack = callStack; Frames = frames; }
+        public IReadOnlyList<DdfRuntimeVariableSnapshot> Variables { get; }
+        public IReadOnlyList<DdfRuntimeStackFrame> CallStack { get; }
+        public IReadOnlyList<DdfRuntimeFrameSnapshot> Frames { get; }
+    }
+
+    public sealed class DdfRuntimeFrameSnapshot
+    {
+        internal DdfRuntimeFrameSnapshot(DdfRuntimeStackFrame frame,
+            IReadOnlyList<DdfRuntimeVariableSnapshot> variables)
+        { Frame = frame; Variables = variables; }
+        public DdfRuntimeStackFrame Frame { get; }
+        public IReadOnlyList<DdfRuntimeVariableSnapshot> Variables { get; }
     }
 
     public sealed class DdfDebuggerSession : IDisposable
@@ -25,7 +81,13 @@ namespace DDFLanguageEditor.Core
         private readonly object synchronization = new object();
         private readonly ManualResetEventSlim resumeSignal = new ManualResetEventSlim(true);
         private HashSet<int> breakpointLines = new HashSet<int>();
+        private HashSet<string> sourceBreakpoints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool isPaused;
+        private bool stepIntoPending;
+        private bool stepOverPending;
+        private int stepOverFrameDepth;
+        private bool stepOutPending;
+        private int stepOutFrameDepth;
         private bool disposed;
 
         public Action<DdfDebugPauseInfo> Paused { get; set; }
@@ -46,6 +108,22 @@ namespace DDFLanguageEditor.Core
             {
                 ThrowIfDisposed();
                 breakpointLines = replacement;
+                sourceBreakpoints.Clear();
+            }
+        }
+
+        public void SetBreakpoints(IEnumerable<DdfSourceBreakpoint> breakpoints)
+        {
+            var replacement = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (breakpoints != null)
+                foreach (DdfSourceBreakpoint breakpoint in breakpoints)
+                    if (breakpoint != null && breakpoint.Line > 0)
+                        replacement.Add(BreakpointKey(breakpoint.DocumentPath, breakpoint.Line));
+            lock (synchronization)
+            {
+                ThrowIfDisposed();
+                breakpointLines.Clear();
+                sourceBreakpoints = replacement;
             }
         }
 
@@ -54,20 +132,73 @@ namespace DDFLanguageEditor.Core
             lock (synchronization)
             {
                 if (disposed) return;
+                stepIntoPending = false;
+                stepOverPending = false;
+                stepOutPending = false;
                 isPaused = false;
                 resumeSignal.Set();
             }
         }
 
-        internal bool BeforeStatement(string source, DdfIrStatement node, Func<bool> cancellationRequested)
+        public void StepInto()
+        {
+            lock (synchronization)
+            {
+                if (disposed || !isPaused) return;
+                stepIntoPending = true;
+                stepOverPending = false;
+                stepOutPending = false;
+                isPaused = false;
+                resumeSignal.Set();
+            }
+        }
+
+        public void StepOver()
+        {
+            lock (synchronization)
+            {
+                if (disposed || !isPaused) return;
+                stepIntoPending = false;
+                stepOverPending = true;
+                stepOutPending = false;
+                isPaused = false;
+                resumeSignal.Set();
+            }
+        }
+
+        public void StepOut()
+        {
+            lock (synchronization)
+            {
+                if (disposed || !isPaused) return;
+                stepIntoPending = false;
+                stepOverPending = false;
+                stepOutPending = true;
+                stepOutFrameDepth = stepOverFrameDepth;
+                isPaused = false;
+                resumeSignal.Set();
+            }
+        }
+
+        internal bool BeforeStatement(string source, DdfIrStatement node, Func<bool> cancellationRequested,
+            Func<DdfRuntimeStateSnapshot> captureState = null, int frameDepth = 0,
+            string documentPath = null)
         {
             GetPosition(source, node == null ? 0 : node.Start, out int line, out int column);
             Action<DdfDebugPauseInfo> callback;
             lock (synchronization)
             {
                 if (disposed) return true;
-                if (!breakpointLines.Contains(line)) return true;
+                bool stepReached = stepIntoPending || (stepOverPending && frameDepth <= stepOverFrameDepth);
+                bool stepOutReached = stepOutPending && frameDepth < stepOutFrameDepth;
+                bool breakpointReached = !stepOutPending && (breakpointLines.Contains(line) ||
+                    sourceBreakpoints.Contains(BreakpointKey(documentPath, line)));
+                if (!breakpointReached && !stepReached && !stepOutReached) return true;
 
+                stepIntoPending = false;
+                stepOverPending = false;
+                stepOutPending = false;
+                stepOverFrameDepth = frameDepth;
                 isPaused = true;
                 resumeSignal.Reset();
                 callback = Paused;
@@ -77,7 +208,7 @@ namespace DDFLanguageEditor.Core
                 line,
                 column,
                 Math.Max(0, node == null ? 0 : node.Start),
-                Math.Max(1, node == null ? 1 : node.Length)));
+                Math.Max(1, node == null ? 1 : node.Length), captureState?.Invoke(), documentPath));
 
             while (!resumeSignal.Wait(25))
             {
@@ -119,5 +250,8 @@ namespace DDFLanguageEditor.Core
                 else if (source[index] != '\r') column++;
             }
         }
+
+        private static string BreakpointKey(string documentPath, int line) =>
+            (documentPath ?? string.Empty).Replace('/', '\\') + "\n" + line;
     }
 }

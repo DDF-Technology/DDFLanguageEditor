@@ -81,7 +81,7 @@ namespace DDFLanguageEditor.Core
         private static readonly string[] RequiredSections =
         {
             "lexicon", "grammar", "types", "semantics", "formatting",
-            "intellisense", "runtime", "build", "standardLibrary"
+            "intellisense", "runtime", "build", "standardLibrary", "tests"
         };
         private static readonly IReadOnlyDictionary<string, string> SupportedAdapters =
             new Dictionary<string, string>(StringComparer.Ordinal)
@@ -89,8 +89,8 @@ namespace DDFLanguageEditor.Core
                 ["lexicon"] = "ddf-lexicon-v1", ["grammar"] = "ddf-grammar-v2",
                 ["types"] = "ddf-types-v1", ["semantics"] = "ddf-semantics-v1",
                 ["formatting"] = "ddf-formatter-v1", ["intellisense"] = "ddf-intellisense-v1",
-                ["runtime"] = "ddf-runtime-v1", ["build"] = "ddf-build-v1",
-                ["standardLibrary"] = "ddf-standard-library-v1"
+                ["runtime"] = "ddf-runtime-v2", ["build"] = "ddf-build-v2",
+                ["standardLibrary"] = "ddf-standard-library-v2", ["tests"] = "ddf-tests-v1"
             };
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -182,6 +182,14 @@ namespace DDFLanguageEditor.Core
                                 ? read<IntellisenseDto>(reader, file, diagnostics)
                                 : section == "formatting"
                                     ? read<FormattingDto>(reader, file, diagnostics)
+                                    : section == "runtime"
+                                        ? read<RuntimeDto>(reader, file, diagnostics)
+                                        : section == "build"
+                                            ? read<BuildDto>(reader, file, diagnostics)
+                                        : section == "standardLibrary"
+                                            ? read<StandardLibraryDto>(reader, file, diagnostics)
+                                        : section == "tests"
+                                            ? read<TestsDto>(reader, file, diagnostics)
                                     : read<SectionDto>(reader, file, diagnostics);
                     if (document != null)
                     {
@@ -218,13 +226,49 @@ namespace DDFLanguageEditor.Core
                     manifest.Sections["intellisense"], diagnostics);
                 if (hasErrors(diagnostics) || language.Intellisense == null)
                     return new DdfLanguagePackageLoadResult(null, diagnostics);
+                language.Runtime = createRuntime((RuntimeDto)sectionDocuments["runtime"], language,
+                    manifest.Sections["runtime"], diagnostics);
+                if (hasErrors(diagnostics) || language.Runtime == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
+                language.StandardLibrary = createStandardLibrary(
+                    (StandardLibraryDto)sectionDocuments["standardLibrary"], language.Types,
+                    manifest.Sections["standardLibrary"], diagnostics);
+                if (hasErrors(diagnostics) || language.StandardLibrary == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
+                language.Build = createBuild((BuildDto)sectionDocuments["build"],
+                    manifest.Sections["build"], diagnostics);
+                if (hasErrors(diagnostics) || language.Build == null)
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
 
                 var package = new DdfLanguagePackage(manifest.Id, manifest.Name,
                     manifest.PackageVersion, manifest.LanguageVersion,
                     manifest.FileExtensions.AsReadOnly(), language, grammar,
                     manifest.NativeExtensions.Select(item => new DdfNativeExtensionRequirement(
                         item.Id, item.Publisher, item.Version, item.Sha256,
-                        item.Capabilities)).ToList().AsReadOnly(), origin, source);
+                    item.Capabilities)).ToList().AsReadOnly(), origin, source);
+                TestsDto tests = (TestsDto)sectionDocuments["tests"];
+                var suite = new DdfLanguagePackageTestSuite
+                {
+                    SchemaVersion = tests.SchemaVersion,
+                    Adapter = tests.Adapter,
+                    DependsOn = tests.DependsOn,
+                    Description = tests.Description,
+                    Cases = (tests.Cases ?? new List<PackageTestCaseDto>()).Select(item =>
+                        new DdfLanguagePackageTestCase
+                        {
+                            Name = item?.Name,
+                            Source = item?.Source,
+                            ExpectedTokenKinds = item?.ExpectedTokenKinds,
+                            ExpectedDiagnosticCodes = item?.ExpectedDiagnosticCodes,
+                            ExpectedFormatted = item?.ExpectedFormatted,
+                            ExpectedReturn = item?.ExpectedReturn
+                        }).ToList()
+                };
+                foreach (DdfLanguagePackageTestResult test in DdfLanguagePackageTestRunner.Run(package, suite).Where(item => !item.Passed))
+                    diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFT001",
+                        "Test dichiarativo '" + test.Name + "' non riuscito: " + test.Message,
+                        manifest.Sections["tests"], "$.cases"));
+                if (hasErrors(diagnostics)) return new DdfLanguagePackageLoadResult(null, diagnostics);
                 return new DdfLanguagePackageLoadResult(package, diagnostics);
             }
         }
@@ -613,6 +657,128 @@ namespace DDFLanguageEditor.Core
             }
         }
 
+        private static DdfRuntimeDefinition createRuntime(RuntimeDto value, DdfLanguageDefinition language,
+            string file, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try
+            {
+                require(value.ExpressionOperations != null && value.VmOperations != null,
+                    diagnostics, "DDFL120", "Configurazione runtime incompleta.", file, "$.");
+                if (hasErrors(diagnostics)) return null;
+                value.ExpressionOperations.Unary = value.ExpressionOperations.Unary ?? new List<RuntimeOperationDto>();
+                value.ExpressionOperations.Binary = value.ExpressionOperations.Binary ?? new List<RuntimeOperationDto>();
+                value.ExpressionOperations.Postfix = value.ExpressionOperations.Postfix ?? new List<RuntimeOperationDto>();
+                validateRuntimeBindings(value.ExpressionOperations.Unary, language, "unary", file,
+                    "$.expressionOperations.unary", diagnostics);
+                validateRuntimeBindings(value.ExpressionOperations.Binary, language, "binary", file,
+                    "$.expressionOperations.binary", diagnostics);
+                validateRuntimeBindings(value.ExpressionOperations.Postfix, language, "postfix", file,
+                    "$.expressionOperations.postfix", diagnostics);
+                foreach (DdfOperatorDefinition op in language.Operators)
+                {
+                    if (op.IsPrefix) require(value.ExpressionOperations.Unary.Any(item => item?.Token == op.Text),
+                        diagnostics, "DDFL124", "Binding runtime unary mancante per '" + op.Text + "'.", file,
+                        "$.expressionOperations.unary");
+                    if (op.BinaryPrecedence > 0) require(value.ExpressionOperations.Binary.Any(item => item?.Token == op.Text),
+                        diagnostics, "DDFL124", "Binding runtime binary mancante per '" + op.Text + "'.", file,
+                        "$.expressionOperations.binary");
+                    if (op.IsPostfix) require(value.ExpressionOperations.Postfix.Any(item => item?.Token == op.Text),
+                        diagnostics, "DDFL124", "Binding runtime postfix mancante per '" + op.Text + "'.", file,
+                        "$.expressionOperations.postfix");
+                }
+                if (hasErrors(diagnostics)) return null;
+                return new DdfRuntimeDefinition(value.InstructionSet, value.EntryPoint,
+                    value.DefaultInstructionLimit, value.OutputTarget, value.VmOperations,
+                    value.ExpressionOperations.Unary.Select(item => Pair(item.Token, item.Operation)),
+                    value.ExpressionOperations.Binary.Select(item => Pair(item.Token, item.Operation)),
+                    value.ExpressionOperations.Postfix.Select(item => Pair(item.Token, item.Operation)));
+            }
+            catch (DdfEngineCapabilityException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL122", exception.Message, file, "$",
+                    DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
+                return null;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL121", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
+        private static void validateRuntimeBindings(IReadOnlyList<RuntimeOperationDto> bindings,
+            DdfLanguageDefinition language, string category, string file, string path,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            validateUnique(bindings.Select(item => item?.Token), "binding runtime " + category, file, path, diagnostics);
+            foreach (RuntimeOperationDto binding in bindings.Where(item => item != null))
+            {
+                bool declared = language.TryGetOperator(binding.Token, out DdfOperatorDefinition op) &&
+                    (category == "unary" ? op.IsPrefix : category == "postfix" ? op.IsPostfix : op.BinaryPrecedence > 0);
+                require(declared, diagnostics, "DDFL123",
+                    "Il token runtime '" + binding.Token + "' non è un operatore " + category + " dichiarato.",
+                    file, path);
+            }
+        }
+
+        private static KeyValuePair<string, string> Pair(string key, string value) =>
+            new KeyValuePair<string, string>(key, value);
+
+        private static DdfStandardLibraryDefinition createStandardLibrary(StandardLibraryDto value,
+            DdfTypeSystemDefinition types, string file, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try
+            {
+                value.Functions = value.Functions ?? new List<StandardFunctionDto>();
+                validateUnique(value.Functions.Select(item => item?.Name), "funzione standard", file,
+                    "$.functions", diagnostics);
+                var functions = new List<DdfStandardFunction>();
+                foreach (StandardFunctionDto function in value.Functions.Where(item => item != null))
+                {
+                    function.ParameterTypes = function.ParameterTypes ?? new List<string>();
+                    require(types.IsKnownPrimitive(function.ReturnType) && function.ParameterTypes.All(types.IsKnownPrimitive),
+                        diagnostics, "DDFL130", "La funzione standard '" + function.Name + "' usa tipi sconosciuti.",
+                        file, "$.functions");
+                    if (!DdfHostFunctionBindings.IsSupported(function.Binding))
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL132",
+                            "Binding host non supportato: " + function.Binding + ".", file, "$.functions",
+                            DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
+                        continue;
+                    }
+                    functions.Add(new DdfStandardFunction(function.Name, function.ReturnType,
+                        function.Documentation, function.Binding, function.ParameterTypes));
+                }
+                if (hasErrors(diagnostics)) return null;
+                return new DdfStandardLibraryDefinition(functions);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL131", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
+        private static DdfBuildDefinition createBuild(BuildDto value, string file,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            if (value == null) return null;
+            try { return new DdfBuildDefinition(value.DefaultBackend, value.ArtifactFormat, value.Backends); }
+            catch (DdfEngineCapabilityException exception)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL142", exception.Message, file, "$",
+                    DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
+                return null;
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL141", exception.Message, file, "$"));
+                return null;
+            }
+        }
+
         private static DdfFormattingDefinition createFormatting(FormattingDto value,
             DdfLanguageDefinition language, string file,
             ICollection<DdfLanguagePackageDiagnostic> diagnostics)
@@ -891,6 +1057,14 @@ namespace DDFLanguageEditor.Core
         private sealed class SymbolPresentationDto { public string Kind { get; set; } public string Label { get; set; } public string Documentation { get; set; } }
         private sealed class SnippetDto { public string Prefix { get; set; } public string DisplayText { get; set; } public string Description { get; set; } public string Body { get; set; } public bool RequiresKeyword { get; set; } }
         private sealed class FormattingDto : SectionDto { public FormattingTokensDto Tokens { get; set; } public List<AutoPairDto> AutoPairs { get; set; } public List<string> IndentAfter { get; set; } public bool BlankLineBetweenStatements { get; set; } public List<QuickFixDto> QuickFixes { get; set; } }
+        private sealed class RuntimeDto : SectionDto { public string InstructionSet { get; set; } public string EntryPoint { get; set; } public int DefaultInstructionLimit { get; set; } public string OutputTarget { get; set; } public List<string> VmOperations { get; set; } public RuntimeExpressionOperationsDto ExpressionOperations { get; set; } }
+        private sealed class RuntimeExpressionOperationsDto { public List<RuntimeOperationDto> Unary { get; set; } public List<RuntimeOperationDto> Binary { get; set; } public List<RuntimeOperationDto> Postfix { get; set; } }
+        private sealed class RuntimeOperationDto { public string Token { get; set; } public string Operation { get; set; } }
+        private sealed class StandardLibraryDto : SectionDto { public List<StandardFunctionDto> Functions { get; set; } }
+        private sealed class StandardFunctionDto { public string Name { get; set; } public string ReturnType { get; set; } public List<string> ParameterTypes { get; set; } public string Documentation { get; set; } public string Binding { get; set; } }
+        private sealed class BuildDto : SectionDto { public string DefaultBackend { get; set; } public string ArtifactFormat { get; set; } public List<string> Backends { get; set; } }
+        private sealed class TestsDto : SectionDto { public List<PackageTestCaseDto> Cases { get; set; } }
+        private sealed class PackageTestCaseDto { public string Name { get; set; } public string Source { get; set; } public List<string> ExpectedTokenKinds { get; set; } public List<string> ExpectedDiagnosticCodes { get; set; } public string ExpectedFormatted { get; set; } public string ExpectedReturn { get; set; } }
         private sealed class FormattingTokensDto { public string BlockOpen { get; set; } public string BlockClose { get; set; } public string GroupOpen { get; set; } public string GroupClose { get; set; } public string IndexOpen { get; set; } public string IndexClose { get; set; } public string StatementTerminator { get; set; } public string Separator { get; set; } }
         private sealed class AutoPairDto { public string Open { get; set; } public string Close { get; set; } }
         private sealed class QuickFixDto { public string DiagnosticCode { get; set; } public string Title { get; set; } public string Replacement { get; set; } }

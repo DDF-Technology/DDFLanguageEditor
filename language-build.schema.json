@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/build-1.0.json",
+  "title": "DDF language package build contract 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "defaultBackend", "artifactFormat", "backends" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-build-v2" },
+    "dependsOn": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "defaultBackend": { "const": "ddf-vm-ir-v1" },
+    "artifactFormat": { "const": "ddf-build-receipt-1.0" },
+    "backends": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "const": "ddf-vm-ir-v1" } }
+  }
+}

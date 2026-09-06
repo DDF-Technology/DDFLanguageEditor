@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/tests-1.0.json",
+  "title": "DDF declarative package tests 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "adapter", "dependsOn", "cases" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "adapter": { "const": "ddf-tests-v1" },
+    "dependsOn": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "description": { "type": "string" },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "name", "source" ],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "source": { "type": "string" },
+          "expectedTokenKinds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "expectedDiagnosticCodes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "expectedFormatted": { "type": "string" },
+          "expectedReturn": { "type": "string" }
+        }
+      }
+    }
+  }
+}

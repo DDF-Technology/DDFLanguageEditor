@@ -1,0 +1,8 @@
+main() out int
+{
+    int value << doubleValue(1);
+
+    print("Progetto DDF pronto");
+
+    ret value;
+}

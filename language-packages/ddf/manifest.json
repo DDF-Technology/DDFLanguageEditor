@@ -3,7 +3,7 @@
   "engineApi": "1.0",
   "id": "ddf",
   "name": "DDF",
-  "packageVersion": "0.9.6.4",
+  "packageVersion": "0.9.6.7",
   "languageVersion": "0.9",
   "fileExtensions": [ ".ddf" ],
   "nativeExtensions": [],
@@ -16,6 +16,7 @@
     "intellisense": "intellisense.json",
     "runtime": "runtime.json",
     "build": "build.json",
-    "standardLibrary": "standard-library.json"
+    "standardLibrary": "standard-library.json",
+    "tests": "tests.json"
   }
 }

@@ -1,6 +1,116 @@
-# DDFLanguageEditor 0.9.6.4
+# DDFLanguageEditor 0.11.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.11.0 executes every source selected by the project manifest as one
+runtime program. The entry `main` can call functions and use structures or
+globals declared in other files, including modified unsaved buffers.
+
+Breakpoints, stepping, Variables, Watch, Call Stack and runtime diagnostics now
+retain the correct source document and navigate across tabs. Duplicate runtime
+names and unsafe forward/cyclic global initialization are rejected before run.
+Source membership is controlled by `ddf-project.json`; `@@'...'` remains a
+library/capability directive rather than a file include.
+
+The debugger visibly activates the external function's tab on Step Into and
+returns to the caller's tab on Step Out. F11, F10 and Shift+F11 are handled
+directly so Windows menu activation cannot swallow source-level stepping.
+
+The Core suite contains 174 passing tests. The WinForms smoke includes an
+end-to-end cross-file call, visible tab switching, consecutive source steps and
+Step Out to `main`.
+
+Previous version notes follow.
+
+## 0.10.1
+
+Version 0.10.1 completes source-level stepping with Step Into (`F11`). When the
+paused statement invokes a user function, the debugger stops on its first DDF
+statement and refreshes source highlighting, Variables, Watch and Call Stack.
+Step Over (`F10`) and Step Out (`Shift+F11`) remain available.
+
+Version 0.10.0 added a Variables palette populated automatically at each
+pause. Parameters, locals and globals retain their declared type, while arrays
+and structures can be expanded from the immutable runtime snapshot.
+
+A Call Stack palette lists the current frame followed by its callers, including
+function, source location and document. Double-click or Enter navigates to the
+selected call site, and frames retain source identity for future multi-file debug.
+Selecting a frame also switches the Variables palette to that frame's immutable
+parameter and local-variable snapshot without mixing caller and callee scopes.
+
+The debugger added Step Over (`F10`) and Step Out (`Shift+F11`).
+Implicit workspaces always discover their unique `main`, reject duplicate entry
+points and do not stop on breakpoints in code that is not executed. External-file
+detection also suppresses false conflicts when disk and buffer differ only in
+line-ending representation.
+
+Watch expressions now support side-effect-free arithmetic, comparisons, logic,
+parentheses, members and calculated array indices. They use the active language
+package's lexer, precedence and runtime-operation bindings while evaluating only
+the immutable pause snapshot. Calls, assignments, output and postfix mutations
+are rejected. Expression lists persist separately for each workspace folder.
+
+The Core suite contains 173 passing tests. The WinForms smoke covers all 73 menu
+commands and 52 toolbar buttons, grouped into seven movable, persistent bars.
+
+Previous version notes follow.
+
+## 0.9.6.7
+
+Version 0.9.6.7 adds a persistent language-package manager. Packages can be
+installed or transactionally updated from a directory or `.ddflang`, validated,
+selected, or disabled in favor of the embedded DDF fallback.
+
+The isolated language playground previews tokens, the generic syntax tree,
+diagnostics and formatting without touching the open document. Every package now
+contains `tests.json`; its declarative corpus is executed before activation and a
+failure rejects the package atomically with `DDFT001`.
+
+The authoring guide distinguishes safe declarative changes from engine operations
+and explicitly authorized native plug-ins. An automated `Nova Demo` changes both a
+keyword and the assignment operator, then parses, formats and executes the result
+without recompiling the editor.
+
+## 0.9.6.6
+
+Version 0.9.6.6 separates the language package from a workspace-level
+`ddf-project.json`. A project pins the exact language package and chooses its
+sources, entry point, dependency declarations, backend, output and execution
+limit. The schema and a complete sample project are included.
+
+Validate, Build, Run without debugging and Debug now use one build pipeline.
+The first replaceable backend, `ddf-vm-ir-v1`, parses, checks and lowers every
+selected source to the common IR. Build writes a deterministic JSON receipt
+with source hashes and a configuration fingerprint; Validate writes nothing.
+Named unsaved buffers may participate without being saved implicitly.
+
+Build diagnostics retain document paths and source spans, so Output rows can
+open the correct file. The Core suite contains 168 passing tests and the dynamic
+WinForms smoke covers all 60 menu commands plus project validation/build and
+unsaved-buffer preservation.
+
+Runtime calls across source files are intentionally deferred to 0.11.0; this
+release executes the entry-source IR while validating cross-file signatures.
+
+Version 0.9.6.5 introduces a syntax-independent IR virtual machine. Concrete
+operators are translated to stable, closed operation identifiers during
+lowering, so execution no longer compares DDF spellings such as `<<`, `||` or
+`^/`. Values, scopes, calls, control flow, arrays and structures remain bounded
+to engine-supported operations.
+
+`runtime.json` now declares the instruction set, entry point, default execution
+limit, output target and expression bindings. `standard-library.json` declares
+function names, signatures, documentation and safe host bindings. Packages may
+rename syntax and standard functions without recompiling the engine, but cannot
+request reflection, scripts or arbitrary host methods.
+
+Cancellation, source positions, runtime diagnostics, call stacks and breakpoints
+are preserved. Each pause already receives an immutable runtime-state snapshot
+for the variable-inspection UI planned in 0.10.0. The Core suite contains 164
+tests, including package-only operator and standard-library substitutions.
+
+Previous version notes follow.
 
 Version 0.9.6.4 makes primitive types, conversions, compatibility, mutability,
 scope and signature policies declarative through a validated `types.json`.

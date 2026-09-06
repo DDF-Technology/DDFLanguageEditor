@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
@@ -12,6 +13,13 @@ namespace DDF___Program_Language_Editor
         private DdfDebuggerSession debuggerSession;
         private TabPage tabPageBreakpoints;
         private ListBox listBoxBreakpoints;
+        private ToolStripMenuItem stepIntoMenuItem;
+        private ToolStripMenuItem stepOverMenuItem;
+        private ToolStripMenuItem stepOutMenuItem;
+        private ToolStripButton toolbarStepIntoButton;
+        private ToolStripButton toolbarStepOverButton;
+        private ToolStripButton toolbarStepOutButton;
+        private ToolStripStatusLabel statusDebugLabel;
 
         private void initializeDebugger()
         {
@@ -36,7 +44,85 @@ namespace DDF___Program_Language_Editor
             listBoxBreakpoints.DoubleClick += listBoxBreakpoints_DoubleClick;
             tabPageBreakpoints.Controls.Add(listBoxBreakpoints);
             tabControlBottom.TabPages.Add(tabPageBreakpoints);
+            stepIntoMenuItem = new ToolStripMenuItem("Entra nella funzione")
+            {
+                Name = "stepIntoMenuItem",
+                ShortcutKeys = Keys.F11,
+                Enabled = false
+            };
+            stepIntoMenuItem.Click += stepIntoMenuItem_Click;
+            int breakpointMenuIndex = runMenuItem.DropDownItems.IndexOf(toggleBreakpointMenuItem);
+            runMenuItem.DropDownItems.Insert(breakpointMenuIndex, stepIntoMenuItem);
+            stepOverMenuItem = new ToolStripMenuItem("Passo successivo")
+            {
+                Name = "stepOverMenuItem",
+                ShortcutKeys = Keys.F10,
+                Enabled = false
+            };
+            stepOverMenuItem.Click += stepOverMenuItem_Click;
+            runMenuItem.DropDownItems.Insert(breakpointMenuIndex + 1, stepOverMenuItem);
+            stepOutMenuItem = new ToolStripMenuItem("Esci dalla funzione")
+            {
+                Name = "stepOutMenuItem",
+                ShortcutKeys = Keys.Shift | Keys.F11,
+                Enabled = false
+            };
+            stepOutMenuItem.Click += stepOutMenuItem_Click;
+            runMenuItem.DropDownItems.Insert(breakpointMenuIndex + 2, stepOutMenuItem);
+            toolbarStepIntoButton = createToolbarButton(
+                "toolbarStepIntoButton", "↳", "Entra nella funzione (F11)", stepIntoMenuItem_Click);
+            toolbarStepIntoButton.Enabled = false;
+            toolStripMain.Items.Insert(toolStripMain.Items.IndexOf(toolbarStopButton), toolbarStepIntoButton);
+            toolbarStepOverButton = createToolbarButton(
+                "toolbarStepOverButton", "", "Passo successivo (F10)", stepOverMenuItem_Click);
+            toolbarStepOverButton.Enabled = false;
+            toolStripMain.Items.Insert(toolStripMain.Items.IndexOf(toolbarStopButton), toolbarStepOverButton);
+            toolbarStepOutButton = createToolbarButton(
+                "toolbarStepOutButton", "", "Esci dalla funzione (Shift+F11)", stepOutMenuItem_Click);
+            toolbarStepOutButton.Enabled = false;
+            toolStripMain.Items.Insert(toolStripMain.Items.IndexOf(toolbarStopButton), toolbarStepOutButton);
+            statusDebugLabel = new ToolStripStatusLabel
+            {
+                Name = "statusDebugLabel",
+                Available = true,
+                Visible = true,
+                Text = "MODIFICA",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                BorderSides = ToolStripStatusLabelBorderSides.Left | ToolStripStatusLabelBorderSides.Right,
+                Padding = new Padding(8, 0, 8, 0)
+            };
+            statusStripMain.Items.Insert(1, statusDebugLabel);
             refreshBreakpointsPalette();
+            initializeVariables();
+            initializeCallStack();
+            initializeWatch();
+        }
+
+        private void stepIntoMenuItem_Click(object sender, EventArgs e)
+        {
+            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            clearDebugExecutionLine();
+            appendOutput("Ingresso nella funzione...");
+            debuggerSession.StepInto();
+            updateExecutionCommands(true);
+        }
+
+        private void stepOutMenuItem_Click(object sender, EventArgs e)
+        {
+            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            clearDebugExecutionLine();
+            appendOutput("Uscita dalla funzione corrente...");
+            debuggerSession.StepOut();
+            updateExecutionCommands(true);
+        }
+
+        private void stepOverMenuItem_Click(object sender, EventArgs e)
+        {
+            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            clearDebugExecutionLine();
+            appendOutput("Passo successivo...");
+            debuggerSession.StepOver();
+            updateExecutionCommands(true);
         }
 
         private void richTextBoxLineNumbers_LineClicked(object sender, LineNumberClickEventArgs e)
@@ -61,7 +147,7 @@ namespace DDF___Program_Language_Editor
                 ? lastParseResult.Root
                 : DdfParser.Parse(richTextBoxMainEditor.Text).Root;
             validateBreakpoints(openDocuments.ActiveDocument, richTextBoxMainEditor.Text, root);
-            debuggerSession?.SetBreakpoints(getEnabledBreakpointLines(openDocuments.ActiveDocument));
+            synchronizeRuntimeBreakpoints(openDocuments.ActiveDocument);
             refreshBreakpointsPalette();
             updateLineNumbers();
             refreshEditorOverview();
@@ -71,9 +157,7 @@ namespace DDF___Program_Language_Editor
         {
             activeBreakpointLines?.Clear();
             openDocuments.ActiveDocument?.UnboundBreakpointLines.Clear();
-            debuggerSession?.SetBreakpoints(activeBreakpointLines == null
-                ? (IEnumerable<int>)Array.Empty<int>()
-                : activeBreakpointLines);
+            synchronizeRuntimeBreakpoints(openDocuments.ActiveDocument);
             refreshBreakpointsPalette();
             refreshEditorOverview();
         }
@@ -91,6 +175,22 @@ namespace DDF___Program_Language_Editor
                 : buffer.BreakpointLines.Where(line => !buffer.UnboundBreakpointLines.Contains(line));
         }
 
+        private void synchronizeRuntimeBreakpoints(OpenDocumentBuffer buffer)
+        {
+            if (debuggerSession == null) return;
+            if (buffer != null && !buffer.Session.HasPath)
+            {
+                debuggerSession.SetBreakpoints(getEnabledBreakpointLines(buffer));
+                return;
+            }
+            var sourceBreakpoints = openDocuments.Documents
+                .Where(document => document.Session.HasPath)
+                .SelectMany(document => getEnabledBreakpointLines(document)
+                    .Select(line => new DdfSourceBreakpoint(document.Session.CurrentPath, line)))
+                .ToList();
+            debuggerSession.SetBreakpoints(sourceBreakpoints);
+        }
+
         private void validateBreakpoints(OpenDocumentBuffer buffer, string source, CompilationUnitSyntax root)
         {
             if (buffer == null || buffer.BreakpointLines.Count == 0) return;
@@ -99,7 +199,7 @@ namespace DDF___Program_Language_Editor
                 if (!executable.Contains(line)) buffer.UnboundBreakpointLines.Add(line);
             if (ReferenceEquals(buffer, openDocuments.ActiveDocument))
             {
-                debuggerSession?.SetBreakpoints(getEnabledBreakpointLines(buffer));
+                synchronizeRuntimeBreakpoints(buffer);
                 updateLineNumbers();
             }
             refreshBreakpointsPalette();
@@ -174,12 +274,36 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
+            if (!string.IsNullOrEmpty(pause.DocumentPath) && File.Exists(pause.DocumentPath))
+            {
+                if (!openDocument(pause.DocumentPath)) return;
+                runtimeDocumentId = openDocuments.ActiveDocument?.Id;
+                runtimeDocumentPath = pause.DocumentPath;
+            }
+            else if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
                 activateDocument(runtimeView);
 
             appendOutput("Breakpoint raggiunto: riga " + pause.Line + ", colonna " + pause.Column + ".");
-            navigateToRuntimeSpan(pause.Start, pause.Length);
+            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            watchSnapshot = pause.State;
+            selectedCallStackFrameIndex = 0;
+            navigateToRuntimeSpan(!string.IsNullOrEmpty(pause.DocumentPath) && File.Exists(pause.DocumentPath)
+                ? pause.DocumentPath : null, pause.Start, pause.Length);
+            showDebugExecutionLine(pause.Line);
             updateExecutionCommands(true);
+        }
+
+        private void showDebugExecutionLine(int oneBasedLine)
+        {
+            clearDebugExecutionLine();
+            if (richTextBoxMainEditor is MultiCursorRichTextBox editor)
+                editor.DebugExecutionLine = Math.Max(0, oneBasedLine - 1);
+        }
+
+        private void clearDebugExecutionLine()
+        {
+            foreach (DocumentView view in documentViews.Values)
+                if (view.Editor is MultiCursorRichTextBox editor) editor.DebugExecutionLine = -1;
         }
     }
 }

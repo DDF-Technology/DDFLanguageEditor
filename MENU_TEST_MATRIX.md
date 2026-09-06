@@ -29,7 +29,9 @@ con estensione non supportata.
 
 Lo smoke modifica inoltre dall'esterno un file aperto e verifica il confronto
 affiancato, la ricarica, la conservazione del buffer, il rinvio senza popup
-ripetuti, il blocco prima del salvataggio e il caso di file eliminato.
+ripetuti, il blocco prima del salvataggio e il caso di file eliminato. Verifica
+anche che contenuti identici con terminazioni LF/CRLF differenti non generino un
+falso conflitto.
 
 ## Modifica
 
@@ -75,8 +77,14 @@ deve avere il menu contestuale di modifica e il gutter deve restare escluso.
 
 | Comando | Verifica dinamica |
 | --- | --- |
-| Avvia | esegue `main` con `F5`, seleziona Output e verifica valore e completamento |
-| Breakpoint | attiva con `F9` o dal gutter, marca la riga, sospende sullo statement e continua con `F5` |
+| Convalida progetto | usa tutti i sorgenti e i buffer non salvati senza creare l'output |
+| Compila progetto | crea una ricevuta deterministica con fingerprint senza salvare implicitamente i sorgenti |
+| Avvia senza debug | esegue l'artefatto in memoria con `Ctrl+F5` senza una sessione debugger |
+| Avvia debug | esegue `main` con `F5`, seleziona Output e verifica valore e completamento; un file attivo esterno al workspace viene eseguito in isolamento |
+| Entra nella funzione | con il debugger in pausa, `F11` entra nella prima istruzione della funzione DDF chiamata e aggiorna Call Stack, Variabili e Watch |
+| Passo successivo | con il debugger in pausa, `F10` esegue una sola istruzione senza entrare nelle funzioni chiamate e aggiorna Watch e riga corrente |
+| Esci dalla funzione | con il debugger in pausa, `Shift+F11` completa il frame corrente, si ferma nel chiamante e aggiorna Call Stack e Variabili |
+| Breakpoint | attiva con `F9` o dal gutter, marca la riga, sospende sullo statement, evidenzia in giallo l'intera riga e continua con `F5` |
 | Arresta | espone `Shift+F5` e viene abilitato soltanto durante un'esecuzione |
 
 Il core verifica inoltre cancellazione cooperativa, limite anti-loop ed errori
@@ -93,6 +101,7 @@ runtime posizionati nel sorgente.
 | Mostra guide di indentazione | disegna guide per i livelli configurati senza contaminare RTF o Undo |
 | A capo automatico | applica il word wrap alle schede e alla vista compressa mantenendo coerente il gutter |
 | Mostra overview diagnostica | alterna la barra persistente, verifica errori e breakpoint reali e naviga alla riga cliccata |
+| Barre degli strumenti | mostra o nasconde singolarmente le sette barre mobili per categoria e ne persiste visibilità, ordine, riga e posizione |
 | Command Palette | filtra azioni, categorie e scorciatoie, mostra gli stati non disponibili ed esegue l'handler originale |
 | Impostazioni | applica editor, scorciatoie, autosave, Hot Exit, sessione e recovery locale, con preset predefinito |
 
@@ -118,11 +127,12 @@ Il breadcrumb viene verificato sul form reale con file, funzione e blocchi
 annidati; il click su un segmento deve selezionare il costrutto e consentire il
 ritorno alla posizione precedente tramite Navigazione indietro.
 
-## Barra strumenti
+## Barre degli strumenti
 
-La toolbar espone 44 pulsanti a icona con tooltip, compresi ricerca, sostituzione e navigazione workspace, Impostazioni, Command Palette, completamento, correzioni rapide, selezione sintattica,
-riduzione, navigazione tra delimitatori, le quattro opzioni visive e l'overview. Lo smoke verifica presenza, ordine funzionale,
-accessibilità e condivisione degli handler Breakpoint/Run/Stop con il menu Esegui.
+Le sette barre mobili raggruppano per categoria 51 pulsanti a icona con tooltip: File, Modifica, Codice e formattazione,
+Navigazione e ricerca, Visualizzazione, Progetto e linguaggio, Esecuzione e debug. Possono essere riordinate tramite la
+maniglia e mostrate o nascoste da **Visualizza > Barre degli strumenti**. Lo smoke verifica disposizione iniziale compatta,
+persistenza, accessibilità e condivisione degli handler Convalida/Build/Run/Debug/Breakpoint/Stop con il menu Esegui.
 
 Lo stesso gate verifica che tutte le superfici applicative usino la palette
 chiara, oppure i colori di sistema in modalità ad alto contrasto, e che soltanto
@@ -148,8 +158,35 @@ checkbox, ordine dei pulsanti, dimensioni uniformi e visibilità contestuale.
 
 ## Scorciatoie e comando di esecuzione
 
-Lo smoke verifica le 46 scorciatoie dichiarate, incluse `Ctrl+,`, `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
-`F2` per la rinomina, `F9` per i breakpoint, `F5` per Run/Continua e `Shift+F5` per Stop. Il gate completo si avvia con:
+La scheda **Espressioni di controllo** nella palette inferiore espone Aggiungi
+(anche Invio nel campo) e Rimuovi (anche Canc nell'elenco). Non aggiunge shortcut
+globali né pulsanti alla toolbar in questo primo incremento; si raggiunge tramite
+le schede e la navigazione tastiera esistente. Lo smoke verifica lettura alla
+pausa, deduplicazione, rimozione e azzeramento dei valori a fine debug. Verifica
+inoltre espressioni aritmetiche pure, rifiuto delle assegnazioni e persistenza
+separata passando fuori da un progetto e tornando nello stesso workspace.
+
+La scheda **Variabili** elenca automaticamente parametri, locali e globali alla
+pausa, mostra tipo dichiarato e valore e permette di espandere array e strutture.
+Lo smoke verifica anche la rimozione dei valori alla fine del debug.
+
+La scheda **Call Stack** espone frame corrente e chiamanti con posizione e
+documento. Doppio clic e Invio navigano all'intervallo sorgente del frame; lo
+stack viene svuotato alla fine della sessione. Lo smoke entra inoltre in una
+funzione annidata, seleziona il chiamante e verifica che Variabili mostri soltanto
+lo scope corrispondente.
+
+Le regressioni del 2026-09-06 verificano anche che Chiudi disponga realmente il
+Playground modeless, che il gestore pacchetti mantenga Chiudi sulla riga degli
+altri comandi anche alla dimensione minima e che l'icona pacchetti sia distinta
+da Impostazioni. Il debug viene provato su una scheda non salvata e con cambio
+scheda durante la pausa: i breakpoint degli altri documenti non devono sostituire
+quelli della sessione in esecuzione. Un workspace implicito viene inoltre avviato
+dall'unica `main` anche se la scheda attiva contiene un breakpoint in una funzione
+mai richiamata.
+
+Lo smoke verifica le 51 scorciatoie dichiarate, incluse `Ctrl+,`, `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
+`F2` per la rinomina, `Ctrl+Shift+B` per Build, `Ctrl+F5` per Run, `F9` per i breakpoint, `F5` per Debug/Continua, `F11` per Entra nella funzione, `F10` per Passo successivo, `Shift+F11` per Esci dalla funzione e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
 .\tests\run-dynamic-smoke.ps1

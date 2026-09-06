@@ -58,6 +58,9 @@ namespace DDF___Program_Language_Editor
                 { "toolbarOverviewButton", "showOverviewMenuItem" },
                 { "toolbarBreakpointButton", "toggleBreakpointMenuItem" },
                 { "toolbarRunButton", "runProgramMenuItem" },
+                { "toolbarStepIntoButton", "stepIntoMenuItem" },
+                { "toolbarStepOverButton", "stepOverMenuItem" },
+                { "toolbarStepOutButton", "stepOutMenuItem" },
                 { "toolbarStopButton", "stopProgramMenuItem" }
             };
 
@@ -80,6 +83,7 @@ namespace DDF___Program_Language_Editor
             foreach (ToolStripMenuItem item in items.OfType<ToolStripMenuItem>())
             {
                 if (ReferenceEquals(item, recentMenuItem) || ReferenceEquals(item, recentWorkspacesMenuItem)) continue;
+                if (item.Name.StartsWith("showToolbar", StringComparison.OrdinalIgnoreCase)) continue;
                 if (item.DropDownItems.Count > 0)
                 {
                     collectShortcutDefinitions(item.DropDownItems, category, definitions);
@@ -116,7 +120,7 @@ namespace DDF___Program_Language_Editor
 
         private void updateToolbarShortcutToolTips(IReadOnlyDictionary<string, ToolStripMenuItem> commands)
         {
-            foreach (ToolStripButton button in toolStripMain.Items.OfType<ToolStripButton>())
+            foreach (ToolStripButton button in enumerateToolbarItems().OfType<ToolStripButton>())
             {
                 if (!ToolbarCommandNames.TryGetValue(button.Name, out string commandName) ||
                     !commands.TryGetValue(commandName, out ToolStripMenuItem command)) continue;

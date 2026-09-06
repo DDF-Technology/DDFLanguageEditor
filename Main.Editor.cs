@@ -23,6 +23,25 @@ namespace DDF___Program_Language_Editor
                 return moveFocusBetweenPanes(keyData == (Keys.Shift | Keys.F6));
             if (isPaletteTabShortcut(keyData) && cycleFocusedPaletteTab(keyData)) return true;
 
+            // F10 è intercettato nativamente dalla barra dei menu su Windows e non
+            // sempre raggiunge lo ShortcutKeys del ToolStrip. Gestiamo esplicitamente
+            // tutti i passi del debugger, rispettando anche scorciatoie personalizzate.
+            if (matchesShortcut(stepIntoMenuItem, keyData))
+            {
+                if (stepIntoMenuItem.Enabled) stepIntoMenuItem.PerformClick();
+                return true;
+            }
+            if (matchesShortcut(stepOverMenuItem, keyData))
+            {
+                if (stepOverMenuItem.Enabled) stepOverMenuItem.PerformClick();
+                return true;
+            }
+            if (matchesShortcut(stepOutMenuItem, keyData))
+            {
+                if (stepOutMenuItem.Enabled) stepOutMenuItem.PerformClick();
+                return true;
+            }
+
             TextBoxBase focusedTextBox = findFocusedTextBox(this);
             if (focusedTextBox != null && !isEditorTextControl(focusedTextBox))
             {
@@ -256,7 +275,8 @@ namespace DDF___Program_Language_Editor
                 text,
                 parseResult.Root,
                 getWorkspaceTypeRoots(),
-                languageSnapshot.Language.Types);
+                languageSnapshot.Language.Types,
+                languageSnapshot.Language.StandardLibrary);
             DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, languageSnapshot.Language);
             var snapshot = new EditorAnalysisSnapshot(
                 text,
@@ -325,7 +345,7 @@ namespace DDF___Program_Language_Editor
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
             cancellationToken.ThrowIfCancellationRequested();
             DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
-                text, parseResult.Root, externalRoots, language.Types);
+                text, parseResult.Root, externalRoots, language.Types, language.StandardLibrary);
             cancellationToken.ThrowIfCancellationRequested();
             DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, language);
             cancellationToken.ThrowIfCancellationRequested();
@@ -1036,6 +1056,9 @@ namespace DDF___Program_Language_Editor
             {
                 return;
             }
+
+            if (richTextBoxMainEditor is MultiCursorRichTextBox visualEditor)
+                visualEditor.SetBreakpointLines((activeBreakpointLines ?? new HashSet<int>()).Select(line => line - 1));
 
             if (richTextBoxFoldedView != null && richTextBoxFoldedView.Visible && activeFoldProjection != null)
             {
