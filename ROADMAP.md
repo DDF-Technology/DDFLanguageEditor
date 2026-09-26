@@ -41,7 +41,8 @@ dell'host; in modalità standalone si pubblica un EXE self-contained con dipende
 ## Stato delle release
 
 Ordine operativo aggiornato il 2026-09-26: completati il runtime multi-file
-`0.11.0`, la flowchart dinamica `0.11.1` e l'Editor SDK `0.11.2`.
+`0.11.0`, la flowchart dinamica `0.11.1` e l'Editor SDK `0.11.2`; è iniziata
+la definizione completa del linguaggio nella `0.12.0`.
 Il precedente identificativo provvisorio `0.10.2` è stato sostituito. Tutte le
 milestone successive conservano ordine e ambito.
 
@@ -83,7 +84,7 @@ milestone successive conservano ordine e ambito.
 | `0.11.0` | Runtime multi-file del workspace | Completata |
 | `0.11.1` | Flowchart dinamica del codice e collegamento al debugger | Completata |
 | `0.11.2` | Editor incorporabile e primo SDK per applicazioni host | Completata |
-| `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | Pianificata |
+| `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | In corso (`0.12.0` completata) |
 | `0.13.x` | Compilatore, linker, loader e CLI | Pianificata |
 | `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Pianificata |
 | `0.15.x` | Extension SDK e host sicuro per plug-in eseguibili | Pianificata |
@@ -651,11 +652,11 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.0 — Identità e principi del linguaggio
 
-- [ ] Definire gli obiettivi del DDF, i casi d'uso prioritari e ciò che lo distingue dai linguaggi esistenti.
-- [ ] Stabilire i principi di leggibilità, semplicità, esplicitezza, sicurezza e prevedibilità.
-- [ ] Inventariare ogni comportamento storico, separando ciò che viene conservato, modificato o eliminato.
-- [ ] Confrontare in modo mirato DDF con C e con altri linguaggi affini, evitando compatibilità accidentali.
-- [ ] Registrare decisioni e alternative rifiutate in documenti di design versionati.
+- [x] Definire gli obiettivi del DDF, i casi d'uso prioritari e ciò che lo distingue dai linguaggi esistenti (`DDF_LANGUAGE_DESIGN.md`, baseline del 2026-09-26).
+- [x] Stabilire i principi di leggibilità, semplicità, esplicitezza, sicurezza e prevedibilità (`DDF_LANGUAGE_DESIGN.md`).
+- [x] Inventariare ogni comportamento storico, separando ciò che viene conservato, modificato o eliminato (`DDF_CURRENT_LANGUAGE_INVENTORY.md`).
+- [x] Confrontare in modo mirato DDF con C e con altri linguaggi affini, evitando compatibilità accidentali (`DDF_CURRENT_LANGUAGE_INVENTORY.md`).
+- [x] Registrare decisioni e alternative rifiutate in documenti di design versionati (`DDF_LANGUAGE_DECISIONS.md`, decisioni DDF-0001–DDF-0005).
 
 ### 0.12.1 — Lessico e sintassi definitiva
 

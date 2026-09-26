@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0 - in sviluppo
+
+- Definiti identità, casi d'uso, principi e non-obiettivi del linguaggio; inventariati lessico, sintassi, semantica e comportamenti storici; aggiunti confronto mirato con linguaggi affini e registro append-only delle decisioni DDF-0001–DDF-0005. Nessun comportamento del parser o del runtime è stato modificato.
+
 ## 0.11.2 - 2026-09-26
 
 - Portato il contratto host alla versione `0.31`: `DdfEditorExecutionService` e `DdfEditorDebugService` accettano un handler pubblico di preparazione della build per modelli progetto posseduti dall'host; il completamento espone l'artefatto realmente eseguito. Run e Debug della shell standalone passano ora dagli stessi servizi dell'SDK conservando workspace multifile, file non aperti, buffer non salvati, breakpoint, Watch, Call Stack, navigazione automatica e Flowchart. Corretta anche una race grafica che poteva mostrare lo stato Pausa prima dello snapshot. La suite Core passa a 202 test e lo smoke completo copre tutti i 74 comandi.

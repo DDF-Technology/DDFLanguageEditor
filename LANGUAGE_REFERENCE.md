@@ -1,4 +1,8 @@
-# DDF language reference — editor subset 0.6
+# DDF language reference — historical editor subset
+
+> Questo documento descrive un sottoinsieme precedente. La baseline progettuale
+> della `0.12.0` è in `DDF_LANGUAGE_DESIGN.md`; il comportamento corrente e le
+> questioni aperte sono inventariati in `DDF_CURRENT_LANGUAGE_INVENTORY.md`.
 
 Questo documento descrive gli elementi lessicali riconosciuti da
 DDFLanguageEditor 0.4.1. La grammatica sintattica implementata, comprese precedenze
@@ -9,8 +13,8 @@ L'inventario centralizzato di termini, operatori e delimitatori è mantenuto in
 `DDF_LANGUAGE_CATALOG.md`.
 
 La precedente `DDF - Program Language Spec.txt` rimane nel repository come bozza
-storica. In caso di contrasto, il presente documento descrive il comportamento
-attuale dell'editor.
+storica. In caso di contrasto prevalgono il pacchetto eseguibile, i test e
+l'inventario corrente; questo documento non è una specifica normativa.
 
 ## Commenti e stringhe
 
@@ -102,9 +106,10 @@ considerata un operatore perché sarebbe indistinguibile da un identificatore.
 - stringhe di un singolo carattere accettate come inizializzatori `char`;
 - firme e tipi globali condivisi tra i file del workspace.
 
-## Regole runtime implementate
+## Regole runtime implementate nella fase storica
 
-- l'esecuzione parte dalla funzione `main` del documento corrente;
+- l'esecuzione parte dall'unica funzione `main` del progetto e usa tutti i
+  sorgenti selezionati dal manifest, inclusi i buffer non salvati;
 - `<<` assegna un valore, mentre `espressione >> Console` scrive nella palette Output;
 - funzioni, blocchi e cicli usano scope lessicali distinti;
 - `ret` restituisce dalla funzione, `brk` interrompe il ciclo corrente ed `end` termina il programma;
@@ -135,7 +140,7 @@ runtime corrisponde alla valutazione di un nodo AST, non a una riga DDF.
 - escape ammessi nelle stringhe;
 - semantica di `dict`, librerie, overload e conversioni definite dall'utente;
 - semantica definitiva degli operatori storici `>><<`, `<<>>` e `^/`;
-- input interattivo, libreria standard e caricamento runtime multi-file.
+- input interattivo e libreria standard definitiva.
 
 Ogni decisione futura su questi punti dovrà aggiornare questo documento, i test
 e il registro decisioni in `ROADMAP.md`.

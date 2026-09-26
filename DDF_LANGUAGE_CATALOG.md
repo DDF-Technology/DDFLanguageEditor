@@ -4,6 +4,10 @@ Questo documento inventaria il vocabolario attualmente riconosciuto. Non pretend
 di essere completo: è la base controllabile che verrà confrontata con il
 linguaggio C e ampliata insieme alla grammatica.
 
+La baseline di progetto `0.12.0`, l'inventario comprensivo delle forme storiche
+e il registro decisioni sono rispettivamente in `DDF_LANGUAGE_DESIGN.md`,
+`DDF_CURRENT_LANGUAGE_INVENTORY.md` e `DDF_LANGUAGE_DECISIONS.md`.
+
 La fonte dati eseguibile è `language-packages/ddf/lexicon.json`.
 `DdfLanguageCatalog` carica e valida il pacchetto esterno completo, oppure la sua
 copia incorporata di fallback. Lexer, parser, completamento contestuale e

@@ -319,6 +319,9 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
 - `EDITOR_SDK.md`: primo contratto pubblico della superficie incorporabile, esempio d'uso e limiti correnti;
+- `DDF_LANGUAGE_DESIGN.md`: obiettivi, principi e confini progettuali del linguaggio;
+- `DDF_CURRENT_LANGUAGE_INVENTORY.md`: fotografia verificabile della sintassi e semantica beta, con decisioni ancora aperte;
+- `DDF_LANGUAGE_DECISIONS.md`: registro versionato delle decisioni e delle alternative rifiutate;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
 - `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
