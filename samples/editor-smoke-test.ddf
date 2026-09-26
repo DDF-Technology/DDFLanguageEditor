@@ -21,12 +21,12 @@ main() out int
     float ratio << 12.5;
     char initial << "F";
     bool enabled << true;
-    bool legacyFlag << False;
+    bool legacyFlag << false;
     string message << "if // 456 resta dentro la stringa";
     string quoted << "Testo con \"virgolette\" sottoposte a escape";
     int[3] values;
 
-    if(enabled & counter < 10)
+    if(enabled && counter < 10)
     {
         message << "Blocco if";
         counter++;
@@ -43,15 +43,15 @@ main() out int
     {
         values[index] << index ^ 2;
 
-        if(index == 1 || enabled !! false)
+        if(index == 1 || enabled != false)
         {
             brk;
         }
     }
 
-    bool inside << counter >><< 10;
-    bool outside << counter <<>> 10;
-    bool exclusive << enabled |&| legacyFlag;
+    bool inside << counter > 0 && counter < 10;
+    bool outside << counter < 0 || counter > 10;
+    bool exclusive << enabled ^^ legacyFlag;
     bool negated << !enabled;
 
     message >> Console;

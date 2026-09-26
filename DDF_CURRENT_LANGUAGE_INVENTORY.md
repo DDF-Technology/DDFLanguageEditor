@@ -1,6 +1,6 @@
 # Inventario del linguaggio DDF corrente
 
-Stato: fotografia tecnica della beta `0.11.2`, preparata per la `0.12.0`.
+Stato: inventario evolutivo della beta, aggiornato al pacchetto DDF `0.12.1`.
 
 Questo inventario separa il comportamento realmente disponibile dalle scelte
 ancora aperte. Le fonti eseguibili sono i file in `language-packages/ddf`; la
@@ -35,7 +35,7 @@ vecchia `DDF - Program Language Spec.txt` è soltanto una bozza storica.
 | Tipi primitivi | `int`, `float`, `char`, `bool`, `void`, `string` | Implementati; semantica definitiva nella `0.12.2` |
 | Tipo dizionario | `dict` | Parziale; sintassi, chiavi, valori e runtime da definire |
 | Strutture | `struct` | Implementato nel sottoinsieme corrente; modello da formalizzare |
-| Funzioni | `out`, `ret` | Implementate; forma distintiva da valutare nella `0.12.1` |
+| Funzioni | `out`, `ret` | Conservate come forma distintiva DDF nella `0.12.1` |
 | Controllo | `if`, `else`, `while`, `do`, `for` | Implementato con struttura prevalentemente C-like |
 | Salti controllati | `brk`, `end` | Implementati; chiarire scope di `end` e future alternative |
 
@@ -43,18 +43,18 @@ vecchia `DDF - Program Language Spec.txt` è soltanto una bozza storica.
 
 | Famiglia | Forme correnti | Stato / rischio |
 | --- | --- | --- |
-| Assegnazione | `<<` | Implementato e distintivo; può essere confuso con shift in profili C-like |
-| Output | `>>` verso `Console` | Implementato; destinazione e composizione da formalizzare |
-| Aritmetica | `+`, `-`, `*`, `/`, `^`, `^/`, `++`, `--` | Implementata; `^` non significa XOR come in C |
-| Confronto | `<`, `<=`, `>`, `>=`, `==`, `!!` | Implementato; `!!` è disuguaglianza e richiede verifica di leggibilità |
-| Intervallo | `>><<`, `<<>>` | Implementato; estremi attualmente esclusivi, grafia da riesaminare |
-| Logica | `!`, `&`, `||`, `|&|` | Implementata; `&` e `||` ricordano C ma non ne replicano l'intero modello |
+| Assegnazione | `<<` | Confermato e distintivo; non rappresenta uno shift |
+| Output | `>>` verso `Console` | Confermato nel nucleo; destinazioni e capacità saranno formalizzate nella semantica |
+| Aritmetica | `+`, `-`, `*`, `/`, `^`, `++`, `--` | Contratto 0.12.1; `^` significa potenza |
+| Confronto | `<`, `<=`, `>`, `>=`, `==`, `!=` | Contratto 0.12.1 |
+| Intervallo | nessun operatore | Le forme beta difettose sono state eliminate; usare confronti espliciti |
+| Logica | `!`, `&&`, `||`, `^^` | Contratto 0.12.1; `^^` è XOR booleano |
 | Accesso | `.`, `[]`, chiamata `()` | Implementato per membri, indici e invocazioni |
 
 La precedenza corrente, dalla più bassa alla più alta, è: assegnazione/output,
-OR, XOR, AND, confronti, somma, prodotto, potenza/radice, prefissi e postfix.
-Assegnazione, potenza e radice sono associative a destra; le altre forme binarie
-sono associative a sinistra.
+OR, XOR, AND, uguaglianza, confronto ordinato, somma, prodotto, potenza,
+prefissi e postfix. Assegnazione e potenza sono associative a destra; le altre
+forme binarie sono associative a sinistra.
 
 ## Costrutti sintattici
 
@@ -95,9 +95,9 @@ sono associative a sinistra.
 | Assegnazione | `=` | `<<` | conservare un'identità distinta, verificandone l'ambiguità visiva |
 | Tipo di ritorno | prima del nome | dopo `out` | valutare e documentare la lettura da sinistra a destra |
 | Ritorno | `return` | `ret` | mantenere una forma breve solo se resta immediata |
-| Disuguaglianza | `!=` | `!!` | confrontare chiarezza e coerenza con `!` |
+| Disuguaglianza | `!=` | `!=` | adottato per chiarezza e coerenza con `!` |
 | Potenza | funzione di libreria | `^` | mantenere semantica matematica esplicita, evitando falsa compatibilità |
-| AND | `&&` logico, `&` bitwise | `&` logico | decidere una grafia non ingannevole nei profili C-like |
+| AND | `&&` logico, `&` bitwise | `&&` logico | adottato; DDF non espone `&` bitwise nel nucleo |
 | Controllo | parentesi e graffe | forma simile | differenziare dove migliora la leggibilità, non per originalità artificiale |
 | Preprocessore | macro e `#include` | assente, `@@` parziale | usare dipendenze strutturate, non macro testuali |
 | Memoria | puntatori e gestione esplicita | assenti | esclusi dal nucleo DDF 1.0 |

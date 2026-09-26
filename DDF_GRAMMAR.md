@@ -102,14 +102,19 @@ La precedenza, dalla più bassa alla più alta, è:
 | --- | --- | --- |
 | 1 | `<<`, `>>` | destra |
 | 2 | `||` | sinistra |
-| 3 | `|&|` | sinistra |
-| 4 | `&` | sinistra |
-| 5 | `<`, `<=`, `>`, `>=`, `==`, `!!`, `>><<`, `<<>>` | sinistra |
-| 6 | `+`, `-` | sinistra |
-| 7 | `*`, `/` | sinistra |
-| 8 | `^`, `^/` | destra |
-| 9 | prefissi `!`, `+`, `-` | destra |
-| 10 | postfix `++`, `--`, chiamata e indice | sinistra |
+| 3 | `^^` | sinistra |
+| 4 | `&&` | sinistra |
+| 5 | `==`, `!=` | sinistra |
+| 6 | `<`, `<=`, `>`, `>=` | sinistra |
+| 7 | `+`, `-` | sinistra |
+| 8 | `*`, `/` | sinistra |
+| 9 | `^` | destra |
+| 10 | prefissi `!`, `+`, `-` | destra |
+| 11 | postfix `++`, `--`, chiamata e indice | sinistra |
+
+`^^` è XOR booleano e `^` è elevamento a potenza. Le vecchie grafie `!!`,
+`&`, `|&|`, `>><<`, `<<>>` e `^/` non appartengono al pacchetto DDF `0.12.1`;
+la migrazione è descritta in `DDF_MIGRATION_0_12.md`.
 
 ```ebnf
 expression = assignment-expression ;

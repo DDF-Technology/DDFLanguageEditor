@@ -93,6 +93,7 @@ namespace DDFLanguageEditor.Core
             private readonly CompilationUnitSyntax root;
             private readonly DdfTypeSystemDefinition typeSystem;
             private readonly DdfStandardLibraryDefinition standardLibrary;
+            private readonly DdfRuntimeDefinition runtime;
             private readonly DdfHostCatalogSnapshot hostCatalog;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
@@ -105,13 +106,14 @@ namespace DDFLanguageEditor.Core
 
             public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
                 DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary,
-                DdfHostCatalogSnapshot hostCatalog)
+                DdfHostCatalogSnapshot hostCatalog, DdfRuntimeDefinition runtime)
             {
                 this.source = source;
                 this.root = root;
                 this.typeSystem = typeSystem;
                 this.standardLibrary = standardLibrary;
                 this.hostCatalog = hostCatalog;
+                this.runtime = runtime;
                 var roots = new List<CompilationUnitSyntax> { root };
                 if (externalRoots != null) roots.AddRange(externalRoots.Where(item => item != null));
                 CollectDeclarations(roots);
@@ -340,7 +342,11 @@ namespace DDFLanguageEditor.Core
                 {
                     DdfTypeSymbol operand = CheckExpression(postfix.Operand);
                     ReportReadOnlyHostTarget(postfix.Operand);
-                    result = IsNumeric(operand) ? operand : InvalidOperator(postfix.OperatorText, operand, null, postfix);
+                    result = runtime.TryGetPostfixOperation(postfix.OperatorText, out string operation) &&
+                        (operation == DdfVmExpressionOperations.Increment || operation == DdfVmExpressionOperations.Decrement) &&
+                        IsNumeric(operand)
+                        ? operand
+                        : InvalidOperator(postfix.OperatorText, operand, null, postfix);
                 }
                 else if (expression is CallExpressionSyntax call) result = CheckCall(call);
                 else if (expression is IndexExpressionSyntax index) result = CheckIndex(index);
@@ -353,8 +359,13 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol CheckUnary(UnaryExpressionSyntax unary)
             {
                 DdfTypeSymbol operand = CheckExpression(unary.Operand);
-                if (unary.OperatorText == "!") return IsBoolean(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
-                return IsNumeric(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
+                if (!runtime.TryGetUnaryOperation(unary.OperatorText, out string operation))
+                    return InvalidOperator(unary.OperatorText, operand, null, unary);
+                if (operation == DdfVmExpressionOperations.LogicalNot)
+                    return IsBoolean(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
+                if (operation == DdfVmExpressionOperations.Positive || operation == DdfVmExpressionOperations.Negate)
+                    return IsNumeric(operand) ? operand : InvalidOperator(unary.OperatorText, operand, null, unary);
+                return InvalidOperator(unary.OperatorText, operand, null, unary);
             }
 
             private DdfTypeSymbol CheckBinary(BinaryExpressionSyntax binary)
@@ -362,7 +373,9 @@ namespace DDFLanguageEditor.Core
                 DdfTypeSymbol left = CheckExpression(binary.Left);
                 DdfTypeSymbol right = CheckExpression(binary.Right);
                 string op = binary.OperatorText;
-                if (op == "<<")
+                if (!runtime.TryGetBinaryOperation(op, out string operation))
+                    return InvalidOperator(op, left, right, binary);
+                if (operation == DdfVmExpressionOperations.Assign)
                 {
                     if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
                         Report("DDF308", "La destinazione dell'assegnazione non è modificabile.", binary.Left);
@@ -370,12 +383,21 @@ namespace DDFLanguageEditor.Core
                     if (!CanAssign(left, right)) Report("DDF301", "Impossibile assegnare " + right + " a " + left + ".", binary);
                     return left;
                 }
-                if (op == ">>") return left;
-                if (op == "||" || op == "|&|" || op == "&") return IsBoolean(left) && IsBoolean(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
-                if (op == "==" || op == "!!") return CanAssign(left, right) || CanAssign(right, left) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
-                if (op == "<" || op == "<=" || op == ">" || op == ">=" || op == ">><<" || op == "<<>>")
+                if (operation == DdfVmExpressionOperations.Output) return left;
+                if (operation == DdfVmExpressionOperations.LogicalOr ||
+                    operation == DdfVmExpressionOperations.LogicalXor ||
+                    operation == DdfVmExpressionOperations.LogicalAnd)
+                    return IsBoolean(left) && IsBoolean(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
+                if (operation == DdfVmExpressionOperations.Equal || operation == DdfVmExpressionOperations.NotEqual)
+                    return CanAssign(left, right) || CanAssign(right, left) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
+                if (operation == DdfVmExpressionOperations.Less || operation == DdfVmExpressionOperations.LessOrEqual ||
+                    operation == DdfVmExpressionOperations.Greater || operation == DdfVmExpressionOperations.GreaterOrEqual ||
+                    operation == DdfVmExpressionOperations.BetweenExclusive || operation == DdfVmExpressionOperations.OutsideExclusive)
                     return IsNumeric(left) && IsNumeric(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
-                if (IsNumeric(left) && IsNumeric(right))
+                if ((operation == DdfVmExpressionOperations.Add || operation == DdfVmExpressionOperations.Subtract ||
+                    operation == DdfVmExpressionOperations.Multiply || operation == DdfVmExpressionOperations.Divide ||
+                    operation == DdfVmExpressionOperations.Power || operation == DdfVmExpressionOperations.Root) &&
+                    IsNumeric(left) && IsNumeric(right))
                     return new DdfTypeSymbol(left.Name == typeSystem.NumericDominantType || right.Name == typeSystem.NumericDominantType
                         ? typeSystem.NumericDominantType
                         : typeSystem.NumericResultType);
@@ -577,14 +599,14 @@ namespace DDFLanguageEditor.Core
         public static DdfTypeCheckResult Check(string source, CompilationUnitSyntax root,
             IEnumerable<CompilationUnitSyntax> externalRoots = null, DdfTypeSystemDefinition typeSystem = null,
             DdfStandardLibraryDefinition standardLibrary = null,
-            DdfHostCatalogSnapshot hostCatalog = null)
+            DdfHostCatalogSnapshot hostCatalog = null, DdfRuntimeDefinition runtime = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
             return new Checker(source, root, externalRoots,
                 typeSystem ?? DdfLanguageCatalog.Default.Types,
                 standardLibrary ?? DdfLanguageCatalog.Default.StandardLibrary,
-                hostCatalog).Check();
+                hostCatalog, runtime ?? DdfLanguageCatalog.Default.Runtime).Check();
         }
     }
 }

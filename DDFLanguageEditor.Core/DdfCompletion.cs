@@ -186,7 +186,7 @@ namespace DDFLanguageEditor.Core
             string expectedType = libraryContext ? string.Empty :
                 DdfExpectedTypeService.GetExpectedType(
                     source, parseResult.Root, prefixStart, externalRoots, language.Types,
-                    hostCatalog);
+                    hostCatalog, language.Runtime);
             DdfCompletionContextKind context = GetContext(source, prefixStart, libraryContext, expectedType, language);
             var candidates = new List<DdfCompletionItem>();
 

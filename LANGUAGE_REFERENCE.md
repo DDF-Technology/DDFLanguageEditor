@@ -81,9 +81,9 @@ ret brk end out
 
 ```text
 << >>
-+ - * / ^ ^/ ++ --
-< <= > >= == !! >><< <<>>
-! & || |&|
++ - * / ^ ++ --
+< <= > >= == !=
+! && || ^^
 ```
 
 La moltiplicazione canonica usa `*`. La `x` presente nella bozza storica non è
@@ -137,7 +137,8 @@ runtime corrisponde alla valutazione di un nodo AST, non a una riga DDF.
 - regole per identificatori e scope oltre al riconoscimento lessicale di base;
 - escape ammessi nelle stringhe;
 - semantica di `dict`, librerie, overload e conversioni definite dall'utente;
-- semantica definitiva degli operatori storici `>><<`, `<<>>` e `^/`;
+- funzioni standard definitive per intervalli e radici, rimosse dal nucleo
+  degli operatori perché le vecchie grafie erano ambigue;
 - input interattivo e libreria standard definitiva.
 
 Ogni decisione futura su questi punti dovrà aggiornare questo documento, i test

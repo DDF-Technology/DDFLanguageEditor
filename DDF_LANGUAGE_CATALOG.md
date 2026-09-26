@@ -1,4 +1,4 @@
-# DDF language catalog — 0.9.6
+# DDF language catalog — 0.12.1
 
 Questo documento inventaria il vocabolario attualmente riconosciuto. Non pretende
 di essere completo: è la base controllabile che verrà confrontata con il
@@ -34,14 +34,18 @@ automaticamente in parole riservate.
 | --- | --- | --- |
 | 1 | `<<`, `>>` | destra; `<<` inizializza anche le dichiarazioni |
 | 2 | `||` | sinistra |
-| 3 | `|&|` | sinistra |
-| 4 | `&` | sinistra |
-| 5 | `<`, `<=`, `>`, `>=`, `==`, `!!`, `>><<`, `<<>>` | sinistra |
-| 6 | `+`, `-` | sinistra; anche prefissi |
-| 7 | `*`, `/` | sinistra |
-| 8 | `^`, `^/` | destra |
-| 9 | `!`, `+`, `-` | prefissi |
-| 10 | `++`, `--` | postfissi |
+| 3 | `^^` | sinistra; XOR booleano |
+| 4 | `&&` | sinistra; AND booleano con corto circuito |
+| 5 | `==`, `!=` | sinistra |
+| 6 | `<`, `<=`, `>`, `>=` | sinistra |
+| 7 | `+`, `-` | sinistra; anche prefissi |
+| 8 | `*`, `/` | sinistra |
+| 9 | `^` | destra; elevamento a potenza |
+| 10 | `!`, `+`, `-` | prefissi |
+| 11 | `++`, `--` | postfissi |
+
+Le forme beta eliminate e le sostituzioni intenzionali sono elencate in
+`DDF_MIGRATION_0_12.md`.
 
 Il lexer ordina automaticamente gli operatori per lunghezza, quindi aggiungere
 un operatore composto non richiede di modificare l'algoritmo longest-match.

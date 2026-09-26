@@ -24,6 +24,7 @@ namespace DDFLanguageEditor.Tests
             Run("protects strings from nested classification", ProtectsStrings);
             Run("classifies unterminated block comments", ClassifiesUnterminatedBlockComments);
             Run("prefers longest operators", PrefersLongestOperators);
+            Run("enforces the DDF 0.12 operator contract", EnforcesDdf012OperatorContract);
             Run("enforces the DDF 0.12 lexical contract", EnforcesDdf012LexicalContract);
             Run("inserts four spaces for Tab", InsertsTab);
             Run("uses configured tabs for editing and formatting", UsesConfiguredTabs);
@@ -274,12 +275,42 @@ namespace DDFLanguageEditor.Tests
 
         private static void PrefersLongestOperators()
         {
-            const string text = "a >><< b <<>> c |&| d";
+            const string text = "a != b && c ^^ d";
             string[] operators = DdfSyntaxClassifier.Classify(text)
                 .Where(span => span.Kind == SyntaxKind.Operator)
                 .Select(span => Slice(text, span))
                 .ToArray();
-            SequenceEqual(new[] { ">><<", "<<>>", "|&|" }, operators);
+            SequenceEqual(new[] { "!=", "&&", "^^" }, operators);
+        }
+
+        private static void EnforcesDdf012OperatorContract()
+        {
+            DdfLanguageDefinition language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package.Language;
+            string[] operators = language.Operators.Select(item => item.Text).ToArray();
+            Equal(true, operators.Contains("<<"));
+            Equal(true, operators.Contains(">>"));
+            Equal(true, operators.Contains("&&"));
+            Equal(true, operators.Contains("||"));
+            Equal(true, operators.Contains("^^"));
+            Equal(true, operators.Contains("!="));
+            Equal(false, operators.Contains("&"));
+            Equal(false, operators.Contains("|&|"));
+            Equal(false, operators.Contains("!!"));
+            Equal(false, operators.Contains(">><<"));
+            Equal(false, operators.Contains("<<>>"));
+            Equal(false, operators.Contains("^/"));
+
+            const string source = "main() out bool { ret true || false ^^ true && 1 < 2 == false; }";
+            DdfParseResult parse = DdfParser.Parse(source, language);
+            Equal(0, parse.Diagnostics.Count);
+            var function = (FunctionDeclarationSyntax)parse.Root.Members.Single();
+            var logicalOr = (BinaryExpressionSyntax)((ReturnStatementSyntax)function.Body.Statements.Single()).Expression;
+            Equal("||", logicalOr.OperatorText);
+            var logicalXor = (BinaryExpressionSyntax)logicalOr.Right;
+            Equal("^^", logicalXor.OperatorText);
+            var logicalAnd = (BinaryExpressionSyntax)logicalXor.Right;
+            Equal("&&", logicalAnd.OperatorText);
+            Equal("==", ((BinaryExpressionSyntax)logicalAnd.Right).OperatorText);
         }
 
         private static void EnforcesDdf012LexicalContract()
@@ -1079,10 +1110,10 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.12.0", result.Package.PackageVersion);
+            Equal("0.12.1", result.Package.PackageVersion);
             Equal("0.12", result.Package.LanguageVersion);
             Equal(17, result.Package.Language.Keywords.Count);
-            Equal(22, result.Package.Language.Operators.Count);
+            Equal(19, result.Package.Language.Operators.Count);
             Equal(0, result.Package.NativeExtensions.Count);
             Equal(true, result.Package.Grammar != null);
             Equal("compilation-unit", result.Package.Grammar.StartRule);
@@ -3129,6 +3160,9 @@ namespace DDFLanguageEditor.Tests
                 const string source = "main() out int { int value := 2; value := value + 3; ret value; }";
                 DdfParseResult parse = DdfParser.Parse(source, load.Package.Language);
                 Equal(0, parse.Diagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(source, parse.Root, null,
+                    load.Package.Language.Types, load.Package.Language.StandardLibrary, null,
+                    load.Package.Language.Runtime).Diagnostics.Count);
                 DdfIrProgram ir = DdfIrLowerer.Lower(source, parse, load.Package.Language).Program;
                 DdfIrFunction main = ir.Members.OfType<DdfIrFunction>().Single();
                 DdfIrBinary operation = (DdfIrBinary)((DdfIrExpressionStatement)main.Body.Statements[1]).Expression;
@@ -3169,7 +3203,7 @@ namespace DDFLanguageEditor.Tests
                 const string source = "main() out int { emit(\"ready\"); ret 7; }";
                 DdfParseResult parse = DdfParser.Parse(source, load.Package.Language);
                 Equal(0, DdfTypeChecker.Check(source, parse.Root, null, load.Package.Language.Types,
-                    load.Package.Language.StandardLibrary).Diagnostics.Count);
+                    load.Package.Language.StandardLibrary, null, load.Package.Language.Runtime).Diagnostics.Count);
                 Equal(true, DdfCompletionService.GetCompletions("emi", 3, false,
                     load.Package.Language).Items.Any(item => item.DisplayText == "emit"));
                 DdfIrProgram ir = DdfIrLowerer.Lower(source, parse, load.Package.Language).Program;
@@ -5243,7 +5277,7 @@ main() out int
             Equal("5", DdfWatch.Evaluate("values[0] + 1", snapshots[0]).Value.DisplayValue);
             Equal("18", DdfWatch.Evaluate("(point.x * 2) + values[0]", snapshots[0]).Value.DisplayValue);
             Equal("4", DdfWatch.Evaluate("values[values[1]]", snapshots[0]).Value.DisplayValue);
-            Equal("true", DdfWatch.Evaluate("point.x > values[0] & true", snapshots[0]).Value.DisplayValue);
+            Equal("true", DdfWatch.Evaluate("point.x > values[0] && true", snapshots[0]).Value.DisplayValue);
             Equal("x7", DdfWatch.Evaluate("\"x\" + point.x", snapshots[0]).Value.DisplayValue);
             Equal("-7", DdfWatch.Evaluate("-point.x", snapshots[0]).Value.DisplayValue);
             DdfRuntimeVariableSnapshot arraySnapshot = snapshots[0].Variables.Single(item => item.Name == "values");

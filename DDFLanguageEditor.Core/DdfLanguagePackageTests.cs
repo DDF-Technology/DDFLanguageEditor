@@ -82,7 +82,8 @@ namespace DDFLanguageEditor.Core
 
             DdfParseResult parse = DdfParser.Parse(test.Source, package.Language);
             DdfTypeCheckResult types = DdfTypeChecker.Check(test.Source, parse.Root, null,
-                package.Language.Types, package.Language.StandardLibrary);
+                package.Language.Types, package.Language.StandardLibrary, null,
+                package.Language.Runtime);
             DdfIrBuildResult ir = DdfIrLowerer.Lower(test.Source, parse, package.Language);
             string[] diagnostics = lex.Diagnostics.Concat(parse.Diagnostics).Concat(types.Diagnostics)
                 .Concat(ir.Diagnostics).Select(item => item.Code).OrderBy(item => item, StringComparer.Ordinal).ToArray();

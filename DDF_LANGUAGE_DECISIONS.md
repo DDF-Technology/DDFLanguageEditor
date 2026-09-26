@@ -79,3 +79,22 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   sconosciuti accettati silenziosamente.
 - **Conseguenze:** `True` e `False` diventano identificatori, gli escape invalidi
   producono `DDF005` e i progetti dichiarano il pacchetto DDF `0.12.0`.
+
+## DDF-0007 — Operatori del nucleo 0.12
+
+- **Stato:** Accettata
+- **Data:** 2026-09-26
+- **Decisione:** DDF conserva `<<` per assegnazione, `>>` per output e `^` per
+  potenza. Usa `!=`, `&&`, `||`, `^^` e `!` per confronto e logica. Rimuove dal
+  pacchetto canonico `!!`, `&`, `|&|`, `>><<`, `<<>>` e `^/`.
+- **Motivazione:** `!!` contraddice l'uso comune di `!`; `&` suggerisce
+  un'operazione bitwise non disponibile; gli operatori di intervallo beta non
+  codificavano due estremi e nella VM producevano risultati fuorvianti; `^/`
+  era poco leggibile. `^^` mantiene distinta la potenza dallo XOR senza
+  introdurre keyword speciali nel lexer.
+- **Alternative rifiutate:** conservare ogni simbolo beta; copiare anche
+  l'assegnazione `=`; introdurre ora operatori testuali che richiederebbero
+  regole di confine lessicale ancora non definite.
+- **Conseguenze:** il pacchetto passa a `0.12.1`; i sorgenti beta richiedono la
+  migrazione esplicita descritta in `DDF_MIGRATION_0_12.md`. Intervalli e radici
+  saranno funzioni di libreria leggibili se approvate nella `0.12.3`.

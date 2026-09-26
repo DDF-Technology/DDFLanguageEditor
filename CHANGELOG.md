@@ -2,7 +2,9 @@
 
 ## 0.12.1 - in sviluppo
 
-- Fissato il primo nucleo lessicale della `0.12.1`: identificatori Unicode case-sensitive, numeri con cifre ASCII, soli booleani minuscoli, stringhe su una riga ed escape dichiarati. Pacchetto e progetti campione passano alla versione linguaggio `0.12`/pacchetto `0.12.0`; gli escape sconosciuti producono `DDF005` e una nuova prova Core verifica il contratto.
+- Fissato il primo nucleo lessicale della `0.12.1`: identificatori Unicode case-sensitive, numeri con cifre ASCII, soli booleani minuscoli, stringhe su una riga ed escape dichiarati. Gli escape sconosciuti producono `DDF005` e una prova Core verifica il contratto.
+- Portato il pacchetto DDF a `0.12.1` con la prima chiusura intenzionale degli operatori: `!=`, `&&` e `^^` sostituiscono `!!`, `&` e `|&|`; gli pseudo-operatori di intervallo `>><<`/`<<>>` e radice `^/` sono rimossi. Precedenza, runtime, type checker, campioni e smoke sono allineati e la migrazione dalle beta è documentata.
+- Disaccoppiato il type checker dalla grafia degli operatori: validazione unaria, binaria e postfissa usa ora gli ID semantici dichiarati in `runtime.json`, così i profili sintattici possono rinominare gli operatori senza modificare il motore.
 
 ## 0.12.0 - 2026-09-26
 

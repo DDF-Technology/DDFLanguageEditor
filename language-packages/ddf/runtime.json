@@ -22,12 +22,10 @@
       { "token": "<<", "operation": "assign" },
       { "token": ">>", "operation": "output" },
       { "token": "||", "operation": "logical.or" },
-      { "token": "|&|", "operation": "logical.xor" },
-      { "token": "&", "operation": "logical.and" },
+      { "token": "^^", "operation": "logical.xor" },
+      { "token": "&&", "operation": "logical.and" },
       { "token": "==", "operation": "compare.equal" },
-      { "token": "!!", "operation": "compare.not-equal" },
-      { "token": ">><<", "operation": "compare.between-exclusive" },
-      { "token": "<<>>", "operation": "compare.outside-exclusive" },
+      { "token": "!=", "operation": "compare.not-equal" },
       { "token": "<", "operation": "compare.less" },
       { "token": "<=", "operation": "compare.less-or-equal" },
       { "token": ">", "operation": "compare.greater" },
@@ -36,8 +34,7 @@
       { "token": "-", "operation": "numeric.subtract" },
       { "token": "*", "operation": "numeric.multiply" },
       { "token": "/", "operation": "numeric.divide" },
-      { "token": "^", "operation": "numeric.power" },
-      { "token": "^/", "operation": "numeric.root" }
+      { "token": "^", "operation": "numeric.power" }
     ],
     "postfix": [
       { "token": "++", "operation": "numeric.increment" },

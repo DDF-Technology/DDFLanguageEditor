@@ -150,15 +150,13 @@ namespace DDFLanguageEditor.Core
             new Dictionary<string, string>
             {
                 ["<<"] = DdfVmExpressionOperations.Assign, [">>"] = DdfVmExpressionOperations.Output,
-                ["||"] = DdfVmExpressionOperations.LogicalOr, ["|&|"] = DdfVmExpressionOperations.LogicalXor,
-                ["&"] = DdfVmExpressionOperations.LogicalAnd, ["=="] = DdfVmExpressionOperations.Equal,
-                ["!!"] = DdfVmExpressionOperations.NotEqual, [">><<"] = DdfVmExpressionOperations.BetweenExclusive,
-                ["<<>>"] = DdfVmExpressionOperations.OutsideExclusive, ["<"] = DdfVmExpressionOperations.Less,
+                ["||"] = DdfVmExpressionOperations.LogicalOr, ["^^"] = DdfVmExpressionOperations.LogicalXor,
+                ["&&"] = DdfVmExpressionOperations.LogicalAnd, ["=="] = DdfVmExpressionOperations.Equal,
+                ["!="] = DdfVmExpressionOperations.NotEqual, ["<"] = DdfVmExpressionOperations.Less,
                 ["<="] = DdfVmExpressionOperations.LessOrEqual, [">"] = DdfVmExpressionOperations.Greater,
                 [">="] = DdfVmExpressionOperations.GreaterOrEqual, ["+"] = DdfVmExpressionOperations.Add,
                 ["-"] = DdfVmExpressionOperations.Subtract, ["*"] = DdfVmExpressionOperations.Multiply,
-                ["/"] = DdfVmExpressionOperations.Divide, ["^"] = DdfVmExpressionOperations.Power,
-                ["^/"] = DdfVmExpressionOperations.Root
+                ["/"] = DdfVmExpressionOperations.Divide, ["^"] = DdfVmExpressionOperations.Power
             },
             new Dictionary<string, string> { ["++"] = DdfVmExpressionOperations.Increment, ["--"] = DdfVmExpressionOperations.Decrement });
     }

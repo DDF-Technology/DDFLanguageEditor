@@ -255,7 +255,7 @@ namespace DDFLanguageEditor.Core
             cancellationToken.ThrowIfCancellationRequested();
             DdfTypeCheckResult types = DdfTypeChecker.Check(request.Source, parse.Root,
                 request.ExternalRoots, language.Types, language.StandardLibrary,
-                request.HostCatalog);
+                request.HostCatalog, language.Runtime);
             cancellationToken.ThrowIfCancellationRequested();
             DdfIrBuildResult ir = DdfIrLowerer.Lower(request.Source, parse, language);
             cancellationToken.ThrowIfCancellationRequested();

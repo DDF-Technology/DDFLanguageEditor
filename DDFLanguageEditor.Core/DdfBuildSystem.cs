@@ -304,7 +304,8 @@ namespace DDFLanguageEditor.Core
             {
                 var externalRoots = parsed.Where(other => !ReferenceEquals(other, item)).Select(other => other.Parse.Root).ToList();
                 DdfTypeCheckResult types = DdfTypeChecker.Check(item.Source.Source, item.Parse.Root, externalRoots,
-                    package.Language.Types, package.Language.StandardLibrary, hostCatalog);
+                    package.Language.Types, package.Language.StandardLibrary, hostCatalog,
+                    package.Language.Runtime);
                 issues.AddRange(types.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
                 DdfIrBuildResult ir = DdfIrLowerer.Lower(item.Source.Source, item.Parse, package.Language);
                 issues.AddRange(ir.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
