@@ -51,7 +51,7 @@ esegue senza modificare né ricompilare il codice dell'editor.
 
 Il Package Studio è pianificato nella `0.14.x`; lo SDK dei plug-in eseguibili
 nella `0.15.x`. Il catalogo delle API registrate dall'applicazione ospitante
-appartiene invece al primo SDK di integrazione della `0.11.1`.
+appartiene invece al primo SDK di integrazione della `0.11.2`.
 
 L'editor visuale previsto sarà un livello sopra gli stessi file: moduli guidati
 dallo schema, anteprima delle differenze, playground e test obbligatori prima

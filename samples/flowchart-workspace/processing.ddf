@@ -1,0 +1,36 @@
+processScore(int input, int step) out int
+{
+    int value << normalizeScore(input);
+    int phase << 0;
+
+    do
+    {
+        value << value + step;
+        phase++;
+    }
+    while(phase < 3);
+
+    while(value < 40)
+    {
+        value << value + 7;
+
+        if(value > 36)
+        {
+            brk;
+        }
+    }
+
+    for(int index << 0; index < 5; index++)
+    {
+        if(index == 2)
+        {
+            value << normalizeScore(value + index);
+        }
+        else
+        {
+            value++;
+        }
+    }
+
+    ret value;
+}

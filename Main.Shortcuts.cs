@@ -75,6 +75,7 @@ namespace DDF___Program_Language_Editor
             shortcutSettings = ShortcutSettings.Parse(AppSettingsStore.LoadShortcutSettings(), shortcutDefinitions);
             saveShortcutSettingsSetting = AppSettingsStore.SaveShortcutSettings;
             applyShortcutSettings();
+            synchronizeEditorHostConfiguration();
         }
 
         private void collectShortcutDefinitions(ToolStripItemCollection items, string category,

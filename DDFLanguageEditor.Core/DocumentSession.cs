@@ -11,11 +11,18 @@ namespace DDFLanguageEditor.Core
 
         public bool HasPath => !string.IsNullOrEmpty(CurrentPath);
 
-        public string DisplayName => HasPath ? Path.GetFileName(CurrentPath) : "Senza titolo.ddf";
+        public string DisplayName => HasPath ? Path.GetFileName(CurrentPath) : UntitledDisplayName;
+
+        public string UntitledDisplayName { get; private set; } = "Senza titolo.ddf";
 
         public void MarkDirty()
         {
             IsDirty = true;
+        }
+
+        public void MarkPersisted()
+        {
+            IsDirty = false;
         }
 
         public void MarkSaved(string path)
@@ -29,10 +36,13 @@ namespace DDFLanguageEditor.Core
             MarkSaved(path);
         }
 
-        public void SetUntitled()
+        public void SetUntitled(string displayName = null)
         {
             CurrentPath = null;
             IsDirty = false;
+            UntitledDisplayName = string.IsNullOrWhiteSpace(displayName)
+                ? "Senza titolo.ddf"
+                : displayName.Trim();
         }
     }
 }

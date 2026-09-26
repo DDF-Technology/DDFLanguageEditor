@@ -1,6 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DDFLanguageEditor.Core
 {
@@ -13,6 +18,23 @@ namespace DDFLanguageEditor.Core
         public Func<bool> CancellationRequested { get; set; }
         public DdfDebuggerSession DebuggerSession { get; set; }
         public string SourcePath { get; set; }
+        public DdfHostCatalogSnapshot HostCatalog { get; set; }
+        public DdfEditorExecutionMode Mode { get; set; } = DdfEditorExecutionMode.HostEffects;
+        public CancellationToken CancellationToken { get; set; }
+        public DateTimeOffset ExecutionStartedAt { get; set; }
+        public DateTimeOffset? ExecutionDeadline { get; set; }
+        public TimeSpan HostCallTimeout { get; set; } = TimeSpan.FromSeconds(30);
+        public int MaxHostCalls { get; set; } = 1024;
+        public int MaxHostResources { get; set; } = 128;
+        public IReadOnlyDictionary<string, object> EntryArguments { get; set; } =
+            new ReadOnlyDictionary<string, object>(
+                new Dictionary<string, object>(StringComparer.Ordinal));
+        public IReadOnlyDictionary<string, string> DatabaseTransactions { get; set; } =
+            new ReadOnlyDictionary<string, string>(
+                new Dictionary<string, string>(StringComparer.Ordinal));
+        public Guid ExecutionId { get; set; }
+        public string HostEffectTransactionId { get; set; }
+        internal DdfHostEffectTracker HostEffectTracker { get; set; }
     }
 
     public sealed class DdfRuntimeStackFrame
@@ -43,7 +65,11 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfExecutionResult
     {
-        internal DdfExecutionResult(object returnValue, int instructions, bool cancelled, bool terminated, IReadOnlyList<DdfDiagnostic> diagnostics, IReadOnlyList<DdfRuntimeStackFrame> stackTrace)
+        internal DdfExecutionResult(object returnValue, int instructions, bool cancelled,
+            bool terminated, IReadOnlyList<DdfDiagnostic> diagnostics,
+            IReadOnlyList<DdfRuntimeStackFrame> stackTrace,
+            IReadOnlyList<DdfHostValueResult> hostValues = null,
+            string returnTypeName = null)
         {
             ReturnValue = returnValue;
             Instructions = instructions;
@@ -51,6 +77,8 @@ namespace DDFLanguageEditor.Core
             WasTerminated = terminated;
             Diagnostics = diagnostics;
             StackTrace = stackTrace;
+            HostValues = hostValues ?? Array.Empty<DdfHostValueResult>();
+            ReturnTypeName = returnTypeName ?? string.Empty;
         }
 
         public object ReturnValue { get; }
@@ -59,7 +87,37 @@ namespace DDFLanguageEditor.Core
         public bool WasTerminated { get; }
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
         public IReadOnlyList<DdfRuntimeStackFrame> StackTrace { get; }
+        public IReadOnlyList<DdfHostValueResult> HostValues { get; }
+        public string ReturnTypeName { get; }
         public bool Succeeded => !WasCancelled && Diagnostics.Count == 0;
+    }
+
+    /// <summary>
+    /// Immutable host-facing snapshot of one value exposed to a completed run.
+    /// Values are detached from VM cells and can be safely retained by the host.
+    /// </summary>
+    public sealed class DdfHostValueResult
+    {
+        internal DdfHostValueResult(string name, string typeName, object initialValue,
+            object value, DdfHostValueAccess access, DdfHostObjectLifetime lifetime,
+            bool wasWritten)
+        {
+            Name = name ?? string.Empty;
+            TypeName = typeName ?? string.Empty;
+            InitialValue = initialValue;
+            Value = value;
+            Access = access;
+            Lifetime = lifetime;
+            WasWritten = wasWritten;
+        }
+
+        public string Name { get; }
+        public string TypeName { get; }
+        public object InitialValue { get; }
+        public object Value { get; }
+        public DdfHostValueAccess Access { get; }
+        public DdfHostObjectLifetime Lifetime { get; }
+        public bool WasWritten { get; }
     }
 
     public static class DdfVirtualMachine
@@ -111,7 +169,12 @@ namespace DDFLanguageEditor.Core
             private readonly Stack<int> debugFrameScopes = new Stack<int>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
             private readonly List<DdfRuntimeStackFrame> callStack = new List<DdfRuntimeStackFrame>();
+            private readonly List<object> hostResources = new List<object>();
+            private readonly List<HostBinding> hostBindings = new List<HostBinding>();
+            private readonly object hostResourcesSync = new object();
+            private readonly Guid executionId;
             private int instructions;
+            private int hostCalls;
             private DdfIrModule activeModule;
 
             public Runner(IReadOnlyList<DdfIrModule> modules, DdfRuntimeDefinition runtime,
@@ -124,18 +187,27 @@ namespace DDFLanguageEditor.Core
                 this.typeSystem = typeSystem;
                 this.standardLibrary = standardLibrary;
                 this.options = options;
+                executionId = options.ExecutionId == Guid.Empty
+                    ? Guid.NewGuid() : options.ExecutionId;
             }
 
             public DdfExecutionResult Run()
             {
+                if (options.Mode == DdfEditorExecutionMode.AnalysisOnly)
+                    return new DdfExecutionResult(null, 0, false, false,
+                        Array.Empty<DdfDiagnostic>(), Array.Empty<DdfRuntimeStackFrame>());
                 bool cancelled = false;
                 bool terminated = false;
                 object returnValue = null;
+                string returnTypeName = string.Empty;
+                IReadOnlyList<DdfHostValueResult> hostValues =
+                    Array.Empty<DdfHostValueResult>();
                 IReadOnlyList<DdfRuntimeStackFrame> stackTrace = new DdfRuntimeStackFrame[0];
                 try
                 {
                     IndexDeclarations();
                     PushScope();
+                    RegisterHostObjects();
                     foreach (DdfIrModule module in modules)
                     {
                         activeModule = module;
@@ -147,7 +219,8 @@ namespace DDFLanguageEditor.Core
                     {
                         if (!functions.TryGetValue(options.EntryPoint, out DdfIrFunction entry))
                             Fail("DDF401", "Funzione di ingresso '" + options.EntryPoint + "' non trovata.", activeModule.Program);
-                        returnValue = Invoke(entry, new object[0], null);
+                        returnTypeName = FormatType(entry.ReturnType);
+                        returnValue = Invoke(entry, BindEntryArguments(entry), null);
                     }
                 }
                 catch (ReturnSignal signal) { returnValue = signal.Value; }
@@ -163,10 +236,48 @@ namespace DDFLanguageEditor.Core
                 catch (Exception exception) { diagnostics.Add(CreateDiagnostic("DDF499", "Errore runtime interno: " + exception.Message, activeModule.Program)); }
                 finally
                 {
+                    returnValue = FreezeHostValue(ExportHostValue(returnValue));
+                    hostValues = CaptureHostValues();
+                    ReleaseHostResources();
                     scopes.Clear();
                 }
 
-                return new DdfExecutionResult(returnValue, instructions, cancelled, terminated, diagnostics.AsReadOnly(), stackTrace);
+                return new DdfExecutionResult(returnValue, instructions, cancelled,
+                    terminated, diagnostics.AsReadOnly(), stackTrace, hostValues,
+                    returnTypeName);
+            }
+
+            private IList<object> BindEntryArguments(DdfIrFunction entry)
+            {
+                IReadOnlyDictionary<string, object> supplied = options.EntryArguments ??
+                    new ReadOnlyDictionary<string, object>(
+                        new Dictionary<string, object>(StringComparer.Ordinal));
+                string unexpected = supplied.Keys.FirstOrDefault(name =>
+                    !entry.Parameters.Any(parameter => parameter.Name == name));
+                if (unexpected != null)
+                    Fail("DDF416", "Argomento non previsto per la procedura '" +
+                        entry.Name + "': '" + unexpected + "'.", entry);
+
+                var result = new List<object>(entry.Parameters.Count);
+                foreach (DdfIrParameter parameter in entry.Parameters)
+                {
+                    if (!supplied.TryGetValue(parameter.Name, out object hostValue))
+                        Fail("DDF416", "Argomento obbligatorio mancante per la procedura '" +
+                            entry.Name + "': '" + parameter.Name + "'.", parameter);
+                    try
+                    {
+                        result.Add(ImportHostValue(hostValue, FormatType(parameter.Type),
+                            parameter, true, parameter.Name));
+                    }
+                    catch (RuntimeSignal) { throw; }
+                    catch (Exception exception)
+                    {
+                        Fail("DDF416", "Argomento '" + parameter.Name +
+                            "' non compatibile con " + FormatType(parameter.Type) +
+                            ": " + exception.Message, parameter);
+                    }
+                }
+                return result;
             }
 
             private void IndexDeclarations()
@@ -283,7 +394,7 @@ namespace DDFLanguageEditor.Core
                 if (expression == null || expression is DdfIrMissingExpression) return null;
                 Tick(expression);
                 if (expression is DdfIrLiteral literal) return ParseLiteral(literal.Text);
-                if (expression is DdfIrName name) return FindCell(name.Name, name).Value;
+                if (expression is DdfIrName name) return ReadCell(FindCell(name.Name, name), name);
                 if (expression is DdfIrGroup parenthesized) return Evaluate(parenthesized.Expression);
                 if (expression is DdfIrUnary unary)
                 {
@@ -298,12 +409,13 @@ namespace DDFLanguageEditor.Core
                 if (expression is DdfIrPostfix postfix)
                 {
                     Cell cell = ResolveCell(postfix.Operand);
-                    object old = cell.Value;
+                    object old = ReadCell(cell, postfix.Operand);
                     int delta = postfix.OperationId == DdfVmExpressionOperations.Increment ? 1 :
                         postfix.OperationId == DdfVmExpressionOperations.Decrement ? -1 : 0;
                     if (delta == 0) Fail("DDFE004", "Operazione postfix IR non supportata: '" + postfix.OperationId + "'.", postfix,
                         DdfDiagnosticDomain.EngineCapability);
-                    cell.Value = IsFloating(old) ? (object)(ToDouble(old, postfix) + delta) : ToInt(old, postfix) + delta;
+                    WriteCell(cell, IsFloating(old) ? (object)(ToDouble(old, postfix) + delta) :
+                        ToInt(old, postfix) + delta, postfix.Operand);
                     return old;
                 }
                 if (expression is DdfIrCall call)
@@ -321,10 +433,19 @@ namespace DDFLanguageEditor.Core
                         foreach (DdfIrExpression argument in call.Arguments) standardArguments.Add(Evaluate(argument));
                         return InvokeStandard(standard, standardArguments, call);
                     }
+                    if (target != null && options.HostCatalog?.TryGetFunction(
+                        target.Name, out DdfHostFunctionDefinition hostFunction) == true)
+                    {
+                        var hostArguments = new List<object>();
+                        foreach (DdfIrExpression argument in call.Arguments)
+                            hostArguments.Add(Evaluate(argument));
+                        return InvokeHost(hostFunction, hostArguments, call);
+                    }
                     Fail("DDF402", "Funzione non trovata.", call.Target);
                     return null;
                 }
-                if (expression is DdfIrIndex || expression is DdfIrMemberAccess) return ResolveCell(expression).Value;
+                if (expression is DdfIrIndex || expression is DdfIrMemberAccess)
+                    return ReadCell(ResolveCell(expression), expression);
                 Fail("DDFE001", "Espressione non supportata dal runtime.", expression,
                     DdfDiagnosticDomain.EngineCapability);
                 return null;
@@ -367,6 +488,259 @@ namespace DDFLanguageEditor.Core
                 finally { callStack.RemoveAt(callStack.Count - 1); }
             }
 
+            private object InvokeHost(DdfHostFunctionDefinition function,
+                IReadOnlyList<object> arguments, DdfIrNode node)
+            {
+                callStack.Add(CreateFrame(function.Name, node.Start, node.Length));
+                object effectToken = null;
+                try
+                {
+                    if (arguments.Count != function.Parameters.Count)
+                        Fail("DDF402", "La funzione host '" + function.Name +
+                            "' richiede " + function.Parameters.Count + " argomenti.", node);
+                    if (!options.HostCatalog.HasPermissions(function.RequiredPermissions))
+                        Fail("DDF409", "Permessi host mancanti per la funzione '" +
+                            function.Name + "': " + string.Join(", ",
+                                function.RequiredPermissions.Where(permission =>
+                                    !options.HostCatalog.IsGranted(permission))) + ".", node);
+                    try
+                    {
+                        hostCalls++;
+                        if (options.MaxHostCalls <= 0 || hostCalls > options.MaxHostCalls)
+                            Fail("DDF413", "Limite di " + options.MaxHostCalls +
+                                " chiamate host superato.", node);
+                        var convertedArguments = new List<object>();
+                        for (int index = 0; index < arguments.Count; index++)
+                            convertedArguments.Add(function.Parameters[index].ValueAdapter.FromScriptValue(
+                                ExportHostValue(arguments[index])));
+                        Func<IReadOnlyList<object>, object> operation = function.Invoke;
+                        Func<DdfHostInvocationContext, IReadOnlyList<object>,
+                            ValueTask<object>> operationAsync = function.InvokeAsync;
+                        if (options.Mode == DdfEditorExecutionMode.Simulation &&
+                            function.Effect == DdfHostFunctionEffect.HostMutation)
+                        {
+                            if (function.Simulate == null && function.SimulateAsync == null)
+                                Fail("DDF412", "La funzione host '" + function.Name +
+                                    "' non dispone di una simulazione registrata.", node);
+                            operation = function.Simulate;
+                            operationAsync = function.SimulateAsync;
+                        }
+                        if (function.Effect == DdfHostFunctionEffect.HostMutation)
+                            effectToken = options.HostEffectTracker?.Begin(function.Name,
+                                DdfHostEffectKind.Function,
+                                options.Mode == DdfEditorExecutionMode.Simulation);
+                        object hostResult = InvokeHostOperation(operation, operationAsync,
+                            convertedArguments.AsReadOnly(), function.Name, node);
+                        options.HostEffectTracker?.Applied(effectToken);
+                        object scriptResult = function.ReturnValueAdapter.ToScriptValue(hostResult);
+                        return ImportHostValue(scriptResult, function.ReturnType, node, true);
+                    }
+                    catch (RuntimeSignal exception)
+                    {
+                        options.HostEffectTracker?.Failed(effectToken, exception);
+                        throw;
+                    }
+                    catch (HostResourceLimitException exception)
+                    {
+                        options.HostEffectTracker?.Failed(effectToken, exception);
+                        Fail("DDF413", exception.Message, node);
+                        return null;
+                    }
+                    catch (Exception exception)
+                    {
+                        options.HostEffectTracker?.Failed(effectToken, exception);
+                        Fail("DDF410", "La funzione host '" + function.Name +
+                            "' ha restituito un errore: " + exception.Message, node);
+                        return null;
+                    }
+                }
+                finally { callStack.RemoveAt(callStack.Count - 1); }
+            }
+
+            private object InvokeHostOperation(
+                Func<IReadOnlyList<object>, object> operation,
+                Func<DdfHostInvocationContext, IReadOnlyList<object>, ValueTask<object>> operationAsync,
+                IReadOnlyList<object> arguments, string functionName, DdfIrNode node)
+            {
+                using var callCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    options.CancellationToken);
+                if (options.HostCallTimeout > TimeSpan.Zero)
+                    callCancellation.CancelAfter(options.HostCallTimeout);
+                DateTimeOffset startedAt = options.ExecutionStartedAt == default
+                    ? DateTimeOffset.UtcNow : options.ExecutionStartedAt;
+                var context = new DdfHostInvocationContext(executionId, options.Mode,
+                    callCancellation.Token, startedAt, options.ExecutionDeadline,
+                    RegisterHostResource, options.DatabaseTransactions,
+                    options.HostEffectTransactionId);
+                Task<object> task;
+                if (operationAsync != null)
+                    task = operationAsync(context, arguments).AsTask();
+                else
+                    task = Task.Run(() => operation(arguments), callCancellation.Token);
+                try
+                {
+                    return task.WaitAsync(callCancellation.Token).GetAwaiter().GetResult();
+                }
+                catch (OperationCanceledException)
+                {
+                    if (options.CancellationToken.IsCancellationRequested ||
+                        options.CancellationRequested?.Invoke() == true)
+                        throw new CancelledSignal();
+                    Fail("DDF414", "Timeout della funzione host '" + functionName +
+                        "' dopo " + options.HostCallTimeout.TotalMilliseconds.ToString(
+                            CultureInfo.InvariantCulture) + " ms.", node);
+                    return null;
+                }
+            }
+
+            private bool hostResourcesClosed;
+
+            private void RegisterHostResource(object resource)
+            {
+                lock (hostResourcesSync)
+                {
+                    if (hostResourcesClosed)
+                    {
+                        DisposeHostResource(resource);
+                        throw new ObjectDisposedException(nameof(DdfHostInvocationContext),
+                            "La sessione host è già terminata.");
+                    }
+                    if (hostResources.Count >= options.MaxHostResources)
+                    {
+                        DisposeHostResource(resource);
+                        throw new HostResourceLimitException("Limite di " +
+                            options.MaxHostResources + " risorse host superato.");
+                    }
+                    if (!hostResources.Any(item => ReferenceEquals(item, resource)))
+                        hostResources.Add(resource);
+                }
+            }
+
+            private void ReleaseHostResources()
+            {
+                List<object> resources;
+                lock (hostResourcesSync)
+                {
+                    hostResourcesClosed = true;
+                    resources = hostResources.ToList();
+                    hostResources.Clear();
+                }
+                resources.Reverse();
+                foreach (object resource in resources)
+                {
+                    try { DisposeHostResource(resource); }
+                    catch (Exception exception)
+                    {
+                        diagnostics.Add(CreateDiagnostic("DDF415",
+                            "Errore durante il rilascio di una risorsa host: " +
+                            exception.Message, activeModule.Program));
+                    }
+                }
+            }
+
+            private static void DisposeHostResource(object resource)
+            {
+                if (resource is IAsyncDisposable asyncResource)
+                    asyncResource.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                else if (resource is IDisposable disposable) disposable.Dispose();
+            }
+
+            private void RegisterHostObjects()
+            {
+                if (options.HostCatalog == null) return;
+                foreach (DdfHostObjectDefinition value in options.HostCatalog.Objects)
+                {
+                    if (!options.HostCatalog.HasPermissions(value.RequiredPermissions))
+                        continue;
+                    bool simulation = options.Mode == DdfEditorExecutionMode.Simulation;
+                    Action<object> writer = null;
+                    if (value.CanWrite)
+                    {
+                        writer = scriptValue =>
+                        {
+                            object effectToken = options.HostEffectTracker?.Begin(
+                                value.Name, DdfHostEffectKind.ObjectWrite, simulation);
+                            if (simulation) return;
+                            try
+                            {
+                                value.WriteValue(value.ValueAdapter.FromScriptValue(
+                                    ExportHostValue(scriptValue)));
+                                options.HostEffectTracker?.Applied(effectToken);
+                            }
+                            catch (Exception exception)
+                            {
+                                options.HostEffectTracker?.Failed(effectToken, exception);
+                                throw;
+                            }
+                        };
+                    }
+                    if (value.Lifetime == DdfHostObjectLifetime.Live && !simulation)
+                    {
+                        var binding = new HostBinding(value);
+                        Func<object> reader = () =>
+                        {
+                            object hostValue = value.ReadValue();
+                            binding.CaptureInitial(hostValue);
+                            return ImportHostValue(value.ValueAdapter.ToScriptValue(hostValue),
+                                value.TypeName, activeModule.Program, value.CanWrite,
+                                value.Name, writer);
+                        };
+                        binding.Cell = DeclareHost(value, null, reader, writer);
+                        hostBindings.Add(binding);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            object hostValue = value.ReadValue();
+                            object scriptValue = ImportHostValue(
+                                value.ValueAdapter.ToScriptValue(hostValue), value.TypeName,
+                                activeModule.Program, value.CanWrite, value.Name, writer);
+                            var binding = new HostBinding(value);
+                            binding.CaptureInitial(hostValue);
+                            binding.Cell = DeclareHost(value, scriptValue, null, writer);
+                            hostBindings.Add(binding);
+                        }
+                        catch (Exception exception)
+                        {
+                            Fail("DDF410", "Impossibile leggere l'oggetto host '" +
+                                value.Name + "': " + exception.Message, activeModule.Program);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            private IReadOnlyList<DdfHostValueResult> CaptureHostValues()
+            {
+                var result = new List<DdfHostValueResult>();
+                foreach (HostBinding binding in hostBindings)
+                {
+                    object finalValue = null;
+                    try
+                    {
+                        object scriptValue = binding.Cell.WasWritten ||
+                            binding.Definition.Lifetime == DdfHostObjectLifetime.ExecutionSnapshot
+                            ? binding.Cell.SnapshotValue
+                            : binding.Cell.Read();
+                        finalValue = FreezeHostValue(binding.Definition.ValueAdapter
+                            .FromScriptValue(ExportHostValue(scriptValue)));
+                    }
+                    catch (Exception exception)
+                    {
+                        diagnostics.Add(CreateDiagnostic("DDF410",
+                            "Impossibile acquisire il risultato host '" +
+                            binding.Definition.Name + "': " + exception.Message,
+                            activeModule.Program));
+                    }
+                    result.Add(new DdfHostValueResult(binding.Definition.Name,
+                        binding.Definition.TypeName, binding.InitialValue, finalValue,
+                        binding.Definition.Access, binding.Definition.Lifetime,
+                        binding.Cell.WasWritten));
+                }
+                return result.AsReadOnly();
+            }
+
             private object EvaluateBinary(DdfIrBinary binary)
             {
                 string op = binary.OperationId;
@@ -374,7 +748,7 @@ namespace DDFLanguageEditor.Core
                 {
                     Cell target = ResolveCell(binary.Left);
                     object value = Evaluate(binary.Right);
-                    target.Value = value;
+                    WriteCell(target, value, binary.Left);
                     return value;
                 }
                 if (op == DdfVmExpressionOperations.Output)
@@ -513,6 +887,11 @@ namespace DDFLanguageEditor.Core
             {
                 for (int index = scopes.Count - 1; index >= 0; index--)
                     if (scopes[index].TryGetValue(name, out Cell cell)) return cell;
+                if (options.HostCatalog?.TryGetObject(name,
+                    out DdfHostObjectDefinition deniedObject) == true &&
+                    !options.HostCatalog.HasPermissions(deniedObject.RequiredPermissions))
+                    Fail("DDF409", "Permessi host mancanti per l'oggetto '" +
+                        name + "'.", node);
                 Fail("DDF406", "Variabile non definita: '" + name + "'.", node);
                 return null;
             }
@@ -523,6 +902,151 @@ namespace DDFLanguageEditor.Core
                     scopes[scopes.Count - 1][name] = new Cell(value, typeName, kind);
             }
 
+            private Cell DeclareHost(DdfHostObjectDefinition definition, object value,
+                Func<object> reader, Action<object> writer)
+            {
+                var cell = new Cell(value,
+                    definition.TypeName, DdfRuntimeVariableKind.Global, reader, writer,
+                    definition.Name);
+                scopes[scopes.Count - 1][definition.Name] = cell;
+                return cell;
+            }
+
+            private object ReadCell(Cell cell, DdfIrNode node)
+            {
+                try { return cell.Read(); }
+                catch (RuntimeSignal) { throw; }
+                catch (Exception exception)
+                {
+                    Fail("DDF410", "Impossibile leggere l'oggetto host '" +
+                        cell.ExternalName + "': " + exception.Message, node);
+                    return null;
+                }
+            }
+
+            private void WriteCell(Cell cell, object value, DdfIrNode node)
+            {
+                if (!cell.CanWrite)
+                    Fail("DDF411", "L'oggetto host '" + cell.ExternalName +
+                        "' è esposto in sola lettura.", node);
+                try { cell.Write(value); }
+                catch (RuntimeSignal) { throw; }
+                catch (Exception exception)
+                {
+                    Fail("DDF410", "Impossibile scrivere l'oggetto host '" +
+                        cell.ExternalName + "': " + exception.Message, node);
+                }
+            }
+
+            private object ImportHostValue(object value, string typeName, DdfIrNode node,
+                bool nestedValuesWritable, string externalName = null,
+                Action<object> nestedWriter = null)
+            {
+                string elementType = typeName ?? string.Empty;
+                if (elementType.EndsWith("[]", StringComparison.Ordinal))
+                {
+                    elementType = elementType.Substring(0, elementType.Length - 2);
+                    if (value == null) return new Cell[0];
+                    if (value is string || !(value is IEnumerable sequence))
+                        throw new InvalidOperationException("Il valore host per '" + typeName +
+                            "' deve essere una sequenza esplicita.");
+                    var cells = new List<Cell>();
+                    foreach (object item in sequence)
+                    {
+                        object imported = ImportHostValue(item, elementType, node,
+                            nestedValuesWritable, externalName,
+                            ignored => nestedWriter?.Invoke(cells.ToArray()));
+                        Action<object> elementWriter = nestedValuesWritable && nestedWriter != null
+                            ? new Action<object>(ignored => nestedWriter(cells.ToArray()))
+                            : null;
+                        cells.Add(new Cell(imported, elementType,
+                            DdfRuntimeVariableKind.Element, null, elementWriter, externalName));
+                    }
+                    return cells.ToArray();
+                }
+
+                DdfHostTypeDefinition hostType = options.HostCatalog?.Types.FirstOrDefault(
+                    item => item.Name == elementType);
+                if (hostType != null)
+                {
+                    if (value == null) value = new Dictionary<string, object>(StringComparer.Ordinal);
+                    var dictionary = value as IDictionary<string, object>;
+                    var readOnlyDictionary = value as IReadOnlyDictionary<string, object>;
+                    if (dictionary == null && readOnlyDictionary == null)
+                        throw new InvalidOperationException("Il valore host per '" + elementType +
+                            "' deve essere un dizionario di campi registrati.");
+                    var fields = new Dictionary<string, Cell>(StringComparer.Ordinal);
+                    foreach (DdfHostFieldDefinition field in hostType.Fields)
+                    {
+                        object fieldValue = null;
+                        bool found = dictionary != null
+                            ? dictionary.TryGetValue(field.Name, out fieldValue)
+                            : readOnlyDictionary.TryGetValue(field.Name, out fieldValue);
+                        if (!found) throw new InvalidOperationException("Campo host mancante: '" +
+                            elementType + "." + field.Name + "'.");
+                        bool fieldWritable = nestedValuesWritable && field.CanWrite &&
+                            nestedWriter != null;
+                        object imported = ImportHostValue(fieldValue,
+                            field.TypeName, node, fieldWritable, externalName,
+                            ignored => nestedWriter(fields));
+                        Action<object> fieldWriter = fieldWritable
+                            ? new Action<object>(ignored => nestedWriter(fields))
+                            : null;
+                        fields.Add(field.Name, new Cell(imported, field.TypeName,
+                            DdfRuntimeVariableKind.Field, null, fieldWriter, externalName));
+                    }
+                    return fields;
+                }
+
+                if (value == null)
+                {
+                    if (typeSystem.TryGetPrimitive(elementType, out DdfPrimitiveTypeDefinition emptyPrimitive))
+                    {
+                        if (emptyPrimitive.Category == DdfPrimitiveTypeCategory.Boolean) return false;
+                        if (emptyPrimitive.Category == DdfPrimitiveTypeCategory.Floating) return 0d;
+                        if (emptyPrimitive.Category == DdfPrimitiveTypeCategory.Character) return '\0';
+                        if (emptyPrimitive.Category == DdfPrimitiveTypeCategory.String) return string.Empty;
+                        if (emptyPrimitive.Category == DdfPrimitiveTypeCategory.Integer) return 0;
+                    }
+                    return null;
+                }
+                if (!typeSystem.TryGetPrimitive(elementType, out DdfPrimitiveTypeDefinition primitive))
+                    return value;
+                if (primitive.Category == DdfPrimitiveTypeCategory.Boolean) return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+                if (primitive.Category == DdfPrimitiveTypeCategory.Floating) return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                if (primitive.Category == DdfPrimitiveTypeCategory.Integer) return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                if (primitive.Category == DdfPrimitiveTypeCategory.Character) return Convert.ToChar(value, CultureInfo.InvariantCulture);
+                if (primitive.Category == DdfPrimitiveTypeCategory.String) return Convert.ToString(value, CultureInfo.InvariantCulture);
+                return value;
+            }
+
+            private static object ExportHostValue(object value)
+            {
+                if (value is Cell[] array)
+                    return array.Select(cell => ExportHostValue(cell.Read())).ToList().AsReadOnly();
+                if (value is Dictionary<string, Cell> fields)
+                    return fields.ToDictionary(pair => pair.Key,
+                        pair => ExportHostValue(pair.Value.Read()), StringComparer.Ordinal);
+                return value;
+            }
+
+            private static object FreezeHostValue(object value)
+            {
+                if (value == null || value is string || value.GetType().IsValueType)
+                    return value;
+                if (value is IDictionary<string, object> dictionary)
+                    return new ReadOnlyDictionary<string, object>(dictionary.ToDictionary(
+                        pair => pair.Key, pair => FreezeHostValue(pair.Value),
+                        StringComparer.Ordinal));
+                if (value is IReadOnlyDictionary<string, object> readOnlyDictionary)
+                    return new ReadOnlyDictionary<string, object>(readOnlyDictionary.ToDictionary(
+                        pair => pair.Key, pair => FreezeHostValue(pair.Value),
+                        StringComparer.Ordinal));
+                if (value is IEnumerable sequence)
+                    return sequence.Cast<object>().Select(FreezeHostValue).ToList().AsReadOnly();
+                return value;
+            }
+
             private static string FormatType(DdfIrType type) => type == null ? "?" :
                 type.Name + string.Concat(System.Linq.Enumerable.Repeat("[]", type.ArrayLengths.Count));
 
@@ -531,7 +1055,9 @@ namespace DDFLanguageEditor.Core
 
             private void Tick(DdfIrNode node)
             {
-                if (options.CancellationRequested != null && options.CancellationRequested()) throw new CancelledSignal();
+                if (options.CancellationToken.IsCancellationRequested ||
+                    (options.CancellationRequested != null && options.CancellationRequested()))
+                    throw new CancelledSignal();
                 instructions++;
                 if (options.MaxInstructions <= 0 || instructions > options.MaxInstructions)
                     Fail("DDF407", "Limite di " + options.MaxInstructions + " istruzioni superato.", node);
@@ -618,7 +1144,9 @@ namespace DDFLanguageEditor.Core
             private DdfRuntimeVariableSnapshot CaptureDebugValue(string name, Cell cell, int scope, int level,
                 ref int budget, DdfRuntimeVariableKind kind)
             {
-                object value = cell.Value;
+                object value;
+                try { value = cell.Read(); }
+                catch (Exception exception) { value = "<errore host: " + exception.Message + ">"; }
                 string type = value is int ? "int" : value is double ? "float" : value is bool ? "bool" :
                     value is char ? "char" : value is string ? "string" : value is Cell[] ? "array" :
                     value is Dictionary<string, Cell> ? "struct" : "null";
@@ -692,11 +1220,68 @@ namespace DDFLanguageEditor.Core
 
             private sealed class Cell
             {
+                private object value;
+                private readonly Func<object> reader;
+                private readonly Action<object> writer;
+
                 public Cell(object value, string typeName, DdfRuntimeVariableKind kind)
-                { Value = value; TypeName = typeName; Kind = kind; }
-                public object Value { get; set; }
+                    : this(value, typeName, kind, true) { }
+                public Cell(object value, string typeName, DdfRuntimeVariableKind kind,
+                    bool writable)
+                    : this(value, typeName, kind, writable, null) { }
+                public Cell(object value, string typeName, DdfRuntimeVariableKind kind,
+                    bool writable, string externalName)
+                    : this(value, typeName, kind, null,
+                        writable ? new Action<object>(_ => { }) : null, externalName) { }
+                public Cell(object value, string typeName, DdfRuntimeVariableKind kind,
+                    Func<object> reader, Action<object> writer, string externalName)
+                {
+                    this.value = value;
+                    this.reader = reader;
+                    this.writer = writer;
+                    TypeName = typeName;
+                    Kind = kind;
+                    ExternalName = externalName;
+                }
+                public bool CanWrite => writer != null;
+                public bool WasWritten { get; private set; }
+                public object SnapshotValue => value;
+                public string ExternalName { get; }
+                public object Read() => reader == null ? value : reader();
+                public void Write(object newValue)
+                {
+                    if (writer == null) throw new InvalidOperationException("Valore in sola lettura.");
+                    object previous = value;
+                    value = newValue;
+                    try { writer(newValue); }
+                    catch
+                    {
+                        value = previous;
+                        throw;
+                    }
+                    WasWritten = true;
+                }
                 public string TypeName { get; }
                 public DdfRuntimeVariableKind Kind { get; }
+            }
+            private sealed class HostBinding
+            {
+                public HostBinding(DdfHostObjectDefinition definition)
+                {
+                    Definition = definition;
+                }
+
+                public DdfHostObjectDefinition Definition { get; }
+                public Cell Cell { get; set; }
+                public object InitialValue { get; private set; }
+                private bool HasInitialValue { get; set; }
+
+                public void CaptureInitial(object value)
+                {
+                    if (HasInitialValue) return;
+                    InitialValue = FreezeHostValue(value);
+                    HasInitialValue = true;
+                }
             }
             private sealed class RuntimeSignal : Exception
             {
@@ -715,6 +1300,10 @@ namespace DDFLanguageEditor.Core
             private sealed class BreakSignal : Exception { }
             private sealed class EndSignal : Exception { }
             private sealed class CancelledSignal : Exception { }
+            private sealed class HostResourceLimitException : Exception
+            {
+                public HostResourceLimitException(string message) : base(message) { }
+            }
         }
     }
 }

@@ -10,12 +10,14 @@ namespace DDFLanguageEditor.Core
             CompilationUnitSyntax root,
             int position,
             IEnumerable<CompilationUnitSyntax> externalRoots = null,
-            DdfTypeSystemDefinition typeSystem = null)
+            DdfTypeSystemDefinition typeSystem = null,
+            DdfHostCatalogSnapshot hostCatalog = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
             if (position < 0 || position > source.Length) throw new ArgumentOutOfRangeException(nameof(position));
-            DdfTypeCheckResult types = DdfTypeChecker.Check(source, root, externalRoots, typeSystem);
+            DdfTypeCheckResult types = DdfTypeChecker.Check(source, root, externalRoots,
+                typeSystem, null, hostCatalog);
             string booleanType = BooleanType(typeSystem);
             foreach (MemberSyntax member in root.Members)
             {

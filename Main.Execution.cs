@@ -14,16 +14,18 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
-        private CancellationTokenSource executionCancellation;
-        private Task executionTask;
+        private DdfEditorExecutionService standaloneExecutionService;
+        private DdfEditorDebugService standaloneDebugService;
         private readonly List<OutputNavigationTarget> outputNavigationTargets = new List<OutputNavigationTarget>();
-        private readonly DdfBuildService buildService = new DdfBuildService();
+        private readonly DdfBuildService projectBuildService = new DdfBuildService();
         private string runtimeDocumentId;
         private string runtimeDocumentPath;
+        private IReadOnlyList<DdfIrModule> debugRuntimeModules = Array.Empty<DdfIrModule>();
         private bool debugUiLocked;
         private bool executionRunning;
-        private long executionGeneration;
         private string debugBaseWindowTitle;
+        private string embeddedEntryPoint;
+        private IReadOnlyDictionary<string, object> embeddedEntryArguments;
 
         private static readonly HashSet<string> DebugUnsafeMenuCommands = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -58,13 +60,14 @@ namespace DDF___Program_Language_Editor
 
         private void runProgramMenuItem_Click(object sender, EventArgs e)
         {
+            if (embeddedHostMode && !executionRunning) return;
             if (executionRunning)
             {
-                if (debuggerSession != null && debuggerSession.IsPaused)
+                if (panelEditor.DebugService?.IsPaused == true)
                 {
                     clearDebugExecutionLine();
                     appendOutput("Esecuzione ripresa.");
-                    debuggerSession.Continue();
+                    panelEditor.DebugService.Continue();
                     updateExecutionCommands(true);
                 }
                 return;
@@ -75,6 +78,7 @@ namespace DDF___Program_Language_Editor
 
         private void runWithoutDebugMenuItem_Click(object sender, EventArgs e)
         {
+            if (embeddedHostMode) return;
             if (!executionRunning) executeProject(false);
         }
 
@@ -84,102 +88,182 @@ namespace DDF___Program_Language_Editor
 
         private void validateOrBuildProject(bool writeArtifact)
         {
-            if (!tryCreateBuildContext(out ProjectBuildContext context, out IReadOnlyList<DdfBuildIssue> setupIssues))
-            {
-                showBuildIssues(writeArtifact ? "Compilazione" : "Convalida", setupIssues);
-                return;
-            }
-            if (writeArtifact && context.IsUntitled)
-            {
-                showBuildIssues("Compilazione", new[] { DdfBuildIssue.Configuration("DDFB008",
-                    "Salvare il documento o aprire una cartella progetto prima di generare un artefatto.") });
-                return;
-            }
+            DdfEditorBuildSnapshot snapshot = writeArtifact
+                ? panelEditor.BuildProject()
+                : panelEditor.ValidateProject();
+            showBuildResult(writeArtifact ? "Compilazione" : "Convalida",
+                snapshot.Result);
+        }
 
+        private DdfBuildResult executeStandaloneBuild(DdfEditorBuildMode mode,
+            DdfEditorBuildRequest request,
+            IReadOnlyList<DdfEditorBuildDocumentSnapshot> documents,
+            DdfLanguagePackage package, DdfHostCatalogSnapshot hostCatalog)
+        {
+            if (!tryCreateBuildContext(out ProjectBuildContext context,
+                out IReadOnlyList<DdfBuildIssue> setupIssues))
+                return DdfBuildResult.Failure(setupIssues);
+            if (mode == DdfEditorBuildMode.Build && context.IsUntitled)
+                return DdfBuildResult.Failure(DdfBuildIssue.Configuration("DDFB008",
+                    "Salvare il documento o aprire una cartella progetto prima di generare un artefatto."));
+
+            applyEditorBuildRequest(context, request);
             try
             {
-                DdfBuildResult result = writeArtifact
-                    ? buildService.Build(context.Root, context.Manifest, context.Package, context.Buffers)
-                    : buildService.Validate(context.Root, context.Manifest, context.Package, context.Buffers);
-                showBuildResult(writeArtifact ? "Compilazione" : "Convalida", result);
+                return mode == DdfEditorBuildMode.Build
+                    ? projectBuildService.Build(context.Root, context.Manifest,
+                        context.Package, context.Buffers, hostCatalog)
+                    : projectBuildService.Validate(context.Root, context.Manifest,
+                        context.Package, context.Buffers, hostCatalog);
             }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            catch (Exception exception) when (exception is IOException ||
+                exception is UnauthorizedAccessException)
             {
-                showBuildIssues(writeArtifact ? "Compilazione" : "Convalida", new[]
-                { DdfBuildIssue.Configuration("DDFB999", exception.Message) });
+                return DdfBuildResult.Failure(DdfBuildIssue.Configuration(
+                    "DDFB999", exception.Message));
             }
+        }
+
+        private void applyEditorBuildRequest(ProjectBuildContext context,
+            DdfEditorBuildRequest request)
+        {
+            if (request == null) return;
+            if (!string.IsNullOrWhiteSpace(request.EntryPoint))
+                context.Manifest.EntryPoint = request.EntryPoint.Trim();
+            if (request.MaxInstructions > 0)
+                context.Manifest.Options.MaxInstructions = request.MaxInstructions;
+            if (string.IsNullOrWhiteSpace(request.EntryDocumentId)) return;
+
+            OpenDocumentBuffer entry = openDocuments.Documents.FirstOrDefault(item =>
+                string.Equals(item.Id, request.EntryDocumentId,
+                    StringComparison.Ordinal));
+            if (entry == null || !entry.Session.HasPath ||
+                !isPathInside(context.Root, entry.Session.CurrentPath)) return;
+            context.Manifest.EntrySource = Path.GetRelativePath(context.Root,
+                entry.Session.CurrentPath).Replace('\\', '/');
         }
 
         private void executeProject(bool debug)
         {
-            long generation = ++executionGeneration;
+            EmbeddedExecutionPreparing?.Invoke(this, EventArgs.Empty);
+            string requestedEntryPoint = string.IsNullOrWhiteSpace(embeddedEntryPoint)
+                ? null : embeddedEntryPoint;
+            IReadOnlyDictionary<string, object> requestedEntryArguments =
+                embeddedEntryArguments;
             clearDebugExecutionLine();
-            if (!tryCreateBuildContext(out ProjectBuildContext context, out IReadOnlyList<DdfBuildIssue> setupIssues,
-                preferActiveDocument: true))
+            clearOutput();
+            tabControlBottom.SelectedTab = tabPageOutput;
+            expandDiagnosticsPalette();
+            var request = new DdfEditorExecutionRequest(
+                entryPoint: requestedEntryPoint,
+                input: () => requestRuntimeInput == null ? string.Empty : requestRuntimeInput(),
+                mode: DdfEditorExecutionMode.HostEffects,
+                entryArguments: requestedEntryArguments);
+            try
             {
-                showBuildIssues(debug ? "Debug" : "Esecuzione", setupIssues);
-                return;
+                if (debug)
+                {
+                    synchronizeRuntimeBreakpoints(openDocuments.ActiveDocument);
+                    synchronizeRuntimeWatchExpressions();
+                    _ = panelEditor.DebugService.RunAsync(request);
+                }
+                else
+                    _ = panelEditor.ExecutionService.RunAsync(request);
+                string runtimeEntryPoint = requestedEntryPoint ??
+                    activeRuntimeArtifact?.EntryPoint ?? "main";
+                string buildIdentity = activeRuntimeArtifact == null ? string.Empty :
+                    " [" + activeRuntimeArtifact.Backend + ", " +
+                    activeRuntimeArtifact.Fingerprint.Substring(0, 12) + "]";
+                appendOutput("DDFLanguageEditor 0.11.2 Beta — " +
+                    (debug ? "debug" : "esecuzione") + " di " +
+                    runtimeEntryPoint + "()" + buildIdentity);
             }
+            catch (Exception exception)
+            {
+                appendOutput("Avvio non riuscito: " + exception.Message);
+                embeddedEntryPoint = null;
+                embeddedEntryArguments = null;
+                executionRunning = false;
+                updateExecutionCommands(false);
+            }
+        }
+
+        private DdfBuildArtifact activeRuntimeArtifact;
+
+        private DdfEditorExecutionBuildContext prepareStandaloneExecution(
+            DdfEditorExecutionRequest request,
+            IReadOnlyList<DdfEditorBuildDocumentSnapshot> documents,
+            DdfLanguagePackage package, DdfHostCatalogSnapshot hostCatalog)
+        {
+            activeRuntimeArtifact = null;
+            debugRuntimeModules = Array.Empty<DdfIrModule>();
+            if (!tryCreateBuildContext(out ProjectBuildContext context,
+                out IReadOnlyList<DdfBuildIssue> setupIssues,
+                preferActiveDocument: true))
+                return new DdfEditorExecutionBuildContext(
+                    DdfBuildResult.Failure(setupIssues), package);
+            applyEditorExecutionRequest(context, request);
             DdfBuildResult build;
             try
             {
-                build = buildService.Validate(context.Root, context.Manifest, context.Package, context.Buffers);
+                build = projectBuildService.Validate(context.Root,
+                    context.Manifest, context.Package, context.Buffers,
+                    hostCatalog);
             }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            catch (Exception exception) when (exception is IOException ||
+                exception is UnauthorizedAccessException)
             {
-                showBuildIssues(debug ? "Debug" : "Esecuzione", new[]
-                { DdfBuildIssue.Configuration("DDFB999", exception.Message) });
-                return;
-            }
-            if (!build.Success)
-            {
-                showBuildResult(debug ? "Debug" : "Esecuzione", build);
-                return;
+                build = DdfBuildResult.Failure(DdfBuildIssue.Configuration(
+                    "DDFB999", exception.Message));
             }
 
-            string entryPath = Path.GetFullPath(Path.Combine(context.Root, build.Artifact.EntrySource.Replace('/', Path.DirectorySeparatorChar)));
-            DdfBuildArtifactSource entryArtifact = build.Artifact.Sources.First(item =>
-                string.Equals(item.RelativePath, build.Artifact.EntrySource, StringComparison.OrdinalIgnoreCase));
-            string source;
-            try
+            var paths = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (DdfEditorBuildDocumentSnapshot document in documents)
             {
-                source = entryArtifact.FromUnsavedBuffer && context.Buffers.TryGetValue(entryPath, out string bufferedSource)
-                    ? bufferedSource : File.ReadAllText(entryPath);
+                string path = document.FilePath;
+                if (string.IsNullOrWhiteSpace(path) && context.IsUntitled)
+                {
+                    if (!string.Equals(document.Id,
+                        openDocuments.ActiveDocument?.Id, StringComparison.Ordinal))
+                        continue;
+                    path = Path.Combine(context.Root,
+                        context.Manifest.EntrySource ?? "untitled.ddf");
+                }
+                if (!string.IsNullOrWhiteSpace(path)) paths[document.Id] =
+                    Path.GetFullPath(path);
             }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            activeRuntimeArtifact = build.Artifact;
+            debugRuntimeModules = build.Success ? build.Artifact.RuntimeModules :
+                Array.Empty<DdfIrModule>();
+            if (build.Success)
             {
-                showBuildIssues(debug ? "Debug" : "Esecuzione", new[]
-                { DdfBuildIssue.Configuration("DDFB999", exception.Message, entryPath) });
-                return;
+                runtimeDocumentPath = Path.GetFullPath(Path.Combine(context.Root,
+                    build.Artifact.EntrySource.Replace('/',
+                        Path.DirectorySeparatorChar)));
+                runtimeDocumentId = paths.FirstOrDefault(item =>
+                    string.Equals(item.Value, runtimeDocumentPath,
+                        StringComparison.OrdinalIgnoreCase)).Key;
             }
-            clearOutput();
-            OpenDocumentBuffer entryBuffer = context.IsUntitled ? openDocuments.ActiveDocument : openDocuments.FindByPath(entryPath);
-            runtimeDocumentId = entryBuffer?.Id;
-            runtimeDocumentPath = entryPath;
-            tabControlBottom.SelectedTab = tabPageOutput;
-            expandDiagnosticsPalette();
-            appendOutput("DDFLanguageEditor 0.11.0 Beta — " + (debug ? "debug" : "esecuzione") + " di " +
-                build.Artifact.EntryPoint + "() [" + build.Artifact.Backend + ", " + build.Artifact.Fingerprint.Substring(0, 12) + "]");
-            executionCancellation = new CancellationTokenSource();
-            CancellationToken token = executionCancellation.Token;
-            debuggerSession = debug ? new DdfDebuggerSession { Paused = onDebuggerPaused } : null;
-            if (debuggerSession != null)
-            {
-                synchronizeRuntimeBreakpoints(entryBuffer);
-            }
-            executionRunning = true;
-            updateExecutionCommands(true);
-            executionTask = Task.Run(() => DdfInterpreter.Execute(build.Artifact.RuntimeModules, context.Package.Language, new DdfExecutionOptions
-            {
-                EntryPoint = build.Artifact.EntryPoint,
-                MaxInstructions = build.Artifact.MaxInstructions,
-                CancellationRequested = () => token.IsCancellationRequested,
-                DebuggerSession = debuggerSession,
-                SourcePath = entryPath,
-                Output = line => appendOutput(line),
-                Input = () => requestRuntimeInput == null ? string.Empty : requestRuntimeInput()
-            }), token).ContinueWith(completed => finishExecution(completed, generation), CancellationToken.None,
-                TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+            return new DdfEditorExecutionBuildContext(build, context.Package,
+                paths);
+        }
+
+        private void applyEditorExecutionRequest(ProjectBuildContext context,
+            DdfEditorExecutionRequest request)
+        {
+            if (request == null) return;
+            if (!string.IsNullOrWhiteSpace(request.EntryPoint))
+                context.Manifest.EntryPoint = request.EntryPoint.Trim();
+            if (request.MaxInstructions > 0)
+                context.Manifest.Options.MaxInstructions = request.MaxInstructions;
+            if (string.IsNullOrWhiteSpace(request.EntryDocumentId)) return;
+            OpenDocumentBuffer entry = openDocuments.Documents.FirstOrDefault(item =>
+                string.Equals(item.Id, request.EntryDocumentId,
+                    StringComparison.Ordinal));
+            if (entry?.Session.HasPath == true &&
+                isPathInside(context.Root, entry.Session.CurrentPath))
+                context.Manifest.EntrySource = Path.GetRelativePath(context.Root,
+                    entry.Session.CurrentPath).Replace('\\', '/');
         }
 
         private bool tryCreateBuildContext(out ProjectBuildContext context, out IReadOnlyList<DdfBuildIssue> issues,
@@ -187,7 +271,8 @@ namespace DDF___Program_Language_Editor
         {
             context = null;
             var setupIssues = new List<DdfBuildIssue>();
-            DdfLanguagePackage package = DdfLanguageCatalog.Capture().Package;
+            DdfLanguagePackage package = editorLanguageSession?.ActivePackage ??
+                DdfLanguageCatalog.Capture().Package;
             OpenDocumentBuffer active = openDocuments.ActiveDocument;
             active?.UpdateSource(richTextBoxMainEditor.Text, false);
             bool isolateActiveDocument = preferActiveDocument && workspaceIndex != null && active != null &&
@@ -276,8 +361,10 @@ namespace DDF___Program_Language_Editor
         private void stopProgramMenuItem_Click(object sender, EventArgs e)
         {
             clearDebugExecutionLine();
-            executionCancellation?.Cancel();
-            debuggerSession?.Continue();
+            if (panelEditor.DebugService?.IsActive == true)
+                panelEditor.DebugService.Stop();
+            else
+                panelEditor.ExecutionService?.Stop();
             stopProgramMenuItem.Enabled = false;
             appendOutput("Arresto richiesto...");
             updateWatchExecutionState(true, false);
@@ -285,7 +372,8 @@ namespace DDF___Program_Language_Editor
 
         private void updateExecutionCommands(bool running)
         {
-            bool paused = running && debuggerSession != null && debuggerSession.IsPaused;
+            bool paused = running && panelEditor.DebugService?.IsPaused == true;
+            bool runtimeControlsVisible = !embeddedHostMode || running;
             setDebugUiLock(running);
             updateWatchExecutionState(running, paused);
             updateVariablesExecutionState(running, paused);
@@ -293,19 +381,28 @@ namespace DDF___Program_Language_Editor
             runProgramMenuItem.Enabled = !running || paused;
             runProgramMenuItem.Text = paused ? "&Continua" : "Avvia &debug";
             runWithoutDebugMenuItem.Enabled = !running;
+            runProgramMenuItem.Available = runtimeControlsVisible;
+            runWithoutDebugMenuItem.Available = !embeddedHostMode;
             validateProjectMenuItem.Enabled = !running;
-            buildProjectMenuItem.Enabled = !running;
+            buildProjectMenuItem.Enabled = !embeddedHostMode && !running;
             stopProgramMenuItem.Enabled = running;
+            stopProgramMenuItem.Available = runtimeControlsVisible;
             if (toolbarValidateButton != null) toolbarValidateButton.Enabled = !running;
-            if (toolbarBuildButton != null) toolbarBuildButton.Enabled = !running;
+            if (toolbarBuildButton != null) toolbarBuildButton.Enabled = !embeddedHostMode && !running;
             if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Enabled = !running;
+            if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Available = !embeddedHostMode;
             if (toolbarRunButton != null)
             {
+                toolbarRunButton.Available = runtimeControlsVisible;
                 toolbarRunButton.Enabled = !running || paused;
                 toolbarRunButton.ToolTipText = paused ? "Continua (F5)" : "Avvia debug (F5)";
                 toolbarRunButton.AccessibleName = toolbarRunButton.ToolTipText;
             }
-            if (toolbarStopButton != null) toolbarStopButton.Enabled = running;
+            if (toolbarStopButton != null)
+            {
+                toolbarStopButton.Available = runtimeControlsVisible;
+                toolbarStopButton.Enabled = running;
+            }
             if (stepIntoMenuItem != null) stepIntoMenuItem.Enabled = paused;
             if (toolbarStepIntoButton != null) toolbarStepIntoButton.Enabled = paused;
             if (stepOverMenuItem != null) stepOverMenuItem.Enabled = paused;
@@ -314,6 +411,7 @@ namespace DDF___Program_Language_Editor
             if (stepOutMenuItem != null) stepOutMenuItem.Enabled = canStepOut;
             if (toolbarStepOutButton != null) toolbarStepOutButton.Enabled = canStepOut;
             updateDebugStatus(running, paused);
+            refreshEditorCommandCatalog();
         }
 
         private void setDebugUiLock(bool locked)
@@ -364,23 +462,36 @@ namespace DDF___Program_Language_Editor
             Text = (debugBaseWindowTitle ?? Text) + (paused ? " — [DEBUG IN PAUSA]" : " — [DEBUG IN ESECUZIONE]");
         }
 
-        private void finishExecution(Task<DdfExecutionResult> task, long generation)
+        private void finishExecution(DdfEditorExecutionCompletion completion)
         {
-            if (generation != executionGeneration) return;
-            executionRunning = false;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<DdfEditorExecutionCompletion>(finishExecution),
+                    completion);
+                return;
+            }
             clearDebugExecutionLine();
             var lines = new List<OutputLine>();
-            if (task.IsCanceled)
+            if (completion == null)
+                lines.Add(new OutputLine("Esecuzione terminata senza risultato."));
+            else if (completion.BuildIssues.Any(item =>
+                item.Severity == DdfDiagnosticSeverity.Error))
             {
-                lines.Add(new OutputLine("Esecuzione arrestata."));
+                lines.AddRange(completion.BuildIssues.Select(issue =>
+                    new OutputLine(issue.ToString(), issue.DocumentPath,
+                        issue.Start, issue.Length)));
+                lines.Add(new OutputLine(
+                    "Esecuzione non avviata: correggere gli errori indicati."));
             }
-            else if (task.IsFaulted)
+            else if (!string.IsNullOrEmpty(completion.InternalError))
             {
-                lines.Add(new OutputLine("Errore interno: " + task.Exception.GetBaseException().Message));
+                lines.Add(new OutputLine("Errore interno: " +
+                    completion.InternalError));
             }
-            else
+            else if (completion.ExecutionResult != null)
             {
-                DdfExecutionResult result = task.Result;
+                DdfExecutionResult result = completion.ExecutionResult;
+                LastEmbeddedExecutionResult = result;
                 foreach (DdfDiagnostic diagnostic in result.Diagnostics)
                     lines.Add(!string.IsNullOrEmpty(diagnostic.DocumentPath) && File.Exists(diagnostic.DocumentPath)
                         ? new OutputLine(diagnostic.ToString(), diagnostic.DocumentPath, diagnostic.Start, diagnostic.Length)
@@ -404,16 +515,55 @@ namespace DDF___Program_Language_Editor
             }
 
             appendOutputBatch(lines);
-            updateExecutionCommands(false);
             formatNavigableOutput();
             richTextBoxOutput.Select(richTextBoxOutput.TextLength, 0);
             richTextBoxOutput.ScrollToCaret();
 
-            executionCancellation?.Dispose();
-            executionCancellation = null;
-            debuggerSession?.Dispose();
-            debuggerSession = null;
-            executionTask = null;
+            debugRuntimeModules = Array.Empty<DdfIrModule>();
+            activeRuntimeArtifact = null;
+            embeddedEntryPoint = null;
+            embeddedEntryArguments = null;
+            EmbeddedExecutionCompleted?.Invoke(this, EventArgs.Empty);
+            executionRunning = false;
+            updateExecutionCommands(false);
+        }
+
+        private void executionService_OutputReceived(object sender,
+            DdfEditorExecutionOutputEventArgs e) => appendOutput(e.Text);
+
+        private void executionService_ExecutionCompleted(object sender,
+            DdfEditorExecutionCompletedEventArgs e) => finishExecution(e.Completion);
+
+        private void debugService_DebugCompleted(object sender,
+            DdfEditorExecutionCompletedEventArgs e) => finishExecution(e.Completion);
+
+        private void executionService_StateChanged(object sender,
+            DdfEditorExecutionStateChangedEventArgs e)
+        {
+            if (IsDisposed || Disposing) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<object, DdfEditorExecutionStateChangedEventArgs>(
+                    executionService_StateChanged), sender, e);
+                return;
+            }
+            executionRunning = e.State != DdfEditorExecutionState.Idle;
+            updateExecutionCommands(executionRunning);
+        }
+
+        private void debugService_StateChanged(object sender,
+            DdfEditorDebugStateChangedEventArgs e)
+        {
+            if (IsDisposed || Disposing) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<object, DdfEditorDebugStateChangedEventArgs>(
+                    debugService_StateChanged), sender, e);
+                return;
+            }
+            executionRunning = e.State != DdfEditorDebugState.Idle;
+            if (e.State == DdfEditorDebugState.Paused) return;
+            updateExecutionCommands(executionRunning);
         }
 
         private void appendOutput(string text)
@@ -507,8 +657,10 @@ namespace DDF___Program_Language_Editor
         private void stopExecution()
         {
             clearDebugExecutionLine();
-            executionCancellation?.Cancel();
-            debuggerSession?.Continue();
+            if (panelEditor?.DebugService?.IsActive == true)
+                panelEditor.DebugService.Stop();
+            else if (panelEditor?.ExecutionService?.IsRunning == true)
+                panelEditor.ExecutionService.Stop();
         }
 
         private string showRuntimeInputDialog()

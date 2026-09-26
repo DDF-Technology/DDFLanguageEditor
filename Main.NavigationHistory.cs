@@ -142,6 +142,7 @@ namespace DDF___Program_Language_Editor
             if (navigateForwardMenuItem != null) navigateForwardMenuItem.Enabled = canForward;
             if (toolbarNavigateBackButton != null) toolbarNavigateBackButton.Enabled = canBack;
             if (toolbarNavigateForwardButton != null) toolbarNavigateForwardButton.Enabled = canForward;
+            refreshEditorCommandCatalog();
         }
 
         private bool canRestoreNavigationLocation(NavigationHistoryEntry entry)

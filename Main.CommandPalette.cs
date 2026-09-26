@@ -21,6 +21,7 @@ namespace DDF___Program_Language_Editor
             commandPaletteMenuItem.Click += commandPaletteMenuItem_Click;
             viewMenuItem.DropDownItems.Add(new ToolStripSeparator());
             viewMenuItem.DropDownItems.Add(commandPaletteMenuItem);
+            registerShellCommands();
 
             toolbarCommandPaletteButton = createToolbarButton(
                 "toolbarCommandPaletteButton",
@@ -51,32 +52,108 @@ namespace DDF___Program_Language_Editor
             runMenuItem_DropDownOpening(runMenuItem, EventArgs.Empty);
             viewMenuItem_DropDownOpening(viewMenuItem, EventArgs.Empty);
             updateNavigationHistoryCommandState();
+            panelEditor.CommandService.Refresh();
         }
 
         private IReadOnlyList<CommandPaletteCommand> createCommandPaletteCommands()
         {
-            var commands = new List<CommandPaletteCommand>();
+            return panelEditor.CommandService.Commands
+                .Where(command => command.IsVisible &&
+                    command.Id != DdfEditorCommandIds.ShowCommandPalette)
+                .Select(command => new CommandPaletteCommand(
+                    command, () => panelEditor.CommandService.TryExecute(command.Id)))
+                .OrderBy(command => command.Category, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(command => command.Title, StringComparer.CurrentCultureIgnoreCase)
+                .ToList()
+                .AsReadOnly();
+        }
+
+        private void registerShellCommands()
+        {
             foreach (ToolStripMenuItem categoryItem in menuStripMain.Items.OfType<ToolStripMenuItem>())
             {
                 string category = cleanMenuText(categoryItem.Text);
                 foreach (ToolStripMenuItem item in categoryItem.DropDownItems.OfType<ToolStripMenuItem>())
                 {
-                    if (ReferenceEquals(item, recentMenuItem) || ReferenceEquals(item, commandPaletteMenuItem) ||
-                        item.DropDownItems.Count > 0 || string.IsNullOrWhiteSpace(item.Text)) continue;
+                    if (ReferenceEquals(item, recentMenuItem) || item.DropDownItems.Count > 0 ||
+                        string.IsNullOrWhiteSpace(item.Text) || string.IsNullOrWhiteSpace(item.Name)) continue;
                     ToolStripMenuItem commandItem = item;
-                    commands.Add(new CommandPaletteCommand(
+                    panelEditor.CommandService.Register(
+                        getShellCommandId(commandItem),
                         cleanMenuText(commandItem.Text),
                         category,
-                        formatShortcut(commandItem.ShortcutKeys),
-                        commandItem.Enabled,
-                        () => commandItem.PerformClick()));
+                        () => commandItem.PerformClick(),
+                        () => canExecuteShellCommand(commandItem),
+                        () => commandItem.Available,
+                        () => commandItem.Checked,
+                        shortcutTextProvider: () => formatShortcut(commandItem.ShortcutKeys));
                 }
             }
-            return commands
-                .OrderBy(command => command.Category, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(command => command.Title, StringComparer.CurrentCultureIgnoreCase)
-                .ToList()
-                .AsReadOnly();
+        }
+
+        private static string getShellCommandId(ToolStripMenuItem item)
+        {
+            switch (item.Name)
+            {
+                case "newMenuItem": return DdfEditorCommandIds.NewDocument;
+                case "openMenuItem": return DdfEditorCommandIds.OpenDocument;
+                case "openWorkspaceMenuItem": return DdfEditorCommandIds.OpenWorkspace;
+                case "saveMenuItem": return DdfEditorCommandIds.SaveDocument;
+                case "saveAsMenuItem": return DdfEditorCommandIds.SaveDocumentAs;
+                case "undoMenuItem": return DdfEditorCommandIds.Undo;
+                case "redoMenuItem": return DdfEditorCommandIds.Redo;
+                case "cutMenuItem": return DdfEditorCommandIds.Cut;
+                case "copyMenuItem": return DdfEditorCommandIds.Copy;
+                case "pasteMenuItem": return DdfEditorCommandIds.Paste;
+                case "selectAllMenuItem": return DdfEditorCommandIds.SelectAll;
+                case "findMenuItem": return DdfEditorCommandIds.Find;
+                case "replaceMenuItem": return DdfEditorCommandIds.Replace;
+                case "completionMenuItem": return DdfEditorCommandIds.Completion;
+                case "formatDocumentMenuItem": return DdfEditorCommandIds.FormatDocument;
+                case "goToDefinitionMenuItem": return DdfEditorCommandIds.GoToDefinition;
+                case "validateProjectMenuItem": return DdfEditorCommandIds.ValidateProject;
+                case "buildProjectMenuItem": return DdfEditorCommandIds.BuildProject;
+                case "runWithoutDebugMenuItem": return DdfEditorCommandIds.RunWithoutDebug;
+                case "runProgramMenuItem": return DdfEditorCommandIds.StartDebugging;
+                case "stopProgramMenuItem": return DdfEditorCommandIds.StopDebugging;
+                case "toggleBreakpointMenuItem": return DdfEditorCommandIds.ToggleBreakpoint;
+                case "toggleFoldMenuItem": return DdfEditorCommandIds.ToggleFold;
+                case "expandAllFoldsMenuItem": return DdfEditorCommandIds.ExpandAllFolds;
+                case "commandPaletteMenuItem": return DdfEditorCommandIds.ShowCommandPalette;
+                default: return "shell." + item.Name;
+            }
+        }
+
+        private bool canExecuteShellCommand(ToolStripMenuItem item)
+        {
+            if (item == null || !item.Available) return false;
+            if (debugUiLocked && DebugUnsafeMenuCommands.Contains(item.Name)) return false;
+            bool folded = richTextBoxFoldedView != null && richTextBoxFoldedView.Visible;
+            RichTextBox editor = folded ? richTextBoxFoldedView : richTextBoxMainEditor;
+            switch (item.Name)
+            {
+                case "saveMenuItem": return documentSession.IsDirty || !documentSession.HasPath;
+                case "undoMenuItem": return !folded && richTextBoxMainEditor.CanUndo;
+                case "redoMenuItem": return !folded && richTextBoxMainEditor.CanRedo;
+                case "cutMenuItem": return !folded && richTextBoxMainEditor.SelectionLength > 0;
+                case "copyMenuItem": return editor != null && editor.SelectionLength > 0;
+                case "selectAllMenuItem": return editor != null && editor.TextLength > 0;
+                case "completionMenuItem": return !folded;
+                case "formatDocumentMenuItem": return richTextBoxMainEditor.TextLength > 0;
+                case "runProgramMenuItem":
+                    return !executionRunning || panelEditor.DebugService?.IsPaused == true;
+                case "runWithoutDebugMenuItem":
+                case "validateProjectMenuItem":
+                    return !executionRunning;
+                case "buildProjectMenuItem": return !embeddedHostMode && !executionRunning;
+                case "stopProgramMenuItem": return executionRunning;
+                default: return item.Enabled;
+            }
+        }
+
+        private void refreshEditorCommandCatalog()
+        {
+            panelEditor?.CommandService?.Refresh();
         }
 
         private static string cleanMenuText(string text)

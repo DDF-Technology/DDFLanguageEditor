@@ -1,0 +1,16 @@
+@@'Console'
+
+main() out int
+{
+    int baseValue << seedValue(6);
+    int adjusted << processScore(baseValue, 4);
+    int category << classifyScore(adjusted);
+    int bonus << recursiveBonus(3);
+    int arrayTotal << inspectSamples(adjusted);
+    int guard << guardExecution(false);
+    int finalValue << finalizeScore(adjusted, category, bonus + arrayTotal + guard);
+
+    print("Flowchart workspace completed");
+
+    ret finalValue;
+}

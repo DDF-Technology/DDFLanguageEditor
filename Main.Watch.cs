@@ -11,7 +11,7 @@ namespace DDF___Program_Language_Editor
         private ListView watchListView;
         private TextBox watchExpressionTextBox;
         private Label watchStatusLabel;
-        private DdfRuntimeStateSnapshot watchSnapshot;
+        private DdfEditorDebugSnapshot watchSnapshot;
         private WatchExpressionSettings watchExpressionSettings;
         private Func<string> loadWatchExpressionsSetting;
         private Action<string> saveWatchExpressionsSetting;
@@ -88,13 +88,15 @@ namespace DDF___Program_Language_Editor
         private void refreshWatchValues()
         {
             if (watchListView == null) return;
-            DdfLanguageDefinition language = DdfLanguageCatalog.Capture().Language;
             foreach (ListViewItem row in watchListView.Items)
             {
-                var result = DdfWatch.Evaluate(row.Text, watchSnapshot, language);
-                row.SubItems[1].Text = result.Value?.TypeName ?? "—";
-                row.SubItems[2].Text = result.Value?.DisplayValue ?? "—";
-                row.SubItems[3].Text = result.Message;
+                DdfEditorWatchResult result = watchSnapshot == null ? null :
+                    panelEditor.DebugService.EvaluateWatch(row.Text,
+                        selectedCallStackFrameIndex);
+                row.SubItems[1].Text = result?.Value?.TypeName ?? "—";
+                row.SubItems[2].Text = result?.Value?.DisplayValue ?? "—";
+                row.SubItems[3].Text = result?.Message ??
+                    "In attesa di una pausa del debugger.";
             }
         }
 

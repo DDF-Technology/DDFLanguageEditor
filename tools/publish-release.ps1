@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
-$project = Join-Path $repositoryRoot 'DDF - Program Language Editor.csproj'
+$project = Join-Path $repositoryRoot 'DDFLanguageEditor.App\DDFLanguageEditor.App.csproj'
 $assemblyInfoPath = Join-Path $repositoryRoot 'Properties\AssemblyInfo.cs'
 $versionMatch = [regex]::Match(
     (Get-Content -LiteralPath $assemblyInfoPath -Raw),
@@ -58,6 +58,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $requiredFiles = @(
     'DDFLanguageEditor.exe',
     'DDFLanguageEditor.dll',
+    'DDFLanguageEditor.WinForms.dll',
     'DDFLanguageEditor.Core.dll',
     'DDFLanguageEditor.deps.json',
     'DDFLanguageEditor.runtimeconfig.json',

@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
         private const string WorkspaceSessionFileName = "workspace-session.json";
         private const string CrashRecoveryFileName = "crash-recovery.json";
         private const string WatchExpressionsFileName = "watch-expressions.json";
+        private const string EducationalModeSettingsFileName = "educational-mode.txt";
 
         public static string LoadRecentFiles()
         {
@@ -174,6 +175,16 @@ namespace DDF___Program_Language_Editor
         public static void SaveWatchExpressions(string value)
         {
             Save(WatchExpressionsFileName, value);
+        }
+
+        public static string LoadEducationalMode()
+        {
+            return Load(EducationalModeSettingsFileName);
+        }
+
+        public static void SaveEducationalMode(string value)
+        {
+            Save(EducationalModeSettingsFileName, value);
         }
 
         private static string Load(string fileName)

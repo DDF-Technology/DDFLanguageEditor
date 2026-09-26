@@ -10,7 +10,7 @@ namespace DDF___Program_Language_Editor
     public partial class MainForm
     {
         private readonly OpenDocumentCollection openDocuments = new OpenDocumentCollection();
-        private readonly Dictionary<string, DocumentView> documentViews = new Dictionary<string, DocumentView>();
+        private readonly DdfDocumentViewCoordinator documentViews;
         private TableLayoutPanel documentLayout;
         private Panel editorHost;
         private TabControl documentTabs;
@@ -18,11 +18,78 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem closeDocumentMenuItem;
         private bool isSwitchingDocument;
 
-        private DocumentView activeDocumentView => openDocuments.ActiveDocument == null
-            ? null
-            : documentViews[openDocuments.ActiveDocument.Id];
+        private DocumentView activeDocumentView => documentViews.ActiveView;
 
         private ISet<int> activeBreakpointLines => openDocuments.ActiveDocument?.BreakpointLines;
+
+        /// <summary>
+        /// Assegna nome e contenuto al documento principale di una shell incorporata.
+        /// Il contenuto viene considerato fornito dall'host e non modificato dall'utente.
+        /// </summary>
+        public string SetEmbeddedPrimaryDocument(string displayName, string source)
+        {
+            if (!embeddedHostMode)
+                throw new InvalidOperationException("Questa API è disponibile soltanto in modalità embedded.");
+            OpenDocumentBuffer buffer = openDocuments.ActiveDocument;
+            DocumentView view = activeDocumentView;
+            if (buffer == null || view == null) return null;
+
+            buffer.Session.SetUntitled(displayName);
+            isReplacingDocument = true;
+            try
+            {
+                view.Editor.Text = source ?? string.Empty;
+                buffer.UpdateSource(view.Editor.Text, false);
+                view.Editor.Modified = false;
+            }
+            finally
+            {
+                isReplacingDocument = false;
+            }
+            updateDocumentTab(view);
+            updateDocumentUi();
+            applyHighlighting();
+            return buffer.Id;
+        }
+
+        /// <summary>
+        /// Aggiunge una scheda virtuale fornita dall'applicazione host senza creare file su disco.
+        /// </summary>
+        public string AddEmbeddedDocument(string displayName, string source, bool activate = false)
+        {
+            if (!embeddedHostMode)
+                throw new InvalidOperationException("Questa API è disponibile soltanto in modalità embedded.");
+            DocumentView previousView = activeDocumentView;
+            var buffer = (OpenDocumentBuffer)openDocuments.CreateVirtual(displayName, source);
+            DocumentView view = addDocumentView(buffer);
+            isReplacingDocument = true;
+            try
+            {
+                view.Editor.Text = source ?? string.Empty;
+                buffer.UpdateSource(view.Editor.Text, false);
+                view.Editor.Modified = false;
+            }
+            finally
+            {
+                isReplacingDocument = false;
+            }
+            updateDocumentTab(view);
+            if (activate) activateDocument(view);
+            else if (previousView != null)
+            {
+                openDocuments.Activate(previousView.Buffer.Id);
+                activateDocument(previousView);
+            }
+            return buffer.Id;
+        }
+
+        public bool ActivateEmbeddedDocument(string documentId)
+        {
+            if (!embeddedHostMode || string.IsNullOrWhiteSpace(documentId) ||
+                !documentViews.TryGetValue(documentId, out DocumentView view)) return false;
+            activateDocument(view);
+            return ReferenceEquals(openDocuments.ActiveDocument, view.Buffer);
+        }
 
         private void initializeDocuments()
         {
@@ -107,8 +174,7 @@ namespace DDF___Program_Language_Editor
         {
             editor = editor ?? createDocumentEditor(buffer.Id);
             var page = new TabPage { Name = "documentTab_" + buffer.Id, Tag = buffer.Id };
-            var view = new DocumentView(buffer, editor, page);
-            documentViews.Add(buffer.Id, view);
+            DocumentView view = documentViews.Register(buffer, editor, page);
             documentTabs.TabPages.Add(page);
             updateDocumentTab(view);
             return view;
@@ -163,7 +229,7 @@ namespace DDF___Program_Language_Editor
 
         private DocumentView findDocumentView(RichTextBox editor)
         {
-            return documentViews.Values.FirstOrDefault(view => ReferenceEquals(view.Editor, editor));
+            return documentViews.FindByEditor(editor);
         }
 
         private void createUntitledDocument()
@@ -215,6 +281,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.Name = "richTextBoxMainEditor";
                 richTextBoxMainEditor.Visible = true;
                 richTextBoxMainEditor.BringToFront();
+                panelEditor.BindEditor(richTextBoxMainEditor);
                 if (editorOverviewBar != null) editorOverviewBar.TargetEditor = richTextBoxMainEditor;
                 editorOverviewBar?.BringToFront();
                 richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
@@ -264,6 +331,15 @@ namespace DDF___Program_Language_Editor
             lastParseResult = null;
             lastSemanticModel = null;
             lastTypeCheckResult = null;
+            lastFlowchartIr = null;
+            lastFlowchartDiagnostics = Array.Empty<DdfDiagnostic>();
+            flowchartSnapshotState = DdfFlowchartSnapshotState.Unavailable;
+            requestedFlowchartFunction = null;
+            fullFlowchartLayout = null;
+            expandedFlowchartGroups.Clear();
+            flowchartSnapshotService.Cancel();
+            if (flowchartCanvas?.Diagram != null)
+                flowchartCanvas.SetViewNotice("Vista precedente — diagramma non aggiornato", true);
             lastAnalyzedText = string.Empty;
             activeDelimiterMatch = null;
             diagnosticsFormatStart = int.MaxValue;
@@ -369,8 +445,8 @@ namespace DDF___Program_Language_Editor
                 leaveFoldedView();
                 documentTabs.TabPages.Remove(view.Tab);
                 editorHost.Controls.Remove(view.Editor);
-                documentViews.Remove(view.Buffer.Id);
-                openDocuments.Remove(view.Buffer.Id);
+                documentViews.Unregister(view.Buffer.Id);
+                openDocuments.TryCloseDocument(view.Buffer.Id, true);
                 knownDiskStates.Remove(view.Buffer.Id);
                 markCrashRecoveryChanged();
                 view.Tab.Dispose();
@@ -424,24 +500,5 @@ namespace DDF___Program_Language_Editor
             view.Tab.ToolTipText = view.Buffer.Session.HasPath ? view.Buffer.Session.CurrentPath : view.Buffer.Session.DisplayName;
         }
 
-        private sealed class DocumentView
-        {
-            public DocumentView(OpenDocumentBuffer buffer, RichTextBox editor, TabPage tab)
-            {
-                Buffer = buffer;
-                Editor = editor;
-                Tab = tab;
-            }
-
-            public OpenDocumentBuffer Buffer { get; }
-            public RichTextBox Editor { get; }
-            public TabPage Tab { get; }
-            public Stack<Tuple<int, int>> SelectionHistory { get; } = new Stack<Tuple<int, int>>();
-            public List<DdfTextRange> MultiSelections { get; } = new List<DdfTextRange>();
-            public int? LastEditPosition { get; set; }
-            public DateTime? LastEditUtc { get; set; }
-            public Point ScrollPosition { get; set; }
-            public bool HasScrollPosition { get; set; }
-        }
     }
 }

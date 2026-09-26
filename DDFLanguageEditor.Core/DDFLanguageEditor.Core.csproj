@@ -5,10 +5,23 @@
     <AssemblyName>DDFLanguageEditor.Core</AssemblyName>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <IsPackable>true</IsPackable>
+    <PackageId>DDFLanguageEditor.Core</PackageId>
+    <PackageVersion>0.11.2-beta</PackageVersion>
+    <Authors>Fabio De Deo</Authors>
+    <Company>DDF.Technology</Company>
+    <Description>UI-independent language, analysis, build, runtime and debugging services for DDFLanguageEditor.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>DDF language parser runtime debugger SDK</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\language-packages\ddf\*.*"
                       Link="LanguagePackages\Ddf\%(Filename)%(Extension)"
                       LogicalName="DDFLanguageEditor.Core.LanguagePackages.Ddf.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" />
+    <None Update="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

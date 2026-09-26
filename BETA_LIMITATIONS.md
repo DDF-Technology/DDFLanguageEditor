@@ -1,4 +1,4 @@
-# Beta 0.11.0 limitations
+# Beta 0.11.2 limitations
 
 This release is intended for interface and language-design evaluation only.
 
@@ -69,7 +69,7 @@ This release is intended for interface and language-design evaluation only.
 - SDK-style projects targeting .NET 10 and modern Windows Forms bootstrap/DPI behavior;
 - unresolved-name and duplicate-declaration diagnostics;
 - dependency-free regression tests for the editor core;
-- repeatable dynamic smoke tests for real WinForms editing sequences.
+- repeatable dynamic smoke tests for real WinForms editing sequences;
 - independent document tabs with Save All and preserved native Undo/Redo;
 - document-scoped breakpoints with remapping and a navigable status palette;
 - automatic pairs, contextual block editing, line comments and an editor context menu;
@@ -80,12 +80,17 @@ This release is intended for interface and language-design evaluation only.
 - immutable Variables, Call Stack and project-persistent Watch palettes, including side-effect-free arithmetic, comparison, logical, member and index expressions;
 - Step Into (`F11`), Step Over (`F10`) and Step Out (`Shift+F11`) with synchronized source highlighting, Variables, Watch and Call Stack;
 - project-wide runtime modules with cross-file functions, structures, globals, breakpoints, diagnostics and unsaved-buffer snapshots;
+- dynamic source-linked flowchart with decisions, loops, calls, returns, debugger position, educational mode, pan/zoom and SVG/JPEG export;
+- separate Core, WinForms and standalone launcher artifacts, with local beta NuGet packaging;
+- public embeddable WinForms control and versioned host contracts for documents, analysis, commands, persistence, projects, build, run and debug;
+- explicit host catalogs for objects, properties, operations, permissions and databases, without arbitrary script reflection;
+- sample hosts for minimal integration, multiple isolated editors and database-backed host effects;
 
 ## Not implemented
 
 - automatic three-way merging, operating-system file locking or multi-instance recovery coordination;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
-- serialized executable bytecode, native runtime or full debugger UI;
+- serialized executable bytecode, native runtime or a production-stable debugger contract;
 - complete standard library or non-interactive input streams;
 - dependency resolution/distribution, configuration matrices or compiled backend implementations;
 - native plug-in loading, isolation, registry and consent UI;
@@ -109,10 +114,15 @@ removing a brace leaves a different but still valid single-statement construct,
 there is no certain error location or original block intent to reconstruct; the
 result must be reviewed manually instead of applying a speculative edit.
 
-The first interpreter executes only the selected entry source through the unique `main`. It is
-bounded to 100,000 IR-node instructions per run and does not yet load
-functions from other workspace documents at runtime. Output through `>>` is
-currently textual; interactive input is not defined.
+The interpreter executes the project sources selected by the manifest through
+the unique `main`, including cross-file functions, structures and globals. It
+is bounded to 100,000 IR-node instructions per run. Output through `>>` is
+currently textual; interactive input is limited to the current host adapters.
+
+The in-process embedded runtime is a capability boundary, not a security
+sandbox. Hosts must expose only trusted adapters and use a separate worker
+process for untrusted scripts, native extensions or operations that cannot
+honour cancellation and resource limits.
 
 `lexicon.json`, `grammar.ebnf`, `types.json` and `semantics.json` now define their
 respective layers through validated data and safe operation identifiers.

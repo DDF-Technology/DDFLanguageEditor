@@ -40,12 +40,10 @@ dell'host; in modalità standalone si pubblica un EXE self-contained con dipende
 
 ## Stato delle release
 
-Ordine operativo aggiornato il 2026-09-06: completata la `0.10.1`, lo sviluppo
-passerà direttamente alla `0.11.0` per abilitare runtime e debug multi-file.
-La flowchart dinamica resta lo step immediatamente successivo, con ambito e
-priorità invariati; l'identificativo storico `0.10.2` sarà riassegnato prima
-dell'avvio per mantenere una progressione di versione coerente. Tutte le
-milestone successive conservano l'ordine e l'ambito già stabiliti.
+Ordine operativo aggiornato il 2026-09-26: completati il runtime multi-file
+`0.11.0`, la flowchart dinamica `0.11.1` e l'Editor SDK `0.11.2`.
+Il precedente identificativo provvisorio `0.10.2` è stato sostituito. Tutte le
+milestone successive conservano ordine e ambito.
 
 | Release | Obiettivo | Stato |
 | --- | --- | --- |
@@ -83,8 +81,8 @@ milestone successive conservano l'ordine e l'ambito già stabiliti.
 | `0.10.0` | Variabili e call stack durante la pausa | Completata |
 | `0.10.1` | Step Into, Step Over e Step Out | Completata |
 | `0.11.0` | Runtime multi-file del workspace | Completata |
-| `0.10.2` (numero provvisorio) | Flowchart dinamica del codice e collegamento al debugger | Pianificata subito dopo la `0.11.0` |
-| `0.11.1` | Editor incorporabile e primo SDK per applicazioni host | Pianificata |
+| `0.11.1` | Flowchart dinamica del codice e collegamento al debugger | Completata |
+| `0.11.2` | Editor incorporabile e primo SDK per applicazioni host | Completata |
 | `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | Pianificata |
 | `0.13.x` | Compilatore, linker, loader e CLI | Pianificata |
 | `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Pianificata |
@@ -542,37 +540,6 @@ host arbitrario.
 - [x] Integrare lo step con breakpoint, variabili, call stack, cicli e cancellazione (`0.10.1`).
 - [x] Esporre Step Into, Step Over e Step Out nella icon bar con stati coerenti alla pausa (`0.10.1`).
 
-## 0.10.2 — Flowchart dinamica e didattica
-
-> Nota di sequenza: `0.10.2` è l'identificativo storico di questo blocco di
-> lavoro. La milestone verrà eseguita subito dopo la `0.11.0` e rinumerata
-> prima dell'implementazione; contenuti, priorità e dipendenze restano invariati.
-
-La prima versione è una vista del controllo di flusso derivata dall'analisi del
-codice. La digitazione resta la fonte autorevole; il disegno non esegue il
-programma. La modifica bidirezionale codice/diagramma sarà valutata separatamente.
-
-- [ ] Definire nel Core un modello di nodi e archi con intervalli sorgente e ruoli semantici, indipendente dal renderer.
-- [ ] Derivare ingresso, uscita, sequenze, condizioni, cicli, chiamate e ritorni da AST/IR e metadati del pacchetto, senza riconoscere keyword tramite testo.
-- [ ] Mostrare etichette per i rami delle condizioni e distinguere il flusso di controllo dal grafo delle chiamate e dal flusso dei dati.
-- [ ] Limitare inizialmente la vista alla funzione selezionata, con navigazione alle funzioni chiamate e gruppi comprimibili.
-- [ ] Aggiornare in background con ritardo breve, cancellazione e scarto degli snapshot obsoleti, preservando zoom, posizione e stabilità del layout.
-- [ ] Gestire codice incompleto mostrando nodi parziali o l'ultima vista valida chiaramente indicata come non aggiornata; segnalare costrutti non rappresentabili.
-- [ ] Collegare selezione codice/nodo e navigazione bidirezionale senza modificare testo o Undo.
-- [ ] Collegare pausa e passi del debugger al nodo corrente usando lo snapshot sorgente effettivamente in esecuzione.
-- [ ] Integrare la vista in una palette opzionale e nel futuro controllo incorporabile, con comandi accessibili da menu e toolbar.
-- [ ] Esporre un comando Modalità didattica On/Off sempre raggiungibile in entrambe le modalità, indipendente dal profilo sintattico; flowchart e strumenti ordinari di debug restano utilizzabili anche fuori dalla modalità didattica.
-- [ ] Preservare documento, selezione, Undo e stato di debug al cambio di modalità, senza avviare esecuzioni o modificare permessi e impostazioni di compilazione.
-- [ ] Memorizzare la preferenza nel contesto dell'utente o dell'istanza host e sospendere gli aggiornamenti esclusivamente didattici quando disattivata.
-- [ ] Esportare il diagramma in SVG/immagine per materiale didattico e documentazione.
-- [ ] Verificare rami annidati, cicli, ritorni anticipati, chiamate, errori transitori e budget di reattività con test Core e smoke UI.
-
-Criteri di completamento: il diagramma rappresenta correttamente i costrutti
-supportati, segue codice e debug senza spostamenti incontrollati, espone i propri
-limiti e non peggiora la fluidità della digitazione. La modalità didattica è
-commutabile in ogni contesto; successivi incrementi potranno aggiungere traccia
-dei passi, valori sui nodi ed esercizi guidati.
-
 ## 0.11.0 — Runtime multi-file
 
 Priorità anticipata: questa milestone inizia immediatamente dopo il
@@ -588,7 +555,38 @@ completamento della `0.10.1`, prima del blocco dedicato alla flowchart.
 - [x] Conservare file e intervalli sorgente nelle diagnostiche, nello stack, nelle pause e nella navigazione (`0.11.0`).
 - [x] Aggiungere test end-to-end su workspace temporanei multi-file e buffer non salvati (`0.11.0`).
 
-## 0.11.1 — Editor incorporabile e SDK host iniziale
+## 0.11.1 — Flowchart dinamica e didattica
+
+La prima versione è una vista del controllo di flusso derivata dall'analisi del
+codice. La digitazione resta la fonte autorevole; il disegno non esegue il
+programma. La flowchart rimarrà una rappresentazione in sola lettura: modificarne
+nodi o collegamenti non genererà né riscriverà automaticamente il codice.
+
+- [x] Definire nel Core un modello di nodi e archi con intervalli sorgente e ruoli semantici, indipendente dal renderer (`0.11.1`, incremento Core del 2026-09-08).
+- [x] Derivare ingresso, uscita, sequenze, condizioni, cicli, chiamate e ritorni dalla IR, senza riconoscere keyword tramite testo (`0.11.1`, incremento Core del 2026-09-08).
+- [x] Mostrare etichette per i rami delle condizioni e distinguere il flusso di controllo dal grafo delle chiamate e dal flusso dei dati (`0.11.1`, primo renderer del 2026-09-08).
+- [x] Limitare la vista alla funzione selezionata, navigare alle funzioni chiamate locali o multi-file tramite doppio clic e menu `ƒ`, e comprimere le sequenze lineari in gruppi espandibili senza perdere gli intervalli sorgente (`0.11.1`, incremento del 2026-09-12).
+- [x] Aggiornare il modello in background con ritardo breve, cancellazione e scarto degli snapshot obsoleti tramite snapshot immutabili associati alla versione esatta del documento (`0.11.1`, incremento Core del 2026-09-08).
+- [x] Preservare zoom, posizione e stabilità del layout durante l'applicazione degli snapshot nella palette grafica, ancorando il nodo corrente e usando la posizione relativa come fallback durante i cambi strutturali (`0.11.1`, incremento viewport del 2026-09-12).
+- [x] Aggiungere alla palette una modalità Pan con icona a forma di mano, esclusiva rispetto al puntatore, per trascinare la viewport senza attivare o modificare i nodi (`0.11.1`, incremento del 2026-09-12).
+- [x] Gestire codice incompleto mostrando nodi parziali o l'ultima vista valida chiaramente indicata come non aggiornata; segnalare costrutti non rappresentabili (`0.11.1`, incremento recovery del 2026-09-12).
+- [x] Sincronizzare la selezione tra codice e nodi e permettere la navigazione al sorgente senza modificare testo o Undo (`0.11.1`, incremento selezione del 2026-09-12).
+- [x] Collegare pausa e passi del debugger al nodo corrente usando lo snapshot sorgente effettivamente in esecuzione (`0.11.1`, incremento debugger/Flowchart del 2026-09-13).
+- [x] Integrare la vista in una palette opzionale e in un controllo `FlowchartView` riutilizzabile, con comandi accessibili da menu e toolbar; il confezionamento nel futuro Editor SDK resta assegnato alla `0.11.2` (`0.11.1`, estrazione controllo del 2026-09-13).
+- [x] Esporre un comando Modalità didattica On/Off sempre raggiungibile in entrambe le modalità, indipendente dal profilo sintattico; flowchart e strumenti ordinari di debug restano utilizzabili anche fuori dalla modalità didattica (`0.11.1`, comando in `Visualizza` e API/evento del controllo riutilizzabile, 2026-09-13).
+- [x] Preservare documento, selezione, Undo e stato di debug al cambio di modalità, senza avviare esecuzioni o modificare permessi e impostazioni di compilazione (`0.11.1`, commutazione solo presentazionale, 2026-09-13).
+- [x] Memorizzare la preferenza nel contesto dell'utente o dell'istanza host e sospendere gli aggiornamenti esclusivamente didattici quando disattivata (`0.11.1`, preferenza standalone e stato per istanza di `FlowchartView`, 2026-09-13).
+- [x] Rendere la modalità didattica immediatamente utile con una guida contestuale per ogni tipo di nodo, enfasi cromatica sui rami della decisione selezionata e spiegazione del passo corrente con i valori runtime coinvolti (`0.11.1`, primo livello didattico del 2026-09-13).
+- [x] Esportare l'intero diagramma in SVG vettoriale o JPEG per materiale didattico e documentazione, conservando layout, frecce, rami e stato didattico (`0.11.1`, incremento export del 2026-09-13).
+- [x] Verificare rami annidati, cicli, ritorni anticipati, chiamate, errori transitori e budget di reattività con test Core e smoke UI (`0.11.1`, gate finale del 2026-09-13: 182 test Core, smoke WinForms completo e pipeline Flowchart complessa entro il target p95 di 50 ms).
+
+Criteri di completamento: il diagramma rappresenta correttamente i costrutti
+supportati, segue codice e debug senza spostamenti incontrollati, espone i propri
+limiti e non peggiora la fluidità della digitazione. La modalità didattica è
+commutabile in ogni contesto; successivi incrementi potranno aggiungere traccia
+dei passi, valori sui nodi ed esercizi guidati.
+
+## 0.11.2 — Editor incorporabile e SDK host iniziale
 
 Estrarre un componente riutilizzabile dalla shell standalone. Il primo host
 supportato sarà WinForms/.NET su Windows, coerente con l'implementazione corrente;
@@ -597,25 +595,46 @@ rimarrà indipendente dalla tecnologia grafica. Questo SDK permette all'applicaz
 ospitante di integrare il componente; la gestione di plug-in installabili resta
 prevista nella `0.15`.
 
-- [ ] Separare superficie editor, servizi documentali e palette dalla MainForm, pubblicando controllo e contratti versionati.
-- [ ] Fare usare alla shell standalone lo stesso componente e le stesse API offerte agli integratori.
-- [ ] Consentire all'host di scegliere linguaggio, documenti, persistenza, tema, scorciatoie e palette visibili, inclusa la flowchart.
-- [ ] Esporre stato, comando ed evento della modalità didattica nello SDK; mantenere un controllo On/Off raggiungibile dal componente anche quando l'host personalizza menu e toolbar.
-- [ ] Verificare On/Off e persistenza in standalone e nell'applicazione host dimostrativa, con più istanze, profili differenti e debugger in pausa.
-- [ ] Consentire documenti virtuali senza percorsi fisici e gestione di progetti salvati nei contenitori dell'host.
-- [ ] Esporre eventi e comandi per modifiche, selezione, diagnostiche, navigazione, build, esecuzione e debug.
-- [ ] Isolare più istanze: nessuna intercettazione globale delle scorciatoie, stato condiviso involontario o scrittura implicita nel profilo dell'host.
-- [ ] Definire un catalogo host per tipi, oggetti, funzioni, firme, documentazione e permessi, condiviso da IntelliSense, type checker e runtime.
-- [ ] Esporre solo oggetti e operazioni registrati esplicitamente, con conversioni e durata dei riferimenti definite, senza reflection arbitraria dal sorgente.
-- [ ] Separare modalità sola scrittura/analisi, simulazione ed esecuzione con effetti sull'host.
-- [ ] Definire threading, chiamate asincrone, cancellazione, timeout, limiti e rilascio risorse; prevedere processo separato per script non fidati o non interrompibili cooperativamente.
-- [ ] Esporre variabili e oggetti personalizzati con tipi, valori iniziali, accesso in lettura/scrittura e restituzione dei risultati all'host.
-- [ ] Supportare procedure richiamabili manualmente o da eventi espliciti dell'host, con parametri e risultati tipizzati; definire concorrenza e gestione degli errori.
-- [ ] Offrire un contratto di accesso ai database tramite servizi host, con query parametrizzate, risultati tipizzati, cancellazione e transazioni gestite dall'applicazione; connessioni e credenziali restano sotto il controllo dell'host.
-- [ ] Esporre funzioni matematiche e logiche e dimostrare algoritmi personalizzati che elaborano dati e aggiornano gli oggetti dell'applicazione.
-- [ ] Definire quando applicare i risultati e come gestire gli errori parziali delle operazioni host, senza confondere Undo del testo con rollback delle azioni eseguite.
-- [ ] Realizzare un'applicazione dimostrativa separata che legge dati da un database di prova, applica una regola personalizzata e restituisce risultati all'host, con completamento, debug e flowchart.
-- [ ] Distribuire librerie SDK, esempio minimo e guida all'integrazione con test di lifecycle e più istanze.
+- [x] Estrarre la superficie centrale in un controllo pubblico `DdfEditorView` con contratto host `IDdfEditorSurface` versione `0.1`, senza esporre i controlli interni (`0.11.2`, primo incremento del 2026-09-13).
+- [x] Pubblicare un servizio documentale indipendente dalla UI con identità stabile, versione del buffer, documenti virtuali/su disco, eventi di ciclo di vita e chiusura protetta dei documenti modificati; usare la stessa implementazione nella shell (`0.11.2`, secondo incremento del 2026-09-13).
+- [x] Collegare `DdfEditorView` al servizio documentale con sincronizzazione bidirezionale e portare il contratto host alla versione `0.2`; estrarre dalla `MainForm` l'associazione fra identità del buffer, editor, scheda, selezioni e viewport (`0.11.2`, terzo incremento del 2026-09-13).
+- [x] Separare servizi documentali e palette dalla MainForm, pubblicando contratti versionati dedicati (`0.11.2`, catalogo palette e contratto host `0.3` del 2026-09-13).
+- [x] Fare usare alla shell standalone la stessa superficie `DdfEditorView`, associandola all'editor del documento attivo anche durante lo switch tra schede (`0.11.2`, primo incremento del 2026-09-13).
+- [x] Fare convergere la shell sulle stesse API documentali, linguistiche e operative offerte agli integratori: Convalida/Compila attraversano `IDdfEditorBuildService`; Run/Debug attraversano `IDdfEditorExecutionService` e `IDdfEditorDebugService`; handler pubblici conservano manifest, file workspace non aperti, buffer non salvati, ricevuta, breakpoint, Watch, Call Stack, navigazione multifile e Flowchart (`0.11.2`, contratti host `0.30`-`0.31`, completato il 2026-09-26).
+- [x] Consentire all'host di registrare, mostrare, nascondere e attivare palette tramite ID stabili, inclusa la Flowchart; la shell usa lo stesso catalogo e ne persiste la visibilità (`0.11.2`, quarto incremento del 2026-09-13).
+- [x] Consentire all'host di configurare tema del codice, font, zoom, word wrap, tabulazione e scorciatoie per singola istanza, senza accessi impliciti al profilo o al file system (`0.11.2`, quinto incremento e contratto host `0.4` del 2026-09-13).
+- [x] Consentire all'host di scegliere atomicamente il pacchetto linguaggio per singola istanza, preservando il precedente in caso di errore e senza modificare il catalogo globale (`0.11.2`, sesto incremento e contratto host `0.5` del 2026-09-13).
+- [x] Esporre un servizio di analisi indipendente dalla UI con richieste e snapshot versionati per diagnostiche, Outline e completamento; cancellare le richieste superate e fare usare alla pipeline principale della shell lo stesso servizio (`0.11.2`, settimo incremento e contratto host `0.6` del 2026-09-13).
+- [x] Fare convergere il popup di completamento della shell su `DdfEditorAnalysisRequest` e `DdfEditorAnalysisSnapshot`, mantenendo un coordinatore separato per non interrompere diagnostiche e Outline e scartando risultati appartenenti a testo, cursore o linguaggio superati (`0.11.2`, ottavo incremento del 2026-09-13).
+- [x] Introdurre `IDdfEditorCommandService` con ID stabili, metadati, stato dinamico, eventi ed esecuzione protetta; fare derivare la Command Palette della shell dallo stesso catalogo e portare il contratto host alla versione `0.7` (`0.11.2`, nono incremento del 2026-09-13).
+- [x] Registrare nella superficie isolata i primi comandi puramente incorporabili (Undo, Redo, selezione, eliminazione, word wrap e focus) e notificare proattivamente nella superficie e nella shell le variazioni di stato dovute a testo, selezione, documento, folding, navigazione ed esecuzione/debug (`0.11.2`, decimo incremento del 2026-09-13).
+- [x] Portare il contratto host alla versione `0.8` con analisi esplicita osservabile e navigazione alla definizione locale o tra buffer virtuali, senza dialoghi né accessi impliciti al file system; esporre i relativi comandi, snapshot, destinazioni ed eventi (`0.11.2`, undicesimo incremento del 2026-09-13).
+- [x] Consentire all'host di fornire la propria strategia di persistenza per documenti e preferenze tramite snapshot immutabili, provider sostituibile, comandi espliciti e ripristino non distruttivo; portare il contratto host alla versione `0.9` (`0.11.2`, dodicesimo incremento del 2026-09-14).
+- [x] Esporre stato, comando ed evento della modalità didattica nello SDK; il pulsante del `FlowchartView` resta raggiungibile anche quando l'host personalizza menu e toolbar (`0.11.2`, stato per istanza del 2026-09-13).
+- [x] Realizzare una prima applicazione host WinForms separata con due istanze, profili tecnico/didattico, documenti virtuali, navigazione, Modalità didattica On/Off e provider di persistenza isolati; verificarne il lifecycle nello smoke dinamico (`0.11.2`, tredicesimo incremento del 2026-09-14).
+- [x] Pubblicare `IDdfEditorExecutionService` con fotografia dei buffer host, Run/Stop cooperativo, stato, output, risultato e sessioni concorrenti isolate; portare il contratto host alla versione `0.10` e rendere l'esecuzione osservabile nella demo (`0.11.2`, quattordicesimo incremento del 2026-09-14).
+- [x] Pubblicare `IDdfEditorDebugService` con breakpoint per identità documento, stati Running/Paused/Stopping, posizione sorgente, Continue/Stop e cleanup sicuro durante una pausa; portare il contratto host alla versione `0.11` e rendere il ciclo osservabile nella demo (`0.11.2`, quindicesimo incremento del 2026-09-14).
+- [x] Estendere il debugger pubblico con Step Into, Step Over e Step Out, conservando lo stato per istanza e la navigazione sorgente tra buffer virtuali; portare il contratto host alla versione `0.12` e aggiungere i comandi alla superficie e alla demo (`0.11.2`, sedicesimo incremento del 2026-09-14).
+- [x] Esporre snapshot immutabili di Call Stack, frame, variabili visibili, globali e valori strutturati a ogni pausa, con posizione documentale navigabile anche tra buffer virtuali; portare il contratto host alla versione `0.13` e visualizzare i dati nella demo (`0.11.2`, diciassettesimo incremento del 2026-09-14).
+- [x] Aggiungere Watch pubbliche per espressioni pure sul frame selezionato e sulle globali dello snapshot, rifiutando chiamate, assegnazioni e mutazioni; portare il contratto host alla versione `0.14` e aggiungere un campo di valutazione alla demo (`0.11.2`, diciottesimo incremento del 2026-09-14).
+- [x] Verificare persistenza e lifecycle dell'host durante una sessione di debug in pausa: salvare documenti, breakpoint rimappabili e testi Watch senza serializzare la VM; bloccare ripristino e sostituzione dei servizi durante Run/Debug e garantire il cleanup dei servizi posseduti (`0.11.2`, diciannovesimo incremento e contratto host `0.15` del 2026-09-14).
+- [x] Consentire documenti virtuali senza percorsi fisici, senza letture o scritture implicite e con istanze isolate (`0.11.2`, servizio documentale del 2026-09-13).
+- [x] Consentire la gestione di progetti salvati nei contenitori dell'host tramite snapshot immutabili, identità e metadati opachi, riferimento verificato al pacchetto linguistico, apertura non distruttiva, eventi e comandi; non imporre formato, percorso o protocollo (`0.11.2`, ventesimo incremento e contratto host `0.16` del 2026-09-14).
+- [x] Esporre eventi e comandi per modifiche, selezione, diagnostiche, navigazione, build, esecuzione e debug; aggiungere una pipeline di build host in memoria condivisa con Run/Debug e snapshot immutabili dei buffer (`0.11.2`, ventunesimo incremento e contratto host `0.17` del 2026-09-21).
+- [x] Isolare più istanze: nessuna intercettazione globale delle scorciatoie, stato condiviso involontario o scrittura implicita nel profilo dell'host; metadati delle scorciatoie per istanza, ownership dei servizi iniettati e assenza di persistenza automatica verificati da smoke dedicati (`0.11.2`, ventiduesimo incremento e contratto host `0.18` del 2026-09-21).
+- [x] Definire un catalogo host per tipi, oggetti, funzioni, firme, documentazione e permessi, condiviso tramite snapshot immutabili e versionati da IntelliSense, type checker, Build, Run e Debug; le invocazioni usano delegate espliciti e i permessi mancanti producono `DDF409` (`0.11.2`, ventitreesimo incremento e contratto host `0.19` del 2026-09-22).
+- [x] Esporre solo oggetti e operazioni registrati esplicitamente, con accesso sola lettura o lettura/scrittura, adattatori bidirezionali, durata `ExecutionSnapshot` o `Live` limitata alla singola esecuzione e nessuna reflection arbitraria dal sorgente; type checker e VM rifiutano le scritture non autorizzate con `DDF309`/`DDF411` (`0.11.2`, ventiquattresimo incremento e contratto host `0.20` del 2026-09-22).
+- [x] Separare modalità sola scrittura/analisi, simulazione ed esecuzione con effetti sull'host: `AnalysisOnly` non avvia la VM né legge l'host, `Simulation` mantiene le scritture locali e usa delegate sostitutivi espliciti per le operazioni mutanti, `HostEffects` abilita le operazioni reali; il debug accetta soltanto le ultime due (`0.11.2`, venticinquesimo incremento e contratto host `0.21` del 2026-09-22).
+- [x] Definire threading, chiamate asincrone, cancellazione, timeout, budget di chiamate/risorse e rilascio LIFO di `IDisposable`/`IAsyncDisposable`: `DdfHostInvocationContext` propaga identità, modalità, scadenza e token; `DDF413`/`DDF414`/`DDF415` distinguono limiti, timeout e cleanup. Documentare come requisito un processo worker separato per script non fidati, estensioni native o operazioni che non rispettano la cancellazione, poiché il runtime in-process non è una sandbox (`0.11.2`, ventiseiesimo incremento e contratto host `0.22` del 2026-09-22).
+- [x] Esporre variabili e oggetti personalizzati con tipi, valori iniziali, accesso in lettura/scrittura e restituzione dei risultati all'host tramite snapshot profondamente distaccati dalle celle della VM; la demo mostra valori iniziali/finali e isolamento tra istanze (`0.11.2`, ventisettesimo incremento e contratto host `0.23` del 2026-09-24).
+- [x] Supportare procedure richiamabili manualmente o da eventi espliciti dell'host tramite `InvokeAsync`, argomenti nominati e snapshot dell'origine; restituire tipo e valore profondamente distaccato, diagnosticare argomenti mancanti/superflui/non convertibili con `DDF416` e rifiutare invocazioni concorrenti sulla stessa istanza (`0.11.2`, ventottesimo incremento e contratto host `0.24` del 2026-09-24).
+- [x] Offrire un contratto di accesso ai database tramite `IDdfHostDatabaseService`, operazioni registrate con statement e parametri nominati, risultati tipizzati, permessi, simulazione, cancellazione/timeout e identificatori di transazione opachi forniti dall'applicazione; connessioni, SQL concreto e credenziali non attraversano il confine dello script (`0.11.2`, ventinovesimo incremento e contratto host `0.25` del 2026-09-24).
+- [x] Esporre funzioni matematiche e logiche tramite librerie host tipizzate registrate atomicamente e dimostrare algoritmi personalizzati che elaborano dati e aggiornano gli oggetti dell'applicazione, con permessi condivisi e comportamento distinto in Simulation/HostEffects (`0.11.2`, trentesimo incremento e contratto host `0.26` del 2026-09-24).
+- [x] Definire quando applicare i risultati e come gestire gli errori parziali delle operazioni host tramite policy `Immediate`/`RollbackOnFailure`, riepilogo ordinato degli effetti e transazioni create dall'applicazione; Undo/Redo resta limitato al testo e non annulla azioni già eseguite (`0.11.2`, trentunesimo incremento e contratto host `0.27` del 2026-09-24).
+- [x] Realizzare un'applicazione dimostrativa separata che legge dati da un database di prova, applica una regola personalizzata e restituisce risultati all'host, con completamento, debug e flowchart: `DDFLanguageEditor.DatabaseDemo` integra database in memoria dietro il contratto pubblico, Simulation, transazione con rollback, griglia dati, Output e sincronizzazione sorgente/Flowchart/debug (`0.11.2`, trentaduesimo incremento del 2026-09-24; contratto host invariato `0.27`).
+- [x] Separare definitivamente il profilo embedded dall'IDE standalone: compilazione e avvio manuale sono nascosti, l'esecuzione nasce dagli eventi dell'host, `Ctrl+S` delega la persistenza all'applicazione e la nuova palette `API host` rende esplorabili controlli, proprietà, eventi, tipi, funzioni, database e permessi. IntelliSense e runtime supportano proprietà host esplicitamente scrivibili, inclusa la modifica sicura dei colori dei controlli (`0.11.2`, contratto host `0.28`, 2026-09-25).
+- [x] Incapsulare la shell embedded nel controllo pubblico `DdfEmbeddedEditorControl`: l'host non configura più direttamente `MainForm`, mentre documenti virtuali, salvataggio, catalogo host, esecuzione e debug passano da un lifecycle WinForms unico e testato nella DatabaseDemo (`0.11.2`, contratto host `0.29`, 2026-09-25).
+- [x] Separare `DDFLanguageEditor.Core`, `DDFLanguageEditor.WinForms` e il launcher `DDFLanguageEditor.App`; generare pacchetti NuGet beta locali, aggiungere `MinimalHost`, aggiornare la guida e verificare lifecycle, più istanze e pubblicazione standalone self-contained (`0.11.2`, 2026-09-25).
 
 Criteri di completamento: un'applicazione separata incorpora l'editor senza
 modificarne i sorgenti, espone proprie API documentate e fa eseguire uno script
@@ -739,12 +758,33 @@ pausa sono attività esplicite della milestone.
 - [ ] Includere licenze e avvisi dei componenti effettivamente redistribuiti, distinguendo sorgenti MIT, binari Windows e librerie di terzi.
 - [ ] Mantenere Native AOT e altri backend come estensioni successive, verificando i limiti su caricamento e generazione dinamica di codice.
 
+### 0.13.4 — Riferimenti a librerie esterne
+
+Consentire a progetti standalone e applicazioni embedded di usare librerie
+installate nel sistema o fornite da terzi senza permettere agli script di caricare
+arbitrariamente file, assembly o simboli nativi. Il progetto dichiara una
+dipendenza logica; il resolver del contesto decide se e come soddisfarla.
+
+- [ ] Estendere il manifest di progetto con riferimenti versionati a librerie gestite .NET, componenti COM/ActiveX registrati, librerie native e servizi forniti dall'host, distinguendone identità, versione, architettura, origine e capacità richieste.
+- [ ] Introdurre un resolver sostituibile: in standalone usa origini configurate e autorizzate dall'utente; in embedded è l'applicazione host ad approvare, rifiutare o sostituire ogni riferimento.
+- [ ] Evitare ricerca implicita e non deterministica nell'intero sistema: produrre un lockfile con versione, percorso risolto, hash e dipendenze transitive per build riproducibili.
+- [ ] Importare nello script soltanto API esplicitamente descritte o adattate, alimentando con gli stessi metadati type checker, IntelliSense, documentazione, runtime e debugger; nessuna reflection o `P/Invoke` arbitraria dal sorgente DDF.
+- [ ] Supportare per prime le librerie .NET compatibili con il runtime scelto; gestire DLL native successivamente tramite adapter tipizzati o worker isolato, verificando ABI, architettura, ownership della memoria, callback ed errori.
+- [ ] Aggiungere un catalogo Windows opzionale per componenti COM registrati e Type Library, inclusi scenari legacy come Microsoft ActiveX Data Objects (`ADODB`), generando o caricando un interop adapter senza esporre direttamente ProgID, CLSID o registro allo script.
+- [ ] Per COM verificare registrazione per macchina/utente, versione della Type Library, compatibilità x86/x64, apartment STA/MTA, rilascio deterministico degli oggetti e disponibilità sul sistema di destinazione.
+- [ ] Preferire provider .NET gestiti per le nuove integrazioni dati; mantenere COM/ADO come compatibilità esplicita per sistemi esistenti, con credenziali e stringhe di connessione fornite dall'host o da un archivio protetto e mai incorporate nel sorgente.
+- [ ] Applicare permessi, attendibilità, firma/hash, timeout, cancellazione e limiti di risorse anche alle chiamate esterne; una libreria non fidata o non interrompibile deve essere eseguita fuori processo.
+- [ ] Rendere diagnostici e navigabili riferimenti mancanti, versioni incompatibili, conflitti, architetture errate e simboli non esposti, senza effettuare fallback silenziosi.
+- [ ] Definire packaging e distribuzione: distinguere librerie da incorporare, dipendenze già presenti nel sistema e componenti forniti dall'host, rispettando licenze e divieti di redistribuzione.
+- [ ] Verificare lo stesso progetto in modalità standalone ed embedded, includendo build, esecuzione, debug, aggiornamento della libreria, revoca di un permesso e assenza della dipendenza.
+
 ### Criteri di completamento della 0.13
 
 - almeno un programma multi-file viene compilato separatamente, collegato ed eseguito fuori dall'IDE;
 - esecuzione da sorgente e da artefatto produce gli stessi risultati sul corpus normativo;
 - build ripetute con gli stessi input producono artefatti deterministici;
 - moduli incompatibili o malformati vengono rifiutati con diagnostiche chiare;
+- riferimenti esterni sono risolti in modo deterministico e producono lo stesso contratto tipizzato in standalone ed embedded, pur lasciando all'host l'ultima decisione sulle dipendenze autorizzate;
 - debug e CLI condividono le regole del pacchetto senza implementazioni parallele del linguaggio.
 
 ## 0.14 — DDF Language Package Studio
@@ -808,6 +848,7 @@ host che non possono essere descritti in modo sicuro come dati.
 ### 0.15.1 — SDK e punti di estensione
 
 - [ ] Pubblicare API versionate per operazioni semantiche/runtime, funzioni host e backend di build.
+- [ ] Pubblicare adapter e resolver versionati per trasformare librerie esterne autorizzate in API DDF tipizzate, senza esporre direttamente loader, reflection o puntatori allo script.
 - [ ] Evitare l'accesso diretto agli oggetti interni dell'editor e della VM.
 - [ ] Fornire template, esempi minimi, test contract e controlli di compatibilità.
 - [ ] Definire lifecycle, cancellazione, limiti di risorse e diagnostica dei plug-in.
@@ -872,6 +913,28 @@ verificando API, termini del servizio e licenze dei modelli al momento dell'uso.
 - [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
 - [ ] Definire i gate finali di compatibilità, distribuzione, documentazione e supporto per `1.0.0`.
 
+## Dopo 1.0 — Portabilità dell'SDK e compatibilità degli host
+
+Questa fase resta intenzionalmente l'ultimo ampliamento della roadmap: prima si
+stabilizzano contratto, runtime, sicurezza, distribuzione e integrazione
+WinForms. La compatibilità riguarda il linguaggio e la tecnologia
+dell'applicazione ospitante, non i profili sintattici caricati nell'editor e non
+implica supporto nativo ai linguaggi imitati dai pacchetti DDF.
+
+- [ ] Pubblicare pacchetti SDK separati e versionati per Core e WinForms, senza richiedere un riferimento all'eseguibile standalone.
+- [ ] Mantenere C#/.NET come integrazione di riferimento e aggiungere demo e contract test per host VB.NET e F#.
+- [ ] Validare l'incorporamento in WPF tramite un adattatore ufficiale, coprendo focus, tastiera, DPI, temi, ridimensionamento e ciclo di vita.
+- [ ] Valutare adattatori grafici dedicati per WinUI, Avalonia e MAUI senza duplicare analisi, runtime, debug o catalogo host.
+- [ ] Definire un protocollo fuori processo, versionato e capability-based per applicazioni non-.NET come C++ nativo, Delphi, Java, Python, Qt ed Electron.
+- [ ] Separare chiaramente la matrice supportata da integrazioni sperimentali, indicando sistema operativo, runtime, architettura, framework UI e versione minima.
+- [ ] Automatizzare build, smoke test e applicazioni campione per ogni combinazione dichiarata supportata.
+- [ ] Valutare la portabilità multipiattaforma del Core separatamente dalla UI: nessun supporto Linux o macOS verrà dichiarato finché runtime, I/O, debug e distribuzione non saranno verificati end-to-end.
+
+Criteri di completamento: ogni combinazione dichiarata supportata dispone di un
+pacchetto installabile, una demo compilabile, test automatici e documentazione
+del ciclo di vita; gli host non-.NET comunicano attraverso un confine esplicito
+e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
+
 ## Principi di sviluppo
 
 - Ogni release deve avere criteri di completamento verificabili.
@@ -891,18 +954,22 @@ verificando API, termini del servizio e licenze dei modelli al momento dell'uso.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-25 | Prevedere librerie esterne sia in standalone sia in embedded tramite riferimenti dichiarati, resolver e adapter controllati | Riutilizzare assembly .NET, componenti COM registrati come `ADODB`, DLL di sistema e componenti di terzi mantenendo build riproducibili; l'utente autorizza le origini standalone e l'applicazione host conserva il controllo completo in modalità embedded. |
+| 2026-09-25 | Collocare dopo la 1.0 l'estensione dell'SDK ad altri linguaggi e framework host | Consolidare prima il contratto .NET/WinForms e affrontare poi VB.NET, F#, WPF, altri framework grafici e host non-.NET con adapter, test e livelli di supporto espliciti. |
+| 2026-09-08 | Mantenere la flowchart derivata e in sola lettura, senza editing diagramma → codice | Conservare il codice come unica fonte autorevole, evitare trasformazioni ambigue e concentrare il diagramma su comprensione, navigazione e debug. |
 | 2026-09-05 | Prevedere assistenza IA opzionale locale e cloud con adapter sostituibili | Permettere di scegliere in base a hardware, qualità, riservatezza e costo, con configurazione esplicita sia standalone sia integrata e senza fallback cloud implicito. |
 | 2026-09-05 | Priorità allo scripting incorporabile per automazioni, dati e logiche personalizzate | CAD e SCADA erano esempi; l'obiettivo è estendere applicazioni generiche tramite variabili, servizi e comandi host, senza un percorso di certificazioni settoriali. |
 | 2026-09-05 | Rendere la modalità didattica sempre attivabile e disattivabile in standalone e integrato | Offrire assistenza didattica come opzione indipendente da sintassi e host, preservando codice, debug, permessi e risultato compilato. |
 | 2026-09-05 | Adottare .NET + Roslyn come backend principale | Generare C# dalla IR comune e assembly eseguibili nel CLR, riusando librerie e distribuzione .NET per integrazione host ed EXE autonomi. |
 | 2026-09-05 | Presentare i pacchetti come profili sintattici della piattaforma | Offrire familiarità e localizzazione didattica senza promettere compatibilità completa con C++, Java, C# o VB; semantica e capacità restano condivise. |
-| 2026-09-05 | Orientare il prodotto anche all'integrazione in CAD, SCADA, calcolo e formazione | Offrire scripting e strumenti di codice sulle API dell'applicazione ospitante tramite un componente riutilizzabile; primo SDK nella `0.11.1`. |
-| 2026-09-05 | Inserire flowchart dinamica nella `0.10.2`, inizialmente derivata dal codice | Rendere visibili struttura e passi runtime per autori e studenti mantenendo una fonte autorevole e riusando AST/IR e debugger. |
+| 2026-09-05 | Orientare il prodotto anche all'integrazione in CAD, SCADA, calcolo e formazione | Offrire scripting e strumenti di codice sulle API dell'applicazione ospitante tramite un componente riutilizzabile; primo SDK rinumerato nella `0.11.2`. |
+| 2026-09-05 | Inserire la flowchart dinamica, ora `0.11.1`, inizialmente derivata dal codice | Rendere visibili struttura e passi runtime per autori e studenti mantenendo una fonte autorevole e riusando AST/IR e debugger. |
 | 2026-09-05 | Anticipare compilatore, linker, loader e CLI alla `0.13`, spostando Package Studio alla `0.14` e SDK alla `0.15` | Rendere il linguaggio definito nella `0.12` distribuibile ed eseguibile fuori dall'IDE prima di ampliare gli strumenti di authoring e le estensioni. |
 | 2026-09-05 | Dedicare la `0.12.x` alla definizione completa del DDF | Separare l'architettura generica dei pacchetti dalla progettazione normativa del linguaggio e arrivare alla 1.0 con specifica, corpus e migrazione verificabili. |
 | 2026-09-05 | Realizzare il Package Studio come UI integrata sopra un Core di authoring riutilizzabile | Offrire subito un flusso coerente con l'editor senza impedire una futura applicazione autonoma e senza rendere obbligatoria la UI. |
 | 2026-09-05 | Tenere Package Studio e plug-in come concetti distinti | L'authoring manipola dati dichiarativi sicuri; lo SDK della `0.15` riguarda esclusivamente codice eseguibile e capacità host esplicitamente autorizzate. |
 | 2026-09-06 | Anticipare la `0.11.0` subito dopo la `0.10.1` | Rendere disponibili runtime e debug multi-file prima della flowchart; il blocco flowchart resta subito successivo e sarà rinumerato senza alterare il resto della roadmap. |
+| 2026-09-08 | Assegnare `0.11.1` alla flowchart e spostare l'Editor SDK a `0.11.2` | Eliminare l'identificativo provvisorio `0.10.2` mantenendo l'ordine deciso dopo il runtime multi-file. |
 | 2026-09-01 | Introdurre pacchetti di linguaggio dichiarativi prima del debugger avanzato | Rendere DDF il linguaggio predefinito di una piattaforma configurabile ed evitare di consolidare parser, runtime e build hardcoded prima della 1.0. |
 | 2026-09-01 | Separare pacchetto di linguaggio, manifest di progetto e plug-in eseguibili | Permettere agli utenti di personalizzare grammatica e semantica sicura tramite dati, mantenendo riproducibilità e un confine esplicito per il codice host. |
 | 2026-08-28 | Mantenere WinForms e .NET Framework 4.8 durante `0.1.1` | Stabilizzare il comportamento prima di valutare una migrazione. |

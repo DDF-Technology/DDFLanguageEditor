@@ -86,7 +86,9 @@ namespace DDF___Program_Language_Editor
             if (ReferenceEquals(tabs, navigationTabs))
                 target = ReferenceEquals(tabs.SelectedTab, workspaceTabPage)
                     ? (Control)treeViewWorkspace
-                    : treeViewOutline;
+                    : ReferenceEquals(tabs.SelectedTab, flowchartTabPage)
+                        ? flowchartCanvas
+                        : treeViewOutline;
             else if (ReferenceEquals(tabs.SelectedTab, tabPageDiagnostics))
                 target = listBoxDiagnostics;
             else if (ReferenceEquals(tabs.SelectedTab, tabPageOutput))

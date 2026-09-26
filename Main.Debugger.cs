@@ -10,7 +10,6 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
-        private DdfDebuggerSession debuggerSession;
         private TabPage tabPageBreakpoints;
         private ListBox listBoxBreakpoints;
         private ToolStripMenuItem stepIntoMenuItem;
@@ -23,6 +22,13 @@ namespace DDF___Program_Language_Editor
 
         private void initializeDebugger()
         {
+            panelEditor.ExecutionStateChanged += executionService_StateChanged;
+            panelEditor.ExecutionOutputReceived += executionService_OutputReceived;
+            panelEditor.ExecutionCompleted += executionService_ExecutionCompleted;
+            panelEditor.DebugStateChanged += debugService_StateChanged;
+            panelEditor.DebugPaused += onDebuggerPaused;
+            panelEditor.DebugOutputReceived += executionService_OutputReceived;
+            panelEditor.DebugCompleted += debugService_DebugCompleted;
             richTextBoxLineNumbers.LineClicked += richTextBoxLineNumbers_LineClicked;
             tabPageBreakpoints = new TabPage("Breakpoint")
             {
@@ -100,28 +106,28 @@ namespace DDF___Program_Language_Editor
 
         private void stepIntoMenuItem_Click(object sender, EventArgs e)
         {
-            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            if (panelEditor.DebugService?.IsPaused != true) return;
             clearDebugExecutionLine();
             appendOutput("Ingresso nella funzione...");
-            debuggerSession.StepInto();
+            panelEditor.DebugService.StepInto();
             updateExecutionCommands(true);
         }
 
         private void stepOutMenuItem_Click(object sender, EventArgs e)
         {
-            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            if (panelEditor.DebugService?.IsPaused != true) return;
             clearDebugExecutionLine();
             appendOutput("Uscita dalla funzione corrente...");
-            debuggerSession.StepOut();
+            panelEditor.DebugService.StepOut();
             updateExecutionCommands(true);
         }
 
         private void stepOverMenuItem_Click(object sender, EventArgs e)
         {
-            if (debuggerSession == null || !debuggerSession.IsPaused) return;
+            if (panelEditor.DebugService?.IsPaused != true) return;
             clearDebugExecutionLine();
             appendOutput("Passo successivo...");
-            debuggerSession.StepOver();
+            panelEditor.DebugService.StepOver();
             updateExecutionCommands(true);
         }
 
@@ -175,20 +181,25 @@ namespace DDF___Program_Language_Editor
                 : buffer.BreakpointLines.Where(line => !buffer.UnboundBreakpointLines.Contains(line));
         }
 
-        private void synchronizeRuntimeBreakpoints(OpenDocumentBuffer buffer)
+        private void synchronizeRuntimeBreakpoints(OpenDocumentBuffer buffer,
+            string runtimeEntryPath = null)
         {
-            if (debuggerSession == null) return;
-            if (buffer != null && !buffer.Session.HasPath)
-            {
-                debuggerSession.SetBreakpoints(getEnabledBreakpointLines(buffer));
-                return;
-            }
+            IDdfEditorDebugService service = panelEditor.DebugService;
+            if (service == null || service.IsActive) return;
             var sourceBreakpoints = openDocuments.Documents
-                .Where(document => document.Session.HasPath)
-                .SelectMany(document => getEnabledBreakpointLines(document)
-                    .Select(line => new DdfSourceBreakpoint(document.Session.CurrentPath, line)))
+                .SelectMany(document => document.BreakpointLines
+                    .Select(line => new DdfEditorBreakpoint(document.Id, line,
+                        !document.UnboundBreakpointLines.Contains(line))))
                 .ToList();
-            debuggerSession.SetBreakpoints(sourceBreakpoints);
+            service.SetBreakpoints(sourceBreakpoints);
+        }
+
+        private void synchronizeRuntimeWatchExpressions()
+        {
+            IDdfEditorDebugService service = panelEditor.DebugService;
+            if (service == null || service.IsActive || watchListView == null) return;
+            service.SetWatchExpressions(watchListView.Items.Cast<ListViewItem>()
+                .Select(item => item.Text));
         }
 
         private void validateBreakpoints(OpenDocumentBuffer buffer, string source, CompilationUnitSyntax root)
@@ -265,31 +276,36 @@ namespace DDF___Program_Language_Editor
                 (Enabled ? " — attivo" : " — non associato");
         }
 
-        private void onDebuggerPaused(DdfDebugPauseInfo pause)
+        private void onDebuggerPaused(object sender,
+            DdfEditorDebugPausedEventArgs e)
         {
             if (IsDisposed || Disposing) return;
             if (InvokeRequired)
             {
-                BeginInvoke(new Action<DdfDebugPauseInfo>(onDebuggerPaused), pause);
+                BeginInvoke(new Action<object, DdfEditorDebugPausedEventArgs>(
+                    onDebuggerPaused), sender, e);
                 return;
             }
 
-            if (!string.IsNullOrEmpty(pause.DocumentPath) && File.Exists(pause.DocumentPath))
+            DdfEditorDebugLocation pause = e.Location;
+
+            if (!string.IsNullOrEmpty(pause.FilePath) && File.Exists(pause.FilePath))
             {
-                if (!openDocument(pause.DocumentPath)) return;
+                if (!openDocument(pause.FilePath)) return;
                 runtimeDocumentId = openDocuments.ActiveDocument?.Id;
-                runtimeDocumentPath = pause.DocumentPath;
+                runtimeDocumentPath = pause.FilePath;
             }
             else if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
                 activateDocument(runtimeView);
 
             appendOutput("Breakpoint raggiunto: riga " + pause.Line + ", colonna " + pause.Column + ".");
-            if (debuggerSession == null || !debuggerSession.IsPaused) return;
-            watchSnapshot = pause.State;
+            if (panelEditor.DebugService?.IsPaused != true) return;
+            watchSnapshot = e.Snapshot;
             selectedCallStackFrameIndex = 0;
-            navigateToRuntimeSpan(!string.IsNullOrEmpty(pause.DocumentPath) && File.Exists(pause.DocumentPath)
-                ? pause.DocumentPath : null, pause.Start, pause.Length);
+            navigateToRuntimeSpan(!string.IsNullOrEmpty(pause.FilePath) && File.Exists(pause.FilePath)
+                ? pause.FilePath : null, pause.Start, pause.Length);
             showDebugExecutionLine(pause.Line);
+            showFlowchartDebugLocation(e.Snapshot);
             updateExecutionCommands(true);
         }
 
@@ -304,6 +320,7 @@ namespace DDF___Program_Language_Editor
         {
             foreach (DocumentView view in documentViews.Values)
                 if (view.Editor is MultiCursorRichTextBox editor) editor.DebugExecutionLine = -1;
+            clearFlowchartDebugLocation();
         }
     }
 }

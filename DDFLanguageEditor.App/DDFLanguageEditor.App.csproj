@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>DDF___Program_Language_Editor</RootNamespace>
+    <AssemblyName>DDFLanguageEditor</AssemblyName>
+    <ApplicationIcon>..\Resource\DDFLanguageEditor.ico</ApplicationIcon>
+    <Version>0.11.2</Version>
+    <FileVersion>0.11.2.0</FileVersion>
+    <AssemblyVersion>0.11.2.0</AssemblyVersion>
+    <InformationalVersion>0.11.2</InformationalVersion>
+    <Company>DDF.Technology</Company>
+    <Product>DDFLanguageEditor</Product>
+    <Description>Experimental syntax editor for the draft DDF language</Description>
+    <Copyright>Copyright © 2026 Fabio De Deo</Copyright>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DDF - Program Language Editor.csproj" />
+  </ItemGroup>
+</Project>

@@ -93,21 +93,25 @@ namespace DDFLanguageEditor.Core
             private readonly CompilationUnitSyntax root;
             private readonly DdfTypeSystemDefinition typeSystem;
             private readonly DdfStandardLibraryDefinition standardLibrary;
+            private readonly DdfHostCatalogSnapshot hostCatalog;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfTypeSymbol> globals = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal);
+            private readonly Dictionary<string, DdfHostObjectDefinition> hostObjects = new Dictionary<string, DdfHostObjectDefinition>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, DdfTypeSymbol>> scopes = new List<Dictionary<string, DdfTypeSymbol>>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
             private readonly List<DdfTypedSpan> spans = new List<DdfTypedSpan>();
             private DdfTypeSymbol currentReturnType = DdfTypeSymbol.Error;
 
             public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
-                DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary)
+                DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary,
+                DdfHostCatalogSnapshot hostCatalog)
             {
                 this.source = source;
                 this.root = root;
                 this.typeSystem = typeSystem;
                 this.standardLibrary = standardLibrary;
+                this.hostCatalog = hostCatalog;
                 var roots = new List<CompilationUnitSyntax> { root };
                 if (externalRoots != null) roots.AddRange(externalRoots.Where(item => item != null));
                 CollectDeclarations(roots);
@@ -170,6 +174,46 @@ namespace DDFLanguageEditor.Core
                             Parameters = standard.ParameterTypes.Select(type => new DdfTypeSymbol(type)).ToList().AsReadOnly()
                         });
                 }
+                if (hostCatalog != null)
+                {
+                    foreach (DdfHostTypeDefinition hostType in hostCatalog.Types)
+                    {
+                        if (structures.ContainsKey(hostType.Name)) continue;
+                        structures.Add(hostType.Name, new StructureInfo
+                        {
+                            Name = hostType.Name,
+                            Fields = hostType.Fields.ToDictionary(field => field.Name,
+                                field => HostType(field.TypeName), StringComparer.Ordinal)
+                        });
+                    }
+                    foreach (DdfHostObjectDefinition hostObject in hostCatalog.Objects)
+                        if (!globals.ContainsKey(hostObject.Name))
+                        {
+                            globals.Add(hostObject.Name, HostType(hostObject.TypeName));
+                            hostObjects.Add(hostObject.Name, hostObject);
+                        }
+                    foreach (DdfHostFunctionDefinition hostFunction in hostCatalog.Functions)
+                        if (!functions.ContainsKey(hostFunction.Name))
+                            functions.Add(hostFunction.Name, new FunctionInfo
+                            {
+                                Name = hostFunction.Name,
+                                ReturnType = HostType(hostFunction.ReturnType),
+                                Parameters = hostFunction.Parameters.Select(parameter =>
+                                    HostType(parameter.TypeName)).ToList().AsReadOnly()
+                            });
+                }
+            }
+
+            private static DdfTypeSymbol HostType(string typeName)
+            {
+                int rank = 0;
+                string name = typeName ?? string.Empty;
+                while (name.EndsWith("[]", StringComparison.Ordinal))
+                {
+                    rank++;
+                    name = name.Substring(0, name.Length - 2);
+                }
+                return new DdfTypeSymbol(name, rank);
             }
 
             private void CheckStructure(StructDeclarationSyntax structure)
@@ -295,6 +339,7 @@ namespace DDFLanguageEditor.Core
                 else if (expression is PostfixExpressionSyntax postfix)
                 {
                     DdfTypeSymbol operand = CheckExpression(postfix.Operand);
+                    ReportReadOnlyHostTarget(postfix.Operand);
                     result = IsNumeric(operand) ? operand : InvalidOperator(postfix.OperatorText, operand, null, postfix);
                 }
                 else if (expression is CallExpressionSyntax call) result = CheckCall(call);
@@ -321,6 +366,7 @@ namespace DDFLanguageEditor.Core
                 {
                     if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
                         Report("DDF308", "La destinazione dell'assegnazione non è modificabile.", binary.Left);
+                    ReportReadOnlyHostTarget(binary.Left);
                     if (!CanAssign(left, right)) Report("DDF301", "Impossibile assegnare " + right + " a " + left + ".", binary);
                     return left;
                 }
@@ -444,6 +490,45 @@ namespace DDFLanguageEditor.Core
                 return string.Empty;
             }
 
+            private void ReportReadOnlyHostTarget(ExpressionSyntax expression)
+            {
+                string rootName = GetRootName(expression);
+                if (string.IsNullOrEmpty(rootName) || IsShadowed(rootName) ||
+                    !hostObjects.TryGetValue(rootName, out DdfHostObjectDefinition hostObject))
+                    return;
+                bool writableTarget = hostObject.CanWrite &&
+                    (expression is NameExpressionSyntax ||
+                     IsWritableHostMember(expression, hostObject));
+                if (!writableTarget)
+                    Report("DDF309", "L'oggetto host '" + rootName +
+                        "' è esposto in sola lettura per questa destinazione.", expression);
+            }
+
+            private bool IsWritableHostMember(ExpressionSyntax expression,
+                DdfHostObjectDefinition hostObject)
+            {
+                if (!(expression is MemberAccessExpressionSyntax member) ||
+                    hostCatalog == null) return false;
+                DdfHostTypeDefinition type = hostCatalog.Types.FirstOrDefault(item =>
+                    string.Equals(item.Name, hostObject.TypeName, StringComparison.Ordinal));
+                DdfHostFieldDefinition field = type?.Fields.FirstOrDefault(item =>
+                    string.Equals(item.Name, member.Name, StringComparison.Ordinal));
+                return field?.CanWrite == true;
+            }
+
+            private bool IsShadowed(string name) => scopes.Any(scope => scope.ContainsKey(name));
+
+            private static string GetRootName(ExpressionSyntax expression)
+            {
+                while (true)
+                {
+                    if (expression is NameExpressionSyntax name) return name.Name;
+                    if (expression is IndexExpressionSyntax index) expression = index.Target;
+                    else if (expression is MemberAccessExpressionSyntax member) expression = member.Target;
+                    else return null;
+                }
+            }
+
             private static bool ContainsReturn(StatementSyntax statement)
             {
                 if (statement == null) return false;
@@ -491,13 +576,15 @@ namespace DDFLanguageEditor.Core
 
         public static DdfTypeCheckResult Check(string source, CompilationUnitSyntax root,
             IEnumerable<CompilationUnitSyntax> externalRoots = null, DdfTypeSystemDefinition typeSystem = null,
-            DdfStandardLibraryDefinition standardLibrary = null)
+            DdfStandardLibraryDefinition standardLibrary = null,
+            DdfHostCatalogSnapshot hostCatalog = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
             return new Checker(source, root, externalRoots,
                 typeSystem ?? DdfLanguageCatalog.Default.Types,
-                standardLibrary ?? DdfLanguageCatalog.Default.StandardLibrary).Check();
+                standardLibrary ?? DdfLanguageCatalog.Default.StandardLibrary,
+                hostCatalog).Check();
         }
     }
 }

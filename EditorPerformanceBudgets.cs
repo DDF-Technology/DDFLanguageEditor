@@ -72,6 +72,10 @@ namespace DDF___Program_Language_Editor
             "popup", "Apertura popup", 100D, 1000D,
             "creazione, layout e prima visualizzazione della Command Palette completa");
 
+        public static readonly EditorPerformanceBudget Flowchart = new EditorPerformanceBudget(
+            "flowchart", "Pipeline Flowchart complessa", 50D, 500D,
+            "build, layout e proiezione del listato Flowchart complesso con rami e cicli annidati");
+
         public static readonly EditorPerformanceBudget BackgroundAnalysisDispatch = new EditorPerformanceBudget(
             "analysis-dispatch", "Dispatch analisi grande documento", 16D, 120D,
             "avvio cancellabile dell'analisi di un documento DDF di 2000 righe");
@@ -95,6 +99,7 @@ namespace DDF___Program_Language_Editor
             Scroll,
             Highlighting,
             Popup,
+            Flowchart,
             BackgroundAnalysisDispatch,
             WorkspaceLoadDispatch,
             LargeWorkspaceInput,

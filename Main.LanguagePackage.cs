@@ -19,6 +19,7 @@ namespace DDF___Program_Language_Editor
         private LanguagePackageManagerForm languagePackageManagerForm;
         private LanguagePlaygroundForm languagePlaygroundForm;
         private Action<string> saveLanguagePackagePathSetting;
+        private DdfLanguagePackageSession editorLanguageSession;
         private IReadOnlyList<DdfLanguagePackageDiagnostic> languagePackageActivationDiagnostics =
             Array.Empty<DdfLanguagePackageDiagnostic>();
 
@@ -109,6 +110,7 @@ namespace DDF___Program_Language_Editor
             toolbarLanguageButton.DropDownItems.Add("Informazioni...", null, languagePackageInfoMenuItem_Click);
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(toolbarLanguageButton);
+            panelEditor.AttachLanguageSession(editorLanguageSession);
         }
 
         private void applyActiveLanguagePackageStatus()
@@ -241,6 +243,7 @@ namespace DDF___Program_Language_Editor
             }
 
             languagePackageActivationDiagnostics = result.Diagnostics;
+            editorLanguageSession?.UsePackage(result.Package, result.Diagnostics);
             try
             {
                 saveLanguagePackagePathSetting(persistedPath ?? string.Empty);

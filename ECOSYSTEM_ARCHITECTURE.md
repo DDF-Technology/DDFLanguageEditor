@@ -77,8 +77,8 @@ flowchart TB
   integrato, con qualsiasi lingua o profilo sintattico. Aggiunge presentazione e
   spiegazioni didattiche senza cambiare programma, permessi o build. Flowchart e
   debugger restano disponibili anche fuori da questa modalità. Il diagramma
-  deriva dall'analisi e non esegue codice mentre l'utente scrive; la modifica
-  grafica bidirezionale è una possibile fase futura.
+  deriva dall'analisi, non esegue codice mentre l'utente scrive e rimane in sola
+  lettura: modificare graficamente nodi o collegamenti non riscrive il sorgente.
 
 Il caso dimostrativo prioritario è un'applicazione che legge dati da un database
 di prova tramite un servizio host, espone variabili e funzioni allo script e
@@ -103,8 +103,8 @@ il programma. Gli EXE esportati non incorporano automaticamente l'interfaccia di
 | VM DDF e primo debug | Implementati con limiti beta |
 | Variabili e passo-passo | 0.10.0–0.10.1 |
 | Runtime multi-file | 0.11.0, completato |
-| Flowchart dinamica | Subito dopo la 0.11.0; identificativo 0.10.2 da rinumerare |
-| Controllo incorporabile e SDK host | 0.11.1, pianificati |
+| Flowchart dinamica | 0.11.1, completata |
+| Controllo incorporabile e SDK host | 0.11.2, completati |
 | DDF formale e corpus di profili equivalenti | 0.12.x, pianificati |
 | Backend Roslyn, assembly, CLI ed EXE | 0.13.x, pianificati |
 | Package Studio | 0.14.x, pianificato; gestione pacchetti e playground già presenti |
@@ -145,7 +145,12 @@ soprattutto per programmi esportati con dipendenze note.
 Uno script dipendente dalle API di un host può diventare autonomo solo quando
 esistono implementazioni distribuibili di tutte le API richieste. Il catalogo
 autorizzato non costituisce da solo una sandbox: codice non fidato richiede
-isolamento e permessi di sistema. Undo del testo e rollback degli effetti
+un processo worker separato, un protocollo IPC ristretto, limiti del sistema
+operativo e la possibilità di terminare l'intero processo. Nel percorso
+in-process le operazioni host ricevono token e scadenze cooperative, hanno budget
+di chiamate e risorse e rilasciano deterministicamente le risorse registrate, ma
+un delegate nativo o sincrono che ignora la cancellazione non può essere fermato
+con garanzie. Undo del testo e rollback degli effetti
 sull'applicazione sono contratti distinti; transazioni ed errori parziali vanno
 gestiti esplicitamente dall'host.
 

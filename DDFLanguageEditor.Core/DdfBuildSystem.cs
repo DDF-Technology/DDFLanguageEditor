@@ -260,6 +260,13 @@ namespace DDFLanguageEditor.Core
     {
         internal DdfBuildResult(DdfBuildArtifact artifact, IEnumerable<DdfBuildIssue> issues, string artifactPath = null)
         { Artifact = artifact; Issues = issues.ToList().AsReadOnly(); ArtifactPath = artifactPath ?? string.Empty; }
+
+        public static DdfBuildResult Failure(params DdfBuildIssue[] issues) =>
+            new DdfBuildResult(null, issues ?? Array.Empty<DdfBuildIssue>());
+
+        public static DdfBuildResult Failure(IEnumerable<DdfBuildIssue> issues) =>
+            new DdfBuildResult(null, issues ?? Array.Empty<DdfBuildIssue>());
+
         public DdfBuildArtifact Artifact { get; }
         public IReadOnlyList<DdfBuildIssue> Issues { get; }
         public string ArtifactPath { get; }
@@ -281,6 +288,13 @@ namespace DDFLanguageEditor.Core
         public DdfBuildResult Build(string workspaceRoot, DdfProjectManifest manifest, DdfLanguagePackage package,
             IReadOnlyList<DdfBuildSource> sources)
         {
+            return Build(workspaceRoot, manifest, package, sources, null);
+        }
+
+        public DdfBuildResult Build(string workspaceRoot, DdfProjectManifest manifest,
+            DdfLanguagePackage package, IReadOnlyList<DdfBuildSource> sources,
+            DdfHostCatalogSnapshot hostCatalog)
+        {
             var issues = new List<DdfBuildIssue>();
             var parsed = sources.Select(item => new { Source = item, Parse = DdfParser.Parse(item.Source, package.Language) }).ToList();
             foreach (var item in parsed)
@@ -290,7 +304,7 @@ namespace DDFLanguageEditor.Core
             {
                 var externalRoots = parsed.Where(other => !ReferenceEquals(other, item)).Select(other => other.Parse.Root).ToList();
                 DdfTypeCheckResult types = DdfTypeChecker.Check(item.Source.Source, item.Parse.Root, externalRoots,
-                    package.Language.Types, package.Language.StandardLibrary);
+                    package.Language.Types, package.Language.StandardLibrary, hostCatalog);
                 issues.AddRange(types.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
                 DdfIrBuildResult ir = DdfIrLowerer.Lower(item.Source.Source, item.Parse, package.Language);
                 issues.AddRange(ir.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
@@ -435,14 +449,25 @@ namespace DDFLanguageEditor.Core
 
         public DdfBuildResult Validate(string workspaceRoot, DdfProjectManifest manifest, DdfLanguagePackage package,
             IReadOnlyDictionary<string, string> unsavedBuffers = null) =>
-            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, false);
+            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, false, null);
+
+        public DdfBuildResult Validate(string workspaceRoot, DdfProjectManifest manifest,
+            DdfLanguagePackage package, IReadOnlyDictionary<string, string> unsavedBuffers,
+            DdfHostCatalogSnapshot hostCatalog) =>
+            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, false, hostCatalog);
 
         public DdfBuildResult Build(string workspaceRoot, DdfProjectManifest manifest, DdfLanguagePackage package,
             IReadOnlyDictionary<string, string> unsavedBuffers = null) =>
-            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, true);
+            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, true, null);
+
+        public DdfBuildResult Build(string workspaceRoot, DdfProjectManifest manifest,
+            DdfLanguagePackage package, IReadOnlyDictionary<string, string> unsavedBuffers,
+            DdfHostCatalogSnapshot hostCatalog) =>
+            BuildInternal(workspaceRoot, manifest, package, unsavedBuffers, true, hostCatalog);
 
         private DdfBuildResult BuildInternal(string workspaceRoot, DdfProjectManifest manifest, DdfLanguagePackage package,
-            IReadOnlyDictionary<string, string> unsavedBuffers, bool writeArtifact)
+            IReadOnlyDictionary<string, string> unsavedBuffers, bool writeArtifact,
+            DdfHostCatalogSnapshot hostCatalog)
         {
             string root = Path.GetFullPath(workspaceRoot ?? throw new ArgumentNullException(nameof(workspaceRoot)));
             var issues = DdfProjectManifestLoader.Validate(manifest, root).ToList();
@@ -463,7 +488,9 @@ namespace DDFLanguageEditor.Core
             IReadOnlyList<DdfBuildSource> sources = ResolveSources(root, manifest, unsavedBuffers, issues);
             if (sources.Count == 0) issues.Add(DdfBuildIssue.Configuration("DDFB006", "Nessun sorgente corrisponde al manifest."));
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error)) return new DdfBuildResult(null, issues);
-            DdfBuildResult compiled = backend.Build(root, manifest, package, sources);
+            DdfBuildResult compiled = backend is DdfVmBuildBackend vmBackend
+                ? vmBackend.Build(root, manifest, package, sources, hostCatalog)
+                : backend.Build(root, manifest, package, sources);
             if (!compiled.Success || !writeArtifact) return compiled;
 
             string outputDirectory = Path.GetFullPath(Path.Combine(root, manifest.Output.Directory));

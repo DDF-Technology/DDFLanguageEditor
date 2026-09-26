@@ -12,6 +12,8 @@ namespace DDF___Program_Language_Editor
         private ToolStripButton toolbarSettingsButton;
         private Func<SettingsForm, DialogResult> showSettingsDialog;
         private Action<string> saveEditorSettingsSetting;
+        private readonly DdfEditorHostConfiguration editorHostConfiguration =
+            new DdfEditorHostConfiguration();
 
         private void initializeEditorSettings()
         {
@@ -40,6 +42,7 @@ namespace DDF___Program_Language_Editor
                 editorSettings = dialog.SelectedSettings;
                 shortcutSettings = dialog.SelectedShortcuts;
             }
+            synchronizeEditorHostConfiguration();
             persistEditorSettings();
             persistShortcutSettings();
             applyEditorSettings();
@@ -126,5 +129,17 @@ namespace DDF___Program_Language_Editor
         private Color editorDefaultForeground => editorSettings?.Theme == EditorTheme.Light
             ? Color.FromArgb(32, 32, 32)
             : Color.FromArgb(212, 212, 212);
+
+        private void synchronizeEditorHostConfiguration()
+        {
+            if (editorSettings == null) return;
+            editorHostConfiguration.ApplyOptions(new DdfEditorHostOptions(
+                editorSettings.FontFamily, editorSettings.FontSize, editorSettings.ZoomPercent,
+                editorSettings.Theme, editorSettings.WordWrap, editorSettings.UseTabs,
+                editorSettings.IndentSize));
+            if (shortcutSettings != null)
+                editorHostConfiguration.ReplaceShortcuts(shortcutSettings.Values);
+            panelEditor.AttachHostConfiguration(editorHostConfiguration, false);
+        }
     }
 }

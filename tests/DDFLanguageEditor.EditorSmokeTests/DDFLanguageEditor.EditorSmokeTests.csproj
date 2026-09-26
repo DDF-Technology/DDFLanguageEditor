@@ -11,5 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\DDF - Program Language Editor.csproj" />
+    <ProjectReference Include="..\..\samples\DDFLanguageEditor.HostDemo\DDFLanguageEditor.HostDemo.csproj" />
+    <ProjectReference Include="..\..\samples\DDFLanguageEditor.DatabaseDemo\DDFLanguageEditor.DatabaseDemo.csproj" />
   </ItemGroup>
 </Project>

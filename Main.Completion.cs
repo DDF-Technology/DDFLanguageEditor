@@ -15,12 +15,15 @@ namespace DDF___Program_Language_Editor
         private DdfCompletionResult activeCompletionResult;
         private bool isApplyingCompletion;
         private CancellationTokenSource completionCancellation;
+        private DdfEditorAnalysisService completionAnalysisService;
+        private DdfEditorAnalysisSnapshot activeCompletionSnapshot;
         private long completionRequestVersion;
         private long completionAppliedVersion;
         private long completionAppliedLanguageRevision;
 
         private void initializeCompletion()
         {
+            completionAnalysisService = new DdfEditorAnalysisService();
             completionListBox = new ListBox
             {
                 Name = "completionListBox",
@@ -104,6 +107,8 @@ namespace DDF___Program_Language_Editor
         private void disposeCompletion()
         {
             cancelPendingCompletion();
+            completionAnalysisService?.Dispose();
+            completionAnalysisService = null;
             if (completionTimer == null) return;
             completionTimer.Stop();
             completionTimer.Dispose();
@@ -139,27 +144,29 @@ namespace DDF___Program_Language_Editor
             IReadOnlyList<DdfCompletionItem> externalItems = getWorkspaceCompletionItems();
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
             DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
+            IDdfEditorDocument document = openDocuments.ActiveDocumentInfo;
+            var request = new DdfEditorAnalysisRequest(
+                source,
+                position,
+                document?.Version ?? completionRequestVersion,
+                editorLanguageSession.ActivePackage,
+                editorLanguageSession.Revision,
+                document?.Id,
+                document?.FilePath,
+                includeAll,
+                externalRoots,
+                null,
+                externalItems,
+                hostCatalog: panelEditor.HostCatalog?.Snapshot);
             long version = ++completionRequestVersion;
             cancelPendingCompletion();
             var cancellation = new CancellationTokenSource();
             completionCancellation = cancellation;
-            DdfCompletionResult result;
+            DdfEditorAnalysisSnapshot snapshot;
             try
             {
-                result = await Task.Run(() =>
-                {
-                    cancellation.Token.ThrowIfCancellationRequested();
-                    DdfCompletionResult computed = DdfCompletionService.GetCompletions(
-                        source,
-                        position,
-                        includeAll,
-                        languageSnapshot.Language,
-                        externalItems: externalItems,
-                        externalRoots: externalRoots,
-                        cancellationToken: cancellation.Token);
-                    cancellation.Token.ThrowIfCancellationRequested();
-                    return computed;
-                }, cancellation.Token);
+                snapshot = await completionAnalysisService.RequestAsync(
+                    request, TimeSpan.Zero, cancellation.Token);
             }
             catch (OperationCanceledException)
             {
@@ -172,21 +179,25 @@ namespace DDF___Program_Language_Editor
             }
 
             if (version != completionRequestVersion ||
+                !completionAnalysisService.IsCurrent(snapshot) ||
                 languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
             postEditorCallback(() => applyCompletionSnapshot(
-                source, position, version, languageSnapshot.Revision, result));
+                source, position, version, languageSnapshot.Revision, snapshot));
         }
 
         private void applyCompletionSnapshot(
-            string source, int position, long version, long languageRevision, DdfCompletionResult result)
+            string source, int position, long version, long languageRevision,
+            DdfEditorAnalysisSnapshot snapshot)
         {
             if (version != completionRequestVersion || IsDisposed || Disposing ||
+                snapshot == null || !completionAnalysisService.IsCurrent(snapshot) ||
                 languageRevision != DdfLanguageCatalog.Revision ||
                 richTextBoxMainEditor.IsDisposed || richTextBoxFoldedView.Visible ||
                 richTextBoxMainEditor.SelectionLength > 0 ||
                 richTextBoxMainEditor.SelectionStart != position ||
                 !string.Equals(source, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
+            DdfCompletionResult result = snapshot.Completions;
             if (result.Items.Count == 0)
             {
                 hideCompletion();
@@ -195,6 +206,7 @@ namespace DDF___Program_Language_Editor
 
             completionAppliedVersion = version;
             completionAppliedLanguageRevision = languageRevision;
+            activeCompletionSnapshot = snapshot;
             activeCompletionResult = result;
             completionListBox.BeginUpdate();
             try
@@ -316,12 +328,14 @@ namespace DDF___Program_Language_Editor
             completionRequestVersion++;
             cancelPendingCompletion();
             if (completionListBox != null) completionListBox.Visible = false;
+            activeCompletionSnapshot = null;
             activeCompletionResult = null;
         }
 
         private void cancelPendingCompletion()
         {
             completionCancellation?.Cancel();
+            completionAnalysisService?.Cancel();
         }
 
         private void hideCompletionIfCaretMoved()

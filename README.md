@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.11.0 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.11.2 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -25,6 +25,9 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - manifest `ddf-project.json` separato dal pacchetto, con sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
 - comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
+- catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;
+- modalità host separate per sola analisi, simulazione senza scritture esterne ed esecuzione con effetti reali; le operazioni mutanti richiedono un sostituto esplicito per poter essere simulate;
+- operazioni host asincrone con token e scadenza, timeout e budget configurabili e risorse per esecuzione rilasciate deterministicamente; il codice non fidato o non cooperativo richiede un processo worker separato;
 - ricevuta di build deterministica e buffer non salvati opzionali senza salvataggi impliciti;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
@@ -199,6 +202,12 @@ richiede se salvare le modifiche non persistite.
 dotnet build "DDF - Program Language Editor.sln" --configuration Release --maxcpucount:1
 ```
 
+L'applicazione standalone è ora un launcher separato dalla libreria incorporabile:
+
+```powershell
+dotnet run --project DDFLanguageEditor.App\DDFLanguageEditor.App.csproj
+```
+
 La distribuzione ufficiale è **self-contained Windows x64**: include .NET 10 e
 non richiede l'installazione separata del Desktop Runtime. Per creare e verificare
 lo ZIP distribuibile con il relativo checksum SHA-256:
@@ -211,6 +220,46 @@ Gli artefatti vengono scritti in `.artifacts\release`. Tutti i file contenuti
 nello ZIP devono restare insieme. La release pubblica è unsigned: Windows può
 mostrare un avviso di reputazione.
 
+Per avviare la prima applicazione host separata, che incorpora due istanze
+isolate dell'editor con profili e documenti virtuali differenti:
+
+```powershell
+dotnet run --project samples\DDFLanguageEditor.HostDemo\DDFLanguageEditor.HostDemo.csproj
+```
+
+La demo di integrazione database combina editor, flowchart, regole host,
+simulazione, transazioni e debug in una singola applicazione:
+
+```powershell
+dotnet run --project samples\DDFLanguageEditor.DatabaseDemo\DDFLanguageEditor.DatabaseDemo.csproj
+```
+
+Per iniziare dall'integrazione più piccola possibile:
+
+```powershell
+dotnet run --project samples\DDFLanguageEditor.MinimalHost\DDFLanguageEditor.MinimalHost.csproj
+```
+
+Le due superfici mantengono servizi, eventi, scorciatoie, palette, build, runtime,
+debug e persistenza completamente separati. L'SDK non intercetta la tastiera a
+livello globale e non legge o scrive il profilo dell'applicazione ospitante senza
+una richiesta esplicita dell'host.
+
+La demo mantiene la persistenza in memoria e non accede automaticamente alle
+impostazioni utente o ai file della shell standalone. Ogni profilo dispone di
+comandi Esegui/Arresta, Debug qui, Continua, Step Into/Over/Out e Stop debug, di una Watch sicura e di un Output indipendente per verificare runtime, pausa, Call Stack e variabili sui
+buffer virtuali.
+Il salvataggio dello stato host conserva anche breakpoint e testi Watch, persino
+durante una pausa, senza serializzare la VM o permettere di riprendere in seguito
+una sessione di debug viva.
+I pulsanti `Salva progetto` e `Apri progetto` dimostrano inoltre il nuovo
+contenitore host: ciascuna istanza conserva un progetto completo in memoria, ma
+la stessa interfaccia può essere implementata sopra file, database o cloud senza
+modificare l'editor.
+I comandi `Convalida` e `Compila` lavorano sugli stessi buffer virtuali usati da
+Run e Debug, mostrano diagnostiche e fingerprint nell'Output e non scrivono
+automaticamente artefatti o sorgenti sul file system dell'applicazione host.
+
 Per eseguire build Debug, test del core e smoke dinamico WinForms con un unico
 comando:
 
@@ -221,7 +270,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 73 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 74 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:
@@ -256,6 +305,11 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/lexer/`: corpus lessicale valido e non valido;
 - `samples/parser/`: corpus sintattico valido e non valido;
 - `samples/project/`: workspace con `ddf-project.json` pronto per Convalida, Build, Run e Debug;
+- `samples/flowchart-workspace/`: workspace multi-file per provare navigazione tra funzioni, gruppi comprimibili, Flowchart e debug attraversando tutti i principali costrutti di controllo;
+- `samples/DDFLanguageEditor.HostDemo/`: applicazione WinForms separata con due istanze isolate del controllo incorporabile;
+- `samples/DDFLanguageEditor.DatabaseDemo/`: integrazione completa con database di prova, regola personalizzata, transazione, debug e flowchart;
+- `samples/DDFLanguageEditor.MinimalHost/`: esempio minimo della shell embedded con esecuzione e persistenza governate dall'host;
+- `DDFLanguageEditor.App/`: launcher standalone separato dalle librerie SDK;
 - `LANGUAGE_REFERENCE.md`: sottoinsieme sintattico riconosciuto dall'editor;
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
@@ -264,6 +318,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `INTERMEDIATE_REPRESENTATION.md`: pipeline, modello e contratto della IR comune usata dal runtime;
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
+- `EDITOR_SDK.md`: primo contratto pubblico della superficie incorporabile, esempio d'uso e limiti correnti;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
 - `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
@@ -293,7 +348,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.11.0 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.11.2 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

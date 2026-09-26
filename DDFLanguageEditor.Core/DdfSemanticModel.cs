@@ -66,7 +66,8 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<DdfSymbolOccurrence> Occurrences { get; }
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
 
-        public static DdfSemanticModel Create(string source, CompilationUnitSyntax root)
+        public static DdfSemanticModel Create(string source, CompilationUnitSyntax root,
+            IEnumerable<string> knownExternalNames = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (root == null) throw new ArgumentNullException(nameof(root));
@@ -113,6 +114,11 @@ namespace DDFLanguageEditor.Core
             {
                 VisitMemberReferences(member, bindings, occurrences, diagnostics, source);
             }
+            var externalNames = new HashSet<string>(knownExternalNames ??
+                Array.Empty<string>(), StringComparer.Ordinal);
+            diagnostics.RemoveAll(item => item.Code == "DDF201" &&
+                item.Start >= 0 && item.Start + item.Length <= source.Length &&
+                externalNames.Contains(source.Substring(item.Start, item.Length)));
 
             occurrences.Sort((left, right) => left.Start.CompareTo(right.Start));
             diagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));

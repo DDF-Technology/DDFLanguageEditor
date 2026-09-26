@@ -10,19 +10,24 @@ namespace DDF___Program_Language_Editor
     {
         private readonly Action execute;
 
-        internal CommandPaletteCommand(string title, string category, string shortcutText, bool enabled, Action execute)
+        internal CommandPaletteCommand(IDdfEditorCommand command, Action execute)
         {
-            Title = title ?? string.Empty;
-            Category = category ?? string.Empty;
-            ShortcutText = shortcutText ?? string.Empty;
-            Enabled = enabled;
+            if (command == null) throw new ArgumentNullException(nameof(command));
+            Id = command.Id;
+            Title = command.Title;
+            Category = command.Category;
+            ShortcutText = command.ShortcutText;
+            Enabled = command.CanExecute;
+            IsChecked = command.IsChecked;
             this.execute = execute;
         }
 
+        public string Id { get; }
         public string Title { get; }
         public string Category { get; }
         public string ShortcutText { get; }
         public bool Enabled { get; }
+        public bool IsChecked { get; }
         internal void Execute() => execute?.Invoke();
     }
 

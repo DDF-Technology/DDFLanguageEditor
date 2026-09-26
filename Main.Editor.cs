@@ -268,46 +268,36 @@ namespace DDF___Program_Language_Editor
             long version = ++analysisRequestVersion;
             DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
             string text = richTextBoxMainEditor.Text;
-            DdfLexUpdate update = incrementalLexer.Update(text);
-            DdfParseResult parseResult = DdfParser.Parse(text, update.Result, languageSnapshot.Language);
-            DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
-            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
-                text,
-                parseResult.Root,
-                getWorkspaceTypeRoots(),
-                languageSnapshot.Language.Types,
-                languageSnapshot.Language.StandardLibrary);
-            DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, languageSnapshot.Language);
-            var snapshot = new EditorAnalysisSnapshot(
-                text,
-                update.Result,
-                parseResult,
-                semanticModel,
-                typeCheckResult,
-                ir,
-                DdfSymbolIndex.Create(parseResult, text).Symbols,
-                DdfFoldingRangeProvider.Create(parseResult, text));
-            applyAnalysisSnapshot(snapshot, update.RelexStart, version, languageSnapshot.Revision);
+            DdfLexUpdate lexUpdate = incrementalLexer.Update(text);
+            int changedStart = lexUpdate.RelexStart;
+            DdfEditorAnalysisRequest request = createHostAnalysisRequest(
+                text, richTextBoxMainEditor.SelectionStart, version, getWorkspaceTypeRoots(), lexUpdate.Result);
+            DdfEditorAnalysisSnapshot snapshot = panelEditor.AnalysisService.Analyze(request);
+            applyAnalysisSnapshot(snapshot, changedStart, version, languageSnapshot.Revision);
         }
 
         private async void startBackgroundAnalysis()
         {
             if (isApplyingHighlighting || IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed) return;
+            IDdfEditorAnalysisService analysisService = panelEditor?.AnalysisService;
+            if (analysisService == null) return;
 
             string text = richTextBoxMainEditor.Text;
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
             DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
             long version = ++analysisRequestVersion;
+            DdfEditorAnalysisRequest request = createHostAnalysisRequest(
+                text, richTextBoxMainEditor.SelectionStart, version, externalRoots);
             cancelBackgroundAnalysis();
             var cancellation = new CancellationTokenSource();
             analysisCancellation = cancellation;
 
             try
             {
-                EditorAnalysisSnapshot snapshot = await Task.Run(
-                    () => createAnalysisSnapshot(text, externalRoots, languageSnapshot.Language, cancellation.Token),
-                    cancellation.Token);
+                DdfEditorAnalysisSnapshot snapshot = await analysisService.RequestAsync(
+                    request, TimeSpan.Zero, cancellation.Token);
                 if (cancellation.IsCancellationRequested || version != analysisRequestVersion ||
+                    !analysisService.IsCurrent(snapshot) ||
                     languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
                 postEditorCallback(() =>
                 {
@@ -331,40 +321,39 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private static EditorAnalysisSnapshot createAnalysisSnapshot(
-            string text,
+        private DdfEditorAnalysisRequest createHostAnalysisRequest(
+            string text, int position, long fallbackVersion,
             IReadOnlyList<CompilationUnitSyntax> externalRoots,
-            DdfLanguageDefinition language,
-            CancellationToken cancellationToken)
+            DdfLexResult precomputedLexResult = null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            DdfLexResult lexResult = DdfLexer.Lex(text, language);
-            cancellationToken.ThrowIfCancellationRequested();
-            DdfParseResult parseResult = DdfParser.Parse(text, lexResult, language);
-            cancellationToken.ThrowIfCancellationRequested();
-            DdfSemanticModel semanticModel = DdfSemanticModel.Create(text, parseResult.Root);
-            cancellationToken.ThrowIfCancellationRequested();
-            DdfTypeCheckResult typeCheckResult = DdfTypeChecker.Check(
-                text, parseResult.Root, externalRoots, language.Types, language.StandardLibrary);
-            cancellationToken.ThrowIfCancellationRequested();
-            DdfIrBuildResult ir = DdfIrLowerer.Lower(text, parseResult, language);
-            cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, text).Symbols;
-            IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parseResult, text);
-            return new EditorAnalysisSnapshot(text, lexResult, parseResult, semanticModel, typeCheckResult, ir,
-                symbols, folding);
+            IDdfEditorDocument document = openDocuments.ActiveDocumentInfo;
+            return new DdfEditorAnalysisRequest(
+                text,
+                Math.Max(0, Math.Min(position, text.Length)),
+                document?.Version ?? fallbackVersion,
+                editorLanguageSession.ActivePackage,
+                editorLanguageSession.Revision,
+                document?.Id,
+                document?.FilePath,
+                false,
+                externalRoots,
+                null,
+                null,
+                false,
+                precomputedLexResult,
+                panelEditor.HostCatalog?.Snapshot);
         }
 
         private void applyAnalysisSnapshot(
-            EditorAnalysisSnapshot snapshot, int changedStart, long version, long languageRevision)
+            DdfEditorAnalysisSnapshot snapshot, int changedStart, long version, long languageRevision)
         {
             if (snapshot == null || version != analysisRequestVersion ||
                 languageRevision != DdfLanguageCatalog.Revision ||
-                !string.Equals(snapshot.Text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
+                !string.Equals(snapshot.Source, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
             int selectionStart = richTextBoxMainEditor.SelectionStart;
             int selectionLength = richTextBoxMainEditor.SelectionLength;
-            string text = snapshot.Text;
+            string text = snapshot.Source;
             validateBreakpoints(openDocuments.ActiveDocument, text, snapshot.ParseResult.Root);
             if (documentSession.IsDirty)
                 updateWorkspaceDocument(documentSession.CurrentPath, text, snapshot.ParseResult.Root);
@@ -449,6 +438,8 @@ namespace DDF___Program_Language_Editor
             updateFoldingRanges(snapshot.FoldingRanges);
             analysisAppliedVersion = version;
             analysisAppliedLanguageRevision = languageRevision;
+            scheduleFlowchartSnapshot(text, snapshot.IntermediateRepresentation, version,
+                snapshot.ParseResult.Diagnostics.Concat(snapshot.IntermediateRepresentation.Diagnostics));
             updateBreadcrumb();
             refreshEditorOverviewViewport();
             refreshDelimiterHighlight();
@@ -458,6 +449,7 @@ namespace DDF___Program_Language_Editor
         private void cancelBackgroundAnalysis()
         {
             analysisCancellation?.Cancel();
+            panelEditor.AnalysisService?.Cancel();
         }
 
         private void postEditorCallback(Action callback)
@@ -485,32 +477,6 @@ namespace DDF___Program_Language_Editor
             return lineBreak + 1;
         }
 
-        private sealed class EditorAnalysisSnapshot
-        {
-            public EditorAnalysisSnapshot(string text, DdfLexResult lexResult, DdfParseResult parseResult,
-                DdfSemanticModel semanticModel, DdfTypeCheckResult typeCheckResult,
-                DdfIrBuildResult intermediateRepresentation,
-                IReadOnlyList<DdfDocumentSymbol> symbols, IReadOnlyList<DdfFoldingRange> foldingRanges)
-            {
-                Text = text;
-                LexResult = lexResult;
-                ParseResult = parseResult;
-                SemanticModel = semanticModel;
-                TypeCheckResult = typeCheckResult;
-                IntermediateRepresentation = intermediateRepresentation;
-                Symbols = symbols;
-                FoldingRanges = foldingRanges;
-            }
-
-            public string Text { get; }
-            public DdfLexResult LexResult { get; }
-            public DdfParseResult ParseResult { get; }
-            public DdfSemanticModel SemanticModel { get; }
-            public DdfTypeCheckResult TypeCheckResult { get; }
-            public DdfIrBuildResult IntermediateRepresentation { get; }
-            public IReadOnlyList<DdfDocumentSymbol> Symbols { get; }
-            public IReadOnlyList<DdfFoldingRange> FoldingRanges { get; }
-        }
 
         private void updateOutline(IReadOnlyList<DdfDocumentSymbol> symbols)
         {
@@ -898,6 +864,8 @@ namespace DDF___Program_Language_Editor
             updateNavigationCommandState();
             updateBreadcrumb();
             refreshEditorOverviewViewport();
+            refreshFlowchartForCaret();
+            refreshEditorCommandCatalog();
         }
 
         private void richTextBoxMainEditor_MouseDown(object sender, MouseEventArgs e)
@@ -1080,6 +1048,24 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.GetCharIndexFromPosition(new Point(1, bottom))));
             int lastLine = richTextBoxMainEditor.GetLineFromCharIndex(lastIndex);
 
+            // RichEdit can return the previous line for a point near the lower
+            // border even when the next logical line is already partially visible.
+            // Extend the range from real line starts so the gutter never leaves a
+            // visible source row without its number after a viewport restore.
+            string visibleSource = richTextBoxMainEditor.Text;
+            int currentLineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(lastLine);
+            int nextNewline = currentLineStart < 0
+                ? -1 : visibleSource.IndexOf('\n', currentLineStart);
+            int nextStart = nextNewline < 0 ? -1 : nextNewline + 1;
+            while (nextStart >= 0 && nextStart <= visibleSource.Length)
+            {
+                int nextY = richTextBoxMainEditor.GetPositionFromCharIndex(nextStart).Y;
+                if (nextY < 0 || nextY >= richTextBoxMainEditor.ClientRectangle.Height) break;
+                lastLine++;
+                nextNewline = visibleSource.IndexOf('\n', nextStart);
+                nextStart = nextNewline < 0 ? -1 : nextNewline + 1;
+            }
+
             if (lastLine < firstLine)
             {
                 lastLine = firstLine;
@@ -1123,8 +1109,18 @@ namespace DDF___Program_Language_Editor
                 {
                     int row = Math.Max(0, Math.Min(rows - 1,
                         (int)Math.Round(y / (double)lineHeight, MidpointRounding.AwayFromZero)));
-                    while (row < rows && sourceLines[row] != 0) row++;
-                    if (row < rows) sourceLines[row] = sourceLine;
+                    while (row < sourceLines.Count && sourceLines[row] != 0) row++;
+                    if (row < sourceLines.Count)
+                    {
+                        sourceLines[row] = sourceLine;
+                    }
+                    else if (y >= 0 && y < richTextBoxMainEditor.ClientRectangle.Height)
+                    {
+                        // A trailing empty logical line can share RichEdit's last
+                        // visual row. Preserve its identity in the gutter metadata
+                        // and give it a following row instead of silently dropping it.
+                        sourceLines.Add(sourceLine);
+                    }
                 }
                 else if (y >= richTextBoxMainEditor.ClientRectangle.Height + lineHeight / 2) break;
 

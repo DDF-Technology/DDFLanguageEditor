@@ -88,17 +88,18 @@ namespace DDF___Program_Language_Editor
                 if (!running || watchSnapshot == null) return;
                 for (int index = 0; index < watchSnapshot.CallStack.Count; index++)
                 {
-                    DdfRuntimeStackFrame frame = watchSnapshot.CallStack[index];
-                    string document = string.IsNullOrEmpty(frame.DocumentPath)
+                    DdfEditorDebugStackFrameSnapshot frame = watchSnapshot.CallStack[index];
+                    DdfEditorDebugLocation location = frame.Location;
+                    string document = string.IsNullOrEmpty(location.FilePath)
                         ? (string.IsNullOrEmpty(runtimeDocumentPath) ? "Documento corrente" : Path.GetFileName(runtimeDocumentPath))
-                        : Path.GetFileName(frame.DocumentPath);
+                        : Path.GetFileName(location.FilePath);
                     var row = new ListViewItem(new[]
                     {
                         index == 0 ? "▶ 0" : index.ToString(),
                         frame.FunctionName + "()",
-                        "riga " + frame.Line + ", colonna " + frame.Column,
+                        "riga " + location.Line + ", colonna " + location.Column,
                         document
-                    }) { Tag = index, ToolTipText = frame.DocumentPath ?? runtimeDocumentPath };
+                    }) { Tag = index, ToolTipText = location.FilePath ?? runtimeDocumentPath };
                     callStackListView.Items.Add(row);
                     if (index == selectedFrame) row.Selected = true;
                 }
@@ -153,11 +154,11 @@ namespace DDF___Program_Language_Editor
             if (watchSnapshot == null || callStackListView.SelectedItems.Count == 0) return;
             int index = (int)callStackListView.SelectedItems[0].Tag;
             if (index < 0 || index >= watchSnapshot.CallStack.Count) return;
-            DdfRuntimeStackFrame frame = watchSnapshot.CallStack[index];
+            DdfEditorDebugLocation frame = watchSnapshot.CallStack[index].Location;
 
-            if (!string.IsNullOrEmpty(frame.DocumentPath) && File.Exists(frame.DocumentPath))
+            if (!string.IsNullOrEmpty(frame.FilePath) && File.Exists(frame.FilePath))
             {
-                if (!openDocument(frame.DocumentPath)) return;
+                if (!openDocument(frame.FilePath)) return;
             }
             else if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView view))
                 activateDocument(view);

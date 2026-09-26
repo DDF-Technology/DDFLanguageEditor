@@ -154,7 +154,8 @@ namespace DDFLanguageEditor.Core
             IEnumerable<DdfDocumentSymbol> externalSymbols = null,
             IEnumerable<DdfCompletionItem> externalItems = null,
             IEnumerable<CompilationUnitSyntax> externalRoots = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            DdfHostCatalogSnapshot hostCatalog = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             source = source ?? string.Empty;
@@ -184,7 +185,8 @@ namespace DDFLanguageEditor.Core
             cancellationToken.ThrowIfCancellationRequested();
             string expectedType = libraryContext ? string.Empty :
                 DdfExpectedTypeService.GetExpectedType(
-                    source, parseResult.Root, prefixStart, externalRoots, language.Types);
+                    source, parseResult.Root, prefixStart, externalRoots, language.Types,
+                    hostCatalog);
             DdfCompletionContextKind context = GetContext(source, prefixStart, libraryContext, expectedType, language);
             var candidates = new List<DdfCompletionItem>();
 
@@ -261,6 +263,8 @@ namespace DDFLanguageEditor.Core
                     }
                 }
                 if (externalItems != null) candidates.AddRange(externalItems);
+                if (context == DdfCompletionContextKind.Member)
+                    AddHostMemberItems(candidates, source, prefixStart, hostCatalog);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -282,6 +286,34 @@ namespace DDFLanguageEditor.Core
 
             cancellationToken.ThrowIfCancellationRequested();
             return new DdfCompletionResult(prefixStart, prefix.Length, filtered.AsReadOnly(), context, expectedType);
+        }
+
+        private static void AddHostMemberItems(ICollection<DdfCompletionItem> result,
+            string source, int prefixStart, DdfHostCatalogSnapshot hostCatalog)
+        {
+            if (hostCatalog == null || prefixStart <= 1 || source[prefixStart - 1] != '.') return;
+            int end = prefixStart - 1;
+            int start = end;
+            while (start > 0 && (char.IsLetterOrDigit(source[start - 1]) ||
+                                 source[start - 1] == '_')) start--;
+            if (start == end) return;
+            string objectName = source.Substring(start, end - start);
+            DdfHostObjectDefinition hostObject = hostCatalog.Objects.FirstOrDefault(item =>
+                string.Equals(item.Name, objectName, StringComparison.Ordinal));
+            DdfHostTypeDefinition hostType = hostCatalog.Types.FirstOrDefault(item =>
+                string.Equals(item.Name, hostObject?.TypeName, StringComparison.Ordinal));
+            if (hostType == null) return;
+            foreach (DdfHostFieldDefinition field in hostType.Fields)
+            {
+                string access = field.CanWrite ? "lettura/scrittura" : "sola lettura";
+                string kind = field.MemberKind == DdfHostMemberKind.Property
+                    ? "Proprietà host" : "Campo host";
+                result.Add(new DdfCompletionItem(field.Name, field.Name,
+                    DdfCompletionKind.Field,
+                    kind + " · " + access + (string.IsNullOrWhiteSpace(field.Documentation)
+                        ? string.Empty : " — " + field.Documentation),
+                    field.TypeName, "Host", int.MaxValue));
+            }
         }
 
         private static bool IsInProtectedToken(DdfLexResult lexResult, int position)

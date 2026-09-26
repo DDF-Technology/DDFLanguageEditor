@@ -89,6 +89,8 @@ namespace DDFLanguageEditor.Core
         private bool stepOutPending;
         private int stepOutFrameDepth;
         private bool disposed;
+        private int activeWaiters;
+        private bool resumeSignalDisposed;
 
         public Action<DdfDebugPauseInfo> Paused { get; set; }
 
@@ -201,6 +203,7 @@ namespace DDFLanguageEditor.Core
                 stepOverFrameDepth = frameDepth;
                 isPaused = true;
                 resumeSignal.Reset();
+                activeWaiters++;
                 callback = Paused;
             }
 
@@ -210,28 +213,58 @@ namespace DDFLanguageEditor.Core
                 Math.Max(0, node == null ? 0 : node.Start),
                 Math.Max(1, node == null ? 1 : node.Length), captureState?.Invoke(), documentPath));
 
-            while (!resumeSignal.Wait(25))
+            try
             {
-                if (cancellationRequested != null && cancellationRequested())
+                while (!resumeSignal.Wait(25))
                 {
-                    Continue();
-                    return false;
+                    if (cancellationRequested != null && cancellationRequested())
+                    {
+                        Continue();
+                        return false;
+                    }
                 }
-            }
 
-            return cancellationRequested == null || !cancellationRequested();
+                lock (synchronization)
+                    if (disposed) return false;
+                return cancellationRequested == null || !cancellationRequested();
+            }
+            finally
+            {
+                ReleaseWaiter();
+            }
         }
 
         public void Dispose()
         {
+            bool disposeSignal = false;
             lock (synchronization)
             {
                 if (disposed) return;
                 disposed = true;
                 isPaused = false;
                 resumeSignal.Set();
+                if (activeWaiters == 0 && !resumeSignalDisposed)
+                {
+                    resumeSignalDisposed = true;
+                    disposeSignal = true;
+                }
             }
-            resumeSignal.Dispose();
+            if (disposeSignal) resumeSignal.Dispose();
+        }
+
+        private void ReleaseWaiter()
+        {
+            bool disposeSignal = false;
+            lock (synchronization)
+            {
+                activeWaiters--;
+                if (disposed && activeWaiters == 0 && !resumeSignalDisposed)
+                {
+                    resumeSignalDisposed = true;
+                    disposeSignal = true;
+                }
+            }
+            if (disposeSignal) resumeSignal.Dispose();
         }
 
         private void ThrowIfDisposed()

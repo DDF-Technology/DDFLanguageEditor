@@ -1,0 +1,148 @@
+// DDFLanguageEditor - smoke test manuale per la palette Flowchart
+// Posizionare il cursore dentro main(), adjust() o classify()
+// per verificare il cambio automatico del diagramma corrente.
+
+adjust(int value, int step) out int
+{
+    if(value > 50)
+    {
+        value << value - step;
+    }
+    else
+    {
+        value << value + step;
+    }
+
+    ret value;
+}
+
+classify(int value) out int
+{
+    if(value >= 80)
+    {
+        ret 3;
+    }
+    else
+    {
+        if(value >= 60)
+        {
+            ret 2;
+        }
+        else
+        {
+            if(value >= 40)
+            {
+                ret 1;
+            }
+            else
+            {
+                ret 0;
+            }
+        }
+    }
+}
+
+main() out int
+{
+    int score << 18;
+    int phase << 0;
+    int category << 0;
+    bool enabled << true;
+
+    if(enabled)
+    {
+        score << adjust(score, 10);
+
+        if(score > 25)
+        {
+            score << score + 4;
+        }
+        else
+        {
+            score << score - 2;
+        }
+    }
+    else
+    {
+        score << 0;
+    }
+
+    do
+    {
+        phase++;
+
+        if(phase == 2)
+        {
+            score << score + 8;
+        }
+        else
+        {
+            score << score + 3;
+        }
+    }
+    while(phase < 3);
+
+    while(score < 70)
+    {
+        score << score + 9;
+
+        if(score > 64)
+        {
+            brk;
+        }
+    }
+
+    for(int index << 0; index < 6; index++)
+    {
+        if(index == 2)
+        {
+            score << adjust(score, index);
+        }
+        else
+        {
+            if(index == 5)
+            {
+                score << adjust(score, index);
+            }
+            else
+            {
+                score << score + index;
+            }
+        }
+
+        if(score > 95)
+        {
+            brk;
+        }
+    }
+
+    category << classify(score);
+
+    if(score < 0)
+    {
+        end;
+    }
+
+    if(category == 3)
+    {
+        ret score + 300;
+    }
+    else
+    {
+        if(category == 2)
+        {
+            ret score + 200;
+        }
+        else
+        {
+            if(category == 1)
+            {
+                ret score + 100;
+            }
+            else
+            {
+                ret score;
+            }
+        }
+    }
+}

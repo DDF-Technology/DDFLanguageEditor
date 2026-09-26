@@ -1,0 +1,20 @@
+{
+  "$schema": "../../ddf-project.schema.json",
+  "schemaVersion": "1.0",
+  "name": "DDF Flowchart multi-file test",
+  "languageId": "ddf",
+  "languagePackageVersion": "0.9.6.7",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "flowchart-workspace.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": true,
+    "maxInstructions": 100000
+  }
+}

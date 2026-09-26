@@ -55,16 +55,43 @@ namespace DDF___Program_Language_Editor
         private Func<FolderBrowserDialog, DialogResult> showWorkspaceDialog;
         private Func<string> requestRuntimeInput;
         private bool paneFocusMessageFilterRegistered;
+        private readonly bool embeddedHostMode;
 
-        public MainForm()
+        public MainForm() : this(false)
         {
+        }
+
+        public MainForm(bool embeddedHostMode)
+        {
+            this.embeddedHostMode = embeddedHostMode;
+            documentViews = new DdfDocumentViewCoordinator(openDocuments);
             restoreActiveLanguagePackage();
+            editorLanguageSession = new DdfLanguagePackageSession(DdfLanguageCatalog.DefaultPackage);
             recreateLanguageServices();
             InitializeComponent();
+            panelEditor.BindEditor(richTextBoxMainEditor);
             initializeDocuments();
+            panelEditor.AttachDocumentService(openDocuments, false);
             initializeEditingExperience();
             initializeMainToolbar();
             initializeLanguagePackageCommands();
+            panelEditor.AttachBuildService(new DdfEditorBuildService(
+                () => openDocuments,
+                () => editorLanguageSession,
+                () => panelEditor.HostCatalog?.Snapshot,
+                executeStandaloneBuild));
+            standaloneExecutionService = new DdfEditorExecutionService(
+                () => openDocuments,
+                () => editorLanguageSession,
+                () => panelEditor.HostCatalog?.Snapshot,
+                prepareStandaloneExecution);
+            standaloneDebugService = new DdfEditorDebugService(
+                () => openDocuments,
+                () => editorLanguageSession,
+                () => panelEditor.HostCatalog?.Snapshot,
+                prepareStandaloneExecution);
+            panelEditor.AttachExecutionService(standaloneExecutionService);
+            panelEditor.AttachDebugService(standaloneDebugService);
             initializeDebugger();
 
             System.Drawing.Icon applicationIcon = AppIconProvider.LoadIcon();
@@ -95,6 +122,8 @@ namespace DDF___Program_Language_Editor
             richTextBoxFoldedView.SelectionChanged += richTextBoxFoldedView_SelectionChanged;
             richTextBoxLineNumbers.TargetControl = richTextBoxMainEditor;
             initializeWorkspace();
+            initializeFlowchart();
+            initializeHostApiExplorer();
             closeWorkspaceMenuItem.Enabled = false;
             initializeWorkspaceSearch();
             initializeWorkspaceNavigation();
@@ -123,7 +152,87 @@ namespace DDF___Program_Language_Editor
             applyEditorSettings();
             applyApplicationTheme();
             applyActiveLanguagePackageStatus();
+            applyEmbeddedHostMode();
             TextBoxEditingSupport.Apply(this);
+        }
+
+        /// <summary>
+        /// Superficie pubblica della shell completa per le applicazioni host.
+        /// Conserva menu, palette, gutter, formattazione e debugger dell'IDE.
+        /// </summary>
+        public DdfEditorView EmbeddedEditor => panelEditor;
+
+        public bool EmbeddedHostMode => embeddedHostMode;
+
+        public bool IsEmbeddedExecutionRunning => executionRunning;
+
+        public bool IsEmbeddedDebugPaused => panelEditor.DebugService?.IsPaused == true;
+
+        public bool HasEmbeddedBreakpoints => openDocuments.Documents.Any(document =>
+            getEnabledBreakpointLines(document).Any());
+
+        public DdfExecutionResult LastEmbeddedExecutionResult { get; private set; }
+
+        public event EventHandler EmbeddedExecutionPreparing;
+
+        public event EventHandler EmbeddedExecutionCompleted;
+
+        public event EventHandler<DdfEmbeddedDocumentSaveEventArgs> EmbeddedDocumentSaveRequested;
+
+        private void applyEmbeddedHostMode()
+        {
+            if (!embeddedHostMode) return;
+            buildProjectMenuItem.Available = false;
+            saveAsMenuItem.Available = false;
+            if (toolbarBuildButton != null) toolbarBuildButton.Available = false;
+            runWithoutDebugMenuItem.Available = false;
+            runProgramMenuItem.Available = false;
+            stopProgramMenuItem.Available = false;
+            if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Available = false;
+            if (toolbarRunButton != null) toolbarRunButton.Available = false;
+            if (toolbarStopButton != null) toolbarStopButton.Available = false;
+        }
+
+        public bool ExecuteEmbeddedScript(bool debug)
+        {
+            if (executionRunning) return false;
+            embeddedEntryPoint = null;
+            embeddedEntryArguments = null;
+            executeProject(debug);
+            return executionRunning;
+        }
+
+        public bool ExecuteEmbeddedProcedure(string entryPoint,
+            IReadOnlyDictionary<string, object> arguments = null, bool debug = false)
+        {
+            if (executionRunning || string.IsNullOrWhiteSpace(entryPoint)) return false;
+            embeddedEntryPoint = entryPoint.Trim();
+            embeddedEntryArguments = arguments == null
+                ? null
+                : new Dictionary<string, object>(arguments, StringComparer.Ordinal);
+            executeProject(debug);
+            if (executionRunning) return true;
+            embeddedEntryPoint = null;
+            embeddedEntryArguments = null;
+            return false;
+        }
+
+        public void ToggleEmbeddedBreakpoint(int oneBasedLine) =>
+            toggleBreakpointAtLine(oneBasedLine);
+
+        public bool ContinueEmbeddedDebug()
+        {
+            if (panelEditor.DebugService?.IsPaused != true) return false;
+            clearDebugExecutionLine();
+            panelEditor.DebugService.Continue();
+            updateExecutionCommands(true);
+            return true;
+        }
+
+        public bool RequestEmbeddedDocumentSave()
+        {
+            if (!embeddedHostMode) return false;
+            return saveEmbeddedDocument();
         }
 
         private void applyApplicationTheme()
@@ -155,6 +264,11 @@ namespace DDF___Program_Language_Editor
             disposeAutoSaveAndHotExit();
             disposeCrashRecovery();
             disposeExternalChangeMonitoring();
+            disposeFlowchart();
+            if (panelEditor != null) panelEditor.HostCatalogChanged -= panelEditor_HostCatalogChanged;
+            standaloneDebugService?.Dispose();
+            standaloneExecutionService?.Dispose();
+            hostApiImages?.Dispose();
             editorContextMenu?.Dispose();
             symbolToolTip.Dispose();
             highlightTimer.Dispose();
@@ -173,8 +287,11 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            restoreWorkspaceSession();
-            if (!restoreCrashRecoveryBuffers()) restoreHotExitBuffers();
+            if (!embeddedHostMode)
+            {
+                restoreWorkspaceSession();
+                if (!restoreCrashRecoveryBuffers()) restoreHotExitBuffers();
+            }
             applyPersistedPaletteLayout();
             refreshRecentMenu();
             refreshRecentWorkspacesMenu();
@@ -189,6 +306,11 @@ namespace DDF___Program_Language_Editor
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (embeddedHostMode)
+            {
+                stopExecution();
+                return;
+            }
             bool hotExitPrepared = editorSettings?.HotExitEnabled == true && prepareHotExit();
             if (!hotExitPrepared && !confirmAllDocumentChanges())
             {
@@ -334,6 +456,7 @@ namespace DDF___Program_Language_Editor
 
         private bool saveDocument(bool forceSaveAs)
         {
+            if (embeddedHostMode) return saveEmbeddedDocument();
             string path = documentSession.CurrentPath;
             if (forceSaveAs || string.IsNullOrEmpty(path))
             {
@@ -367,9 +490,9 @@ namespace DDF___Program_Language_Editor
                 if (!canWriteDocument(activeDocumentView, path)) return false;
                 if (editorSettings.FormatOnSave) formatDocumentMenuItem_Click(this, EventArgs.Empty);
                 DdfDocumentFile.Save(path, editorSettings.ApplyLineEndings(richTextBoxMainEditor.Text));
-                documentSession.MarkSaved(path);
-                markCrashRecoveryChanged();
                 activeDocumentView.Buffer.UpdateSource(richTextBoxMainEditor.Text, false);
+                openDocuments.MarkDocumentSaved(activeDocumentView.Buffer.Id, path);
+                markCrashRecoveryChanged();
                 richTextBoxMainEditor.Modified = false;
                 addRecentFile(path);
                 updateDocumentUi();
@@ -394,6 +517,30 @@ namespace DDF___Program_Language_Editor
                     refreshEditorOverviewViewport();
                 }
             }
+        }
+
+        private bool saveEmbeddedDocument()
+        {
+            DocumentView view = activeDocumentView;
+            if (view == null) return false;
+            view.Buffer.UpdateSource(view.Editor.Text, false);
+            var args = new DdfEmbeddedDocumentSaveEventArgs(
+                view.Buffer.Id, view.Buffer.Session.DisplayName, view.Editor.Text);
+            EmbeddedDocumentSaveRequested?.Invoke(this, args);
+            if (!args.Succeeded)
+            {
+                statusFileLabel.ToolTipText = string.IsNullOrWhiteSpace(args.ErrorMessage)
+                    ? "L'applicazione host non ha configurato la persistenza dello script."
+                    : args.ErrorMessage;
+                return false;
+            }
+
+            view.Buffer.MarkPersisted();
+            view.Editor.Modified = false;
+            updateDocumentUi();
+            updateDocumentTab(view);
+            statusFileLabel.ToolTipText = "Script salvato dall'applicazione host.";
+            return true;
         }
 
         private bool confirmDiscardChanges()
@@ -492,7 +639,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.11.0 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = "DDFLanguageEditor 0.11.2 Beta — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;
@@ -503,6 +650,7 @@ namespace DDF___Program_Language_Editor
             if (toolbarCloseDocumentButton != null) toolbarCloseDocumentButton.Enabled = closeDocumentMenuItem.Enabled;
             updateDocumentTab(activeDocumentView);
             updateBreadcrumb();
+            refreshEditorCommandCatalog();
         }
 
         private void editMenuItem_DropDownOpening(object sender, EventArgs e)
@@ -512,6 +660,7 @@ namespace DDF___Program_Language_Editor
                 applyDebugUnsafeCommandLock();
                 copyMenuItem.Enabled = richTextBoxMainEditor.SelectionLength > 0;
                 selectAllMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
+                refreshEditorCommandCatalog();
                 return;
             }
             if (richTextBoxFoldedView.Visible)
@@ -539,6 +688,7 @@ namespace DDF___Program_Language_Editor
                 quickFixMenuItem.Enabled = false;
                 findReferencesMenuItem.Enabled = false;
                 goToLastEditMenuItem.Enabled = false;
+                refreshEditorCommandCatalog();
                 return;
             }
 
@@ -569,6 +719,7 @@ namespace DDF___Program_Language_Editor
             findReferencesMenuItem.Enabled = canFindReferences();
             goToLastEditMenuItem.Enabled = activeDocumentView?.LastEditPosition != null;
             updateEditingSelectionCommandState();
+            refreshEditorCommandCatalog();
         }
 
         private static bool clipboardContainsText()

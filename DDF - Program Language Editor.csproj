@@ -1,19 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>DDF___Program_Language_Editor</RootNamespace>
-    <AssemblyName>DDFLanguageEditor</AssemblyName>
-    <ApplicationIcon>Resource\DDFLanguageEditor.ico</ApplicationIcon>
+    <AssemblyName>DDFLanguageEditor.WinForms</AssemblyName>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.Core\**;tests\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Core\**;tests\**;samples\**</DefaultItemExcludes>
+    <IsPackable>true</IsPackable>
+    <PackageId>DDFLanguageEditor.WinForms</PackageId>
+    <PackageVersion>0.11.2-beta</PackageVersion>
+    <Authors>Fabio De Deo</Authors>
+    <Company>DDF.Technology</Company>
+    <Description>WinForms controls and full embeddable shell for DDFLanguageEditor.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>EDITOR_SDK.md</PackageReadmeFile>
+    <PackageTags>DDF editor WinForms scripting embedded</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Program.cs" />
     <ProjectReference Include="DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="LICENSE" Pack="true" PackagePath="" />
+    <None Update="EDITOR_SDK.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

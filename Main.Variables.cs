@@ -87,7 +87,7 @@ namespace DDF___Program_Language_Editor
                 treeViewVariables.Nodes.Clear();
                 if (!running || watchSnapshot == null) return;
 
-                DdfRuntimeVariableSnapshot[] selectedVariables = getSelectedFrameVariables().ToArray();
+                DdfEditorDebugVariableSnapshot[] selectedVariables = getSelectedFrameVariables().ToArray();
                 addVariableGroup("Parametri", "parameters", selectedVariables
                     .Where(variable => variable.Kind == DdfRuntimeVariableKind.Parameter));
                 addVariableGroup("Variabili locali", "locals", selectedVariables
@@ -109,26 +109,25 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private IEnumerable<DdfRuntimeVariableSnapshot> getSelectedFrameVariables()
+        private IEnumerable<DdfEditorDebugVariableSnapshot> getSelectedFrameVariables()
         {
-            if (watchSnapshot == null) return Enumerable.Empty<DdfRuntimeVariableSnapshot>();
-            IEnumerable<DdfRuntimeVariableSnapshot> globals = watchSnapshot.Variables
-                .Where(variable => variable.Kind == DdfRuntimeVariableKind.Global);
-            if (selectedCallStackFrameIndex >= 0 && selectedCallStackFrameIndex < watchSnapshot.Frames.Count)
-                return watchSnapshot.Frames[selectedCallStackFrameIndex].Variables.Concat(globals);
+            if (watchSnapshot == null) return Enumerable.Empty<DdfEditorDebugVariableSnapshot>();
+            IEnumerable<DdfEditorDebugVariableSnapshot> globals = watchSnapshot.Globals;
+            if (selectedCallStackFrameIndex >= 0 && selectedCallStackFrameIndex < watchSnapshot.CallStack.Count)
+                return watchSnapshot.CallStack[selectedCallStackFrameIndex].Variables.Concat(globals);
             return watchSnapshot.Variables;
         }
 
-        private void addVariableGroup(string title, string key, IEnumerable<DdfRuntimeVariableSnapshot> variables)
+        private void addVariableGroup(string title, string key, IEnumerable<DdfEditorDebugVariableSnapshot> variables)
         {
-            DdfRuntimeVariableSnapshot[] items = variables.OrderBy(item => item.Name, StringComparer.Ordinal).ToArray();
+            DdfEditorDebugVariableSnapshot[] items = variables.OrderBy(item => item.Name, StringComparer.Ordinal).ToArray();
             if (items.Length == 0) return;
             var group = new TreeNode(title) { Name = key };
-            foreach (DdfRuntimeVariableSnapshot variable in items) group.Nodes.Add(createVariableNode(variable));
+            foreach (DdfEditorDebugVariableSnapshot variable in items) group.Nodes.Add(createVariableNode(variable));
             treeViewVariables.Nodes.Add(group);
         }
 
-        private static TreeNode createVariableNode(DdfRuntimeVariableSnapshot variable)
+        private static TreeNode createVariableNode(DdfEditorDebugVariableSnapshot variable)
         {
             string scope = variable.Kind == DdfRuntimeVariableKind.Local && variable.ScopeDepth > 0
                 ? " — scope +" + variable.ScopeDepth
@@ -138,7 +137,7 @@ namespace DDF___Program_Language_Editor
                 Name = variable.Name,
                 Tag = variable
             };
-            foreach (DdfRuntimeVariableSnapshot child in variable.Children) node.Nodes.Add(createVariableNode(child));
+            foreach (DdfEditorDebugVariableSnapshot child in variable.Children) node.Nodes.Add(createVariableNode(child));
             if (variable.IsTruncated) node.Nodes.Add(new TreeNode("… snapshot troncato") { Name = "truncated" });
             return node;
         }

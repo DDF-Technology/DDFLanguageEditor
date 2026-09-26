@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="730" height="1808" viewBox="0 0 730 1808" role="img" aria-label="Flowchart della funzione processScore" xmlns="http://www.w3.org/2000/svg">
+  <title>Flowchart processScore()</title>
+  <metadata>DDFLanguageEditor flowchart; educationalMode=True</metadata>
+  <defs>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#697078" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5678a6" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#168242" />
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#be3737" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="730" height="1808" fill="#ffffff" />
+  <polyline points="127,1536 127,1592" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="365,1656 365,1712" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="603,1656 603,1680 365,1680 365,1712" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="365,1536 365,1592" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="365,1536 365,1560 603,1560 603,1592" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,1416 127,1440 365,1440 365,1472" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,1416 127,1472" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,1296 127,1352" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,1176 127,1232" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="365,1056 365,1080 127,1080 127,1112" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="365,936 365,992" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,816 127,840 365,840 365,872" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,816 127,1232" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,576 127,632" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,456 127,512" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,696 127,752" fill="none" stroke="#be3737" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow-red)" />
+  <polyline points="127,336 127,392" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,216 127,272" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <polyline points="127,96 127,152" fill="none" stroke="#697078" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrow-gray)" />
+  <line x1="365" y1="1776" x2="365" y2="1800" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="365" y1="1800" x2="14" y2="1800" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="14" y1="1800" x2="14" y2="1334" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="14" y1="1334" x2="127" y2="1334" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#arrow-blue)" />
+  <line x1="365" y1="1080" x2="365" y2="1092" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="365" y1="1092" x2="478" y2="1092" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="478" y1="1092" x2="478" y2="734" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="478" y1="734" x2="127" y2="734" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#arrow-blue)" />
+  <line x1="127" y1="732" x2="240" y2="732" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="240" y1="732" x2="240" y2="374" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" />
+  <line x1="240" y1="374" x2="127" y2="374" fill="none" stroke="#5678a6" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="5 4" marker-end="url(#arrow-blue)" />
+  <polygon points="371,1680 378,1676.5 378,1683.5" fill="#525962" />
+  <polygon points="121,1334 114,1337.5 114,1330.5" fill="#43699b" />
+  <polygon points="133,734 140,730.5 140,737.5" fill="#43699b" />
+  <polygon points="133,374 140,370.5 140,377.5" fill="#43699b" />
+  <ellipse cx="127" cy="64" rx="95" ry="32" fill="#dcede1" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="64" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">processScore()</tspan>
+  </text>
+  <rect x="32" y="152" width="190" height="64" rx="9" ry="9" fill="#efe6fa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="177.5" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">int value &lt;&lt;</tspan>
+    <tspan x="127" dy="13">normalizeScore(input);</tspan>
+  </text>
+  <rect x="32" y="272" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="304" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">int phase &lt;&lt; 0;</tspan>
+  </text>
+  <rect x="32" y="392" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="424" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">value &lt;&lt; value + step;</tspan>
+  </text>
+  <rect x="32" y="512" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="544" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">phase++;</tspan>
+  </text>
+  <polygon points="127,632 222,664 127,696 32,664" fill="#ddebfc" stroke="#2369b2" stroke-width="2.5" />
+  <text x="127" y="664" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">phase &lt; 3</tspan>
+  </text>
+  <polygon points="127,752 222,784 127,816 32,784" fill="#e0ebfa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="784" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">value &lt; 40</tspan>
+  </text>
+  <rect x="270" y="872" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="365" y="904" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="365">value &lt;&lt; value + 7;</tspan>
+  </text>
+  <polygon points="365,992 460,1024 365,1056 270,1024" fill="#e0ebfa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="365" y="1024" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="365">value &gt; 36</tspan>
+  </text>
+  <rect x="32" y="1112" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="1144" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">brk;</tspan>
+  </text>
+  <rect x="32" y="1232" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="1264" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">int index &lt;&lt; 0;</tspan>
+  </text>
+  <polygon points="127,1352 222,1384 127,1416 32,1384" fill="#e0ebfa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="1384" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">index &lt; 5</tspan>
+  </text>
+  <rect x="32" y="1472" width="190" height="64" rx="9" ry="9" fill="#fae5e0" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="1504" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">ret value;</tspan>
+  </text>
+  <polygon points="365,1472 460,1504 365,1536 270,1504" fill="#e0ebfa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="365" y="1504" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="365">index == 2</tspan>
+  </text>
+  <ellipse cx="127" cy="1624" rx="95" ry="32" fill="#dcede1" stroke="#5c6876" stroke-width="1.3" />
+  <text x="127" y="1624" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="127">Fine processScore</tspan>
+  </text>
+  <rect x="270" y="1592" width="190" height="64" rx="9" ry="9" fill="#efe6fa" stroke="#5c6876" stroke-width="1.3" />
+  <text x="365" y="1617.5" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="365">value &lt;&lt; normalizeScore(value +</tspan>
+    <tspan x="365" dy="13">index);</tspan>
+  </text>
+  <rect x="508" y="1592" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="603" y="1624" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="603">value++;</tspan>
+  </text>
+  <rect x="270" y="1712" width="190" height="64" rx="9" ry="9" fill="#f7f7f7" stroke="#5c6876" stroke-width="1.3" />
+  <text x="365" y="1744" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#202020">
+    <tspan x="365">index++</tspan>
+  </text>
+  <rect x="373" y="1541" width="24" height="18" fill="#eef9f1" stroke="#166837" />
+  <text x="385" y="1550" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#166837">Sì</text>
+  <rect x="471.5" y="1540" width="25" height="18" fill="#fdf0f0" stroke="#9b2e2e" />
+  <text x="484" y="1549" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#9b2e2e">No</text>
+  <rect x="234" y="1420" width="24" height="18" fill="#eef9f1" stroke="#166837" />
+  <text x="246" y="1429" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#166837">Sì</text>
+  <rect x="94.5" y="1421" width="25" height="18" fill="#fdf0f0" stroke="#9b2e2e" />
+  <text x="107" y="1430" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#9b2e2e">No</text>
+  <rect x="234" y="1060" width="24" height="18" fill="#eef9f1" stroke="#166837" />
+  <text x="246" y="1069" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#166837">Sì</text>
+  <rect x="234" y="820" width="24" height="18" fill="#eef9f1" stroke="#166837" />
+  <text x="246" y="829" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#166837">Sì</text>
+  <rect x="94.5" y="821" width="25" height="18" fill="#fdf0f0" stroke="#9b2e2e" />
+  <text x="107" y="830" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#9b2e2e">No</text>
+  <rect x="94.5" y="701" width="25" height="18" fill="#fdf0f0" stroke="#9b2e2e" />
+  <text x="107" y="710" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#9b2e2e">No</text>
+  <rect x="409" y="1072" width="25" height="18" fill="#fdf0f0" stroke="#9b2e2e" />
+  <text x="421.5" y="1081" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#9b2e2e">No</text>
+  <rect x="171.5" y="712" width="24" height="18" fill="#eef9f1" stroke="#166837" />
+  <text x="183.5" y="721" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#166837">Sì</text>
+</svg>

@@ -105,6 +105,7 @@ namespace DDF___Program_Language_Editor
             updateFoldingCommandState();
             updateEditorVisualCommandState();
             updateToolbarVisibilityMenu();
+            refreshEditorCommandCatalog();
         }
 
         private void updateFoldingCommandState()

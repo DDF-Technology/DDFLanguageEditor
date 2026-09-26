@@ -1,0 +1,51 @@
+classifyScore(int score) out int
+{
+    if(score >= 75)
+    {
+        ret 3;
+    }
+    else
+    {
+        if(score >= 50)
+        {
+            ret 2;
+        }
+        else
+        {
+            if(score >= 25)
+            {
+                ret 1;
+            }
+            else
+            {
+                ret 0;
+            }
+        }
+    }
+}
+
+finalizeScore(int score, int category, int extra) out int
+{
+    int result << score + extra;
+
+    if(category == 3)
+    {
+        result << result + 300;
+    }
+    else
+    {
+        if(category == 2)
+        {
+            result << result + 200;
+        }
+        else
+        {
+            if(category == 1)
+            {
+                result << result + 100;
+            }
+        }
+    }
+
+    ret result;
+}

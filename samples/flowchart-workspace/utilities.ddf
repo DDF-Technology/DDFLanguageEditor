@@ -1,0 +1,56 @@
+struct ScoreBox
+{
+    int value;
+    int weight;
+}
+
+int globalOffset << 2;
+
+normalizeScore(int value) out int
+{
+    if(value < 0)
+    {
+        ret 0;
+    }
+
+    if(value > 100)
+    {
+        ret 100;
+    }
+
+    ret value;
+}
+
+recursiveBonus(int level) out int
+{
+    if(level <= 0)
+    {
+        ret 0;
+    }
+
+    ret level + recursiveBonus(level - 1);
+}
+
+inspectSamples(int input) out int
+{
+    int[3] values;
+    ScoreBox box;
+
+    values[0] << input;
+    values[1] << input + 1;
+    values[2] << input + globalOffset;
+    box.value << values[0] + values[2];
+    box.weight << values[1];
+
+    ret box.value + box.weight;
+}
+
+guardExecution(bool stop) out int
+{
+    if(stop)
+    {
+        end;
+    }
+
+    ret 0;
+}

@@ -1,4 +1,38 @@
-# DDFLanguageEditor 0.11.0
+# DDFLanguageEditor 0.11.2
+
+This is an unsigned, experimental Windows beta released under the MIT License.
+
+Version 0.11.2 delivers the first embeddable editor SDK. The repository now
+produces separate `DDFLanguageEditor.Core` and `DDFLanguageEditor.WinForms`
+libraries, plus a standalone launcher, with local `0.11.2-beta` NuGet packages
+and a minimal host sample.
+
+The public host contract reaches version 0.31 and covers documents, analysis,
+commands, persistence, projects, build, execution, debugging, host APIs,
+permissions, databases, effects and the embedded WinForms lifecycle. The
+standalone shell uses the same build, Run and Debug services while retaining
+multi-file workspaces, unsaved buffers, breakpoints, Watch, Call Stack,
+automatic source navigation and the dynamic flowchart.
+
+The flowchart introduced in 0.11.1 derives control flow from the shared IR,
+supports source navigation, zoom, pan, educational annotations, runtime
+position and SVG/JPEG export. HostDemo, DatabaseDemo and MinimalHost exercise
+the supported integration paths without granting scripts arbitrary reflection
+or implicit file-system access.
+
+The Core suite contains 202 passing tests. The WinForms smoke covers all 74
+registered menu commands as well as the standalone and embedded lifecycles.
+
+Previous version notes follow.
+
+## 0.11.1
+
+Version 0.11.1 adds the dynamic, source-linked flowchart and its reusable
+`FlowchartView`. It visualizes decisions, loops, calls and returns, follows the
+debugger, navigates between source and nodes, and supports pointer, pan, zoom
+and full-diagram export.
+
+## 0.11.0
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 
