@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-intellisense-v1",
+  "dependsOn": [ "lexicon", "grammar", "types", "semantics" ],
+  "completion": {
+    "keywordOrigin": "profilo didattico italiano",
+    "booleanOrigin": "profilo didattico italiano",
+    "snippetOrigin": "snippet didattico",
+    "standardLibraryOrigin": "libreria standard",
+    "currentDocumentOrigin": "documento corrente",
+    "workspaceOrigin": "workspace",
+    "typeDetail": "tipo",
+    "controlFlowDetail": "controllo di flusso",
+    "keywordDetail": "parola chiave",
+    "booleanDetail": "valore booleano",
+    "standardFunctionDetailPrefix": "funzione standard — "
+  },
+  "signatureHelp": {
+    "currentDocumentOrigin": "documento corrente",
+    "workspaceOrigin": "workspace",
+    "standardLibraryOrigin": "libreria standard"
+  },
+  "symbolKinds": [
+    { "kind": "Library", "label": "libreria", "documentation": "Direttiva di libreria DDF." },
+    { "kind": "Structure", "label": "struttura", "documentation": "Struttura dati dichiarata nel sorgente DDF." },
+    { "kind": "Function", "label": "funzione", "documentation": "Funzione dichiarata nel sorgente DDF." },
+    { "kind": "Parameter", "label": "parametro", "documentation": "Parametro della funzione corrente." },
+    { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
+    { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
+  ],
+  "snippets": [
+    { "prefix": "se", "displayText": "se — blocco", "description": "Blocco condizionale", "body": "se(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },
+    { "prefix": "mentre", "displayText": "mentre — ciclo", "description": "Ciclo con condizione iniziale", "body": "mentre(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },
+    { "prefix": "fai", "displayText": "fai — ciclo", "description": "Ciclo con condizione finale", "body": "fai\n{\n    ${1:istruzione};\n} mentre(${2:condizione});${0}", "requiresKeyword": true },
+    { "prefix": "per", "displayText": "per — ciclo", "description": "Ciclo indicizzato", "body": "per(int ${1:indice}; ${2:indice} < ${3:limite}; ${4:indice}++)\n{\n    ${5:istruzione};\n}${0}", "requiresKeyword": true },
+    { "prefix": "funzione", "displayText": "funzione — dichiarazione", "description": "Dichiarazione di funzione", "body": "${1:nome}(${2:int} ${3:parametro}) restituisce ${4:void}\n{\n    ${5:istruzione};\n}${0}" },
+    { "prefix": "main", "displayText": "main — punto di ingresso", "description": "Funzione principale", "body": "main() restituisce ${1:int}\n{\n    ${2:restituisci 0};\n}${0}" },
+    { "prefix": "struttura", "displayText": "struttura — dichiarazione", "description": "Dichiarazione di struttura", "body": "struttura ${1:Nome}\n{\n    ${2:int} ${3:campo};\n}${0}", "requiresKeyword": true }
+  ],
+  "description": "Presentazione dichiarativa dei servizi IntelliSense per il profilo didattico italiano."
+}

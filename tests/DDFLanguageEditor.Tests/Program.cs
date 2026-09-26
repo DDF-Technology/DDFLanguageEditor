@@ -130,6 +130,7 @@ namespace DDFLanguageEditor.Tests
             Run("isolates language package sessions per host", IsolatesLanguagePackageSessionsPerHost);
             Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
             Run("executes a syntax-distinct demonstration language", ExecutesSyntaxDistinctDemonstrationLanguage);
+            Run("keeps the shipped syntax profiles semantically equivalent", KeepsShippedSyntaxProfilesSemanticallyEquivalent);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
             Run("falls back to the embedded language package", FallsBackToEmbeddedLanguagePackage);
@@ -3761,6 +3762,87 @@ namespace DDFLanguageEditor.Tests
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void KeepsShippedSyntaxProfilesSemanticallyEquivalent()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            var cases = new[]
+            {
+                new
+                {
+                    Id = "ddf",
+                    Source = "adjust(int value) out int { if(true && value < 5) { ret value + 2; } else { ret value; } } " +
+                             "main() out int { int total << hostDouble(adjust(1)); int index << 0; while(index < 3) { total << total + 1; index++; } ret total; }"
+                },
+                new
+                {
+                    Id = "ddf-it-didactic",
+                    Source = "adjust(int value) restituisce int { se(vero && value < 5) { restituisci value + 2; } altrimenti { restituisci value; } } " +
+                             "main() restituisce int { int total << hostDouble(adjust(1)); int index << 0; mentre(index < 3) { total << total + 1; index++; } restituisci total; }"
+                },
+                new
+                {
+                    Id = "ddf-c-familiar",
+                    Source = "adjust(int value) returns int { if(true && value < 5) { return value + 2; } else { return value; } } " +
+                             "main() returns int { int total = hostDouble(adjust(1)); int index = 0; while(index < 3) { total = total + 1; index++; } return total; }"
+                }
+            };
+
+            var hostCatalog = new DdfEditorHostCatalog();
+            hostCatalog.RegisterFunction(new DdfHostFunctionDefinition("hostDouble", "int",
+                new[] { new DdfHostParameterDefinition("value", "int") },
+                arguments => Convert.ToInt32(arguments[0]) * 2));
+            string expectedShape = null;
+            foreach (var profile in cases)
+            {
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(Path.Combine(profiles, profile.Id));
+                if (!load.Success) throw new InvalidOperationException(profile.Id + ": " + string.Join(" | ", load.Diagnostics));
+                Equal(profile.Id, load.Package.Id);
+                DdfParseResult parse = DdfParser.Parse(profile.Source, load.Package.Language);
+                Equal(0, parse.ValidationDiagnostics.Count);
+                string formatted = DdfFormatter.Format(profile.Source, load.Package.Language).Text;
+                Equal(0, DdfParser.Parse(formatted, load.Package.Language).ValidationDiagnostics.Count);
+                Equal(formatted, DdfFormatter.Format(formatted, load.Package.Language).Text);
+                Equal(0, DdfTypeChecker.Check(profile.Source, parse.Root, null, load.Package.Language.Types,
+                    load.Package.Language.StandardLibrary, hostCatalog.Snapshot, load.Package.Language.Runtime).Diagnostics.Count);
+                DdfIrBuildResult ir = DdfIrLowerer.Lower(profile.Source, parse, load.Package.Language);
+                if (!ir.Success) throw new InvalidOperationException(profile.Id + ": " + string.Join(" | ", ir.Diagnostics));
+                DdfExecutionResult result = DdfInterpreter.Execute(profile.Source, ir.Program, load.Package.Language,
+                    new DdfExecutionOptions { HostCatalog = hostCatalog.Snapshot });
+                Equal(9L, Convert.ToInt64(result.ReturnValue));
+                string shape = SemanticIrShape(ir.Program);
+                if (expectedShape == null) expectedShape = shape;
+                else Equal(expectedShape, shape);
+            }
+        }
+
+        private static string SemanticIrShape(DdfIrNode node)
+        {
+            if (node == null) return "null";
+            if (node is DdfIrProgram program) return "program(" + string.Join(",", program.Members.Select(SemanticIrShape)) + ")";
+            if (node is DdfIrFunction function) return "function:" + function.Name + "(" +
+                string.Join(",", function.Parameters.Select(parameter => parameter.Type.Name)) + ")->" +
+                function.ReturnType.Name + SemanticIrShape(function.Body);
+            if (node is DdfIrBlock block) return "block(" + string.Join(",", block.Statements.Select(SemanticIrShape)) + ")";
+            if (node is DdfIrVariableDeclaration variable) return "declare:" + variable.Type.Name + ":" + variable.Name + "=" + SemanticIrShape(variable.Initializer);
+            if (node is DdfIrExpressionStatement statement) return "expression(" + SemanticIrShape(statement.Expression) + ")";
+            if (node is DdfIrIf conditional) return "if(" + SemanticIrShape(conditional.Condition) + "," +
+                SemanticIrShape(conditional.Body) + "," + SemanticIrShape(conditional.ElseBody) + ")";
+            if (node is DdfIrWhile loop) return "while(" + SemanticIrShape(loop.Condition) + "," + SemanticIrShape(loop.Body) + ")";
+            if (node is DdfIrReturn returned) return "return(" + SemanticIrShape(returned.Expression) + ")";
+            if (node is DdfIrLiteral literal) return literal.Kind == DdfLiteralKind.Boolean
+                ? "boolean:" + literal.BooleanValue
+                : "literal:" + literal.Text;
+            if (node is DdfIrName name) return "name:" + name.Name;
+            if (node is DdfIrBinary binary) return "binary:" + binary.OperationId + "(" +
+                SemanticIrShape(binary.Left) + "," + SemanticIrShape(binary.Right) + ")";
+            if (node is DdfIrPostfix postfix) return "postfix:" + postfix.OperationId + "(" + SemanticIrShape(postfix.Operand) + ")";
+            if (node is DdfIrCall call) return "call(" + SemanticIrShape(call.Target) + ":" +
+                string.Join(",", call.Arguments.Select(SemanticIrShape)) + ")";
+            if (node is DdfIrGroup group) return "group(" + SemanticIrShape(group.Expression) + ")";
+            if (node is DdfIrUnary unary) return "unary:" + unary.OperationId + "(" + SemanticIrShape(unary.Operand) + ")";
+            return node.GetType().Name;
         }
 
         private static void RejectsUnreachableLexicalRules()

@@ -186,8 +186,15 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfIrMissingExpression : DdfIrExpression { internal DdfIrMissingExpression(int start) : base(start, 0) { } }
     public sealed class DdfIrLiteral : DdfIrExpression
     {
-        internal DdfIrLiteral(string text, int start, int length) : base(start, length) { Text = text; }
+        internal DdfIrLiteral(string text, DdfLiteralKind kind, bool? booleanValue, int start, int length) : base(start, length)
+        {
+            Text = text;
+            Kind = kind;
+            BooleanValue = booleanValue;
+        }
         public string Text { get; }
+        public DdfLiteralKind Kind { get; }
+        public bool? BooleanValue { get; }
     }
     public sealed class DdfIrName : DdfIrExpression
     {
@@ -359,7 +366,8 @@ namespace DDFLanguageEditor.Core
         {
             if (expression == null) return null;
             if (expression is MissingExpressionSyntax) return new DdfIrMissingExpression(expression.Start);
-            if (expression is LiteralExpressionSyntax literal) return new DdfIrLiteral(literal.Text, literal.Start, literal.Length);
+            if (expression is LiteralExpressionSyntax literal)
+                return new DdfIrLiteral(literal.Text, literal.Kind, literal.BooleanValue, literal.Start, literal.Length);
             if (expression is NameExpressionSyntax name) return new DdfIrName(name.Name, name.Start, name.Length);
             if (expression is ParenthesizedExpressionSyntax group)
                 return new DdfIrGroup(LowerExpression(source, group.Expression, diagnostics, runtime), group.Start, group.Length);

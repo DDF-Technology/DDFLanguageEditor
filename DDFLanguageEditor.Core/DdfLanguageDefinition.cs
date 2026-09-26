@@ -112,6 +112,7 @@ namespace DDFLanguageEditor.Core
     {
         private readonly Dictionary<string, DdfKeywordDefinition> keywords;
         private readonly HashSet<string> booleanLiterals;
+        private readonly Dictionary<string, bool> booleanLiteralValues;
         private readonly Dictionary<string, DdfOperatorDefinition> operators;
         private readonly string[] operatorsByLength;
         private readonly HashSet<char> punctuation;
@@ -126,6 +127,17 @@ namespace DDFLanguageEditor.Core
             IEnumerable<DdfOperatorDefinition> operators,
             IEnumerable<char> punctuation,
             DdfLexicalDefinition lexicalRules = null)
+            : this(keywords, booleanLiterals, operators, punctuation, lexicalRules, null)
+        {
+        }
+
+        public DdfLanguageDefinition(
+            IEnumerable<DdfKeywordDefinition> keywords,
+            IEnumerable<string> booleanLiterals,
+            IEnumerable<DdfOperatorDefinition> operators,
+            IEnumerable<char> punctuation,
+            DdfLexicalDefinition lexicalRules,
+            IReadOnlyDictionary<string, bool> booleanLiteralValues)
         {
             if (keywords == null) throw new ArgumentNullException(nameof(keywords));
             if (booleanLiterals == null) throw new ArgumentNullException(nameof(booleanLiterals));
@@ -136,6 +148,24 @@ namespace DDFLanguageEditor.Core
             LexicalRules = lexicalRules ?? DdfLexicalDefinition.CreateDdfCompatibleDefault();
             this.keywords = ToUniqueDictionary(keywords, item => item.Text, "keyword");
             this.booleanLiterals = new HashSet<string>(booleanLiterals, StringComparer.Ordinal);
+            this.booleanLiteralValues = new Dictionary<string, bool>(StringComparer.Ordinal);
+            if (booleanLiteralValues != null)
+            {
+                foreach (KeyValuePair<string, bool> item in booleanLiteralValues)
+                {
+                    if (!this.booleanLiterals.Contains(item.Key))
+                        throw new ArgumentException("Boolean literal value declared for an unknown literal: " + item.Key + ".", nameof(booleanLiteralValues));
+                    this.booleanLiteralValues.Add(item.Key, item.Value);
+                }
+            }
+            foreach (string literal in this.booleanLiterals)
+            {
+                if (this.booleanLiteralValues.ContainsKey(literal)) continue;
+                if (string.Equals(literal, "true", StringComparison.OrdinalIgnoreCase))
+                    this.booleanLiteralValues.Add(literal, true);
+                else if (string.Equals(literal, "false", StringComparison.OrdinalIgnoreCase))
+                    this.booleanLiteralValues.Add(literal, false);
+            }
             this.operators = ToUniqueDictionary(declaredOperators, item => item.Text, "operator");
             operatorsByLength = (LexicalRules.LongestMatch
                 ? declaredOperators.Select(item => item.Text).OrderByDescending(value => value.Length)
@@ -182,6 +212,11 @@ namespace DDFLanguageEditor.Core
         public bool IsBooleanLiteral(string text)
         {
             return booleanLiterals.Contains(text);
+        }
+
+        public bool TryGetBooleanLiteralValue(string text, out bool value)
+        {
+            return booleanLiteralValues.TryGetValue(text, out value);
         }
 
         public bool IsPunctuation(char value)

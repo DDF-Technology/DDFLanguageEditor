@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-build-v2",
+  "dependsOn": [ "runtime" ],
+  "defaultBackend": "ddf-vm-ir-v1",
+  "artifactFormat": "ddf-build-receipt-1.0",
+  "backends": [ "ddf-vm-ir-v1" ],
+  "description": "Contratto sostituibile del backend VM/IR DDF."
+}

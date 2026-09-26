@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-standard-library-v2",
+  "dependsOn": [ "types", "runtime" ],
+  "functions": [
+    { "name": "print", "returnType": "void", "parameterTypes": [ "string" ], "documentation": "Scrive una stringa nella palette Output.", "binding": "host.output" },
+    { "name": "readLine", "returnType": "string", "parameterTypes": [], "documentation": "Legge una riga di testo dalla finestra di input.", "binding": "host.input" },
+    { "name": "length", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Restituisce il numero di caratteri di una stringa.", "binding": "core.string-length" },
+    { "name": "toInt", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Converte una stringa in un valore intero.", "binding": "core.to-int" },
+    { "name": "toFloat", "returnType": "float", "parameterTypes": [ "string" ], "documentation": "Converte una stringa in un valore decimale.", "binding": "core.to-float" }
+  ],
+  "description": "Firme e binding sicuri della libreria standard DDF."
+}

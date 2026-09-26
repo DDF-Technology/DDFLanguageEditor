@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-grammar-v2",
+  "dependsOn": [ "lexicon" ],
+  "notation": "ebnf-1.0",
+  "ebnfFile": "grammar.ebnf",
+  "startRule": "compilation-unit",
+  "choiceStrategy": "longest",
+  "nodes": [
+    { "rule": "compilation-unit", "kind": "CompilationUnit", "fields": [ { "name": "members", "sourceRule": "member", "multiple": true } ], "ide": { "selectable": true } },
+    { "rule": "library-directive", "kind": "LibraryDirective", "fields": [], "ide": { "symbolKind": "Library", "namePrefix": "@@'", "nameSuffix": "'" } },
+    { "rule": "struct-declaration", "kind": "StructDeclaration", "fields": [ { "name": "name", "sourceRule": "identifier" }, { "name": "body", "sourceRule": "block" } ], "ide": { "symbolKind": "Structure", "childSymbolKind": "Field", "nameField": "name", "detail": "struttura", "foldingKind": "Structure", "foldingField": "body", "breadcrumbKind": "Structure", "breadcrumbLabel": "{name}", "breadcrumbSelectionField": "name", "selectable": true } },
+    { "rule": "function-declaration", "kind": "FunctionDeclaration", "fields": [ { "name": "name", "sourceRule": "identifier" }, { "name": "parameters", "sourceRule": "parameter", "multiple": true }, { "name": "returnType", "sourceRule": "return-type" }, { "name": "body", "sourceRule": "block" } ], "ide": { "symbolKind": "Function", "nameField": "name", "returnTypeField": "returnType", "parametersField": "parameters", "foldingKind": "Function", "foldingField": "body", "breadcrumbKind": "Function", "breadcrumbLabel": "{name}()", "breadcrumbSelectionField": "name", "selectable": true } },
+    { "rule": "parameter", "kind": "Parameter", "fields": [ { "name": "type", "sourceRule": "type" }, { "name": "name", "sourceRule": "identifier" } ], "ide": { "symbolKind": "Parameter", "nameField": "name", "typeField": "type", "selectable": true } },
+    { "rule": "if-statement", "kind": "IfStatement", "fields": [ { "name": "condition", "sourceRule": "expression" }, { "name": "branches", "sourceRule": "block", "multiple": true } ], "ide": { "breadcrumbKind": "If", "breadcrumbLabel": "se", "breadcrumbSelectionLength": 2, "selectable": true } },
+    { "rule": "while-statement", "kind": "WhileStatement", "fields": [ { "name": "condition", "sourceRule": "expression" }, { "name": "body", "sourceRule": "block" } ], "ide": { "breadcrumbKind": "While", "breadcrumbLabel": "mentre", "breadcrumbSelectionLength": 6, "selectable": true } },
+    { "rule": "do-while-statement", "kind": "DoWhileStatement", "fields": [ { "name": "condition", "sourceRule": "expression" }, { "name": "body", "sourceRule": "block" } ], "ide": { "breadcrumbKind": "DoWhile", "breadcrumbLabel": "do…while", "breadcrumbSelectionLength": 2, "selectable": true } },
+    { "rule": "for-statement", "kind": "ForStatement", "fields": [ { "name": "body", "sourceRule": "block" } ], "ide": { "breadcrumbKind": "For", "breadcrumbLabel": "per", "breadcrumbSelectionLength": 3, "selectable": true } },
+    { "rule": "variable-declaration", "kind": "VariableDeclaration", "fields": [ { "name": "type", "sourceRule": "type" }, { "name": "name", "sourceRule": "identifier" }, { "name": "initializer", "sourceRule": "expression" } ], "ide": { "symbolKind": "Variable", "nameField": "name", "typeField": "type", "selectable": true } },
+    { "rule": "block", "kind": "Block", "fields": [ { "name": "statements", "sourceRule": "statement", "multiple": true } ], "ide": { "foldingKind": "Block", "selectable": true } },
+    { "rule": "return-statement", "kind": "ReturnStatement", "fields": [ { "name": "expression", "sourceRule": "expression" } ], "ide": { "selectable": true } },
+    { "rule": "expression-statement", "kind": "ExpressionStatement", "fields": [ { "name": "expression", "sourceRule": "expression" } ], "ide": { "selectable": true } },
+    { "rule": "expression", "kind": "Expression", "fields": [], "ide": { "selectable": true } }
+  ],
+  "description": "Grammatica EBNF canonica e metadati dell'albero sintattico generico."
+}

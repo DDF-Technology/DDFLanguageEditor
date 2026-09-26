@@ -80,6 +80,7 @@
     { "text": "for", "tokenKind": "ControlFlowKeyword", "role": "For" }
   ],
   "booleanLiterals": [ "true", "false" ],
+  "booleanLiteralValues": { "true": true, "false": false },
   "operators": [
     { "text": "<<", "binaryPrecedence": 1, "associativity": "Right", "role": "DeclarationInitializer" },
     { "text": ">>", "binaryPrecedence": 1, "associativity": "Right", "role": "None" },

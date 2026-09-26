@@ -197,7 +197,11 @@ namespace DDFLanguageEditor.Core
         private static WatchValue ParseLiteral(string text, DdfLanguageDefinition language)
         {
             if (language.IsBooleanLiteral(text))
-                return Scalar(string.Equals(text, "true", StringComparison.OrdinalIgnoreCase), "bool");
+            {
+                if (!language.TryGetBooleanLiteralValue(text, out bool value))
+                    throw new FormatException("Valore booleano non dichiarato per il letterale '" + text + "'.");
+                return Scalar(value, language.Types.Literals.Boolean);
+            }
             if (text.Length >= 2 && text[0] == '"' && text[text.Length - 1] == '"')
                 return Scalar(Unescape(text.Substring(1, text.Length - 2)), "string");
             string normalized = language.LexicalRules.Number.DecimalSeparator == "." ? text :

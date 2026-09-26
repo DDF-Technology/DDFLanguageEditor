@@ -7,6 +7,8 @@
 - Disaccoppiato il type checker dalla grafia degli operatori: validazione unaria, binaria e postfissa usa ora gli ID semantici dichiarati in `runtime.json`, così i profili sintattici possono rinominare gli operatori senza modificare il motore.
 - Definito il nucleo sintattico DDF `0.12.1`: direttive prima delle dichiarazioni, globali soltanto dichiarative, nessuna istruzione vuota e blocchi obbligatori per `if`/`else`, cicli e `else if`. `DDF_SYNTAX_SPEC.md` documenta unità, keyword, delimitatori, funzioni, strutture ed espressioni.
 - Aggiunto `ValidationDiagnostics`: l'EBNF del pacchetto è ora il validatore normativo usato da analisi, Build e test dichiarativi, mentre le diagnostiche del parser storico restano disponibili separatamente per recupero interattivo, Watch e Quick Fix.
+- Aggiunti i pacchetti di riferimento `ddf-it-didactic` e `ddf-c-familiar`: il primo introduce controllo di flusso e booleani italiani, il secondo `return`, `break` e assegnazione `=` senza dichiarare compatibilità con C. Un corpus comune usa la stessa API host, confronta la IR semantica ed esegue entrambi insieme al DDF canonico con risultato equivalente.
+- Rimossa l'assunzione interna `true`/`false`: `booleanLiteralValues` associa esplicitamente grafia e valore, che parser e IR conservano per type checker, Watch e VM. I pacchetti storici con le grafie canoniche restano compatibili.
 
 ## 0.12.0 - 2026-09-26
 

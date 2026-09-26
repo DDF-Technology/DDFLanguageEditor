@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "engineApi": "1.0",
+  "id": "ddf-c-familiar",
+  "name": "DDF sintassi familiare C",
+  "packageVersion": "0.12.1",
+  "languageVersion": "0.12",
+  "fileExtensions": [ ".ddfc" ],
+  "nativeExtensions": [],
+  "sections": {
+    "lexicon": "lexicon.json",
+    "grammar": "grammar.json",
+    "types": "types.json",
+    "semantics": "semantics.json",
+    "formatting": "formatting.json",
+    "intellisense": "intellisense.json",
+    "runtime": "runtime.json",
+    "build": "build.json",
+    "standardLibrary": "standard-library.json",
+    "tests": "tests.json"
+  }
+}

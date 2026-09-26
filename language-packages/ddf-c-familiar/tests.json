@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-tests-v1",
+  "dependsOn": [ "lexicon", "grammar", "types", "semantics", "formatting", "runtime", "standardLibrary" ],
+  "cases": [
+    {
+      "name": "programma minimo",
+      "source": "main() returns int { return 2; }",
+      "expectedTokenKinds": [
+        "Identifier", "Punctuation", "Punctuation", "FunctionKeyword",
+        "DataTypeKeyword", "Punctuation", "FunctionKeyword", "NumberLiteral",
+        "Punctuation", "Punctuation"
+      ],
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "2"
+    }
+  ],
+  "description": "Corpus normativo minimo del profilo DDF con sintassi familiare C."
+}

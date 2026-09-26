@@ -382,10 +382,21 @@ namespace DDFLanguageEditor.Core
         {
             lexicon.Keywords = lexicon.Keywords ?? new List<KeywordDto>();
             lexicon.BooleanLiterals = lexicon.BooleanLiterals ?? new List<string>();
+            lexicon.BooleanLiteralValues = lexicon.BooleanLiteralValues ?? new Dictionary<string, bool>();
             lexicon.Operators = lexicon.Operators ?? new List<OperatorDto>();
             lexicon.Punctuation = lexicon.Punctuation ?? new List<string>();
             validateUnique(lexicon.Keywords.Select(item => item?.Text), "keyword", file, "$.keywords", diagnostics);
             validateUnique(lexicon.BooleanLiterals, "literal", file, "$.booleanLiterals", diagnostics);
+            foreach (string literal in lexicon.BooleanLiterals)
+                require(lexicon.BooleanLiteralValues.ContainsKey(literal) ||
+                        string.Equals(literal, "true", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(literal, "false", StringComparison.OrdinalIgnoreCase),
+                    diagnostics, "DDFL047", "Il valore del letterale booleano non è dichiarato: " + literal + ".",
+                    file, "$.booleanLiteralValues");
+            foreach (string literal in lexicon.BooleanLiteralValues.Keys)
+                require(lexicon.BooleanLiterals.Contains(literal, StringComparer.Ordinal), diagnostics, "DDFL048",
+                    "Valore dichiarato per un letterale booleano sconosciuto: " + literal + ".",
+                    file, "$.booleanLiteralValues");
             validateUnique(lexicon.Operators.Select(item => item?.Text), "operatore", file, "$.operators", diagnostics);
             validateUnique(lexicon.Punctuation, "punteggiatura", file, "$.punctuation", diagnostics);
             validateUniqueRoles(lexicon.Keywords.Where(item => item != null).Select(item => item.Role),
@@ -416,7 +427,8 @@ namespace DDFLanguageEditor.Core
             if (punctuation.Length != lexicon.Punctuation.Count)
                 diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL045", "Ogni punteggiatura deve contenere un solo carattere.", file, "$.punctuation"));
             if (hasErrors(diagnostics)) return null;
-            try { return new DdfLanguageDefinition(keywords, lexicon.BooleanLiterals, operators, punctuation, lexicalRules); }
+            try { return new DdfLanguageDefinition(keywords, lexicon.BooleanLiterals, operators, punctuation,
+                lexicalRules, lexicon.BooleanLiteralValues); }
             catch (ArgumentException exception) { diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL046", exception.Message, file)); return null; }
         }
 
@@ -1068,7 +1080,7 @@ namespace DDFLanguageEditor.Core
         private sealed class FormattingTokensDto { public string BlockOpen { get; set; } public string BlockClose { get; set; } public string GroupOpen { get; set; } public string GroupClose { get; set; } public string IndexOpen { get; set; } public string IndexClose { get; set; } public string StatementTerminator { get; set; } public string Separator { get; set; } }
         private sealed class AutoPairDto { public string Open { get; set; } public string Close { get; set; } }
         private sealed class QuickFixDto { public string DiagnosticCode { get; set; } public string Title { get; set; } public string Replacement { get; set; } }
-        private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
+        private sealed class LexiconDto : SectionDto { public LexicalDto Lexical { get; set; } public List<KeywordDto> Keywords { get; set; } public List<string> BooleanLiterals { get; set; } public Dictionary<string, bool> BooleanLiteralValues { get; set; } public List<OperatorDto> Operators { get; set; } public List<string> Punctuation { get; set; } }
         private sealed class LexicalDto { public CharacterSetDto Whitespace { get; set; } public IdentifierDto Identifier { get; set; } public NumberDto Number { get; set; } public List<DelimitedTokenDto> DelimitedTokens { get; set; } public bool LongestMatch { get; set; } }
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }
         private sealed class IdentifierDto { public CharacterSetDto Start { get; set; } public CharacterSetDto Part { get; set; } }

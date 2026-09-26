@@ -672,8 +672,9 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [ ] Eliminare contraddizioni e alias provvisori dalla specifica storica.
 - [ ] Allineare EBNF, metadati del pacchetto, formatter, snippet ed esempi canonici.
   - [x] Rendere l'EBNF il validatore normativo per analisi, Build e test dichiarativi mantenendo separato il recupero dell'AST storico (2026-09-27).
-- [ ] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, con risultati equivalenti.
+- [x] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, confrontando IR semantica e risultato runtime (`DDF_LANGUAGE_PROFILES.md`, 2026-09-27).
 - [ ] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici.
+  - [x] Fornire il primo pacchetto didattico italiano con keyword, booleani, snippet e metadati IDE localizzati; diagnostiche e proiezioni didattiche specifiche del profilo restano da completare.
 - [ ] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, segnalando incompatibilità e preservando i sorgenti.
 
 ### 0.12.2 — Tipi e semantica definitiva

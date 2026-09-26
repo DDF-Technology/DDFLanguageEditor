@@ -11,7 +11,7 @@ radice del contenitore.
 dell'API del motore, gli eventuali requisiti nativi e riferisce queste nove
 sezioni obbligatorie:
 
-- `lexicon`: keyword, letterali booleani, operatori, precedenza e punteggiatura;
+- `lexicon`: keyword, letterali booleani con valore dichiarato, operatori, precedenza e punteggiatura;
 - `grammar`: grammatica e forma dell'albero sintattico;
 - `types`: tipi e regole di compatibilità;
 - `semantics`: risoluzione, scope e controlli semantici;
@@ -47,6 +47,11 @@ cifre e separatore decimale, stringhe, escape, commenti, direttive, multilinea,
 diagnostiche per token incompleti e longest match. La stessa definizione alimenta
 lexer incrementale, classificazione, prefissi del completamento e validazione dei
 nomi.
+
+Dalla `0.12.1`, `booleanLiteralValues` associa ogni grafia non canonica al
+valore `true` o `false`. La mappa è obbligatoria per booleani localizzati; i
+soli nomi storici `true` e `false` conservano il fallback di compatibilità. Il
+valore dichiarato attraversa parser e IR senza dipendere dal testo concreto.
 
 La `0.9.6.2` usa `grammar.ebnf` come unica rappresentazione canonica delle
 produzioni e `grammar.json` soltanto per start rule, strategia delle alternative

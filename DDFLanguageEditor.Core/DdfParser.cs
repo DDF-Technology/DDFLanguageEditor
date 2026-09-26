@@ -362,7 +362,16 @@ namespace DDFLanguageEditor.Core
             if (token.Kind == DdfTokenKind.NumberLiteral || token.Kind == DdfTokenKind.StringLiteral || token.Kind == DdfTokenKind.BooleanLiteral)
             {
                 NextToken();
-                return new LiteralExpressionSyntax(TokenText(token), token.Start, token.Length);
+                string literalText = TokenText(token);
+                DdfLiteralKind kind = token.Kind == DdfTokenKind.StringLiteral
+                    ? DdfLiteralKind.String
+                    : token.Kind == DdfTokenKind.BooleanLiteral
+                        ? DdfLiteralKind.Boolean
+                        : DdfLiteralKind.Number;
+                bool? booleanValue = null;
+                if (kind == DdfLiteralKind.Boolean && language.TryGetBooleanLiteralValue(literalText, out bool value))
+                    booleanValue = value;
+                return new LiteralExpressionSyntax(literalText, kind, booleanValue, token.Start, token.Length);
             }
 
             Report("DDF101", "Token inatteso nell'espressione: '" + TokenText(token) + "'.");

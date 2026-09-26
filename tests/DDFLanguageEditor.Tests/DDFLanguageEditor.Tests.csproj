@@ -22,5 +22,8 @@
     <None Include="..\..\samples\parser\invalid-missing-semicolon.ddf" Link="Corpus\Parser\invalid-missing-semicolon.ddf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\parser\invalid-delimiters.ddf" Link="Corpus\Parser\invalid-delimiters.ddf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\parser\invalid-expression.ddf" Link="Corpus\Parser\invalid-expression.ddf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\language-packages\ddf\**\*.*" Link="LanguageProfiles\ddf\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\language-packages\ddf-it-didactic\**\*.*" Link="LanguageProfiles\ddf-it-didactic\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\language-packages\ddf-c-familiar\**\*.*" Link="LanguageProfiles\ddf-c-familiar\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -323,12 +323,12 @@ namespace DDFLanguageEditor.Core
                 DdfTypeSymbol result;
                 if (expression is LiteralExpressionSyntax literal)
                 {
-                    result = literal.Text.StartsWith("\"", StringComparison.Ordinal)
+                    result = literal.Kind == DdfLiteralKind.String
                         ? new DdfTypeSymbol(typeSystem.Literals.String)
-                        : literal.Text.IndexOf('.') >= 0
-                            ? new DdfTypeSymbol(typeSystem.Literals.Decimal)
-                            : literal.Text == "true" || literal.Text == "false"
-                                ? new DdfTypeSymbol(typeSystem.Literals.Boolean)
+                        : literal.Kind == DdfLiteralKind.Boolean
+                            ? new DdfTypeSymbol(typeSystem.Literals.Boolean)
+                            : literal.Text.IndexOf('.') >= 0
+                                ? new DdfTypeSymbol(typeSystem.Literals.Decimal)
                                 : new DdfTypeSymbol(typeSystem.Literals.Integer);
                 }
                 else if (expression is NameExpressionSyntax name)

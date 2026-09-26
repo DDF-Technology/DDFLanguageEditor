@@ -263,10 +263,28 @@ namespace DDFLanguageEditor.Core
         public MissingExpressionSyntax(int position) : base(position, 0) { }
     }
 
+    public enum DdfLiteralKind
+    {
+        Number,
+        String,
+        Boolean
+    }
+
     public sealed class LiteralExpressionSyntax : ExpressionSyntax
     {
-        public LiteralExpressionSyntax(string text, int start, int length) : base(start, length) { Text = text; }
+        public LiteralExpressionSyntax(string text, int start, int length)
+            : this(text, DdfLiteralKind.Number, null, start, length) { }
+
+        public LiteralExpressionSyntax(string text, DdfLiteralKind kind, bool? booleanValue, int start, int length)
+            : base(start, length)
+        {
+            Text = text;
+            Kind = kind;
+            BooleanValue = booleanValue;
+        }
         public string Text { get; }
+        public DdfLiteralKind Kind { get; }
+        public bool? BooleanValue { get; }
     }
 
     public sealed class NameExpressionSyntax : ExpressionSyntax

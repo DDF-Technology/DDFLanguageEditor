@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "adapter": "ddf-runtime-v2",
+  "dependsOn": [ "grammar", "types", "semantics" ],
+  "instructionSet": "ddf-ir-vm-1.0",
+  "entryPoint": "main",
+  "defaultInstructionLimit": 100000,
+  "outputTarget": "Console",
+  "vmOperations": [
+    "value.declare", "value.load", "value.store", "scope.create", "call.invoke",
+    "flow.branch", "flow.while", "flow.do-while", "flow.for", "flow.return",
+    "flow.break", "flow.end", "array.create", "array.index", "structure.create",
+    "structure.member", "host.call"
+  ],
+  "expressionOperations": {
+    "unary": [
+      { "token": "!", "operation": "logical.not" },
+      { "token": "+", "operation": "numeric.positive" },
+      { "token": "-", "operation": "numeric.negate" }
+    ],
+    "binary": [
+      { "token": "=", "operation": "assign" },
+      { "token": ">>", "operation": "output" },
+      { "token": "||", "operation": "logical.or" },
+      { "token": "^^", "operation": "logical.xor" },
+      { "token": "&&", "operation": "logical.and" },
+      { "token": "==", "operation": "compare.equal" },
+      { "token": "!=", "operation": "compare.not-equal" },
+      { "token": "<", "operation": "compare.less" },
+      { "token": "<=", "operation": "compare.less-or-equal" },
+      { "token": ">", "operation": "compare.greater" },
+      { "token": ">=", "operation": "compare.greater-or-equal" },
+      { "token": "+", "operation": "numeric.add" },
+      { "token": "-", "operation": "numeric.subtract" },
+      { "token": "*", "operation": "numeric.multiply" },
+      { "token": "/", "operation": "numeric.divide" },
+      { "token": "^", "operation": "numeric.power" }
+    ],
+    "postfix": [
+      { "token": "++", "operation": "numeric.increment" },
+      { "token": "--", "operation": "numeric.decrement" }
+    ]
+  },
+  "description": "VM IR indipendente dalla sintassi concreta con operazioni controllate."
+}

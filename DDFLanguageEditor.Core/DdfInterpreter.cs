@@ -393,7 +393,7 @@ namespace DDFLanguageEditor.Core
             {
                 if (expression == null || expression is DdfIrMissingExpression) return null;
                 Tick(expression);
-                if (expression is DdfIrLiteral literal) return ParseLiteral(literal.Text);
+                if (expression is DdfIrLiteral literal) return ParseLiteral(literal);
                 if (expression is DdfIrName name) return ReadCell(FindCell(name.Name, name), name);
                 if (expression is DdfIrGroup parenthesized) return Evaluate(parenthesized.Expression);
                 if (expression is DdfIrUnary unary)
@@ -869,10 +869,14 @@ namespace DDFLanguageEditor.Core
                 return value;
             }
 
-            private static object ParseLiteral(string text)
+            private static object ParseLiteral(DdfIrLiteral literal)
             {
-                if (text == "true" || text == "True") return true;
-                if (text == "false" || text == "False") return false;
+                string text = literal.Text;
+                if (literal.Kind == DdfLiteralKind.Boolean)
+                {
+                    if (literal.BooleanValue.HasValue) return literal.BooleanValue.Value;
+                    throw new InvalidOperationException("Boolean literal without a declared value: " + text + ".");
+                }
                 if (text.StartsWith("\"", StringComparison.Ordinal)) return Unescape(text.Substring(1, Math.Max(0, text.Length - 2)));
                 if (text.IndexOf('.') >= 0) return double.Parse(text, CultureInfo.InvariantCulture);
                 return int.Parse(text, CultureInfo.InvariantCulture);
