@@ -662,12 +662,16 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 - [ ] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
   - [x] Fissare il nucleo lessicale: identificatori Unicode case-sensitive, cifre ASCII, booleani minuscoli, stringhe su una riga, escape chiusi e commenti (`DDF_LEXICAL_SPEC.md`, 2026-09-26).
-  - [ ] Chiudere direttive, insieme delle keyword e delimitatori insieme alla sintassi.
+  - [ ] Chiudere le direttive insieme al modello moduli della `0.12.3`; `@@'Nome'` resta l'unica forma transitoria ammessa e deve precedere le dichiarazioni.
+  - [x] Chiudere keyword e delimitatori del nucleo, senza alias impliciti (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
   - [x] Chiudere l'insieme degli operatori del nucleo: identità DDF per `<<`/`>>`, logica leggibile con `!`, `&&`, `||`, `^^`, confronti ordinari e rimozione delle forme beta ambigue (`DDF_OPERATOR_SPEC.md`, 2026-09-26).
 - [x] Definire precedenza, associatività e forme prefisse, infisse e postfisse senza ambiguità (`DDF_OPERATOR_SPEC.md`).
 - [ ] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
+  - [x] Fissare unità di compilazione, globali dichiarative, funzioni, strutture, espressioni e corpi di controllo obbligatoriamente racchiusi tra graffe (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
+  - [ ] Chiudere la sintassi delle collezioni insieme alla semantica di array e `dict` nella `0.12.2`.
 - [ ] Eliminare contraddizioni e alias provvisori dalla specifica storica.
 - [ ] Allineare EBNF, metadati del pacchetto, formatter, snippet ed esempi canonici.
+  - [x] Rendere l'EBNF il validatore normativo per analisi, Build e test dichiarativi mantenendo separato il recupero dell'AST storico (2026-09-27).
 - [ ] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, con risultati equivalenti.
 - [ ] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici.
 - [ ] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, segnalando incompatibilità e preservando i sorgenti.

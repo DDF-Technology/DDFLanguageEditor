@@ -98,3 +98,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Conseguenze:** il pacchetto passa a `0.12.1`; i sorgenti beta richiedono la
   migrazione esplicita descritta in `DDF_MIGRATION_0_12.md`. Intervalli e radici
   saranno funzioni di libreria leggibili se approvate nella `0.12.3`.
+
+## DDF-0008 — Unità dichiarativa e blocchi obbligatori
+
+- **Stato:** Accettata
+- **Data:** 2026-09-27
+- **Decisione:** un file DDF contiene direttive iniziali seguite soltanto da
+  strutture, funzioni o variabili globali. Le istruzioni eseguibili top-level e
+  il punto e virgola isolato non sono validi. `if`, `else`, `while`, `do` e
+  `for` richiedono blocchi; è ammessa la concatenazione `else if`.
+- **Motivazione:** separare dichiarazione ed esecuzione rende deterministici
+  build multi-file e inizializzazione. Le graffe obbligatorie eliminano il
+  dangling `else` e proteggono da cambiamenti accidentali durante editing,
+  formattazione e generazione della flowchart.
+- **Alternative rifiutate:** script top-level impliciti nel medesimo profilo;
+  corpi a singola istruzione; terminatori vuoti usati come no-op.
+- **Conseguenze:** l'EBNF diventa il validatore normativo del pacchetto tramite
+  `ValidationDiagnostics`. Il parser AST storico può ancora recuperare forme
+  incomplete per i servizi interattivi, senza renderle programmi validi.

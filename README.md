@@ -324,6 +324,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_LANGUAGE_DECISIONS.md`: registro versionato delle decisioni e delle alternative rifiutate;
 - `DDF_LEXICAL_SPEC.md`: contratto normativo di identificatori, letterali, stringhe e commenti DDF 0.12;
 - `DDF_OPERATOR_SPEC.md`: contratto normativo di operatori, precedenza e associatività DDF 0.12;
+- `DDF_SYNTAX_SPEC.md`: contratto normativo di unità, dichiarazioni, blocchi, funzioni e controllo di flusso;
 - `DDF_MIGRATION_0_12.md`: migrazione esplicita dei sorgenti beta alla sintassi 0.12;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;

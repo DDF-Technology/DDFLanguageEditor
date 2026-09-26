@@ -5,6 +5,8 @@
 - Fissato il primo nucleo lessicale della `0.12.1`: identificatori Unicode case-sensitive, numeri con cifre ASCII, soli booleani minuscoli, stringhe su una riga ed escape dichiarati. Gli escape sconosciuti producono `DDF005` e una prova Core verifica il contratto.
 - Portato il pacchetto DDF a `0.12.1` con la prima chiusura intenzionale degli operatori: `!=`, `&&` e `^^` sostituiscono `!!`, `&` e `|&|`; gli pseudo-operatori di intervallo `>><<`/`<<>>` e radice `^/` sono rimossi. Precedenza, runtime, type checker, campioni e smoke sono allineati e la migrazione dalle beta è documentata.
 - Disaccoppiato il type checker dalla grafia degli operatori: validazione unaria, binaria e postfissa usa ora gli ID semantici dichiarati in `runtime.json`, così i profili sintattici possono rinominare gli operatori senza modificare il motore.
+- Definito il nucleo sintattico DDF `0.12.1`: direttive prima delle dichiarazioni, globali soltanto dichiarative, nessuna istruzione vuota e blocchi obbligatori per `if`/`else`, cicli e `else if`. `DDF_SYNTAX_SPEC.md` documenta unità, keyword, delimitatori, funzioni, strutture ed espressioni.
+- Aggiunto `ValidationDiagnostics`: l'EBNF del pacchetto è ora il validatore normativo usato da analisi, Build e test dichiarativi, mentre le diagnostiche del parser storico restano disponibili separatamente per recupero interattivo, Watch e Quick Fix.
 
 ## 0.12.0 - 2026-09-26
 

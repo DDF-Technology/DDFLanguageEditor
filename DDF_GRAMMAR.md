@@ -22,7 +22,7 @@ compilation-unit = { library-directive }, { member } ;
 
 member = struct-declaration
        | function-declaration
-       | statement ;
+       | variable-declaration ;
 
 library-directive = "@@'" identifier "'" ;
 
@@ -36,8 +36,9 @@ parameter-list = parameter, { ",", parameter } ;
 parameter = type, identifier ;
 ```
 
-Le istruzioni al livello principale sono accettate per compatibilità con i
-sorgenti sperimentali, anche se il punto di ingresso consigliato è `main`.
+Le direttive precedono le dichiarazioni. Al livello principale sono ammesse
+soltanto dichiarazioni; le istruzioni eseguibili beta sono rifiutate dalla
+validazione normativa.
 
 ## Tipi e dichiarazioni
 
@@ -72,24 +73,28 @@ statement = block
 
 block = "{", { statement }, "}" ;
 
-if-statement = "if", "(", expression, ")", statement,
-               [ "else", statement ] ;
+if-statement = "if", "(", expression, ")", block,
+               [ "else", ( block | if-statement ) ] ;
 
-while-statement = "while", "(", expression, ")", statement ;
+while-statement = "while", "(", expression, ")", block ;
 
-do-while-statement = "do", statement,
+do-while-statement = "do", block,
                      "while", "(", expression, ")", ";" ;
 
 for-statement = "for", "(",
                 [ variable-declaration | expression, ";" ],
                 [ expression ], ";",
-                [ expression ], ")", statement ;
+                [ expression ], ")", block ;
 
 return-statement = "ret", [ expression ], ";" ;
 break-statement = "brk", ";" ;
 end-statement = "end", ";" ;
 expression-statement = expression, ";" ;
 ```
+
+I corpi dei costrutti di controllo richiedono sempre un blocco; `else if` è
+ammesso come concatenazione esplicita. Un punto e virgola isolato non è una
+istruzione valida.
 
 `switch`, eccezioni e altre forme di controllo non appartengono ancora al
 sottoinsieme corrente.
@@ -142,8 +147,9 @@ intervallo valido, permettendo all'editor di mostrare più diagnostiche nella
 stessa sessione senza interrompere la digitazione.
 
 Il parser generico della grammatica EBNF emette inoltre `MissingSyntax` e la
-diagnostica `DDFG101` nel punto sorgente più avanzato raggiunto. Il vecchio AST
-DDF resta temporaneamente una proiezione di compatibilità per i servizi IDE.
+diagnostica `DDFG101` nel punto sorgente più avanzato raggiunto. Le diagnostiche
+normative sono esposte tramite `ValidationDiagnostics`; il vecchio AST DDF resta
+temporaneamente una proiezione recuperabile per i servizi IDE.
 
 ## Diagnostiche sintattiche
 

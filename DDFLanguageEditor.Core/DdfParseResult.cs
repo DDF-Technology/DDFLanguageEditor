@@ -23,6 +23,14 @@ namespace DDFLanguageEditor.Core
                 ? left.Start.CompareTo(right.Start)
                 : string.CompareOrdinal(left.Code, right.Code));
             Diagnostics = all.AsReadOnly();
+
+            var validation = new List<DdfDiagnostic>(all.Count + GrammarDiagnostics.Count);
+            validation.AddRange(all);
+            validation.AddRange(GrammarDiagnostics);
+            validation.Sort((left, right) => left.Start != right.Start
+                ? left.Start.CompareTo(right.Start)
+                : string.CompareOrdinal(left.Code, right.Code));
+            ValidationDiagnostics = validation.AsReadOnly();
         }
 
         public CompilationUnitSyntax Root { get; }
@@ -32,5 +40,6 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<DdfDiagnostic> GrammarDiagnostics { get; }
         public DdfCompiledGrammar Grammar { get; }
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
+        public IReadOnlyList<DdfDiagnostic> ValidationDiagnostics { get; }
     }
 }

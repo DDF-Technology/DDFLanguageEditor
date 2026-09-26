@@ -68,6 +68,7 @@ namespace DDFLanguageEditor.Tests
             Run("builds an AST for the parser corpus", BuildsAstForParserCorpus);
             Run("honors expression precedence", HonorsExpressionPrecedence);
             Run("honors right associativity", HonorsRightAssociativity);
+            Run("enforces the DDF 0.12 compilation-unit syntax", EnforcesDdf012CompilationUnitSyntax);
             Run("recovers from multiple syntax errors", RecoversFromMultipleSyntaxErrors);
             Run("keeps AST spans within the source", KeepsAstSpansWithinSource);
             Run("parses the editor smoke sample", ParsesEditorSmokeSample);
@@ -1015,6 +1016,29 @@ namespace DDFLanguageEditor.Tests
             var power = (BinaryExpressionSyntax)((ReturnStatementSyntax)function.Body.Statements[1]).Expression;
             Equal("^", power.OperatorText);
             Equal("^", ((BinaryExpressionSyntax)power.Right).OperatorText);
+        }
+
+        private static void EnforcesDdf012CompilationUnitSyntax()
+        {
+            DdfLanguageDefinition language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package.Language;
+            const string canonical =
+                "@@'Console'\n" +
+                "int shared << 1;\n" +
+                "main() out int { if(shared > 0) { ret shared; } else if(shared == 0) { ret 0; } else { ret -1; } }";
+            DdfParseResult valid = DdfParser.Parse(canonical, language);
+            Equal(0, valid.ValidationDiagnostics.Count);
+
+            const string invalidTopLevel = "1; main() out int { ret 0; }";
+            DdfParseResult topLevelExpression = DdfParser.Parse(invalidTopLevel, language);
+            Equal(0, topLevelExpression.Diagnostics.Count);
+            Equal(true, topLevelExpression.GrammarDiagnostics.Any(item => item.Code == "DDFG101"));
+            Equal(true, topLevelExpression.ValidationDiagnostics.Any(item => item.Code == "DDFG101"));
+            Equal(true, DdfIrLowerer.Lower(invalidTopLevel, topLevelExpression, language)
+                .Diagnostics.Any(item => item.Code == "DDFG101"));
+
+            DdfParseResult unbracedBody = DdfParser.Parse(
+                "main() out int { if(true) ret 1; ret 0; }", language);
+            Equal(true, unbracedBody.ValidationDiagnostics.Any(item => item.Code == "DDFG101"));
         }
 
         private static void RecoversFromMultipleSyntaxErrors()

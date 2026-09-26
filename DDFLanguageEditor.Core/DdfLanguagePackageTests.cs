@@ -85,8 +85,9 @@ namespace DDFLanguageEditor.Core
                 package.Language.Types, package.Language.StandardLibrary, null,
                 package.Language.Runtime);
             DdfIrBuildResult ir = DdfIrLowerer.Lower(test.Source, parse, package.Language);
-            string[] diagnostics = lex.Diagnostics.Concat(parse.Diagnostics).Concat(types.Diagnostics)
-                .Concat(ir.Diagnostics).Select(item => item.Code).OrderBy(item => item, StringComparer.Ordinal).ToArray();
+            string[] diagnostics = parse.ValidationDiagnostics.Concat(types.Diagnostics)
+                .Concat(ir.Diagnostics).Select(item => item.Code).Distinct(StringComparer.Ordinal)
+                .OrderBy(item => item, StringComparer.Ordinal).ToArray();
             string[] expectedDiagnostics = (test.ExpectedDiagnosticCodes ?? new List<string>())
                 .OrderBy(item => item, StringComparer.Ordinal).ToArray();
             if (!diagnostics.SequenceEqual(expectedDiagnostics, StringComparer.Ordinal))

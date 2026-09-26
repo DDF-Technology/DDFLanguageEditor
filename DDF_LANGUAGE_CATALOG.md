@@ -21,7 +21,7 @@ proprie delle liste.
 | Tipi primitivi | `int`, `float`, `char`, `bool`, `void`, `string`, `dict` | dichiarazioni e riferimenti di tipo |
 | Strutture | `struct` | dichiarazione di struttura |
 | Funzioni | `out`, `ret`, `brk`, `end` | tipo restituito, ritorno, interruzione, fine |
-| Controllo | `if`, `while`, `do`, `for` | istruzioni di controllo |
+| Controllo | `if`, `else`, `while`, `do`, `for` | istruzioni di controllo |
 | Booleani | `true`, `false` | letterali booleani canonici, case-sensitive |
 
 I nomi non presenti nel catalogo rimangono identificatori. Questo consente di
@@ -58,6 +58,10 @@ un operatore composto non richiede di modificare l'algoritmo longest-match.
 - inclusioni di libreria: `@@'Library'`;
 - numeri interi e decimali composti da cifre ASCII;
 - identificatori composti da lettere, cifre e `_`, non iniziati da cifra.
+
+Le direttive precedono le dichiarazioni; `{}` è obbligatorio per ogni corpo di
+controllo e un `;` isolato non costituisce un'istruzione. La specifica leggibile
+completa è in `DDF_SYNTAX_SPEC.md`.
 
 Queste proprietà non sono più incorporate nel lexer: si trovano nell'oggetto
 `lexical` di `language-packages/ddf/lexicon.json`. Le classi Unicode possono

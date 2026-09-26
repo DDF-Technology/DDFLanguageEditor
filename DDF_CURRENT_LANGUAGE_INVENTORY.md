@@ -60,14 +60,14 @@ forme binarie sono associative a sinistra.
 
 | Costrutto | Forma corrente | Stato / decisione |
 | --- | --- | --- |
-| Unità | direttive seguite da strutture, funzioni o istruzioni | le istruzioni top-level sono Compatibilità beta |
-| Funzione | `nome(parametri) out tipo { ... }` | Implementata; confermare ordine e marcatore `out` |
+| Unità | direttive seguite da strutture, funzioni o variabili globali | Contratto 0.12.1; istruzioni top-level eliminate |
+| Funzione | `nome(parametri) out tipo { ... }` | Contratto 0.12.1; ordine e marcatore `out` confermati |
 | Ingresso | unica funzione `main` scelta dal manifest/runtime | Implementato; firma valida da specificare |
 | Variabile | `tipo nome [<< espressione];` | Implementata; inizializzazione obbligatoria da decidere |
 | Array | tipo con suffisso `[dimensione]`, accesso `[indice]` | Implementato; dimensione, durata e collezioni dinamiche aperte |
 | Struttura | `struct Nome { dichiarazioni }` | Implementata; costruttori e valori iniziali assenti |
-| Condizione | `if (condizione) istruzione [else istruzione]` | Implementata |
-| Cicli | `while`, `do ... while`, `for` | Implementati; `for` è ancora fortemente C-like |
+| Condizione | `if (condizione) { ... } [else { ... } | else if ...]` | Contratto 0.12.1; blocchi obbligatori |
+| Cicli | `while`, `do ... while`, `for` con corpo `{ ... }` | Contratto sintattico 0.12.1; semantica del `for` da chiudere |
 | Ritorno | `ret [espressione];` | Implementato |
 | Interruzione | `brk;` | Implementato soltanto nel ciclo corrente |
 | Fine programma | `end;` | Implementato come terminazione esplicita |
@@ -135,7 +135,7 @@ un caso d'uso, una decisione e operazioni sicure nella IR.
 | `do while (...) { ... }` | prima bozza testuale | eliminare salvo futuro profilo esplicito |
 | `++(valore)` / `--(valore)` | prima bozza testuale | eliminare; mai formalizzati |
 | `True` / `False` | compatibilità beta | eliminare come letterali; restano identificatori ordinari |
-| istruzioni al livello principale | parser beta | modificare o eliminare dopo la decisione sui moduli |
+| istruzioni al livello principale | parser beta | eliminate dal programma valido; il parser storico può recuperarle soltanto per tooling interno |
 | `@@'Library'` | lexer e parser beta | modificare: sostituire il significato provvisorio con dipendenze formali |
 | `dict` | lessico e tipi beta | modificare o eliminare se non riceve semantica completa nella `0.12.2` |
 

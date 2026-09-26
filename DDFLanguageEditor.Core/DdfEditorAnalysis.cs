@@ -272,7 +272,7 @@ namespace DDFLanguageEditor.Core
                 : new DdfCompletionResult(request.Position, 0,
                     Array.Empty<DdfCompletionItem>());
             IReadOnlyList<DdfDiagnostic> diagnostics = MergeDiagnostics(
-                parse.Diagnostics, semantics.Diagnostics, types.Diagnostics, ir.Diagnostics);
+                parse.ValidationDiagnostics, semantics.Diagnostics, types.Diagnostics, ir.Diagnostics);
             return new DdfEditorAnalysisSnapshot(requestId, request, lex, parse, semantics, types,
                 ir, symbols, folding, completions, diagnostics, DateTimeOffset.UtcNow);
         }
