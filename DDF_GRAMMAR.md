@@ -1,9 +1,11 @@
-# DDF grammar — declarative grammar subset 0.9.6.7
+# DDF grammar — declarative grammar candidate 0.12
 
 La fonte canonica della sintassi è ora
 [`language-packages/ddf/grammar.ebnf`](language-packages/ddf/grammar.ebnf),
 completata dai metadati dei nodi in `grammar.json`. Questo documento rimane una
 guida leggibile e non deve duplicare nuove produzioni.
+
+Il contratto dei token è definito in `DDF_LEXICAL_SPEC.md`.
 
 ## Notazione
 

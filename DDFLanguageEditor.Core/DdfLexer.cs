@@ -64,6 +64,7 @@ namespace DDFLanguageEditor.Core
                     }
 
                     tokens.Add(new DdfToken(delimitedRule.TokenKind, index, end - index));
+                    ValidateEscapes(text, index, end, terminated, delimitedRule, diagnostics);
                     if (!terminated)
                     {
                         diagnostics.Add(CreateDiagnostic(
@@ -176,6 +177,12 @@ namespace DDFLanguageEditor.Core
                 }
                 if (rule.EscapeCharacter.Length == 1 && text[index] == rule.EscapeCharacter[0])
                 {
+                    if (index + 1 >= text.Length || (!rule.AllowLineBreak &&
+                        (text[index + 1] == '\r' || text[index + 1] == '\n')))
+                    {
+                        index++;
+                        continue;
+                    }
                     index += Math.Min(2, text.Length - index);
                     continue;
                 }
@@ -189,6 +196,27 @@ namespace DDFLanguageEditor.Core
 
             terminated = false;
             return text.Length;
+        }
+
+        private static void ValidateEscapes(string text, int start, int end, bool terminated,
+            DdfDelimitedTokenRule rule, ICollection<DdfDiagnostic> diagnostics)
+        {
+            if (rule.EscapeCharacter.Length != 1 || rule.AllowedEscapeCharacters.Length == 0 ||
+                rule.TokenKind != DdfTokenKind.StringLiteral) return;
+
+            int contentStart = start + rule.Start.Length;
+            int contentEnd = terminated ? Math.Max(contentStart, end - rule.End.Length) : end;
+            for (int index = contentStart; index < contentEnd; index++)
+            {
+                if (text[index] != rule.EscapeCharacter[0]) continue;
+                if (index + 1 >= contentEnd || rule.AllowedEscapeCharacters.IndexOf(text[index + 1]) < 0)
+                {
+                    diagnostics.Add(CreateDiagnostic(text, "DDF005",
+                        "Sequenza di escape non riconosciuta.", index,
+                        Math.Min(2, Math.Max(1, contentEnd - index))));
+                }
+                else index++;
+            }
         }
 
         private static bool StartsWith(string text, int index, string value)

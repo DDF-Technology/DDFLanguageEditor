@@ -62,6 +62,21 @@ namespace DDFLanguageEditor.Core
             string escapeCharacter = null,
             string unterminatedCode = null,
             string unterminatedMessage = null)
+            : this(tokenKind, start, end, endsAtLineBreak, allowLineBreak,
+                  escapeCharacter, unterminatedCode, unterminatedMessage, null)
+        {
+        }
+
+        public DdfDelimitedTokenRule(
+            DdfTokenKind tokenKind,
+            string start,
+            string end,
+            bool endsAtLineBreak,
+            bool allowLineBreak,
+            string escapeCharacter,
+            string unterminatedCode,
+            string unterminatedMessage,
+            string allowedEscapeCharacters)
         {
             if (tokenKind != DdfTokenKind.LineComment && tokenKind != DdfTokenKind.BlockComment &&
                 tokenKind != DdfTokenKind.StringLiteral && tokenKind != DdfTokenKind.LibraryDirective)
@@ -75,6 +90,8 @@ namespace DDFLanguageEditor.Core
                 throw new ArgumentException("An end marker is required.", nameof(end));
             if (escapeCharacter != null && escapeCharacter.Length > 1)
                 throw new ArgumentException("The escape character must contain at most one character.", nameof(escapeCharacter));
+            if (!string.IsNullOrEmpty(allowedEscapeCharacters) && string.IsNullOrEmpty(escapeCharacter))
+                throw new ArgumentException("Allowed escapes require an escape character.", nameof(allowedEscapeCharacters));
             if (!endsAtLineBreak && (string.IsNullOrWhiteSpace(unterminatedCode) || string.IsNullOrWhiteSpace(unterminatedMessage)))
                 throw new ArgumentException("Delimited rules require an unterminated diagnostic.");
 
@@ -84,6 +101,7 @@ namespace DDFLanguageEditor.Core
             EndsAtLineBreak = endsAtLineBreak;
             AllowLineBreak = allowLineBreak;
             EscapeCharacter = escapeCharacter ?? string.Empty;
+            AllowedEscapeCharacters = allowedEscapeCharacters ?? string.Empty;
             UnterminatedCode = unterminatedCode ?? string.Empty;
             UnterminatedMessage = unterminatedMessage ?? string.Empty;
         }
@@ -94,6 +112,7 @@ namespace DDFLanguageEditor.Core
         public bool EndsAtLineBreak { get; }
         public bool AllowLineBreak { get; }
         public string EscapeCharacter { get; }
+        public string AllowedEscapeCharacters { get; }
         public string UnterminatedCode { get; }
         public string UnterminatedMessage { get; }
     }
@@ -159,7 +178,7 @@ namespace DDFLanguageEditor.Core
             var unicodeWhitespace = new DdfCharacterSetDefinition(unicodeWhitespace: true);
             var identifierStart = new DdfCharacterSetDefinition(unicodeLetters: true, characters: "_");
             var identifierPart = new DdfCharacterSetDefinition(unicodeLetters: true, unicodeDigits: true, characters: "_");
-            var digits = new DdfCharacterSetDefinition(unicodeDigits: true);
+            var digits = new DdfCharacterSetDefinition(characters: "0123456789");
             return new DdfLexicalDefinition(
                 unicodeWhitespace,
                 identifierStart,
@@ -170,7 +189,8 @@ namespace DDFLanguageEditor.Core
                     new DdfDelimitedTokenRule(DdfTokenKind.LineComment, "//", endsAtLineBreak: true),
                     new DdfDelimitedTokenRule(DdfTokenKind.BlockComment, "/*", "*/", unterminatedCode: "DDF002", unterminatedMessage: "Commento a blocchi non terminato."),
                     new DdfDelimitedTokenRule(DdfTokenKind.LibraryDirective, "@@'", "'", unterminatedCode: "DDF003", unterminatedMessage: "Inclusione di libreria non terminata."),
-                    new DdfDelimitedTokenRule(DdfTokenKind.StringLiteral, "\"", "\"", escapeCharacter: "\\", unterminatedCode: "DDF001", unterminatedMessage: "Stringa non terminata.")
+                    new DdfDelimitedTokenRule(DdfTokenKind.StringLiteral, "\"", "\"", false, false,
+                        "\\", "DDF001", "Stringa non terminata.", "\"\\nrt")
                 });
         }
 

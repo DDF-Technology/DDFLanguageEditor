@@ -22,7 +22,7 @@ proprie delle liste.
 | Strutture | `struct` | dichiarazione di struttura |
 | Funzioni | `out`, `ret`, `brk`, `end` | tipo restituito, ritorno, interruzione, fine |
 | Controllo | `if`, `while`, `do`, `for` | istruzioni di controllo |
-| Booleani | `true`, `false`, `True`, `False` | letterali booleani |
+| Booleani | `true`, `false` | letterali booleani canonici, case-sensitive |
 
 I nomi non presenti nel catalogo rimangono identificatori. Questo consente di
 aggiungere in futuro funzioni di libreria e simboli utente senza trasformarli
@@ -50,9 +50,9 @@ un operatore composto non richiede di modificare l'algoritmo longest-match.
 
 - delimitatori: `{ } ( ) [ ] . , ;`;
 - commenti: `//` e `/* ... */`;
-- stringhe: `"..."` con escape tramite barra inversa;
+- stringhe su una riga: `"..."` con escape `\"`, `\\`, `\n`, `\r`, `\t`;
 - inclusioni di libreria: `@@'Library'`;
-- numeri interi e decimali;
+- numeri interi e decimali composti da cifre ASCII;
 - identificatori composti da lettere, cifre e `_`, non iniziati da cifra.
 
 Queste proprietà non sono più incorporate nel lexer: si trovano nell'oggetto

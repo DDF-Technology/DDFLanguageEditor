@@ -245,6 +245,9 @@ restano quelli attualmente implementati; le nuove capacità seguiranno la roadma
 - `engineApi` dichiara il contratto richiesto all'applicazione;
 - `packageVersion` identifica la revisione del pacchetto;
 - `languageVersion` identifica la revisione del linguaggio esposto all'utente.
+  Il pacchetto DDF corrente usa `0.12`; le stringhe possono inoltre dichiarare
+  `allowedEscapeCharacters` accanto a `escapeCharacter` per rifiutare escape non
+  previsti invece di accettarli silenziosamente.
 
 La `0.9.6.0` accetta `schemaVersion` ed `engineApi` `1.0`. Versioni incompatibili
 vengono rifiutate prima di creare il catalogo attivo.

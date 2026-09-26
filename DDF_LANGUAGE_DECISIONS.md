@@ -66,3 +66,16 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   beta per evitare incompatibilità; cambiare simboli senza beneficio misurabile.
 - **Conseguenze:** la beta può introdurre cambiamenti incompatibili documentati e
   accompagnati da una guida di migrazione.
+
+## DDF-0006 — Nucleo lessicale 0.12
+
+- **Stato:** Accettata
+- **Data:** 2026-09-26
+- **Decisione:** identificatori Unicode case-sensitive, numeri con cifre ASCII,
+  booleani esclusivamente `true`/`false`, stringhe su una riga e insieme chiuso
+  di escape `\"`, `\\`, `\n`, `\r`, `\t`. I commenti restano `//` e `/* */`.
+- **Alternative rifiutate:** cifre Unicode non interpretabili uniformemente dal
+  runtime; alias booleani con maiuscole; stringhe multilinea implicite; escape
+  sconosciuti accettati silenziosamente.
+- **Conseguenze:** `True` e `False` diventano identificatori, gli escape invalidi
+  producono `DDF005` e i progetti dichiarano il pacchetto DDF `0.12.0`.

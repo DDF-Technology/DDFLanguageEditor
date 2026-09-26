@@ -876,7 +876,7 @@ namespace DDFLanguageEditor.Core
                     {
                         rules.Add(new DdfDelimitedTokenRule(tokenKind, item.Start, item.End,
                             item.EndsAtLineBreak, item.AllowLineBreak, item.EscapeCharacter,
-                            item.UnterminatedCode, item.UnterminatedMessage));
+                            item.UnterminatedCode, item.UnterminatedMessage, item.AllowedEscapeCharacters));
                     }
                     catch (ArgumentException exception)
                     {
@@ -1073,7 +1073,7 @@ namespace DDFLanguageEditor.Core
         private sealed class CharacterSetDto { public bool UnicodeLetters { get; set; } public bool UnicodeDigits { get; set; } public bool UnicodeWhitespace { get; set; } public string Characters { get; set; } }
         private sealed class IdentifierDto { public CharacterSetDto Start { get; set; } public CharacterSetDto Part { get; set; } }
         private sealed class NumberDto { public CharacterSetDto Digits { get; set; } public string DecimalSeparator { get; set; } public bool RequireFractionDigits { get; set; } }
-        private sealed class DelimitedTokenDto { public string TokenKind { get; set; } public string Start { get; set; } public string End { get; set; } public bool EndsAtLineBreak { get; set; } public bool AllowLineBreak { get; set; } = true; public string EscapeCharacter { get; set; } public string UnterminatedCode { get; set; } public string UnterminatedMessage { get; set; } }
+        private sealed class DelimitedTokenDto { public string TokenKind { get; set; } public string Start { get; set; } public string End { get; set; } public bool EndsAtLineBreak { get; set; } public bool AllowLineBreak { get; set; } = true; public string EscapeCharacter { get; set; } public string AllowedEscapeCharacters { get; set; } public string UnterminatedCode { get; set; } public string UnterminatedMessage { get; set; } }
         private sealed class KeywordDto { public string Text { get; set; } public string TokenKind { get; set; } public string Role { get; set; } }
         private sealed class OperatorDto { public string Text { get; set; } public int BinaryPrecedence { get; set; } public string Associativity { get; set; } public int PrefixPrecedence { get; set; } public int PostfixPrecedence { get; set; } public string Role { get; set; } }
         private sealed class NativeExtensionDto { public string Id { get; set; } public string Publisher { get; set; } public string Version { get; set; } public string Sha256 { get; set; } public List<string> Capabilities { get; set; } }

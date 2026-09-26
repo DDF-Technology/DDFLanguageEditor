@@ -19,8 +19,8 @@
     },
     "number": {
       "digits": {
-        "unicodeDigits": true,
-        "characters": ""
+        "unicodeDigits": false,
+        "characters": "0123456789"
       },
       "decimalSeparator": ".",
       "requireFractionDigits": true
@@ -43,7 +43,7 @@
         "tokenKind": "LibraryDirective",
         "start": "@@'",
         "end": "'",
-        "allowLineBreak": true,
+        "allowLineBreak": false,
         "unterminatedCode": "DDF003",
         "unterminatedMessage": "Inclusione di libreria non terminata."
       },
@@ -51,8 +51,9 @@
         "tokenKind": "StringLiteral",
         "start": "\"",
         "end": "\"",
-        "allowLineBreak": true,
+        "allowLineBreak": false,
         "escapeCharacter": "\\",
+        "allowedEscapeCharacters": "\"\\nrt",
         "unterminatedCode": "DDF001",
         "unterminatedMessage": "Stringa non terminata."
       }
@@ -78,7 +79,7 @@
     { "text": "do", "tokenKind": "ControlFlowKeyword", "role": "Do" },
     { "text": "for", "tokenKind": "ControlFlowKeyword", "role": "For" }
   ],
-  "booleanLiterals": [ "true", "false", "True", "False" ],
+  "booleanLiterals": [ "true", "false" ],
   "operators": [
     { "text": "<<", "binaryPrecedence": 1, "associativity": "Right", "role": "DeclarationInitializer" },
     { "text": ">>", "binaryPrecedence": 1, "associativity": "Right", "role": "None" },

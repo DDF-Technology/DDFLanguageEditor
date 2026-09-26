@@ -325,7 +325,7 @@ namespace DDFLanguageEditor.Core
                         ? new DdfTypeSymbol(typeSystem.Literals.String)
                         : literal.Text.IndexOf('.') >= 0
                             ? new DdfTypeSymbol(typeSystem.Literals.Decimal)
-                            : literal.Text == "true" || literal.Text == "false" || literal.Text == "True" || literal.Text == "False"
+                            : literal.Text == "true" || literal.Text == "false"
                                 ? new DdfTypeSymbol(typeSystem.Literals.Boolean)
                                 : new DdfTypeSymbol(typeSystem.Literals.Integer);
                 }

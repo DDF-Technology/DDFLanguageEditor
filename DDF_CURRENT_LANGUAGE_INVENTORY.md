@@ -20,11 +20,11 @@ vecchia `DDF - Program Language Spec.txt` è soltanto una bozza storica.
 | Area | Comportamento corrente | Stato | Decisione 0.12 |
 | --- | --- | --- | --- |
 | Identificatori | lettera Unicode o `_`, poi lettere, cifre o `_` | Implementato | decidere normalizzazione, maiuscole e parole riservate |
-| Numeri | interi o decimali con `.` e cifre dopo il separatore | Implementato | definire segno, range, overflow e future basi/esponenti |
-| Stringhe | `"..."`, escape introdotto da `\`, anche multilinea | Implementato | definire escape ammessi e politica multilinea |
+| Numeri | interi o decimali con `.` e cifre ASCII dopo il separatore | Definito 0.12 | segno, range e overflow passano alla semantica; basi/esponenti richiedono una nuova decisione |
+| Stringhe | `"..."` su una riga; escape `\"`, `\\`, `\n`, `\r`, `\t` | Definito 0.12 | multilinea e interpolazione escluse dal nucleo corrente |
 | Commenti | `//` e `/* ... */` | Implementato | decidere annidamento e commenti documentali |
 | Direttiva libreria | `@@'nome'` | Parziale | ridefinire come dipendenza/capacità o sostituirla |
-| Booleani | `true`, `false`, `True`, `False` | Compatibilità beta | scegliere una forma canonica e la sensibilità al caso |
+| Booleani | `true`, `false` | Definito 0.12 | confronto case-sensitive; alias maiuscoli rimossi |
 | Terminatore | `;` | Implementato | confermare obbligatorietà e casi di omissione |
 | Blocchi | `{ ... }` | Implementato | confermare come forma DDF o introdurre delimitatori propri |
 
@@ -134,7 +134,7 @@ un caso d'uso, una decisione e operazioni sicure nella IR.
 | `do { ... } while (...);` | implementazione corrente | conservare come baseline |
 | `do while (...) { ... }` | prima bozza testuale | eliminare salvo futuro profilo esplicito |
 | `++(valore)` / `--(valore)` | prima bozza testuale | eliminare; mai formalizzati |
-| `True` / `False` | compatibilità beta | modificare: scegliere una sola forma canonica |
+| `True` / `False` | compatibilità beta | eliminare come letterali; restano identificatori ordinari |
 | istruzioni al livello principale | parser beta | modificare o eliminare dopo la decisione sui moduli |
 | `@@'Library'` | lexer e parser beta | modificare: sostituire il significato provvisorio con dipendenze formali |
 | `dict` | lessico e tipi beta | modificare o eliminare se non riceve semantica completa nella `0.12.2` |

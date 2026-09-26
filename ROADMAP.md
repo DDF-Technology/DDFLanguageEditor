@@ -661,6 +661,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 ### 0.12.1 — Lessico e sintassi definitiva
 
 - [ ] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
+  - [x] Fissare il nucleo lessicale: identificatori Unicode case-sensitive, cifre ASCII, booleani minuscoli, stringhe su una riga, escape chiusi e commenti (`DDF_LEXICAL_SPEC.md`, 2026-09-26).
+  - [ ] Chiudere direttive, insieme delle keyword, operatori e delimitatori insieme alla sintassi.
 - [ ] Definire precedenza, associatività e forme prefisse, infisse e postfisse senza ambiguità.
 - [ ] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
 - [ ] Eliminare contraddizioni e alias provvisori dalla specifica storica.

@@ -59,11 +59,9 @@ accedono con `.`, ad esempio `point.x`.
 
 - interi: `0`, `42`, `123`;
 - decimali: `1.5`, `123.45`;
-- booleani canonici: `true`, `false`;
-- booleani storici ancora riconosciuti: `True`, `False`.
+- booleani canonici: `true`, `false`.
 
-Il type checker tratta temporaneamente entrambe le grafie come `bool`; la forma
-minuscola resta quella canonica per i nuovi sorgenti.
+Le grafie storiche `True` e `False` non sono più letterali nel pacchetto 0.12.
 
 ## Parole chiave
 

@@ -24,6 +24,7 @@ namespace DDFLanguageEditor.Tests
             Run("protects strings from nested classification", ProtectsStrings);
             Run("classifies unterminated block comments", ClassifiesUnterminatedBlockComments);
             Run("prefers longest operators", PrefersLongestOperators);
+            Run("enforces the DDF 0.12 lexical contract", EnforcesDdf012LexicalContract);
             Run("inserts four spaces for Tab", InsertsTab);
             Run("uses configured tabs for editing and formatting", UsesConfiguredTabs);
             Run("indents and outdents multiline selections", IndentsAndOutdentsSelection);
@@ -279,6 +280,34 @@ namespace DDFLanguageEditor.Tests
                 .Select(span => Slice(text, span))
                 .ToArray();
             SequenceEqual(new[] { ">><<", "<<>>", "|&|" }, operators);
+        }
+
+        private static void EnforcesDdf012LexicalContract()
+        {
+            DdfLanguageDefinition language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package.Language;
+
+            DdfLexResult booleans = DdfLexer.Lex("true false True False", language);
+            SequenceEqual(new[]
+            {
+                DdfTokenKind.BooleanLiteral, DdfTokenKind.BooleanLiteral,
+                DdfTokenKind.Identifier, DdfTokenKind.Identifier
+            }, booleans.Tokens.Select(item => item.Kind));
+
+            DdfLexResult validString = DdfLexer.Lex("\"testo\\n\\t\\\"\\\\\"", language);
+            Equal(0, validString.Diagnostics.Count);
+
+            DdfLexResult invalidEscape = DdfLexer.Lex("\"testo\\q\"", language);
+            Equal(true, invalidEscape.Diagnostics.Any(item => item.Code == "DDF005"));
+
+            DdfLexResult multiline = DdfLexer.Lex("\"prima\nseconda\"", language);
+            Equal(true, multiline.Diagnostics.Any(item => item.Code == "DDF001"));
+
+            DdfLexResult nonAsciiDigit = DdfLexer.Lex("١", language);
+            Equal(DdfTokenKind.BadToken, nonAsciiDigit.Tokens.Single().Kind);
+            Equal("DDF004", nonAsciiDigit.Diagnostics.Single().Code);
+
+            DdfLexResult unicodeIdentifier = DdfLexer.Lex("temperatura_è2", language);
+            Equal(DdfTokenKind.Identifier, unicodeIdentifier.Tokens.Single().Kind);
         }
 
         private static void InsertsTab()
@@ -1050,7 +1079,8 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.9.6.7", result.Package.PackageVersion);
+            Equal("0.12.0", result.Package.PackageVersion);
+            Equal("0.12", result.Package.LanguageVersion);
             Equal(17, result.Package.Language.Keywords.Count);
             Equal(22, result.Package.Language.Operators.Count);
             Equal(0, result.Package.NativeExtensions.Count);
@@ -3570,7 +3600,12 @@ namespace DDFLanguageEditor.Tests
                         case "LineComment": rule["start"] = "#"; break;
                         case "BlockComment": rule["start"] = "##"; rule["end"] = "##"; break;
                         case "LibraryDirective": rule["start"] = "use["; rule["end"] = "]"; break;
-                        case "StringLiteral": rule["start"] = "`"; rule["end"] = "`"; rule["escapeCharacter"] = "~"; break;
+                        case "StringLiteral":
+                            rule["start"] = "`";
+                            rule["end"] = "`";
+                            rule["escapeCharacter"] = "~";
+                            rule["allowedEscapeCharacters"] = "`~nrt";
+                            break;
                     }
                 }
                 foreach (JsonNode node in document["keywords"].AsArray())

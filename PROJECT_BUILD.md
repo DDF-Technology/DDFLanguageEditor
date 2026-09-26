@@ -16,7 +16,7 @@ manifest is:
   "schemaVersion": "1.0",
   "name": "example",
   "languageId": "ddf",
-  "languagePackageVersion": "0.9.6.7",
+  "languagePackageVersion": "0.12.0",
   "sources": [ "**/*.ddf" ],
   "entrySource": "main.ddf",
   "entryPoint": "main",

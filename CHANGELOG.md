@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.12.0 - in sviluppo
+## 0.12.1 - in sviluppo
+
+- Fissato il primo nucleo lessicale della `0.12.1`: identificatori Unicode case-sensitive, numeri con cifre ASCII, soli booleani minuscoli, stringhe su una riga ed escape dichiarati. Pacchetto e progetti campione passano alla versione linguaggio `0.12`/pacchetto `0.12.0`; gli escape sconosciuti producono `DDF005` e una nuova prova Core verifica il contratto.
+
+## 0.12.0 - 2026-09-26
 
 - Definiti identità, casi d'uso, principi e non-obiettivi del linguaggio; inventariati lessico, sintassi, semantica e comportamenti storici; aggiunti confronto mirato con linguaggi affini e registro append-only delle decisioni DDF-0001–DDF-0005. Nessun comportamento del parser o del runtime è stato modificato.
 

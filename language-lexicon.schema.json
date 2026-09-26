@@ -47,6 +47,7 @@
               "endsAtLineBreak": { "type": "boolean" },
               "allowLineBreak": { "type": "boolean" },
               "escapeCharacter": { "type": "string", "maxLength": 1 },
+              "allowedEscapeCharacters": { "type": "string" },
               "unterminatedCode": { "type": "string", "minLength": 1 },
               "unterminatedMessage": { "type": "string", "minLength": 1 }
             }
