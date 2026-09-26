@@ -1,0 +1,26 @@
+adjust(int value) restituisce int
+{
+    se(value < 5)
+    {
+        restituisci value + 2;
+    }
+    altrimenti
+    {
+        restituisci value;
+    }
+}
+
+main() restituisce int
+{
+    int totale << adjust(0);
+
+    per(int indice << 0; indice < 3; indice++)
+    {
+        se(indice != 1)
+        {
+            totale << totale + indice;
+        }
+    }
+
+    restituisci totale;
+}

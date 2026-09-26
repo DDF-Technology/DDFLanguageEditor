@@ -1,3 +1,10 @@
+DOCUMENTO STORICO NON NORMATIVO
+----------------------------------------------------
+Questa bozza è conservata esclusivamente per tracciare l'evoluzione iniziale.
+La sintassi corrente è definita da DDF_SYNTAX_SPEC.md, DDF_LEXICAL_SPEC.md,
+DDF_OPERATOR_SPEC.md e dal pacchetto language-packages/ddf. Le grafie seguenti
+non devono essere interpretate come alias ancora supportati.
+
 COMMENTI:
 ----------------------------------------------------
 Singola riga: ..

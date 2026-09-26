@@ -1,0 +1,7 @@
+main() restituisce int
+{
+    se(vero)
+        restituisci 1;
+
+    restituisci 0;
+}

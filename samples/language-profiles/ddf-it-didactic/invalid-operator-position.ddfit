@@ -1,0 +1,5 @@
+main() restituisce int
+{
+    int valore + 1;
+    restituisci valore;
+}

@@ -124,6 +124,26 @@ la migrazione è descritta in `DDF_MIGRATION_0_12.md`.
 ```ebnf
 expression = assignment-expression ;
 
+assignment-expression = logical-or-expression,
+                        [ ( "<<" | ">>" ), assignment-expression ] ;
+
+logical-or-expression = logical-xor-expression,
+                        { "||", logical-xor-expression } ;
+logical-xor-expression = logical-and-expression,
+                         { "^^", logical-and-expression } ;
+logical-and-expression = equality-expression,
+                         { "&&", equality-expression } ;
+equality-expression = relational-expression,
+                      { ( "==" | "!=" ), relational-expression } ;
+relational-expression = additive-expression,
+                        { ( "<" | "<=" | ">" | ">=" ), additive-expression } ;
+additive-expression = multiplicative-expression,
+                      { ( "+" | "-" ), multiplicative-expression } ;
+multiplicative-expression = power-expression,
+                            { ( "*" | "/" ), power-expression } ;
+power-expression = prefix-expression, [ "^", power-expression ] ;
+prefix-expression = { "!" | "+" | "-" }, postfix-expression ;
+
 primary-expression = identifier
                    | number
                    | string

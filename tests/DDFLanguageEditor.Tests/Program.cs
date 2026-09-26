@@ -131,6 +131,7 @@ namespace DDFLanguageEditor.Tests
             Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
             Run("executes a syntax-distinct demonstration language", ExecutesSyntaxDistinctDemonstrationLanguage);
             Run("keeps the shipped syntax profiles semantically equivalent", KeepsShippedSyntaxProfilesSemanticallyEquivalent);
+            Run("validates the normative syntax profile corpus", ValidatesNormativeSyntaxProfileCorpus);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
             Run("falls back to the embedded language package", FallsBackToEmbeddedLanguagePackage);
@@ -3843,6 +3844,65 @@ namespace DDFLanguageEditor.Tests
             if (node is DdfIrGroup group) return "group(" + SemanticIrShape(group.Expression) + ")";
             if (node is DdfIrUnary unary) return "unary:" + unary.OperationId + "(" + SemanticIrShape(unary.Operand) + ")";
             return node.GetType().Name;
+        }
+
+        private static void ValidatesNormativeSyntaxProfileCorpus()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            string corpus = Path.Combine(AppContext.BaseDirectory, "ProfileCorpus");
+            var cases = new[]
+            {
+                new { Id = "ddf", Extension = ".ddf", Marker = "out", Legacy = "return" },
+                new { Id = "ddf-it-didactic", Extension = ".ddfit", Marker = "restituisce", Legacy = "if" },
+                new { Id = "ddf-c-familiar", Extension = ".ddfc", Marker = "returns", Legacy = "ret" }
+            };
+
+            foreach (var profile in cases)
+            {
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(Path.Combine(profiles, profile.Id));
+                if (!load.Success) throw new InvalidOperationException(profile.Id + ": " + string.Join(" | ", load.Diagnostics));
+                DdfLanguageDefinition language = load.Package.Language;
+                foreach (DdfSnippetTemplate snippet in language.Intellisense.Snippets.Where(item => item.RequiresKeyword))
+                    Equal(true, language.TryGetKeyword(snippet.Prefix, out _));
+                Equal(1, language.Operators.Count(item => item.Role == DdfOperatorRole.DeclarationInitializer));
+                string directory = Path.Combine(corpus, profile.Id);
+                string valid = File.ReadAllText(Path.Combine(directory, "valid-core" + profile.Extension), Encoding.UTF8);
+                DdfParseResult parse = DdfParser.Parse(valid, language);
+                Equal(0, parse.ValidationDiagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(valid, parse.Root, null, language.Types,
+                    language.StandardLibrary, null, language.Runtime).Diagnostics.Count);
+                string formatted = DdfFormatter.Format(valid, language).Text;
+                Equal(formatted, DdfFormatter.Format(formatted, language).Text);
+                Equal(0, DdfParser.Parse(formatted, language).ValidationDiagnostics.Count);
+                DdfIrBuildResult ir = DdfIrLowerer.Lower(valid, parse, language);
+                Equal(true, ir.Success);
+                Equal(4L, Convert.ToInt64(DdfInterpreter.Execute(valid, ir.Program, language).ReturnValue));
+
+                foreach (string invalidName in new[] { "invalid-unbraced", "invalid-operator-position" })
+                {
+                    string invalid = File.ReadAllText(Path.Combine(directory, invalidName + profile.Extension), Encoding.UTF8);
+                    Equal(true, DdfParser.Parse(invalid, language).ValidationDiagnostics.Any(item => item.Code == "DDFG101"));
+                }
+
+                string missingMarker = profile.Id == "ddf-it-didactic"
+                    ? "main() int { restituisci 0; }"
+                    : profile.Id == "ddf-c-familiar"
+                        ? "main() int { return 0; }"
+                        : "main() int { ret 0; }";
+                DdfParseResult missingParse = DdfParser.Parse(missingMarker, language);
+                DdfDiagnostic markerDiagnostic = missingParse.Diagnostics.First(item =>
+                    item.Code == "DDF102" && item.Message.Contains(profile.Marker, StringComparison.Ordinal));
+                DdfQuickFix markerFix = DdfQuickFixService.CreateDefault(language.Formatting)
+                    .GetFixes(missingMarker, markerDiagnostic)
+                    .Single(item => item.Replacement.Trim() == profile.Marker);
+                string repaired = Apply(missingMarker, markerFix.ToEditorEdit());
+                Equal(0, DdfParser.Parse(repaired, language).ValidationDiagnostics.Count);
+                Equal(false, language.TryGetKeyword(profile.Legacy, out _));
+            }
+
+            DdfLanguageDefinition canonical = DdfLanguagePackageLoader.Load(Path.Combine(profiles, "ddf")).Package.Language;
+            foreach (string removed in new[] { "!!", "&", "|&|", ">><<", "<<>>", "^/" })
+                Equal(false, canonical.TryGetOperator(removed, out _));
         }
 
         private static void RejectsUnreachableLexicalRules()

@@ -9,6 +9,7 @@
 - Aggiunto `ValidationDiagnostics`: l'EBNF del pacchetto è ora il validatore normativo usato da analisi, Build e test dichiarativi, mentre le diagnostiche del parser storico restano disponibili separatamente per recupero interattivo, Watch e Quick Fix.
 - Aggiunti i pacchetti di riferimento `ddf-it-didactic` e `ddf-c-familiar`: il primo introduce controllo di flusso e booleani italiani, il secondo `return`, `break` e assegnazione `=` senza dichiarare compatibilità con C. Un corpus comune usa la stessa API host, confronta la IR semantica ed esegue entrambi insieme al DDF canonico con risultato equivalente.
 - Rimossa l'assunzione interna `true`/`false`: `booleanLiteralValues` associa esplicitamente grafia e valore, che parser e IR conservano per type checker, Watch e VM. I pacchetti storici con le grafie canoniche restano compatibili.
+- Completato l’audit di conformità sintattica del nucleo `0.12.1`: l’EBNF non usa più `<Operator>` come scorciatoia universale ma descrive inizializzatori, livelli di precedenza e associatività. Il nuovo corpus valido/non valido verifica i tre profili, formatter idempotente, Quick Fix localizzate, snippet collegati a keyword reali e rifiuto degli alias beta; la prima bozza è ora marcata esplicitamente come storica.
 
 ## 0.12.0 - 2026-09-26
 

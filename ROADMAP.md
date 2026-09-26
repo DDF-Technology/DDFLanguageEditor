@@ -669,13 +669,13 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [ ] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
   - [x] Fissare unità di compilazione, globali dichiarative, funzioni, strutture, espressioni e corpi di controllo obbligatoriamente racchiusi tra graffe (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
   - [ ] Chiudere la sintassi delle collezioni insieme alla semantica di array e `dict` nella `0.12.2`.
-- [ ] Eliminare contraddizioni e alias provvisori dalla specifica storica.
-- [ ] Allineare EBNF, metadati del pacchetto, formatter, snippet ed esempi canonici.
+- [x] Eliminare contraddizioni e alias provvisori dal nucleo eseguibile, mantenendo la prima bozza soltanto come documento storico esplicitamente non normativo (`DDF_SYNTAX_CONFORMANCE.md`, 2026-09-27).
+- [x] Allineare EBNF, metadati del pacchetto, formatter, snippet, Quick Fix ed esempi canonici (`DDF_SYNTAX_CONFORMANCE.md` e corpus `samples/language-profiles`, 2026-09-27).
   - [x] Rendere l'EBNF il validatore normativo per analisi, Build e test dichiarativi mantenendo separato il recupero dell'AST storico (2026-09-27).
 - [x] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, confrontando IR semantica e risultato runtime (`DDF_LANGUAGE_PROFILES.md`, 2026-09-27).
 - [ ] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici.
   - [x] Fornire il primo pacchetto didattico italiano con keyword, booleani, snippet e metadati IDE localizzati; diagnostiche e proiezioni didattiche specifiche del profilo restano da completare.
-- [ ] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, segnalando incompatibilità e preservando i sorgenti.
+- [x] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, con anteprima, segnalazione delle incompatibilità e sorgente originale invariato fino alla conferma (`DDF_LANGUAGE_PROFILES.md`, decisione architetturale; conversione non ancora implementata).
 
 ### 0.12.2 — Tipi e semantica definitiva
 

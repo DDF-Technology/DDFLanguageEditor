@@ -1,0 +1,26 @@
+adjust(int value) returns int
+{
+    if(value < 5)
+    {
+        return value + 2;
+    }
+    else
+    {
+        return value;
+    }
+}
+
+main() returns int
+{
+    int total = adjust(0);
+
+    for(int index = 0; index < 3; index++)
+    {
+        if(index != 1)
+        {
+            total = total + index;
+        }
+    }
+
+    return total;
+}

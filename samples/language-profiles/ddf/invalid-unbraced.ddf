@@ -1,0 +1,7 @@
+main() out int
+{
+    if(true)
+        ret 1;
+
+    ret 0;
+}

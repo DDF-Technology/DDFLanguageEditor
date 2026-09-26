@@ -1,0 +1,26 @@
+adjust(int value) out int
+{
+    if(value < 5)
+    {
+        ret value + 2;
+    }
+    else
+    {
+        ret value;
+    }
+}
+
+main() out int
+{
+    int total << adjust(0);
+
+    for(int index << 0; index < 3; index++)
+    {
+        if(index != 1)
+        {
+            total << total + index;
+        }
+    }
+
+    ret total;
+}
