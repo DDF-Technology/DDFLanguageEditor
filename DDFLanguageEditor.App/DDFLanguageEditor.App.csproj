@@ -21,4 +21,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DDF - Program Language Editor.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\language-packages\ddf-it-didactic\*.*" Link="language-package-seeds\ddf-it-didactic\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\language-packages\ddf-c-familiar\*.*" Link="language-package-seeds\ddf-c-familiar\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

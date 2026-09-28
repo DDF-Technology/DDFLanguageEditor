@@ -103,14 +103,16 @@ namespace DDFLanguageEditor.Core
     {
         public static DdfFlowchartBuildResult Build(DdfIrModule module, string functionName)
         {
-            return Build(module, functionName, null);
+            return Build(module, functionName, null, null);
         }
 
         public static DdfFlowchartBuildResult Build(DdfIrModule module, string functionName,
-            IEnumerable<DdfDiagnostic> diagnostics)
+            IEnumerable<DdfDiagnostic> diagnostics,
+            DdfFlowchartPresentation presentation = null)
         {
             if (module == null) throw new ArgumentNullException(nameof(module));
-            DdfFlowchartBuildResult result = Build(module.Source, module.Program, functionName, module.DocumentPath);
+            DdfFlowchartBuildResult result = Build(module.Source, module.Program, functionName,
+                module.DocumentPath, presentation);
             return new DdfFlowchartBuildResult(result.Flowchart,
                 (diagnostics ?? Array.Empty<DdfDiagnostic>()).Concat(result.Diagnostics));
         }
@@ -132,12 +134,13 @@ namespace DDFLanguageEditor.Core
             }).Select(group => group.First()).ToList();
             if (!lowered.Success || diagnostics.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfFlowchartBuildResult(null, diagnostics);
-            DdfFlowchartBuildResult result = Build(source, lowered.Program, functionName, documentPath);
+            DdfFlowchartBuildResult result = Build(source, lowered.Program, functionName, documentPath,
+                language.Intellisense.Flowchart);
             return new DdfFlowchartBuildResult(result.Flowchart, diagnostics.Concat(result.Diagnostics));
         }
 
         public static DdfFlowchartBuildResult Build(string source, DdfIrProgram program, string functionName,
-            string documentPath = null)
+            string documentPath = null, DdfFlowchartPresentation presentation = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (program == null) throw new ArgumentNullException(nameof(program));
@@ -150,7 +153,8 @@ namespace DDFLanguageEditor.Core
                     0, 1, 1, 1, documentPath: documentPath);
                 return new DdfFlowchartBuildResult(null, new[] { diagnostic });
             }
-            return new DdfFlowchartBuildResult(new Builder(source, documentPath, function).Build(), Array.Empty<DdfDiagnostic>());
+            return new DdfFlowchartBuildResult(new Builder(source, documentPath, function,
+                presentation ?? DdfFlowchartPresentation.CreateLegacyDefault()).Build(), Array.Empty<DdfDiagnostic>());
         }
 
         private sealed class Builder
@@ -158,16 +162,18 @@ namespace DDFLanguageEditor.Core
             private readonly string source;
             private readonly string documentPath;
             private readonly DdfIrFunction function;
+            private readonly DdfFlowchartPresentation presentation;
             private readonly List<DdfFlowchartNode> nodes = new List<DdfFlowchartNode>();
             private readonly List<DdfFlowchartEdge> edges = new List<DdfFlowchartEdge>();
             private int nextId;
 
-            public Builder(string source, string documentPath, DdfIrFunction function)
-            { this.source = source; this.documentPath = documentPath; this.function = function; }
+            public Builder(string source, string documentPath, DdfIrFunction function,
+                DdfFlowchartPresentation presentation)
+            { this.source = source; this.documentPath = documentPath; this.function = function; this.presentation = presentation; }
 
             public DdfFlowchart Build()
             {
-                string exit = AddNode(DdfFlowchartNodeKind.Exit, "Fine " + function.Name,
+                string exit = AddNode(DdfFlowchartNodeKind.Exit, presentation.FormatExit(function.Name),
                     function.NameStart, function.NameLength);
                 Target exitTarget = new Target(exit, DdfFlowchartEdgeKind.Next);
                 string body = BuildBlock(function.Body, exitTarget, exitTarget);

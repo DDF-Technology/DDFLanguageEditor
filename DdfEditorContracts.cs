@@ -10,7 +10,7 @@ namespace DDF___Program_Language_Editor
     /// </summary>
     public static class DdfEditorSdkContract
     {
-        public const string CurrentVersion = "0.31";
+        public const string CurrentVersion = "0.32";
     }
 
     /// <summary>
@@ -52,6 +52,7 @@ namespace DDF___Program_Language_Editor
         event EventHandler<DdfEditorAnalysisCompletedEventArgs> AnalysisCompleted;
         event EventHandler<DdfEditorAnalysisCompletedEventArgs> DiagnosticsUpdated;
         event EventHandler<DdfHostCatalogChangedEventArgs> HostCatalogChanged;
+        event EventHandler LanguageSessionChanged;
         event EventHandler<DdfEditorDefinitionNavigatedEventArgs> DefinitionNavigated;
         event EventHandler<DdfEditorProjectEventArgs> ProjectSaved;
         event EventHandler<DdfEditorProjectEventArgs> ProjectOpened;

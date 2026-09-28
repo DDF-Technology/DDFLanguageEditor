@@ -41,6 +41,26 @@
         }
       }
     },
+    "flowchart": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "trueLabel", "falseLabel", "exitLabelFormat" ],
+      "properties": {
+        "trueLabel": { "type": "string", "minLength": 1 }, "falseLabel": { "type": "string", "minLength": 1 },
+        "exitLabelFormat": { "type": "string", "minLength": 1 }, "guideTitle": { "type": "string" },
+        "guidePrompt": { "type": "string" }, "debugTitle": { "type": "string" },
+        "selectedTitle": { "type": "string" }, "debugPrefix": { "type": "string" },
+        "valuesPrefix": { "type": "string" },
+        "explanations": {
+          "type": "object", "additionalProperties": { "type": "string" },
+          "propertyNames": { "enum": [ "Entry", "Exit", "Process", "Call", "Decision", "LoopDecision", "Return", "Break", "Terminate", "Partial", "Group" ] }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "propertyNames": { "pattern": "^DDF[A-Z]*[0-9]{3}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "snippets": {
       "type": "array",
       "items": {

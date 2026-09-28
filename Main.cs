@@ -65,6 +65,7 @@ namespace DDF___Program_Language_Editor
         {
             this.embeddedHostMode = embeddedHostMode;
             documentViews = new DdfDocumentViewCoordinator(openDocuments);
+            installShippedUserLanguagePackages();
             restoreActiveLanguagePackage();
             editorLanguageSession = new DdfLanguagePackageSession(DdfLanguageCatalog.DefaultPackage);
             recreateLanguageServices();
@@ -266,6 +267,9 @@ namespace DDF___Program_Language_Editor
             disposeExternalChangeMonitoring();
             disposeFlowchart();
             if (panelEditor != null) panelEditor.HostCatalogChanged -= panelEditor_HostCatalogChanged;
+            if (panelEditor != null) panelEditor.LanguageSessionChanged -= panelEditor_LanguageSessionChanged;
+            if (editorLanguageSession != null)
+                editorLanguageSession.ActiveLanguageChanged -= editorLanguageSession_ActiveLanguageChanged;
             standaloneDebugService?.Dispose();
             standaloneExecutionService?.Dispose();
             hostApiImages?.Dispose();
@@ -362,7 +366,7 @@ namespace DDF___Program_Language_Editor
                 dialog.DefaultExt = getDefaultDocumentExtension();
                 dialog.CheckFileExists = true;
                 dialog.Multiselect = false;
-                dialog.Title = "Apri sorgente " + DdfLanguageCatalog.DefaultPackage.Name;
+                dialog.Title = "Apri sorgente " + editorLanguageSession.ActivePackage.Name;
                 if (documentSession.HasPath)
                 {
                     dialog.InitialDirectory = Path.GetDirectoryName(documentSession.CurrentPath);
@@ -466,7 +470,7 @@ namespace DDF___Program_Language_Editor
                     dialog.DefaultExt = getDefaultDocumentExtension();
                     dialog.AddExtension = true;
                     dialog.OverwritePrompt = true;
-                    dialog.Title = "Salva sorgente " + DdfLanguageCatalog.DefaultPackage.Name;
+                    dialog.Title = "Salva sorgente " + editorLanguageSession.ActivePackage.Name;
                     dialog.FileName = documentSession.DisplayName;
                     if (documentSession.HasPath)
                     {

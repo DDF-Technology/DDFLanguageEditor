@@ -338,8 +338,15 @@ namespace DDF___Program_Language_Editor
             fullFlowchartLayout = null;
             expandedFlowchartGroups.Clear();
             flowchartSnapshotService.Cancel();
-            if (flowchartCanvas?.Diagram != null)
-                flowchartCanvas.SetViewNotice("Vista precedente — diagramma non aggiornato", true);
+            if (flowchartCanvas != null)
+            {
+                flowchartCanvas.SetDiagram(null);
+                flowchartCanvas.SetViewNotice(string.Empty, false);
+                flowchartView?.SetEducationalRuntimeValues(null);
+                setFlowchartSnapshotState(DdfFlowchartSnapshotState.Unavailable,
+                    "FLOWCHART — nessuna funzione rappresentabile");
+                refreshFlowchartFunctionsMenu();
+            }
             lastAnalyzedText = string.Empty;
             activeDelimiterMatch = null;
             diagnosticsFormatStart = int.MaxValue;
@@ -439,14 +446,21 @@ namespace DDF___Program_Language_Editor
                 runtimeDocumentId = null;
             }
 
+            // The editor surface and its SDK services assume that an active document
+            // always exists. Create the replacement before removing the last view so
+            // DocumentClosed/ActiveDocumentChanged observers never see a transient
+            // null document bound to a control that is about to be disposed.
+            if (openDocuments.Documents.Count == 1)
+                addDocumentView(openDocuments.CreateUntitled());
+
             isSwitchingDocument = true;
             try
             {
                 leaveFoldedView();
+                openDocuments.TryCloseDocument(view.Buffer.Id, true);
                 documentTabs.TabPages.Remove(view.Tab);
                 editorHost.Controls.Remove(view.Editor);
                 documentViews.Unregister(view.Buffer.Id);
-                openDocuments.TryCloseDocument(view.Buffer.Id, true);
                 knownDiskStates.Remove(view.Buffer.Id);
                 markCrashRecoveryChanged();
                 view.Tab.Dispose();
@@ -458,14 +472,7 @@ namespace DDF___Program_Language_Editor
                 isSwitchingDocument = false;
             }
 
-            if (openDocuments.ActiveDocument == null)
-            {
-                createUntitledDocument();
-            }
-            else
-            {
-                activateDocument(documentViews[openDocuments.ActiveDocument.Id]);
-            }
+            activateDocument(documentViews[openDocuments.ActiveDocument.Id]);
             scheduleWorkspaceSearch();
             updateNavigationHistoryCommandState();
             return true;

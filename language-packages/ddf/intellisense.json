@@ -28,6 +28,29 @@
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
   ],
+  "flowchart": {
+    "trueLabel": "Sì", "falseLabel": "No", "exitLabelFormat": "Fine {function}",
+    "guideTitle": "GUIDA DIDATTICA", "guidePrompt": "Posiziona il cursore su un'istruzione oppure seleziona un nodo per leggerne la funzione nel flusso.",
+    "debugTitle": "PASSO CORRENTE DEL DEBUG", "selectedTitle": "NODO SELEZIONATO",
+    "debugPrefix": "L'esecuzione è sospesa su questo punto. ", "valuesPrefix": "Valori coinvolti: ",
+    "explanations": {
+      "Entry": "Ingresso della funzione: da qui comincia il flusso.", "Exit": "Uscita della funzione: il controllo torna al chiamante.",
+      "Process": "Istruzione sequenziale {code}: viene eseguita e il flusso prosegue.", "Call": "Chiamata {code}: il controllo entra nella funzione e poi torna al passo seguente.",
+      "Decision": "Decisione {code}: {true} indica condizione vera, {false} condizione falsa.", "LoopDecision": "Controllo di ciclo {code}: decide se ripetere il corpo o uscire.",
+      "Return": "Ritorno {code}: termina la funzione e restituisce il valore.", "Break": "Interruzione: il flusso esce dal ciclo più vicino.",
+      "Terminate": "Terminazione esplicita del percorso corrente.", "Partial": "Nodo parziale: il codice è ancora incompleto.",
+      "Group": "Gruppo compatto di istruzioni sequenziali; un doppio clic mostra i passaggi."
+    }
+  },
+  "diagnostics": {
+    "DDF001": "Stringa non terminata.", "DDF002": "Commento a blocchi non terminato.", "DDF003": "Direttiva di libreria non terminata.",
+    "DDF004": "Carattere non valido nel sorgente.", "DDF005": "Sequenza di escape non prevista.",
+    "DDF101": "Elemento sintattico inatteso.", "DDF102": "Manca un elemento sintattico richiesto.", "DDF103": "Espressione attesa.",
+    "DDF104": "Tipo atteso.", "DDF105": "Identificatore atteso.", "DDF201": "Simbolo non risolto.", "DDF202": "Dichiarazione duplicata nello stesso ambito.",
+    "DDF301": "I tipi non sono compatibili.", "DDF302": "Operatore non valido per i tipi coinvolti.", "DDF303": "Argomenti della chiamata non validi.",
+    "DDF304": "Valore restituito non compatibile.", "DDF305": "Uso del tipo non valido.", "DDF306": "La condizione deve essere booleana.",
+    "DDF307": "La funzione deve restituire un valore.", "DDF308": "La destinazione non è modificabile.", "DDF309": "Accesso host non compatibile con il tipo dichiarato."
+  },
   "snippets": [
     { "prefix": "if", "displayText": "if — blocco", "description": "Blocco condizionale", "body": "if(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "while", "displayText": "while — ciclo", "description": "Ciclo con condizione iniziale", "body": "while(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },

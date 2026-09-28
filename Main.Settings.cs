@@ -36,7 +36,8 @@ namespace DDF___Program_Language_Editor
 
         private void settingsMenuItem_Click(object sender, EventArgs e)
         {
-            using (var dialog = new SettingsForm(editorSettings, shortcutDefinitions, shortcutSettings))
+            using (var dialog = new SettingsForm(editorSettings, shortcutDefinitions, shortcutSettings,
+                editorLanguageSession.ActivePackage))
             {
                 if (showSettingsDialog(dialog) != DialogResult.OK) return;
                 editorSettings = dialog.SelectedSettings;

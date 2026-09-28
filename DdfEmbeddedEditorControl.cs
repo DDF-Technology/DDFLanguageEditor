@@ -91,6 +91,12 @@ namespace DDF___Program_Language_Editor
 
         public bool SaveActiveDocument() => shell.RequestEmbeddedDocumentSave();
 
+        public DdfLanguagePackageLoadResult ActivateLanguagePackage(string path) =>
+            shell.EmbeddedEditor.LanguageSession.TryActivate(path);
+
+        public DdfLanguagePackageLoadResult UseEmbeddedLanguage() =>
+            shell.EmbeddedEditor.LanguageSession.UseEmbedded();
+
         public bool ExecuteScript(bool debug = false) =>
             shell.ExecuteEmbeddedScript(debug);
 

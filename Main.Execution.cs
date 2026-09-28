@@ -271,8 +271,7 @@ namespace DDF___Program_Language_Editor
         {
             context = null;
             var setupIssues = new List<DdfBuildIssue>();
-            DdfLanguagePackage package = editorLanguageSession?.ActivePackage ??
-                DdfLanguageCatalog.Capture().Package;
+            DdfLanguagePackage package = editorLanguageSession.ActivePackage;
             OpenDocumentBuffer active = openDocuments.ActiveDocument;
             active?.UpdateSource(richTextBoxMainEditor.Text, false);
             bool isolateActiveDocument = preferActiveDocument && workspaceIndex != null && active != null &&

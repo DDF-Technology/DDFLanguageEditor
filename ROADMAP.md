@@ -30,10 +30,11 @@ La modalità didattica è un'opzione trasversale sempre attivabile e disattivabi
 dall'utente nell'editor standalone e nel componente integrato. È indipendente dal
 profilo sintattico e dalla lingua; non cambia semantica, permessi o output della build.
 
-I pacchetti utente offriranno profili sintattici di una semantica comune: DDF,
+I pacchetti utente offriranno profili sintattici di una semantica comune:
 didattico italiano o sintassi ispirate a C/C#/Java/VB non equivalgono al supporto
 completo di quei linguaggi e delle loro librerie. Il cambio di profilo non
-traduce automaticamente un documento esistente. Il backend principale previsto
+modifica la semantica; nell'editor standalone converte invece dinamicamente la
+sintassi equivalente delle schede aperte. Il backend principale previsto
 è .NET + Roslyn: dalla IR si genera C#, compilato in assembly .NET, con mappe
 verso il sorgente originale. In modalità integrata si usano le API autorizzate
 dell'host; in modalità standalone si pubblica un EXE self-contained con dipendenze.
@@ -602,6 +603,7 @@ prevista nella `0.15`.
 - [x] Separare servizi documentali e palette dalla MainForm, pubblicando contratti versionati dedicati (`0.11.2`, catalogo palette e contratto host `0.3` del 2026-09-13).
 - [x] Fare usare alla shell standalone la stessa superficie `DdfEditorView`, associandola all'editor del documento attivo anche durante lo switch tra schede (`0.11.2`, primo incremento del 2026-09-13).
 - [x] Fare convergere la shell sulle stesse API documentali, linguistiche e operative offerte agli integratori: Convalida/Compila attraversano `IDdfEditorBuildService`; Run/Debug attraversano `IDdfEditorExecutionService` e `IDdfEditorDebugService`; handler pubblici conservano manifest, file workspace non aperti, buffer non salvati, ricevuta, breakpoint, Watch, Call Stack, navigazione multifile e Flowchart (`0.11.2`, contratti host `0.30`-`0.31`, completato il 2026-09-26).
+- [x] Rendere il cambio profilo disponibile direttamente all'utente anche nella shell embedded e fare convergere menu, `TryActivate`, `UseEmbedded` e sostituzione della sessione sulla stessa pipeline di conversione e aggiornamento dei servizi, senza persistenza implicita per le richieste dell'host (`0.12.1`, contratto host `0.32`, 2026-09-27).
 - [x] Consentire all'host di registrare, mostrare, nascondere e attivare palette tramite ID stabili, inclusa la Flowchart; la shell usa lo stesso catalogo e ne persiste la visibilità (`0.11.2`, quarto incremento del 2026-09-13).
 - [x] Consentire all'host di configurare tema del codice, font, zoom, word wrap, tabulazione e scorciatoie per singola istanza, senza accessi impliciti al profilo o al file system (`0.11.2`, quinto incremento e contratto host `0.4` del 2026-09-13).
 - [x] Consentire all'host di scegliere atomicamente il pacchetto linguaggio per singola istanza, preservando il precedente in caso di errore e senza modificare il catalogo globale (`0.11.2`, sesto incremento e contratto host `0.5` del 2026-09-13).
@@ -673,9 +675,11 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Allineare EBNF, metadati del pacchetto, formatter, snippet, Quick Fix ed esempi canonici (`DDF_SYNTAX_CONFORMANCE.md` e corpus `samples/language-profiles`, 2026-09-27).
   - [x] Rendere l'EBNF il validatore normativo per analisi, Build e test dichiarativi mantenendo separato il recupero dell'AST storico (2026-09-27).
 - [x] Verificare profili DDF, didattico italiano e ispirato al C sullo stesso corpus e sulle stesse API host, confrontando IR semantica e risultato runtime (`DDF_LANGUAGE_PROFILES.md`, 2026-09-27).
-- [ ] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici.
-  - [x] Fornire il primo pacchetto didattico italiano con keyword, booleani, snippet e metadati IDE localizzati; diagnostiche e proiezioni didattiche specifiche del profilo restano da completare.
-- [x] Tenere la futura conversione esplicita tra profili separata dalla selezione del pacchetto, con anteprima, segnalazione delle incompatibilità e sorgente originale invariato fino alla conferma (`DDF_LANGUAGE_PROFILES.md`, decisione architetturale; conversione non ancora implementata).
+- [x] Localizzare diagnostiche, documentazione, snippet ed etichette della flowchart nei profili didattici (`0.12.1`, 2026-09-27).
+  - [x] Fornire il pacchetto didattico italiano con keyword, booleani, snippet, metadati IDE, messaggi diagnostici e spiegazioni della Flowchart localizzati; mantenere separato il messaggio tecnico stabile usato da motore e Quick Fix dal testo presentato all'utente.
+  - [x] Fare applicare immediatamente alla Flowchart etichette dei rami, testo dell'uscita e guida didattica del pacchetto attivo, senza riavvio e senza modificare la semantica della IR.
+- [x] Convertire dinamicamente le schede aperte durante la selezione di un profilo equivalente, usando ruoli semantici anziché sostituzioni testuali, preservando commenti/stringhe/identificatori, senza salvataggi impliciti e con Undo/Redo per documento (`0.12.1`, 2026-09-27). Una futura conversione dell'intero workspace non aperto dovrà invece avere anteprima e conferma prima di scrivere file su disco.
+- [x] Rendere il DDF l'unico linguaggio incluso e il fallback incorporato; distribuire italiano e sintassi familiare C come pacchetti iniziali installati nel catalogo utente, rimuovendo selezione e caricamento diretto fuori dal Gestore pacchetti (`0.12.1`, 2026-09-27).
 
 ### 0.12.2 — Tipi e semantica definitiva
 
@@ -963,6 +967,8 @@ e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-27 | Includere soltanto il DDF e trattare tutti gli altri profili come pacchetti utente installati | Mantenere una sola identità linguistica predefinita e un solo fallback affidabile; italiano, like-C e futuri profili attraversano lo stesso catalogo, la stessa convalida e lo stesso lifecycle dei pacchetti creati dagli utenti. |
+| 2026-09-27 | Convertire dinamicamente le schede aperte quando cambia il profilo sintattico | Rendere immediatamente osservabile il cambio lingua senza riscritture manuali; la trasformazione usa ruoli semantici, resta in memoria, marca i buffer modificati ed è annullabile. I file non aperti richiederanno una futura conversione workspace esplicita prima di qualsiasi scrittura su disco. |
 | 2026-09-25 | Prevedere librerie esterne sia in standalone sia in embedded tramite riferimenti dichiarati, resolver e adapter controllati | Riutilizzare assembly .NET, componenti COM registrati come `ADODB`, DLL di sistema e componenti di terzi mantenendo build riproducibili; l'utente autorizza le origini standalone e l'applicazione host conserva il controllo completo in modalità embedded. |
 | 2026-09-25 | Collocare dopo la 1.0 l'estensione dell'SDK ad altri linguaggi e framework host | Consolidare prima il contratto .NET/WinForms e affrontare poi VB.NET, F#, WPF, altri framework grafici e host non-.NET con adapter, test e livelli di supporto espliciti. |
 | 2026-09-08 | Mantenere la flowchart derivata e in sola lettura, senza editing diagramma → codice | Conservare il codice come unica fonte autorevole, evitare trasformazioni ambigue e concentrare il diagramma su comprensione, navigazione e debug. |

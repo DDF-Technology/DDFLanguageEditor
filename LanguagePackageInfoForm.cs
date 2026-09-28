@@ -13,10 +13,11 @@ namespace DDF___Program_Language_Editor
         private readonly DdfLanguagePackage package;
         private readonly IReadOnlyList<DdfLanguagePackageDiagnostic> diagnostics;
 
-        public LanguagePackageInfoForm()
+        public LanguagePackageInfoForm(DdfLanguagePackage activePackage = null,
+            IReadOnlyList<DdfLanguagePackageDiagnostic> loadDiagnostics = null)
         {
-            package = DdfLanguageCatalog.DefaultPackage;
-            diagnostics = DdfLanguageCatalog.LoadDiagnostics;
+            package = activePackage ?? DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            diagnostics = loadDiagnostics ?? Array.Empty<DdfLanguagePackageDiagnostic>();
             InitializeComponent();
         }
 

@@ -32,6 +32,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
 - menu `Help > Linguaggio` per cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
+- DDF come unico linguaggio incluso e fallback incorporato; italiano didattico, sintassi familiare C e futuri profili passano dal catalogo dei pacchetti utente;
 - gestione persistente di installazione, aggiornamento, selezione e disattivazione dei pacchetti di linguaggio;
 - playground isolato per token, albero sintattico, diagnostiche e anteprima del formatter;
 - test dichiarativi del pacchetto eseguiti come gate prima dell'attivazione;
@@ -244,6 +245,13 @@ Le due superfici mantengono servizi, eventi, scorciatoie, palette, build, runtim
 debug e persistenza completamente separati. L'SDK non intercetta la tastiera a
 livello globale e non legge o scrive il profilo dell'applicazione ospitante senza
 una richiesta esplicita dell'host.
+
+La shell completa `DdfEmbeddedEditorControl` mantiene invece visibile il Gestore
+linguaggi: l'utente può installare e cambiare profilo direttamente anche dentro
+l'applicazione host. Il cambio converte i buffer aperti e aggiorna editor,
+diagnostiche, IntelliSense e Flowchart; le richieste programmatiche equivalenti
+sono disponibili tramite `ActivateLanguagePackage`, `UseEmbeddedLanguage` e
+`LanguageSession`.
 
 La demo mantiene la persistenza in memoria e non accede automaticamente alle
 impostazioni utente o ai file della shell standalone. Ogni profilo dispone di

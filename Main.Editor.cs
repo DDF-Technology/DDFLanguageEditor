@@ -266,14 +266,14 @@ namespace DDF___Program_Language_Editor
 
             cancelBackgroundAnalysis();
             long version = ++analysisRequestVersion;
-            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
+            long languageRevision = editorLanguageSession.Revision;
             string text = richTextBoxMainEditor.Text;
             DdfLexUpdate lexUpdate = incrementalLexer.Update(text);
             int changedStart = lexUpdate.RelexStart;
             DdfEditorAnalysisRequest request = createHostAnalysisRequest(
                 text, richTextBoxMainEditor.SelectionStart, version, getWorkspaceTypeRoots(), lexUpdate.Result);
             DdfEditorAnalysisSnapshot snapshot = panelEditor.AnalysisService.Analyze(request);
-            applyAnalysisSnapshot(snapshot, changedStart, version, languageSnapshot.Revision);
+            applyAnalysisSnapshot(snapshot, changedStart, version, languageRevision);
         }
 
         private async void startBackgroundAnalysis()
@@ -284,7 +284,7 @@ namespace DDF___Program_Language_Editor
 
             string text = richTextBoxMainEditor.Text;
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
-            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
+            long languageRevision = editorLanguageSession.Revision;
             long version = ++analysisRequestVersion;
             DdfEditorAnalysisRequest request = createHostAnalysisRequest(
                 text, richTextBoxMainEditor.SelectionStart, version, externalRoots);
@@ -298,16 +298,16 @@ namespace DDF___Program_Language_Editor
                     request, TimeSpan.Zero, cancellation.Token);
                 if (cancellation.IsCancellationRequested || version != analysisRequestVersion ||
                     !analysisService.IsCurrent(snapshot) ||
-                    languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
+                    languageRevision != editorLanguageSession.Revision) return;
                 postEditorCallback(() =>
                 {
                     if (version != analysisRequestVersion || IsDisposed || Disposing ||
-                        languageSnapshot.Revision != DdfLanguageCatalog.Revision ||
+                        languageRevision != editorLanguageSession.Revision ||
                         richTextBoxMainEditor.IsDisposed ||
                         !string.Equals(text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
                     int formatStart = findChangedLineStart(lastAnalyzedText, text);
                     incrementalLexer.Reset();
-                    applyAnalysisSnapshot(snapshot, formatStart, version, languageSnapshot.Revision);
+                    applyAnalysisSnapshot(snapshot, formatStart, version, languageRevision);
                 });
             }
             catch (OperationCanceledException)
@@ -348,7 +348,7 @@ namespace DDF___Program_Language_Editor
             DdfEditorAnalysisSnapshot snapshot, int changedStart, long version, long languageRevision)
         {
             if (snapshot == null || version != analysisRequestVersion ||
-                languageRevision != DdfLanguageCatalog.Revision ||
+                languageRevision != editorLanguageSession.Revision ||
                 !string.Equals(snapshot.Source, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
             int selectionStart = richTextBoxMainEditor.SelectionStart;
@@ -365,6 +365,8 @@ namespace DDF___Program_Language_Editor
             }
             allDiagnostics.AddRange(snapshot.TypeCheckResult.Diagnostics);
             allDiagnostics.AddRange(snapshot.IntermediateRepresentation.Diagnostics);
+            allDiagnostics = allDiagnostics.Select(snapshot.Request.LanguagePackage.Language.Intellisense
+                .Diagnostics.Apply).ToList();
             allDiagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
             int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue
@@ -653,7 +655,7 @@ namespace DDF___Program_Language_Editor
                     applyMultiEditorEdits(range => EditorEditing.CreateNewLineEdit(
                         richTextBoxMainEditor.Text, range.Start, range.Length,
                         editorSettings.IndentSize, editorSettings.UseTabs,
-                        DdfLanguageCatalog.Default.Formatting));
+                        editorLanguageSession.ActivePackage.Language.Formatting));
                     return;
                 }
                 if (e.KeyCode == Keys.Back)
@@ -716,7 +718,7 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.SelectionLength,
                     editorSettings.IndentSize,
                     editorSettings.UseTabs,
-                    DdfLanguageCatalog.Default.Formatting));
+                    editorLanguageSession.ActivePackage.Language.Formatting));
             }
             else if (e.KeyCode == Keys.Back && richTextBoxMainEditor.SelectionLength == 0)
             {
@@ -724,7 +726,7 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength,
-                    DdfLanguageCatalog.Default.Formatting);
+                    editorLanguageSession.ActivePackage.Language.Formatting);
                 if (edit != null)
                 {
                     e.SuppressKeyPress = true;
@@ -741,7 +743,7 @@ namespace DDF___Program_Language_Editor
                 e.Handled = true;
                 applyMultiEditorEdits(range => EditorEditing.CreatePairedCharacterEdit(
                     richTextBoxMainEditor.Text, range.Start, range.Length, e.KeyChar,
-                    DdfLanguageCatalog.Default.Formatting) ??
+                    editorLanguageSession.ActivePackage.Language.Formatting) ??
                     new EditorEdit(range.Start, range.Length, e.KeyChar.ToString(), range.Start + 1, 0));
                 return;
             }
@@ -751,7 +753,7 @@ namespace DDF___Program_Language_Editor
                 richTextBoxMainEditor.SelectionStart,
                 richTextBoxMainEditor.SelectionLength,
                 e.KeyChar,
-                DdfLanguageCatalog.Default.Formatting);
+                editorLanguageSession.ActivePackage.Language.Formatting);
             if (pairedEdit != null)
             {
                 e.Handled = true;
@@ -759,14 +761,14 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            if (e.KeyChar == DdfLanguageCatalog.Default.Formatting.BlockClose)
+            if (e.KeyChar == editorLanguageSession.ActivePackage.Language.Formatting.BlockClose)
             {
                 e.Handled = true;
                 applyEdit(EditorEditing.CreateClosingBraceEdit(
                     richTextBoxMainEditor.Text,
                     richTextBoxMainEditor.SelectionStart,
                     richTextBoxMainEditor.SelectionLength,
-                    DdfLanguageCatalog.Default.Formatting));
+                    editorLanguageSession.ActivePackage.Language.Formatting));
             }
         }
 

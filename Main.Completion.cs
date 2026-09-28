@@ -143,7 +143,7 @@ namespace DDF___Program_Language_Editor
             int position = richTextBoxMainEditor.SelectionStart;
             IReadOnlyList<DdfCompletionItem> externalItems = getWorkspaceCompletionItems();
             IReadOnlyList<CompilationUnitSyntax> externalRoots = getWorkspaceTypeRoots();
-            DdfLanguageCatalogSnapshot languageSnapshot = DdfLanguageCatalog.Capture();
+            long languageRevision = editorLanguageSession.Revision;
             IDdfEditorDocument document = openDocuments.ActiveDocumentInfo;
             var request = new DdfEditorAnalysisRequest(
                 source,
@@ -180,9 +180,9 @@ namespace DDF___Program_Language_Editor
 
             if (version != completionRequestVersion ||
                 !completionAnalysisService.IsCurrent(snapshot) ||
-                languageSnapshot.Revision != DdfLanguageCatalog.Revision) return;
+                languageRevision != editorLanguageSession.Revision) return;
             postEditorCallback(() => applyCompletionSnapshot(
-                source, position, version, languageSnapshot.Revision, snapshot));
+                source, position, version, languageRevision, snapshot));
         }
 
         private void applyCompletionSnapshot(
@@ -191,7 +191,7 @@ namespace DDF___Program_Language_Editor
         {
             if (version != completionRequestVersion || IsDisposed || Disposing ||
                 snapshot == null || !completionAnalysisService.IsCurrent(snapshot) ||
-                languageRevision != DdfLanguageCatalog.Revision ||
+                languageRevision != editorLanguageSession.Revision ||
                 richTextBoxMainEditor.IsDisposed || richTextBoxFoldedView.Visible ||
                 richTextBoxMainEditor.SelectionLength > 0 ||
                 richTextBoxMainEditor.SelectionStart != position ||

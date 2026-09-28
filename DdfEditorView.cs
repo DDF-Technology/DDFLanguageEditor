@@ -152,6 +152,7 @@ namespace DDF___Program_Language_Editor
         public IDdfHostCatalog HostCatalog => hostCatalog;
 
         public event EventHandler<DdfHostCatalogChangedEventArgs> HostCatalogChanged;
+        public event EventHandler LanguageSessionChanged;
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -516,6 +517,7 @@ namespace DDF___Program_Language_Editor
             languageSession.ActiveLanguageChanged += languageSession_ActiveLanguageChanged;
             InvalidateAnalysis();
             RefreshCommands();
+            LanguageSessionChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void AttachHostCatalog(IDdfHostCatalog catalog)

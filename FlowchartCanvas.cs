@@ -27,6 +27,8 @@ namespace DDF___Program_Language_Editor
         private bool viewNoticeIsWarning;
         private Point panStartMouse;
         private Point panStartScroll;
+        private string trueLabel = "Sì";
+        private string falseLabel = "No";
 
         public FlowchartCanvas()
         {
@@ -49,6 +51,14 @@ namespace DDF___Program_Language_Editor
         public DdfFlowchartNode ExecutionNode => diagram?.Flowchart.FindNode(executionNodeId);
         public float ZoomFactor => zoomFactor;
         public string ViewNotice => viewNotice;
+        public string TrueLabel => trueLabel;
+        public string FalseLabel => falseLabel;
+        public void SetDecisionLabels(string whenTrue, string whenFalse)
+        {
+            trueLabel = string.IsNullOrWhiteSpace(whenTrue) ? "Sì" : whenTrue;
+            falseLabel = string.IsNullOrWhiteSpace(whenFalse) ? "No" : whenFalse;
+            Invalidate();
+        }
         [DefaultValue(true)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool SelectionToolEnabled
@@ -205,9 +215,9 @@ namespace DDF___Program_Language_Editor
                 foreach (RoutedEdge route in routes)
                 {
                     if (route.Edge.Kind == DdfFlowchartEdgeKind.True)
-                        WriteSvgEdgeLabel(writer, "Sì", route.LabelPoint, true);
+                        WriteSvgEdgeLabel(writer, trueLabel, route.LabelPoint, true);
                     else if (route.Edge.Kind == DdfFlowchartEdgeKind.False)
-                        WriteSvgEdgeLabel(writer, "No", route.LabelPoint, false);
+                        WriteSvgEdgeLabel(writer, falseLabel, route.LabelPoint, false);
                 }
                 writer.WriteEndElement();
                 writer.WriteEndDocument();
@@ -449,7 +459,7 @@ namespace DDF___Program_Language_Editor
 
         private static void WriteSvgEdgeLabel(XmlWriter writer, string text, PointF center, bool positive)
         {
-            double width = text == "Sì" ? 24 : 25;
+            double width = Math.Max(24, 12 + (text ?? string.Empty).Length * 7);
             const double height = 18;
             writer.WriteStartElement("rect");
             WriteSvgRectangle(writer, center.X - width / 2, center.Y - height / 2, width, height);
@@ -817,8 +827,8 @@ namespace DDF___Program_Language_Editor
 
                 foreach (RoutedEdge route in routes)
                 {
-                    string label = route.Edge.Kind == DdfFlowchartEdgeKind.True ? "Sì" :
-                        route.Edge.Kind == DdfFlowchartEdgeKind.False ? "No" : string.Empty;
+                    string label = route.Edge.Kind == DdfFlowchartEdgeKind.True ? trueLabel :
+                        route.Edge.Kind == DdfFlowchartEdgeKind.False ? falseLabel : string.Empty;
                     if (label.Length > 0) labels.Add(new EdgeLabel(label, route.LabelPoint,
                         route.Edge.Kind == DdfFlowchartEdgeKind.True));
                 }

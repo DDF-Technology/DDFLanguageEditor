@@ -119,7 +119,7 @@ namespace DDF___Program_Language_Editor
             {
                 DdfFlowchartSnapshot snapshot = await flowchartSnapshotService.RequestAsync(
                     new DdfIrModule(documentPath, text, ir.Program), function.Name, documentVersion,
-                    lastFlowchartDiagnostics);
+                    lastFlowchartDiagnostics, language: editorLanguageSession.ActivePackage.Language);
                 dispatchFlowchartSnapshot(snapshot, text, function, documentVersion);
             }
             catch (ObjectDisposedException)
@@ -275,7 +275,8 @@ namespace DDF___Program_Language_Editor
             if (function == null) return;
 
             flowchartSnapshotService.Cancel();
-            DdfFlowchartBuildResult result = DdfFlowchartBuilder.Build(module, function.Name);
+            DdfFlowchartBuildResult result = DdfFlowchartBuilder.Build(module, function.Name, null,
+                editorLanguageSession.ActivePackage.Language.Intellisense.Flowchart);
             if (result.Flowchart == null) return;
             bool sameFunction = fullFlowchartLayout != null && string.Equals(
                 fullFlowchartLayout.Flowchart.DocumentPath, module.DocumentPath,
@@ -378,7 +379,7 @@ namespace DDF___Program_Language_Editor
                 DdfWorkspaceSymbol target = findFlowchartWorkspaceFunction(call);
                 bool local = lastFlowchartIr?.Program?.Members.OfType<DdfIrFunction>().Any(
                     function => string.Equals(function.Name, call, StringComparison.Ordinal)) == true;
-                bool standard = DdfLanguageCatalog.Default.StandardLibrary.TryGetFunction(call, out _);
+                bool standard = editorLanguageSession.ActivePackage.Language.StandardLibrary.TryGetFunction(call, out _);
                 string origin = local ? documentSession.DisplayName : target?.Document.RelativePath ??
                     (standard ? "libreria standard" : null);
                 var item = createFlowchartFunctionMenuItem(call + "()" +

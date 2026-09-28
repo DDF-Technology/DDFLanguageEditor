@@ -93,7 +93,8 @@ namespace DDFLanguageEditor.Core
         public Task<DdfFlowchartSnapshot> RequestAsync(DdfIrModule module, string functionName,
             long documentVersion, IEnumerable<DdfDiagnostic> diagnostics = null,
             TimeSpan? debounceDelay = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            DdfLanguageDefinition language = null)
         {
             if (module == null) throw new ArgumentNullException(nameof(module));
             if (string.IsNullOrWhiteSpace(functionName))
@@ -110,8 +111,10 @@ namespace DDFLanguageEditor.Core
                 currentCancellation = requestCancellation;
                 requestId = ++latestRequestId;
             }
+            DdfFlowchartPresentation presentation = (language ?? DdfLanguageCatalog.Default)
+                .Intellisense.Flowchart;
             return BuildAsync(requestId, documentVersion, module.Source, functionName, module.DocumentPath,
-                () => DdfFlowchartBuilder.Build(module, functionName, diagnostics), delay, requestCancellation);
+                () => DdfFlowchartBuilder.Build(module, functionName, diagnostics, presentation), delay, requestCancellation);
         }
 
         public void Cancel()

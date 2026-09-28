@@ -28,6 +28,29 @@
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
   ],
+  "flowchart": {
+    "trueLabel": "Yes", "falseLabel": "No", "exitLabelFormat": "End {function}",
+    "guideTitle": "FLOW GUIDE", "guidePrompt": "Select a node to see how it participates in program flow.",
+    "debugTitle": "CURRENT DEBUG STEP", "selectedTitle": "SELECTED NODE",
+    "debugPrefix": "Execution is paused here. ", "valuesPrefix": "Values used here: ",
+    "explanations": {
+      "Entry": "Function entry point.", "Exit": "Function exit: control returns to the caller.",
+      "Process": "Sequential statement {code}; execution then moves to the next node.", "Call": "Call {code}; control returns here when the function completes.",
+      "Decision": "Decision {code}: follow {true} when true and {false} when false.", "LoopDecision": "Loop condition {code}: repeat the body or continue after the loop.",
+      "Return": "Return {code}: finish the function and return its value.", "Break": "Leave the nearest loop immediately.",
+      "Terminate": "Terminate the current execution path.", "Partial": "Partial node generated from incomplete code.",
+      "Group": "Collapsed group of sequential statements; double-click to expand it."
+    }
+  },
+  "diagnostics": {
+    "DDF001": "Unterminated string literal.", "DDF002": "Unterminated block comment.", "DDF003": "Unterminated library directive.",
+    "DDF004": "Invalid source character.", "DDF005": "Unknown string escape sequence.",
+    "DDF101": "Unexpected syntax element.", "DDF102": "A required syntax element is missing.", "DDF103": "Expression expected.",
+    "DDF104": "Type expected.", "DDF105": "Identifier expected.", "DDF201": "Unresolved symbol.", "DDF202": "Duplicate declaration in the same scope.",
+    "DDF301": "Incompatible types.", "DDF302": "Operator is not valid for these operand types.", "DDF303": "Invalid function arguments.",
+    "DDF304": "Returned value does not match the declared type.", "DDF305": "Invalid type usage.", "DDF306": "Condition must be boolean.",
+    "DDF307": "Function must return a value.", "DDF308": "Assignment target is not writable.", "DDF309": "Host value is incompatible with the declared type."
+  },
   "snippets": [
     { "prefix": "if", "displayText": "if — blocco", "description": "Blocco condizionale", "body": "if(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "while", "displayText": "while — ciclo", "description": "Ciclo con condizione iniziale", "body": "while(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },

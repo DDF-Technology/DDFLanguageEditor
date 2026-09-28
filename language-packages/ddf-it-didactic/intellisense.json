@@ -28,6 +28,32 @@
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
   ],
+  "flowchart": {
+    "trueLabel": "Sì", "falseLabel": "No", "exitLabelFormat": "Fine di {function}",
+    "guideTitle": "SPIEGAZIONE DEL FLUSSO", "guidePrompt": "Seleziona un blocco: vedrai con parole semplici che cosa fa e dove continua il programma.",
+    "debugTitle": "ISTRUZIONE IN ESECUZIONE", "selectedTitle": "BLOCCO SELEZIONATO",
+    "debugPrefix": "Il programma è fermo qui. ", "valuesPrefix": "Valori usati in questo passaggio: ",
+    "explanations": {
+      "Entry": "Da questo punto inizia la funzione.", "Exit": "Qui termina la funzione e si ritorna al punto dal quale era stata chiamata.",
+      "Process": "Il programma esegue {code} una volta e poi passa al blocco successivo.", "Call": "Il programma richiama {code}, ne esegue le istruzioni e poi torna qui.",
+      "Decision": "Il programma controlla {code}: segue {true} se la condizione è vera, altrimenti segue {false}.", "LoopDecision": "Il programma controlla {code} per decidere se ripetere il ciclo oppure continuare oltre.",
+      "Return": "Con {code} la funzione termina e consegna un valore al chiamante.", "Break": "Questa istruzione fa uscire immediatamente dal ciclo più vicino.",
+      "Terminate": "Questa istruzione conclude il percorso corrente.", "Partial": "Questo blocco è provvisorio perché il codice non è ancora completo.",
+      "Group": "Questo blocco raccoglie più istruzioni consecutive; fai doppio clic per vederle separatamente."
+    }
+  },
+  "diagnostics": {
+    "DDF001": "La stringa è iniziata ma non è stata chiusa.", "DDF002": "Il commento a blocchi è iniziato ma non è stato chiuso.", "DDF003": "La direttiva della libreria non è stata chiusa.",
+    "DDF004": "Questo carattere non appartiene alla sintassi scelta.", "DDF005": "Questa sequenza speciale non è riconosciuta nella stringa.",
+    "DDF101": "In questo punto c'è un elemento che la grammatica non si aspetta.", "DDF102": "Prima di continuare devi aggiungere l'elemento sintattico mancante.",
+    "DDF103": "Qui serve un valore o un'espressione.", "DDF104": "Qui devi indicare un tipo.", "DDF105": "Qui devi scrivere un nome valido.",
+    "DDF201": "Questo nome non è stato dichiarato: dichiaralo oppure correggine la grafia.", "DDF202": "Questo nome è già stato dichiarato nello stesso contesto.",
+    "DDF301": "Questi due tipi non possono essere usati insieme in questa operazione.", "DDF302": "Questo operatore non può lavorare con i valori indicati.",
+    "DDF303": "Controlla numero e tipo dei valori passati alla funzione.", "DDF304": "Il valore restituito non corrisponde al tipo dichiarato dalla funzione.",
+    "DDF305": "Il tipo usato in questo punto non è valido.", "DDF306": "La condizione deve produrre vero oppure falso.",
+    "DDF307": "Questa funzione deve restituire un valore.", "DDF308": "Questo elemento non può essere modificato.",
+    "DDF309": "L'elemento esposto dall'applicazione host non corrisponde al tipo richiesto."
+  },
   "snippets": [
     { "prefix": "se", "displayText": "se — blocco", "description": "Blocco condizionale", "body": "se(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },
     { "prefix": "mentre", "displayText": "mentre — ciclo", "description": "Ciclo con condizione iniziale", "body": "mentre(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },

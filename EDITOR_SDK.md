@@ -3,7 +3,7 @@
 ## Stato
 
 La `0.11.2` introduce in modo incrementale il confine incorporabile dell'editor.
-Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.31"`.
+Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.32"`.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
 
@@ -41,7 +41,7 @@ I pacchetti locali si generano in modo ripetibile con:
 `IDdfEditorSurface`. La shell standalone usa la stessa classe come contenitore
 della propria superficie centrale e le associa l'editor del documento attivo.
 
-Il contratto `0.31` espone:
+Il contratto `0.32` espone:
 
 - testo sorgente tramite `SourceText`;
 - selezione normalizzata tramite `SetSelection`, `SelectionStart` e
@@ -53,6 +53,8 @@ Il contratto `0.31` espone:
 - il catalogo delle palette associato e `AttachPaletteService` per collegarlo.
 - la configurazione per istanza e `AttachHostConfiguration` per collegarla.
 - la sessione del pacchetto linguaggio e lo stato della modalità didattica.
+- l'evento `LanguageSessionChanged`, che consente alla shell completa di seguire
+  anche la sostituzione della sessione effettuata dall'host;
 - il servizio di analisi versionato e sostituibile tramite `AnalysisService` e
   `AttachAnalysisService`, insieme all'ultimo snapshot e al relativo evento;
 - analisi esplicita e navigazione alla definizione locale o tra buffer host;
@@ -242,6 +244,26 @@ sempre disponibile.
 La shell associa al controllo la propria sessione linguaggio e il proprio stato
 didattico. Solo i comandi espliciti della shell persistono le scelte nel profilo;
 un host incorporante decide autonomamente se e dove salvarle.
+
+`DdfEmbeddedEditorControl` mantiene visibile il menu `Linguaggio`: l'utente può
+quindi aprire il Gestore pacchetti, installare o selezionare un profilo e tornare
+al DDF incorporato anche dentro l'applicazione host. Il cambio usa la stessa
+pipeline dello standalone: converte in memoria i buffer aperti, aggiorna lexer,
+formatter, IntelliSense, diagnostiche e Flowchart e non salva implicitamente i
+documenti. La shell embedded non installa automaticamente pacchetti aggiuntivi:
+l'host può distribuirli oppure l'utente può installarli dal Gestore.
+
+L'host può attivare la stessa pipeline senza simulare comandi UI:
+
+```csharp
+DdfLanguagePackageLoadResult result = embeddedEditor.ActivateLanguagePackage(packagePath);
+// oppure: embeddedEditor.UseEmbeddedLanguage();
+```
+
+Anche `embeddedEditor.Editor.LanguageSession.TryActivate(...)` e la sostituzione
+tramite `AttachLanguageSession(...)` aggiornano immediatamente l'intera shell.
+Le attivazioni programmatiche non scrivono preferenze globali: la persistenza
+rimane responsabilità dell'host.
 
 ## Servizio di analisi
 

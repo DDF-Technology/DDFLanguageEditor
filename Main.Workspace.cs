@@ -95,7 +95,7 @@ namespace DDF___Program_Language_Editor
             int closeWorkspaceIndex = fileMenuItem.DropDownItems.IndexOf(closeWorkspaceMenuItem);
             fileMenuItem.DropDownItems.Insert(closeWorkspaceIndex + 1, recentWorkspacesMenuItem);
             loadWorkspaceIndex = (rootPath, cancellationToken) => DdfWorkspaceIndex.Load(
-                rootPath, cancellationToken, DdfLanguageCatalog.DefaultPackage.FileExtensions);
+                rootPath, cancellationToken, editorLanguageSession.ActivePackage.FileExtensions);
             initializeWorkspaceDropTargets();
         }
 
@@ -143,7 +143,7 @@ namespace DDF___Program_Language_Editor
         private async void startWorkspaceLoad(string rootPath)
         {
             long version = ++workspaceLoadRequestVersion;
-            long languageRevision = DdfLanguageCatalog.Revision;
+            long languageRevision = editorLanguageSession.Revision;
             workspaceLoadCancellation?.Cancel();
             var cancellation = new CancellationTokenSource();
             workspaceLoadCancellation = cancellation;
@@ -169,7 +169,7 @@ namespace DDF___Program_Language_Editor
                     return index;
                 }, cancellation.Token);
                 if (cancellation.IsCancellationRequested || version != workspaceLoadRequestVersion ||
-                    languageRevision != DdfLanguageCatalog.Revision) return;
+                    languageRevision != editorLanguageSession.Revision) return;
                 postEditorCallback(() => applyLoadedWorkspace(version, languageRevision, loaded));
             }
             catch (OperationCanceledException)
@@ -190,7 +190,7 @@ namespace DDF___Program_Language_Editor
 
         private void applyLoadedWorkspace(long version, long languageRevision, DdfWorkspaceIndex loaded)
         {
-            if (version != workspaceLoadRequestVersion || languageRevision != DdfLanguageCatalog.Revision ||
+            if (version != workspaceLoadRequestVersion || languageRevision != editorLanguageSession.Revision ||
                 loaded == null || IsDisposed || Disposing) return;
             foreach (OpenDocumentBuffer document in openDocuments.Documents.Where(item => item.Session.HasPath))
             {
@@ -211,7 +211,7 @@ namespace DDF___Program_Language_Editor
 
         private void showWorkspaceLoadError(long version, long languageRevision, string message)
         {
-            if (version != workspaceLoadRequestVersion || languageRevision != DdfLanguageCatalog.Revision ||
+            if (version != workspaceLoadRequestVersion || languageRevision != editorLanguageSession.Revision ||
                 IsDisposed || Disposing) return;
             labelWorkspace.Text = workspaceIndex == null
                 ? "WORKSPACE — nessuna cartella"
@@ -425,7 +425,7 @@ namespace DDF___Program_Language_Editor
             return data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
         }
 
-        private static bool canOpenDroppedPaths(IReadOnlyList<string> paths)
+        private bool canOpenDroppedPaths(IReadOnlyList<string> paths)
         {
             if (paths == null || paths.Count == 0) return false;
             if (paths.Count == 1 && Directory.Exists(paths[0])) return true;

@@ -131,6 +131,8 @@ namespace DDFLanguageEditor.Tests
             Run("drives lexical services from a language package", DrivesLexicalServicesFromLanguagePackage);
             Run("executes a syntax-distinct demonstration language", ExecutesSyntaxDistinctDemonstrationLanguage);
             Run("keeps the shipped syntax profiles semantically equivalent", KeepsShippedSyntaxProfilesSemanticallyEquivalent);
+            Run("converts equivalent syntax profiles without touching protected text", ConvertsEquivalentSyntaxProfilesSafely);
+            Run("drives diagnostics and flowchart presentation from language packages", DrivesPresentationFromLanguagePackages);
             Run("validates the normative syntax profile corpus", ValidatesNormativeSyntaxProfileCorpus);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
@@ -3844,6 +3846,69 @@ namespace DDFLanguageEditor.Tests
             if (node is DdfIrGroup group) return "group(" + SemanticIrShape(group.Expression) + ")";
             if (node is DdfIrUnary unary) return "unary:" + unary.OperationId + "(" + SemanticIrShape(unary.Operand) + ")";
             return node.GetType().Name;
+        }
+
+        private static void ConvertsEquivalentSyntaxProfilesSafely()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            DdfLanguagePackage canonical = DdfLanguagePackageLoader.Load(Path.Combine(profiles, "ddf")).Package;
+            DdfLanguagePackage italian = DdfLanguagePackageLoader.Load(Path.Combine(profiles, "ddf-it-didactic")).Package;
+            DdfLanguagePackage familiar = DdfLanguagePackageLoader.Load(Path.Combine(profiles, "ddf-c-familiar")).Package;
+            const string source = "// if ret true <<\n" +
+                "main() out bool { string text << \"if ret true <<\"; if(true) { ret false; } else { ret true; } }";
+
+            DdfSyntaxProfileConversionResult italianResult = DdfSyntaxProfileConverter.Convert(
+                source, canonical.Language, italian.Language);
+            Equal("// if ret true <<\n" +
+                "main() restituisce bool { string text << \"if ret true <<\"; se(vero) { restituisci falso; } altrimenti { restituisci vero; } }",
+                italianResult.Text);
+            Equal(8, italianResult.ReplacementCount);
+            Equal(0, DdfParser.Parse(italianResult.Text, italian.Language).ValidationDiagnostics.Count);
+
+            int identifier = source.IndexOf("text", StringComparison.Ordinal);
+            int mappedIdentifier = italianResult.MapPosition(identifier);
+            Equal("text", italianResult.Text.Substring(mappedIdentifier, 4));
+
+            DdfSyntaxProfileConversionResult familiarResult = DdfSyntaxProfileConverter.Convert(
+                source, canonical.Language, familiar.Language);
+            Equal("// if ret true <<\n" +
+                "main() returns bool { string text = \"if ret true <<\"; if(true) { return false; } else { return true; } }",
+                familiarResult.Text);
+            Equal(0, DdfParser.Parse(familiarResult.Text, familiar.Language).ValidationDiagnostics.Count);
+            Equal(source, DdfSyntaxProfileConverter.Convert(
+                familiarResult.Text, familiar.Language, canonical.Language).Text);
+        }
+
+        private static void DrivesPresentationFromLanguagePackages()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            DdfLanguagePackage italian = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf-it-didactic")).Package;
+            DdfLanguagePackage familiar = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf-c-familiar")).Package;
+            var diagnostic = new DdfDiagnostic("DDF201", "Simbolo non risolto: 'missing'.", 0, 7, 1, 1);
+
+            DdfDiagnostic italianDiagnostic = italian.Language.Intellisense.Diagnostics.Apply(diagnostic);
+            Equal("Simbolo non risolto: 'missing'.", italianDiagnostic.Message);
+            Equal("Questo nome non è stato dichiarato: dichiaralo oppure correggine la grafia.",
+                italianDiagnostic.DisplayMessage);
+            Equal(true, italianDiagnostic.ToHoverText().Contains(italianDiagnostic.DisplayMessage,
+                StringComparison.Ordinal));
+
+            DdfDiagnostic familiarDiagnostic = familiar.Language.Intellisense.Diagnostics.Apply(diagnostic);
+            Equal("Unresolved symbol.", familiarDiagnostic.DisplayMessage);
+            Equal("Yes", familiar.Language.Intellisense.Flowchart.TrueLabel);
+            Equal("No", familiar.Language.Intellisense.Flowchart.FalseLabel);
+
+            const string source = "main() returns int { if(true) { return 1; } else { return 0; } }";
+            DdfFlowchartBuildResult result = DdfFlowchartBuilder.Build(source, "main", familiar.Language);
+            Equal(true, result.Success);
+            Equal("End main", result.Flowchart.FindNode(result.Flowchart.ExitNodeId).Label);
+            DdfFlowchartNode decision = result.Flowchart.Nodes.First(item =>
+                item.Kind == DdfFlowchartNodeKind.Decision);
+            string explanation = familiar.Language.Intellisense.Flowchart.Explain(decision);
+            Equal(true, explanation.Contains("Yes", StringComparison.Ordinal));
+            Equal(true, explanation.Contains("No", StringComparison.Ordinal));
         }
 
         private static void ValidatesNormativeSyntaxProfileCorpus()

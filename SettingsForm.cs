@@ -35,11 +35,13 @@ namespace DDF___Program_Language_Editor
         private Keys capturedShortcut;
 
         public SettingsForm(EditorSettings settings)
-            : this(settings, Array.Empty<ShortcutCommandDefinition>(), ShortcutSettings.Default(Array.Empty<ShortcutCommandDefinition>()))
+            : this(settings, Array.Empty<ShortcutCommandDefinition>(),
+                ShortcutSettings.Default(Array.Empty<ShortcutCommandDefinition>()), null)
         {
         }
 
-        public SettingsForm(EditorSettings settings, IReadOnlyList<ShortcutCommandDefinition> definitions, ShortcutSettings shortcuts)
+        public SettingsForm(EditorSettings settings, IReadOnlyList<ShortcutCommandDefinition> definitions,
+            ShortcutSettings shortcuts, DdfLanguagePackage languagePackage = null)
         {
             settings = settings ?? EditorSettings.Default;
             shortcutDefinitions = definitions ?? Array.Empty<ShortcutCommandDefinition>();
@@ -82,7 +84,7 @@ namespace DDF___Program_Language_Editor
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
-            tabs.TabPages.Add(createLanguageTab());
+            tabs.TabPages.Add(createLanguageTab(languagePackage));
             var shortcutTab = new TabPage("Scorciatoie") { Name = "settingsShortcutsTab", Padding = new Padding(12) };
             settingsShortcutGrid = createShortcutGrid();
             settingsShortcutTextBox = new TextBox { Name = "settingsShortcutTextBox", Dock = DockStyle.Fill, ReadOnly = true, Text = "Premi una combinazione", ShortcutsEnabled = false };
@@ -199,9 +201,9 @@ namespace DDF___Program_Language_Editor
             return page;
         }
 
-        private static TabPage createLanguageTab()
+        private static TabPage createLanguageTab(DdfLanguagePackage activePackage)
         {
-            DdfLanguagePackage package = DdfLanguageCatalog.DefaultPackage;
+            DdfLanguagePackage package = activePackage ?? DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
             var page = new TabPage("Linguaggio")
             {
                 Name = "settingsLanguageTab",

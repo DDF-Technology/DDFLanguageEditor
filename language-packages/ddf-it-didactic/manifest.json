@@ -3,9 +3,9 @@
   "engineApi": "1.0",
   "id": "ddf-it-didactic",
   "name": "DDF didattico italiano",
-  "packageVersion": "0.12.1",
+  "packageVersion": "0.12.1.1",
   "languageVersion": "0.12",
-  "fileExtensions": [ ".ddfit" ],
+  "fileExtensions": [ ".ddfit", ".ddf" ],
   "nativeExtensions": [],
   "sections": {
     "lexicon": "lexicon.json",

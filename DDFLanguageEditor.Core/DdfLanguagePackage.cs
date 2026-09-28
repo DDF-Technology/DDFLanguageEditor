@@ -509,12 +509,25 @@ namespace DDFLanguageEditor.Core
                     parseRequiredEnum<DdfSymbolKind>(item.Kind, "symbol kind"), item.Label, item.Documentation));
                 var snippets = value.Snippets.Select(item => new DdfSnippetTemplate(
                     item.Prefix, item.DisplayText, item.Description, item.Body, item.RequiresKeyword));
+                DdfFlowchartPresentation flowchart = value.Flowchart == null
+                    ? DdfFlowchartPresentation.CreateLegacyDefault()
+                    : new DdfFlowchartPresentation(value.Flowchart.TrueLabel, value.Flowchart.FalseLabel,
+                        value.Flowchart.ExitLabelFormat, value.Flowchart.GuideTitle,
+                        value.Flowchart.GuidePrompt, value.Flowchart.DebugTitle,
+                        value.Flowchart.SelectedTitle, value.Flowchart.DebugPrefix,
+                        value.Flowchart.ValuesPrefix, (value.Flowchart.Explanations ??
+                            new Dictionary<string, string>()).Select(item =>
+                                new KeyValuePair<DdfFlowchartNodeKind, string>(
+                                    parseRequiredEnum<DdfFlowchartNodeKind>(item.Key, "flowchart node kind"),
+                                    item.Value)));
+                var diagnosticPresentation = new DdfDiagnosticPresentation(value.Diagnostics);
                 return new DdfIntellisenseDefinition(snippets, presentations,
                     completion.KeywordOrigin, completion.BooleanOrigin, completion.SnippetOrigin,
                     completion.StandardLibraryOrigin, completion.CurrentDocumentOrigin, completion.WorkspaceOrigin,
                     completion.TypeDetail, completion.ControlFlowDetail, completion.KeywordDetail,
                     completion.BooleanDetail, completion.StandardFunctionDetailPrefix,
-                    signature.CurrentDocumentOrigin, signature.WorkspaceOrigin, signature.StandardLibraryOrigin);
+                    signature.CurrentDocumentOrigin, signature.WorkspaceOrigin, signature.StandardLibraryOrigin,
+                    flowchart, diagnosticPresentation);
             }
             catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
             {
@@ -1063,7 +1076,8 @@ namespace DDFLanguageEditor.Core
         private sealed class SemanticsDto : SectionDto { public string OperationSet { get; set; } public string OperationSetVersion { get; set; } public List<SemanticBindingDto> Bindings { get; set; } }
         private sealed class SemanticBindingDto { public string Rule { get; set; } public List<SemanticOperationDto> Operations { get; set; } }
         private sealed class SemanticOperationDto { public string Id { get; set; } public Dictionary<string, string> Arguments { get; set; } }
-        private sealed class IntellisenseDto : SectionDto { public CompletionDto Completion { get; set; } public SignatureHelpDto SignatureHelp { get; set; } public List<SymbolPresentationDto> SymbolKinds { get; set; } public List<SnippetDto> Snippets { get; set; } }
+        private sealed class IntellisenseDto : SectionDto { public CompletionDto Completion { get; set; } public SignatureHelpDto SignatureHelp { get; set; } public List<SymbolPresentationDto> SymbolKinds { get; set; } public List<SnippetDto> Snippets { get; set; } public FlowchartPresentationDto Flowchart { get; set; } public Dictionary<string, string> Diagnostics { get; set; } }
+        private sealed class FlowchartPresentationDto { public string TrueLabel { get; set; } public string FalseLabel { get; set; } public string ExitLabelFormat { get; set; } public string GuideTitle { get; set; } public string GuidePrompt { get; set; } public string DebugTitle { get; set; } public string SelectedTitle { get; set; } public string DebugPrefix { get; set; } public string ValuesPrefix { get; set; } public Dictionary<string, string> Explanations { get; set; } }
         private sealed class CompletionDto { public string KeywordOrigin { get; set; } public string BooleanOrigin { get; set; } public string SnippetOrigin { get; set; } public string StandardLibraryOrigin { get; set; } public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string TypeDetail { get; set; } public string ControlFlowDetail { get; set; } public string KeywordDetail { get; set; } public string BooleanDetail { get; set; } public string StandardFunctionDetailPrefix { get; set; } }
         private sealed class SignatureHelpDto { public string CurrentDocumentOrigin { get; set; } public string WorkspaceOrigin { get; set; } public string StandardLibraryOrigin { get; set; } }
         private sealed class SymbolPresentationDto { public string Kind { get; set; } public string Label { get; set; } public string Documentation { get; set; } }

@@ -14,4 +14,9 @@
     <ProjectReference Include="..\..\samples\DDFLanguageEditor.HostDemo\DDFLanguageEditor.HostDemo.csproj" />
     <ProjectReference Include="..\..\samples\DDFLanguageEditor.DatabaseDemo\DDFLanguageEditor.DatabaseDemo.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\language-packages\ddf-it-didactic\*.*" Link="language-package-seeds\ddf-it-didactic\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\language-packages\ddf-c-familiar\*.*" Link="language-package-seeds\ddf-c-familiar\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

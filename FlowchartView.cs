@@ -30,6 +30,7 @@ namespace DDF___Program_Language_Editor
         private readonly RowStyle educationalRowStyle;
         private readonly Dictionary<string, string> educationalRuntimeValues =
             new Dictionary<string, string>(StringComparer.Ordinal);
+        private DdfFlowchartPresentation presentation = DdfFlowchartPresentation.CreateLegacyDefault();
 
         public FlowchartView(Font menuFont)
         {
@@ -232,6 +233,12 @@ namespace DDF___Program_Language_Editor
         public void SetStatus(string text) => statusLabel.Text = text ?? string.Empty;
         public void SetDiagramPreservingViewport(DdfFlowchartLayout diagram, int sourcePosition) =>
             canvas.SetDiagramPreservingViewport(diagram, sourcePosition);
+        public void ApplyPresentation(DdfFlowchartPresentation value)
+        {
+            presentation = value ?? DdfFlowchartPresentation.CreateLegacyDefault();
+            canvas.SetDecisionLabels(presentation.TrueLabel, presentation.FalseLabel);
+            UpdateEducationalContent();
+        }
         public void SetSourcePosition(int position) => canvas.SetSourcePosition(position);
         public void SetExecutionSourcePosition(int start, int length) =>
             canvas.SetExecutionSourcePosition(start, length);
@@ -324,57 +331,24 @@ namespace DDF___Program_Language_Editor
             DdfFlowchartNode node = canvas.SelectedNode ?? canvas.ExecutionNode;
             if (node == null)
             {
-                educationalTitleLabel.Text = "GUIDA DIDATTICA";
-                educationalExplanationBox.Text =
-                    "Posiziona il cursore su un'istruzione oppure seleziona un nodo per leggerne la funzione nel flusso.";
+                educationalTitleLabel.Text = presentation.GuideTitle;
+                educationalExplanationBox.Text = presentation.GuidePrompt;
                 return;
             }
 
             bool executing = canvas.ExecutionNode != null && canvas.ExecutionNode.Id == node.Id;
-            educationalTitleLabel.Text = executing ? "PASSO CORRENTE DEL DEBUG" : "NODO SELEZIONATO";
-            string explanation = ExplainNode(node);
+            educationalTitleLabel.Text = executing ? presentation.DebugTitle : presentation.SelectedTitle;
+            string explanation = presentation.Explain(node);
             if (executing)
             {
                 List<string> values = educationalRuntimeValues.Where(item =>
                         ContainsIdentifier(node.Label, item.Key))
                     .Take(6).Select(item => item.Key + " = " + item.Value).ToList();
-                explanation = "L'esecuzione è sospesa su questo punto. " + explanation;
+                explanation = presentation.DebugPrefix + explanation;
                 if (values.Count > 0)
-                    explanation += Environment.NewLine + "Valori coinvolti: " + string.Join("; ", values);
+                    explanation += Environment.NewLine + presentation.ValuesPrefix + string.Join("; ", values);
             }
             educationalExplanationBox.Text = explanation;
-        }
-
-        private static string ExplainNode(DdfFlowchartNode node)
-        {
-            string code = string.IsNullOrWhiteSpace(node.Label) ? "questo elemento" : "«" + node.Label + "»";
-            switch (node.Kind)
-            {
-                case DdfFlowchartNodeKind.Entry:
-                    return "Ingresso della funzione: da qui comincia il suo flusso di esecuzione.";
-                case DdfFlowchartNodeKind.Exit:
-                    return "Uscita della funzione: il flusso termina e il controllo torna all'eventuale chiamante.";
-                case DdfFlowchartNodeKind.Process:
-                    return "Istruzione sequenziale " + code + ": viene eseguita una volta, poi il flusso continua verso il nodo successivo.";
-                case DdfFlowchartNodeKind.Call:
-                    return "Chiamata " + code + ": il controllo entra nella funzione indicata e, al termine, riprende dal passo seguente.";
-                case DdfFlowchartNodeKind.Decision:
-                    return "Decisione " + code + ": la condizione viene valutata; il ramo Sì è seguito quando è vera, il ramo No quando è falsa.";
-                case DdfFlowchartNodeKind.LoopDecision:
-                    return "Controllo di ciclo " + code + ": la condizione decide se eseguire o ripetere il corpo del ciclo oppure proseguire dopo di esso.";
-                case DdfFlowchartNodeKind.Return:
-                    return "Ritorno " + code + ": termina la funzione e restituisce il valore al chiamante.";
-                case DdfFlowchartNodeKind.Break:
-                    return "Interruzione del ciclo: il flusso esce immediatamente dal ciclo più vicino.";
-                case DdfFlowchartNodeKind.Terminate:
-                    return "Terminazione esplicita: l'esecuzione del percorso corrente viene conclusa.";
-                case DdfFlowchartNodeKind.Partial:
-                    return "Nodo parziale: il codice è ancora incompleto e questa rappresentazione potrebbe cambiare durante la correzione.";
-                case DdfFlowchartNodeKind.Group:
-                    return "Gruppo compatto: raccoglie più istruzioni sequenziali. Un doppio clic mostra i singoli passaggi.";
-                default:
-                    return "Elemento del flusso " + code + ".";
-            }
         }
 
         private static bool ContainsIdentifier(string text, string identifier)

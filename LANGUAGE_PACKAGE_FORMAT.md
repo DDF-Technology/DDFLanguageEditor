@@ -76,6 +76,19 @@ I tipi e le firme delle dichiarazioni locali sono estratti dai campi
 grammatica; `childSymbolKind` consente, per esempio, di presentare come campi le
 variabili annidate in una struttura.
 
+Dalla `0.12.1`, la stessa sezione accetta due blocchi di presentazione opzionali:
+
+- `diagnostics` associa un codice stabile (`DDF201`, `DDF306`, ...) al messaggio
+  mostrato da palette e hover. Il motore conserva separatamente il testo tecnico,
+  così Quick Fix e integrazioni non dipendono dalla lingua dell'interfaccia;
+- `flowchart` definisce etichette dei rami vero/falso, formato dell'uscita,
+  titoli e prompt della modalità didattica e una spiegazione per ogni tipo di nodo.
+  I placeholder ammessi sono `{function}`, `{code}`, `{true}` e `{false}`.
+
+Entrambi i blocchi hanno fallback completo alla presentazione DDF incorporata:
+un pacchetto storico privo dei nuovi campi resta caricabile e un codice
+diagnostico non mappato conserva il messaggio prodotto dal motore.
+
 La sezione `formatting.json` assegna ruoli ai delimitatori già riconosciuti dal
 lessico, configura le coppie automatiche e i trigger di indentazione, decide se
 separare le istruzioni con una riga vuota e associa correzioni sicure ai codici
@@ -186,9 +199,9 @@ regole od operatori irraggiungibili. I dettagli completi e i valori enumerati
 sono in `language-lexicon.schema.json`.
 
 Per una prova manuale non distruttiva, duplicare l'intera cartella pubblicata e
-modificare soltanto la copia di `language-packages/ddf/lexicon.json`. Selezionare
-quindi `Help > Linguaggio > Carica da cartella`: non è necessario riavviare
-l'editor. Per esempio, aggiungendo `$` a `identifier.start.characters` e
+modificare soltanto la copia di `language-packages/ddf/lexicon.json`. Installare
+quindi la copia da `Linguaggio > Gestisci pacchetti > Installa/Aggiorna cartella`:
+non è necessario riavviare l'editor. Per esempio, aggiungendo `$` a `identifier.start.characters` e
 `identifier.part.characters`, un nome come `$value` viene tokenizzato come
 identificatore; cambiando il marcatore di `LineComment`, cambia immediatamente la
 colorazione dei commenti. Keyword e costrutti sintattici devono restare coerenti
@@ -215,9 +228,10 @@ di stato o dalla comparsa del tooltip. La finestra distingue esplicitamente un
 caricamento esterno riuscito dal fallback incorporato e consente di copiare tutti
 i dettagli.
 
-Il menu `Help > Linguaggio` e il pulsante Linguaggio della barra strumenti
-caricano una cartella o un archivio `.ddflang` e ripristinano il pacchetto
-incorporato. L'attivazione riuscita viene memorizzata tra gli avvii, rigenera i
+Il menu `Linguaggio` e il pulsante Linguaggio della barra strumenti aprono il
+Gestore pacchetti oppure ripristinano il DDF incorporato. Cartelle e archivi
+`.ddflang` diversi dal DDF devono essere installati nel catalogo utente prima
+dell'attivazione. L'attivazione riuscita viene memorizzata tra gli avvii, rigenera i
 servizi configurabili dell'editor e reindicizza l'eventuale workspace usando le
 estensioni dichiarate nel manifest. Un errore lascia invece invariato il
 pacchetto già attivo e viene esposto nel messaggio e nel tooltip di stato.
@@ -277,6 +291,13 @@ una cartella o un archivio `.ddflang` nel profilo locale, elenca le versioni val
 le convalida, le attiva oppure disattiva la selezione esterna tornando alla copia
 DDF incorporata. `Playground linguaggio` prova invece token, albero sintattico,
 diagnostiche e formatter senza modificare il documento aperto.
+
+Il DDF è l'unico pacchetto collocato accanto all'eseguibile ed è anche incorporato
+come fallback. Gli eventuali profili dimostrativi distribuiti con l'applicazione
+sono sorgenti di installazione: al primo avvio vengono copiati nel catalogo locale
+e successivamente si comportano come normali pacchetti utente. Una preferenza di
+versioni precedenti che puntava direttamente a uno di questi profili viene migrata
+alla corrispondente copia installata.
 
 La distinzione tra modifiche dichiarative, nuove operazioni del motore e plug-in
 nativi, insieme al progetto del futuro editor assistito, è descritta in

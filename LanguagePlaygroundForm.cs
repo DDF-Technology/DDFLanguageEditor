@@ -36,7 +36,7 @@ namespace DDF___Program_Language_Editor
             split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57F));
             split.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             sourceTextBox = CreateTextBox("languagePlaygroundSourceTextBox", false);
-            sourceTextBox.Text = "main() out int\n{\n    ret 0;\n}";
+            sourceTextBox.Text = CreateInitialSource(package);
             sourceTextBox.TextChanged += (sender, args) => RefreshPreview();
             var sourceLabel = new Label
             {
@@ -77,6 +77,16 @@ namespace DDF___Program_Language_Editor
             AppTheme.ApplyLight(this);
             TextBoxEditingSupport.Apply(this);
             RefreshPreview();
+        }
+
+        private static string CreateInitialSource(DdfLanguagePackage target)
+        {
+            const string canonical = "main() out int\n{\n    ret 0;\n}";
+            DdfLanguagePackageLoadResult embedded = DdfLanguagePackageLoader.LoadEmbeddedDefault();
+            if (!embedded.Success || string.Equals(target.Id, embedded.Package.Id, StringComparison.Ordinal))
+                return canonical;
+            return DdfSyntaxProfileConverter.Convert(
+                canonical, embedded.Package.Language, target.Language).Text;
         }
 
         private static RichTextBox AddResultTab(TabControl tabs, string title, string name)

@@ -45,7 +45,8 @@ namespace DDFLanguageEditor.Core
             int? insertionPosition = null,
             int? contextStart = null,
             DdfDiagnosticDomain domain = DdfDiagnosticDomain.Source,
-            string documentPath = null)
+            string documentPath = null,
+            string displayMessage = null)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -74,6 +75,7 @@ namespace DDFLanguageEditor.Core
 
             Code = code;
             Message = message;
+            DisplayMessage = string.IsNullOrWhiteSpace(displayMessage) ? message : displayMessage;
             Start = start;
             Length = length;
             Line = line;
@@ -88,6 +90,8 @@ namespace DDFLanguageEditor.Core
         public string Code { get; }
 
         public string Message { get; }
+
+        public string DisplayMessage { get; }
 
         public int Start { get; }
 
@@ -120,7 +124,7 @@ namespace DDFLanguageEditor.Core
                 Line,
                 Column,
                 DdfDiagnosticDomainNames.GetDisplayName(Domain),
-                Message);
+                DisplayMessage);
         }
 
         public override string ToString()
@@ -132,7 +136,11 @@ namespace DDFLanguageEditor.Core
                 Column,
                 Code,
                 DdfDiagnosticDomainNames.GetDisplayName(Domain),
-                Message);
+                DisplayMessage);
         }
+
+        public DdfDiagnostic WithDisplayMessage(string displayMessage) => new DdfDiagnostic(
+            Code, Message, Start, Length, Line, Column, Severity, InsertionPosition, ContextStart,
+            Domain, DocumentPath, displayMessage);
     }
 }

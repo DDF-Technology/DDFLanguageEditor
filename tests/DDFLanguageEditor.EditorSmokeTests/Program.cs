@@ -59,6 +59,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     Console.WriteLine("PASS smoke mirato esecuzione/debug");
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument, "--language-profile-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertInstalledProfilesAndCloseAllWorkspaceDocuments(visible);
+                    return 0;
+                }
                 if (!args.Any(argument => string.Equals(argument, "--skip-host-demo",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -73,6 +79,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                 AssertProlongedEditingSession(visible);
                 RunMenuScenarios(visible);
+                AssertInstalledProfilesAndCloseAllWorkspaceDocuments(visible);
                 AssertRealisticLanguagePackageSwitching(visible);
                 if (UiExceptions.Count > 0)
                 {
@@ -582,6 +589,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 if (!visible) form.WindowState = FormWindowState.Normal;
                 form.Show();
                 PumpMessages(160);
+                DdfLanguageCatalog.ActivateEmbedded();
+                DdfLanguagePackageLoadResult baselineLanguage =
+                    form.EmbeddedEditor.LanguageSession.UseEmbedded();
+                Require(baselineLanguage.Success,
+                    "Lo smoke non riesce a ripristinare il linguaggio DDF incorporato.");
+                PumpMessages(80);
 
                 RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 RichTextBox foldedView = FindControl<RichTextBox>(form, "richTextBoxFoldedView");
@@ -594,9 +607,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La barra beta è ancora presente nella finestra principale.");
                 ToolStripStatusLabel languageStatus = (ToolStripStatusLabel)FindControl<StatusStrip>(form, "statusStripMain")
                     .Items["statusEncodingLabel"];
-                Require(languageStatus.Text.Contains("DDF 0.12", StringComparison.Ordinal) &&
-                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: ddf 0.12.1", StringComparison.Ordinal) &&
-                        languageStatus.Text.Contains("cartella", StringComparison.OrdinalIgnoreCase) &&
+                DdfLanguagePackage activeLanguage = form.EmbeddedEditor.LanguageSession.ActivePackage;
+                Require(languageStatus.Text.Contains(activeLanguage.Name + " " + activeLanguage.LanguageVersion,
+                            StringComparison.Ordinal) &&
+                        languageStatus.ToolTipText.Contains("Pacchetto linguaggio: " + activeLanguage.Id + " " +
+                            activeLanguage.PackageVersion, StringComparison.Ordinal) &&
                         languageStatus.ToolTipText.Contains("Origine:", StringComparison.Ordinal),
                     "Versione e origine del pacchetto linguaggio attivo non sono esplicite nello stato.");
 
@@ -769,7 +784,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "if(value > 15) { brk; } } for(int index << 0; index < 3; index++) { " +
                 "if(index == 1) { value << value + index; } else { value++; } } ret value; }";
             DdfFlowchartLayout routingDiagram = DdfFlowchartLayouter.Layout(
-                DdfFlowchartBuilder.Build(routingSource, "main").Flowchart);
+                DdfFlowchartBuilder.Build(routingSource, "main",
+                    form.EmbeddedEditor.LanguageSession.ActivePackage.Language).Flowchart);
             canvas.GetType().GetMethod("SetDiagram", BindingFlags.Instance | BindingFlags.Public)
                 .Invoke(canvas, new object[] { routingDiagram });
             object routeMap = routingDiagram.Nodes.ToDictionary(item => item.Node.Id,
@@ -900,7 +916,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "int prefix << 1; int value << 0;");
             int changedAnchorPosition = changedRoutingSource.IndexOf("value > 15", StringComparison.Ordinal);
             DdfFlowchartLayout changedRoutingDiagram = DdfFlowchartLayouter.Layout(
-                DdfFlowchartBuilder.Build(changedRoutingSource, "main").Flowchart);
+                DdfFlowchartBuilder.Build(changedRoutingSource, "main",
+                    form.EmbeddedEditor.LanguageSession.ActivePackage.Language).Flowchart);
             DdfFlowchartLayoutNode changedAnchor = changedRoutingDiagram.Nodes.Single(item =>
                 changedAnchorPosition >= item.Node.Start &&
                 changedAnchorPosition <= item.Node.Start + item.Node.Length);
@@ -1088,7 +1105,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             DdfEditorView shellSurface = FindControl<DdfEditorView>(form, "panelEditor");
             Require(shellSurface.ContractVersion == DdfEditorSdkContract.CurrentVersion &&
-                    shellSurface.ContractVersion == "0.31" &&
+                    shellSurface.ContractVersion == "0.32" &&
                     ReferenceEquals(shellSurface.DocumentService,
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments")) &&
                     shellSurface.SourceText == editor.Text &&
@@ -1569,7 +1586,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             shellSurface.SetSelection(0, 0);
             Require(shellSurface.PersistenceProvider == null,
                 "La shell associa implicitamente una persistenza SDK al profilo applicativo.");
-            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.31, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, build, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
+            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.32, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, build, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
         }
 
         private static IEnumerable<Tuple<PointF, PointF>> RouteSegments(IReadOnlyList<PointF> points)
@@ -1946,7 +1963,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 {
                     flowchartSamples.Add(MeasureMilliseconds(() =>
                     {
-                        DdfFlowchart graph = DdfFlowchartBuilder.Build(flowchartSource, "main").Flowchart;
+                        DdfLanguageDefinition language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package.Language;
+                        DdfFlowchart graph = DdfFlowchartBuilder.Build(flowchartSource, "main", language).Flowchart;
                         measuredLayout = DdfFlowchartLayouter.Layout(graph);
                         DdfFlowchart projection = DdfFlowchartProjection.CollapseLinearSequences(graph, 3);
                         DdfFlowchartLayouter.Layout(projection);
@@ -2100,6 +2118,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 using (var form = ShowSmokeForm(visible))
                 {
                     SetPrivateField(form, "saveLanguagePackagePathSetting", new Action<string>(value => { }));
+                    InvokePrivate(form, "activateLanguagePackage",
+                        Path.Combine(AppContext.BaseDirectory, "language-packages", "ddf"));
+                    Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                .ActivePackage.Id == "ddf",
+                        "Il test non riesce a ripristinare il profilo DDF canonico.");
                     Require((bool)InvokePrivate(form, "openWorkspace", workspaceRoot),
                         "Il workspace per il cambio pacchetto non viene accettato.");
                     PumpUntil(() => GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")?.Documents.Count ==
@@ -2120,7 +2143,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         PumpMessages(10);
                     }
 
-                    long currentRevision = DdfLanguageCatalog.Revision;
+                    long currentRevision = GetPrivateField<IDdfLanguagePackageSession>(form,
+                        "editorLanguageSession").Revision;
                     PumpUntil(() =>
                         GetPrivateValue<long>(form, "analysisAppliedLanguageRevision") == currentRevision &&
                         GetPrivateValue<long>(form, "workspaceLoadAppliedLanguageRevision") == currentRevision &&
@@ -2148,6 +2172,257 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 DdfLanguageCatalog.ActivateEmbedded();
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void AssertInstalledProfilesAndCloseAllWorkspaceDocuments(bool visible)
+        {
+            string workspaceRoot = Path.Combine(Path.GetTempPath(),
+                "ddf-profile-close-all-" + Guid.NewGuid().ToString("N"));
+            string previousUserData = Environment.GetEnvironmentVariable("DDF_LANGUAGE_EDITOR_USER_DATA");
+            try
+            {
+                Directory.CreateDirectory(workspaceRoot);
+                string userDataRoot = Path.Combine(workspaceRoot, "user-data");
+                Environment.SetEnvironmentVariable("DDF_LANGUAGE_EDITOR_USER_DATA", userDataRoot);
+                Directory.CreateDirectory(userDataRoot);
+                File.WriteAllText(Path.Combine(userDataRoot, "language-package.txt"),
+                    Path.Combine(AppContext.BaseDirectory, "language-package-seeds", "ddf-c-familiar"),
+                    new UTF8Encoding(false));
+                string firstPath = Path.Combine(workspaceRoot, "main.ddf");
+                string secondPath = Path.Combine(workspaceRoot, "helpers.ddf");
+                DdfDocumentFile.Save(firstPath, "main() out int { ret helper(); }");
+                DdfDocumentFile.Save(secondPath, "helper() out int { ret 1; }");
+
+                using (var form = ShowSmokeForm(visible))
+                {
+                    string migratedPreference = File.ReadAllText(
+                        Path.Combine(userDataRoot, "language-package.txt"), Encoding.UTF8);
+                    Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                .ActivePackage.Id == "ddf-c-familiar" &&
+                            migratedPreference.StartsWith(Path.Combine(userDataRoot, "language-packages"),
+                                StringComparison.OrdinalIgnoreCase),
+                        "La preferenza del vecchio profilo distribuito non è stata migrata al catalogo utente.");
+                    SetPrivateField(form, "saveLanguagePackagePathSetting", new Action<string>(value => { }));
+                    InvokePrivate(form, "activateLanguagePackage",
+                        Path.Combine(AppContext.BaseDirectory, "language-packages", "ddf"));
+                    Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                .ActivePackage.Id == "ddf",
+                        "Il test non riesce a ripristinare il profilo DDF canonico.");
+                    Require((bool)InvokePrivate(form, "openWorkspace", workspaceRoot),
+                        "Il workspace del test profili non viene accettato.");
+                    PumpUntil(() => GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")?.Documents.Count == 2,
+                        5000, "Il workspace .ddf non completa il caricamento iniziale.");
+                    Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                .ActivePackage.Id == "ddf",
+                        "Il caricamento del workspace ha sostituito il profilo DDF canonico.");
+                    Require((bool)InvokePrivate(form, "openDocument", firstPath) &&
+                            (bool)InvokePrivate(form, "openDocument", secondPath),
+                        "I documenti workspace del test non vengono aperti.");
+                    Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                .ActivePackage.Id == "ddf",
+                        "L'apertura dei documenti ha sostituito il profilo DDF canonico.");
+
+                    OpenDocumentCollection documents = GetPrivateField<OpenDocumentCollection>(form, "openDocuments");
+                    string userPackagesRoot = Path.Combine(userDataRoot, "language-packages");
+                    foreach (string profileId in new[] { "ddf-it-didactic", "ddf-c-familiar" })
+                    {
+                        string seedPath = Path.Combine(AppContext.BaseDirectory, "language-package-seeds", profileId);
+                        DdfLanguagePackageLoadResult seed = DdfLanguagePackageLoader.Load(seedPath);
+                        Require(seed.Success, "Il pacchetto iniziale " + profileId + " non è valido: " +
+                            string.Join(" | ", seed.Diagnostics.Select(item => item.ToString())));
+                    }
+                    string includedRoot = Path.Combine(AppContext.BaseDirectory, "language-packages");
+                    string[] includedIds = Directory.EnumerateDirectories(includedRoot)
+                        .Where(path => File.Exists(Path.Combine(path, "manifest.json")))
+                        .Select(Path.GetFileName).ToArray();
+                    Require(includedIds.Length == 1 && includedIds[0] == "ddf",
+                        "La distribuzione deve includere soltanto il pacchetto DDF.");
+                    var installedPackages = new DdfLanguagePackageStore(userPackagesRoot).List();
+                    Require(installedPackages.Any(item => item.Id == "ddf-it-didactic") &&
+                            installedPackages.Any(item => item.Id == "ddf-c-familiar"),
+                        "I profili aggiuntivi non sono presenti nel catalogo utente. " +
+                        string.Join(" | ", GetPrivateField<IReadOnlyList<DdfLanguagePackageDiagnostic>>(form,
+                            "languagePackageActivationDiagnostics").Select(item => item.ToString())));
+                    var profileCases = new[]
+                    {
+                        new
+                        {
+                            Id = "ddf-it-didactic",
+                            Name = "DDF didattico italiano",
+                            Source = "main() restituisce int { restituisci 2; }",
+                            PreviousSource = "helper() out int { ret 1; }",
+                            ConvertedSource = "helper() restituisce int { restituisci 1; }",
+                            ConvertedWorkspaceMain = "main() restituisce int { restituisci helper(); }",
+                            TrueLabel = "Sì",
+                            InvalidSource = "main() restituisce int { restituisci missing; }",
+                            DiagnosticMessage = "Questo nome non è stato dichiarato: dichiaralo oppure correggine la grafia."
+                        },
+                        new
+                        {
+                            Id = "ddf-c-familiar",
+                            Name = "DDF sintassi familiare C",
+                            Source = "main() returns int { return 2; }",
+                            PreviousSource = "main() restituisce int { restituisci 2; }",
+                            ConvertedSource = "main() returns int { return 2; }",
+                            ConvertedWorkspaceMain = "main() returns int { return helper(); }",
+                            TrueLabel = "Yes",
+                            InvalidSource = "main() returns int { return missing; }",
+                            DiagnosticMessage = "Unresolved symbol."
+                        }
+                    };
+                    foreach (var profile in profileCases)
+                    {
+                        string expectedPreviousId = profile.Id == "ddf-it-didactic" ? "ddf" : "ddf-it-didactic";
+                        Require(GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                    .ActivePackage.Id == expectedPreviousId,
+                            "Il profilo precedente è cambiato in modo inatteso prima di " + profile.Id + ".");
+                        DdfInstalledLanguagePackage installed = installedPackages
+                            .Where(item => item.Id == profile.Id)
+                            .OrderByDescending(item => Version.Parse(item.Version)).First();
+                        InvokePrivate(form, "activateLanguagePackage", installed.Path);
+                        PumpUntil(() => GetPrivateField<DdfLanguagePackageSession>(form, "editorLanguageSession")
+                                             .ActivePackage.Id == profile.Id &&
+                                         GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")?.Documents.Count == 2,
+                            5000, "Il profilo " + profile.Id + " non conserva il workspace .ddf attivo.");
+                        Require(FindControl<StatusStrip>(form, "statusStripMain").Items.Cast<ToolStripItem>()
+                                .Any(status => status.Name == "statusEncodingLabel" && status.Text.Contains(profile.Name)),
+                            "La barra di stato non rende visibile il profilo " + profile.Id + ".");
+                        Require(FindControl<RichTextBox>(form, "richTextBoxOutput").Text.Contains(
+                                "Linguaggio attivo: " + profile.Name, StringComparison.Ordinal),
+                            "L'Output non conferma visibilmente il profilo installato " + profile.Id + ".");
+                        RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                        Require(editor.Text == profile.ConvertedSource && editor.CanUndo,
+                            "Il documento attivo non è stato convertito automaticamente in " + profile.Id +
+                            ". Testo corrente: " + editor.Text.Replace("\r", "\\r").Replace("\n", "\\n") +
+                            ". Output: " + FindControl<RichTextBox>(form, "richTextBoxOutput").Text);
+                        Require(documents.FindByPath(firstPath).Source == profile.ConvertedWorkspaceMain,
+                            "La conversione non ha aggiornato anche le altre schede aperte in " + profile.Id + ".");
+                        Require(DdfDocumentFile.Load(firstPath) == "main() out int { ret helper(); }",
+                            "Il cambio profilo ha salvato implicitamente il file workspace su disco.");
+                        editor.Undo();
+                        Require(editor.Text == profile.PreviousSource,
+                            "Undo non ripristina la sintassi precedente dopo il cambio profilo.");
+                        editor.Redo();
+                        Require(editor.Text == profile.ConvertedSource,
+                            "Redo non riapplica la conversione del profilo.");
+                        editor.Text = profile.Source;
+                        editor.Select(editor.TextLength, 0);
+                        StopInteractiveTimers(form);
+                        InvokePrivate(form, "startBackgroundAnalysis");
+                        long requestedAnalysis = GetPrivateValue<long>(form, "analysisRequestVersion");
+                        PumpUntil(() => GetPrivateValue<long>(form, "analysisAppliedVersion") >= requestedAnalysis &&
+                                        string.Equals(GetPrivateValue<string>(form, "lastAnalyzedText"),
+                                            profile.Source, StringComparison.Ordinal) &&
+                                        GetPrivateValue<long>(form, "analysisAppliedLanguageRevision") ==
+                                            GetPrivateField<IDdfLanguagePackageSession>(form,
+                                                "editorLanguageSession").Revision,
+                            5000, "L'analisi non viene applicata dopo l'attivazione di " + profile.Id + ".");
+                        Require(GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form, "activeDiagnostics").Count == 0,
+                            "La sintassi minima di " + profile.Id + " produce diagnostiche dopo l'attivazione.");
+                        Control localizedFlowchartCanvas = FindControl<Control>(form, "flowchartCanvas");
+                        Require(GetPropertyValue<string>(localizedFlowchartCanvas, "TrueLabel") == profile.TrueLabel,
+                            "La Flowchart non applica le etichette del profilo " + profile.Id + ".");
+
+                        editor.Text = profile.InvalidSource;
+                        editor.Select(editor.TextLength, 0);
+                        InvokePrivate(form, "startBackgroundAnalysis");
+                        requestedAnalysis = GetPrivateValue<long>(form, "analysisRequestVersion");
+                        PumpUntil(() => GetPrivateValue<long>(form, "analysisAppliedVersion") >= requestedAnalysis &&
+                                        string.Equals(GetPrivateValue<string>(form, "lastAnalyzedText"),
+                                            profile.InvalidSource, StringComparison.Ordinal),
+                            5000, "L'analisi localizzata non viene applicata per " + profile.Id + ".");
+                        DdfDiagnostic unresolved = GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form,
+                            "activeDiagnostics").FirstOrDefault(item => item.Code == "DDF201");
+                        Require(unresolved != null && unresolved.DisplayMessage == profile.DiagnosticMessage,
+                            "La diagnostica DDF201 non usa il testo del profilo " + profile.Id + ".");
+
+                        editor.Text = profile.Source;
+                        editor.Select(editor.TextLength, 0);
+                        InvokePrivate(form, "startBackgroundAnalysis");
+                        requestedAnalysis = GetPrivateValue<long>(form, "analysisRequestVersion");
+                        PumpUntil(() => GetPrivateValue<long>(form, "analysisAppliedVersion") >= requestedAnalysis &&
+                                        string.Equals(GetPrivateValue<string>(form, "lastAnalyzedText"),
+                                            profile.Source, StringComparison.Ordinal),
+                            5000, "Il sorgente valido non viene ripristinato dopo la prova diagnostica.");
+                        foreach (OpenDocumentBuffer document in documents.Documents) document.MarkPersisted();
+                        editor.Modified = false;
+                    }
+
+                    int exceptionsBeforeClose = UiExceptions.Count;
+                    Control flowchartCanvas = FindControl<Control>(form, "flowchartCanvas");
+                    PumpUntil(() => GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram") != null,
+                        5000, "Il test non ha prodotto la flowchart da eliminare alla chiusura dei documenti.");
+                    ToolStripMenuItem close = FindMenuItem(form, "closeDocumentMenuItem");
+                    while (documents.Documents.Any(document => document.Session.HasPath) || documents.Documents.Count > 1)
+                    {
+                        close.PerformClick();
+                        PumpMessages(60);
+                    }
+                    close.PerformClick();
+                    PumpMessages(180);
+                    TabControl tabs = FindControl<TabControl>(form, "documentTabs");
+                    Require(documents.Documents.Count == 1 && documents.ActiveDocument != null &&
+                            !documents.ActiveDocument.Session.HasPath && tabs.TabCount == 1,
+                        "Chiudendo tutte le schede non resta un documento vuoto coerente.");
+                    Require(GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram") == null &&
+                            FindControl<Label>(form, "flowchartStatusLabel").Text.Contains(
+                                "nessuna funzione rappresentabile", StringComparison.OrdinalIgnoreCase),
+                        "La Flowchart dell'ultimo documento chiuso è rimasta visibile.");
+                    Require(UiExceptions.Count == exceptionsBeforeClose,
+                        "La chiusura di tutte le schede con workspace attivo ha generato un'eccezione UI.");
+                }
+
+                var embeddedPackages = new DdfLanguagePackageStore(
+                    Path.Combine(userDataRoot, "language-packages")).List();
+                string italianPath = embeddedPackages.Where(item => item.Id == "ddf-it-didactic")
+                    .OrderByDescending(item => Version.Parse(item.Version)).First().Path;
+                string familiarPath = embeddedPackages.Where(item => item.Id == "ddf-c-familiar")
+                    .OrderByDescending(item => Version.Parse(item.Version)).First().Path;
+                using (var embedded = new MainForm(true))
+                {
+                    embedded.ShowInTaskbar = visible;
+                    embedded.StartPosition = FormStartPosition.Manual;
+                    embedded.Location = new Point(80, 80);
+                    embedded.Show();
+                    PumpMessages(100);
+                    Require(embedded.EmbeddedHostMode &&
+                            FindMenuItem(embedded, "manageLanguagePackagesMenuItem").Available,
+                        "La selezione dei pacchetti non è disponibile all'utente nella shell embedded.");
+                    embedded.SetEmbeddedPrimaryDocument("embedded.ddfc",
+                        "main() returns int { return 2; }");
+                    RichTextBox embeddedEditor = FindControl<RichTextBox>(embedded, "richTextBoxMainEditor");
+
+                    DdfLanguagePackageLoadResult italianResult =
+                        embedded.EmbeddedEditor.LanguageSession.TryActivate(italianPath);
+                    PumpUntil(() => embeddedEditor.Text ==
+                            "main() restituisce int { restituisci 2; }",
+                        5000, "Il cambio linguaggio via API non converte il buffer embedded.");
+                    Require(italianResult.Success &&
+                            GetPropertyValue<string>(FindControl<Control>(embedded, "flowchartCanvas"),
+                                "TrueLabel") == "Sì",
+                        "Il cambio linguaggio via API non aggiorna la presentazione embedded.");
+
+                    DdfLanguagePackageLoadResult familiar = DdfLanguagePackageLoader.Load(familiarPath);
+                    embedded.EmbeddedEditor.AttachLanguageSession(
+                        new DdfLanguagePackageSession(familiar.Package));
+                    PumpUntil(() => embeddedEditor.Text == "main() returns int { return 2; }",
+                        5000, "La sostituzione della sessione linguistica non aggiorna la shell embedded.");
+                    Require(familiar.Success && ReferenceEquals(
+                                embedded.EmbeddedEditor.LanguageSession,
+                                GetPrivateField<IDdfLanguagePackageSession>(embedded, "editorLanguageSession")) &&
+                            GetPropertyValue<string>(FindControl<Control>(embedded, "flowchartCanvas"),
+                                "TrueLabel") == "Yes",
+                        "La shell embedded non segue la sessione linguistica fornita dall'host.");
+                }
+            }
+            finally
+            {
+                DdfLanguageCatalog.ActivateEmbedded();
+                Environment.SetEnvironmentVariable("DDF_LANGUAGE_EDITOR_USER_DATA", previousUserData);
+                if (Directory.Exists(workspaceRoot)) Directory.Delete(workspaceRoot, true);
+            }
+
+            Console.WriteLine("PASS profili utente installati e chiusura completa schede workspace");
         }
 
         private static void CreateRealisticLanguagePackage(string path, string name, string keywordPrefix)
@@ -2528,8 +2803,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             using (var form = ShowSmokeForm(visible))
             {
-                Require(FindMenuItem(form, "loadLanguageArchiveMenuItem") != null &&
-                        FindMenuItem(form, "loadLanguageFolderMenuItem") != null &&
+                Require(FindMenuItem(form, "manageLanguagePackagesMenuItem") != null &&
                         FindMenuItem(form, "useEmbeddedLanguageMenuItem") != null &&
                         FindControl<StatusStrip>(form, "statusStripMain").Items
                             .Cast<ToolStripItem>().Any(item => item.Name == "statusEncodingLabel" && item.Text.Contains("DDF")),
@@ -2555,8 +2829,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il comando Help non ha aperto le informazioni sul pacchetto linguaggio.");
                 Require(packageInfo.StartPosition == FormStartPosition.CenterScreen && IsLight(packageInfo.BackColor),
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
-                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains("ddf 0.12.1") &&
-                        FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains("Cartella") &&
+                DdfLanguagePackage activePackage = form.EmbeddedEditor.LanguageSession.ActivePackage;
+                string expectedOrigin = activePackage.Origin == DdfLanguagePackageOrigin.Embedded
+                    ? "Incorporato"
+                    : activePackage.Origin == DdfLanguagePackageOrigin.Archive ? "Archivio" : "Cartella";
+                Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains(
+                            activePackage.Id + " " + activePackage.PackageVersion, StringComparison.Ordinal) &&
+                        FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains(expectedOrigin) &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
                 Require(FindControl<ListBox>(packageInfo, "languagePackageDiagnosticsListBox").Items.Count > 0,
@@ -2577,9 +2856,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(FindControl<RichTextBox>(playground, "languagePlaygroundTokensTextBox").Text.Contains("Identifier") &&
                         FindControl<RichTextBox>(playground, "languagePlaygroundTreeTextBox").Text.Contains("Compilation") &&
                         FindControl<RichTextBox>(playground, "languagePlaygroundDiagnosticsTextBox").Text.Contains("Nessuna") &&
-                        FindControl<RichTextBox>(playground, "languagePlaygroundFormattedTextBox").Text.Contains("ret 0;"),
+                        FindControl<RichTextBox>(playground, "languagePlaygroundFormattedTextBox").Text.Contains("0;"),
                     "Il Playground non espone token, albero, diagnostiche e formattazione.");
-                FindControl<RichTextBox>(playground, "languagePlaygroundSourceTextBox").Text = "main() out int { ret ; }";
+                DdfLanguagePackage canonicalPackage = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+                FindControl<RichTextBox>(playground, "languagePlaygroundSourceTextBox").Text =
+                    DdfSyntaxProfileConverter.Convert("main() out int { ret ; }",
+                        canonicalPackage.Language, activePackage.Language).Text;
                 PumpMessages(40);
                 Require(!FindControl<RichTextBox>(playground, "languagePlaygroundDiagnosticsTextBox").Text.Contains("Nessuna"),
                     "Il Playground non aggiorna le diagnostiche sul sorgente isolato.");
@@ -4743,7 +5025,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Point point = editor.GetPositionFromCharIndex(diagnostic.Start);
             InvokeMouseMoveHandler(form, "richTextBoxMainEditor_MouseMove", editor, point);
             DdfDiagnostic hovered = GetPrivateField<DdfDiagnostic>(form, "hoveredDiagnostic");
-            Require(ReferenceEquals(diagnostic, hovered) && hovered.ToHoverText().Contains(diagnostic.Message),
+            Require(ReferenceEquals(diagnostic, hovered) && hovered.ToHoverText().Contains(diagnostic.DisplayMessage),
                 "L'hover diagnostico non espone il messaggio completo della palette.");
 
             editor.Undo();

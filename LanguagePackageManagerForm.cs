@@ -13,16 +13,19 @@ namespace DDF___Program_Language_Editor
         private readonly Action<string> activate;
         private readonly Action disable;
         private readonly Action<DdfLanguagePackage> openPlayground;
+        private readonly Func<DdfLanguagePackage> activePackage;
         private readonly ListView packagesList;
         private readonly TextBox resultTextBox;
 
         public LanguagePackageManagerForm(DdfLanguagePackageStore store, Action<string> activate,
-            Action disable, Action<DdfLanguagePackage> openPlayground)
+            Action disable, Action<DdfLanguagePackage> openPlayground,
+            Func<DdfLanguagePackage> activePackage = null)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
             this.activate = activate ?? throw new ArgumentNullException(nameof(activate));
             this.disable = disable ?? throw new ArgumentNullException(nameof(disable));
             this.openPlayground = openPlayground ?? throw new ArgumentNullException(nameof(openPlayground));
+            this.activePackage = activePackage ?? (() => DdfLanguagePackageLoader.LoadEmbeddedDefault().Package);
             BackColor = AppTheme.Window;
             ClientSize = new Size(820, 520);
             Font = new Font("Segoe UI", 9F);
@@ -166,7 +169,7 @@ namespace DDF___Program_Language_Editor
         private void OpenSelectedPlayground()
         {
             DdfInstalledLanguagePackage selected = Selected();
-            if (selected == null) { openPlayground(DdfLanguageCatalog.DefaultPackage); return; }
+            if (selected == null) { openPlayground(activePackage()); return; }
             DdfLanguagePackageLoadResult result = DdfLanguagePackageLoader.Load(selected.Path);
             if (!result.Success) { resultTextBox.Text = string.Join(Environment.NewLine, result.Diagnostics); return; }
             openPlayground(result.Package);

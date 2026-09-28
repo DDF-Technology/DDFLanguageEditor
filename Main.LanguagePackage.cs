@@ -9,8 +9,6 @@ namespace DDF___Program_Language_Editor
 {
     public partial class MainForm
     {
-        private ToolStripMenuItem loadLanguageArchiveMenuItem;
-        private ToolStripMenuItem loadLanguageFolderMenuItem;
         private ToolStripMenuItem useEmbeddedLanguageMenuItem;
         private ToolStripMenuItem manageLanguagePackagesMenuItem;
         private ToolStripMenuItem validateLanguagePackageMenuItem;
@@ -19,7 +17,10 @@ namespace DDF___Program_Language_Editor
         private LanguagePackageManagerForm languagePackageManagerForm;
         private LanguagePlaygroundForm languagePlaygroundForm;
         private Action<string> saveLanguagePackagePathSetting;
-        private DdfLanguagePackageSession editorLanguageSession;
+        private IDdfLanguagePackageSession editorLanguageSession;
+        private DdfLanguagePackage observedLanguagePackage;
+        private string pendingLanguagePreferencePath;
+        private bool persistPendingLanguagePreference;
         private IReadOnlyList<DdfLanguagePackageDiagnostic> languagePackageActivationDiagnostics =
             Array.Empty<DdfLanguagePackageDiagnostic>();
 
@@ -27,30 +28,119 @@ namespace DDF___Program_Language_Editor
         {
             string path = (AppSettingsStore.LoadLanguagePackagePath() ?? string.Empty).Trim();
             if (path.Length == 0) return;
-            DdfLanguagePackageLoadResult result = DdfLanguageCatalog.TryActivate(path);
+            string installedPath = migratePersistedUserPackage(path);
+            DdfLanguagePackageLoadResult result = DdfLanguageCatalog.TryActivate(installedPath);
+            if (result.Success && !string.Equals(path, installedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                try { AppSettingsStore.SaveLanguagePackagePath(installedPath); }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException) { }
+            }
             if (!result.Success) languagePackageActivationDiagnostics = result.Diagnostics;
+        }
+
+        private void installShippedUserLanguagePackages()
+        {
+            if (embeddedHostMode) return;
+            string seedRoot = Path.Combine(AppContext.BaseDirectory, "language-package-seeds");
+            if (!Directory.Exists(seedRoot)) return;
+            try
+            {
+                var completedSeeds = new HashSet<string>((AppSettingsStore.LoadLanguagePackageSeeds() ?? string.Empty)
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries),
+                    StringComparer.OrdinalIgnoreCase);
+                var store = new DdfLanguagePackageStore(AppSettingsStore.GetLanguagePackagesDirectory());
+                bool changed = false;
+                foreach (string directory in Directory.EnumerateDirectories(seedRoot)
+                    .Where(item => File.Exists(Path.Combine(item, "manifest.json"))))
+                {
+                    DdfLanguagePackageLoadResult candidate = DdfLanguagePackageLoader.Load(directory);
+                    if (!candidate.Success || string.Equals(candidate.Package.Id, "ddf", StringComparison.Ordinal)) continue;
+                    string key = candidate.Package.Id + "@" + candidate.Package.PackageVersion;
+                    if (completedSeeds.Contains(key)) continue;
+
+                    bool alreadyInstalled = store.List().Any(item =>
+                        string.Equals(item.Id, candidate.Package.Id, StringComparison.Ordinal) &&
+                        string.Equals(item.Version, candidate.Package.PackageVersion, StringComparison.Ordinal));
+                    DdfLanguagePackageInstallResult installation = alreadyInstalled ? null : store.Install(directory);
+                    if (alreadyInstalled || installation.Success)
+                    {
+                        completedSeeds.Add(key);
+                        changed = true;
+                        DdfInstalledLanguagePackage installed = store.List()
+                            .FirstOrDefault(item =>
+                                string.Equals(item.Id, candidate.Package.Id, StringComparison.Ordinal) &&
+                                string.Equals(item.Version, candidate.Package.PackageVersion, StringComparison.Ordinal));
+                        upgradePersistedShippedPackage(candidate.Package, installed);
+                    }
+                }
+                if (changed)
+                    AppSettingsStore.SaveLanguagePackageSeeds(string.Join(Environment.NewLine,
+                        completedSeeds.OrderBy(item => item, StringComparer.OrdinalIgnoreCase)));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                languagePackageActivationDiagnostics = new[]
+                {
+                    new DdfLanguagePackageDiagnostic("DDFL006",
+                        "I pacchetti utente distribuiti non possono essere installati: " + exception.Message)
+                };
+            }
+        }
+
+        private static void upgradePersistedShippedPackage(DdfLanguagePackage candidate,
+            DdfInstalledLanguagePackage installed)
+        {
+            if (candidate == null || installed == null) return;
+            string persistedPath = (AppSettingsStore.LoadLanguagePackagePath() ?? string.Empty).Trim();
+            if (persistedPath.Length == 0) return;
+            DdfLanguagePackageLoadResult persisted = DdfLanguagePackageLoader.Load(persistedPath);
+            string persistedId = persisted.Success ? persisted.Package.Id :
+                Path.GetFileName(persistedPath.TrimEnd(Path.DirectorySeparatorChar));
+            if (!string.Equals(persistedId, candidate.Id, StringComparison.Ordinal)) return;
+            if (persisted.Success && Version.Parse(persisted.Package.PackageVersion) >=
+                Version.Parse(candidate.PackageVersion)) return;
+            AppSettingsStore.SaveLanguagePackagePath(installed.Path);
+        }
+
+        private static string migratePersistedUserPackage(string path)
+        {
+            try
+            {
+                var store = new DdfLanguagePackageStore(AppSettingsStore.GetLanguagePackagesDirectory());
+                DdfLanguagePackageLoadResult source = DdfLanguagePackageLoader.Load(path);
+                string packageId = source.Success ? source.Package.Id :
+                    Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar));
+                if (string.IsNullOrWhiteSpace(packageId) || string.Equals(packageId, "ddf", StringComparison.Ordinal))
+                    return path;
+
+                DdfInstalledLanguagePackage installed = store.List()
+                    .Where(item => string.Equals(item.Id, packageId, StringComparison.Ordinal))
+                    .OrderByDescending(item => Version.Parse(item.Version))
+                    .FirstOrDefault(item => !source.Success ||
+                        string.Equals(item.Version, source.Package.PackageVersion, StringComparison.Ordinal));
+                if (installed != null) return installed.Path;
+                if (!source.Success) return path;
+
+                DdfLanguagePackageInstallResult migrated = store.Install(path);
+                return migrated.Success ? migrated.Installed.Path : path;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                return path;
+            }
         }
 
         private void recreateLanguageServices()
         {
-            incrementalLexer = new IncrementalDdfLexer(DdfLanguageCatalog.Default);
-            quickFixService = DdfQuickFixService.CreateDefault(DdfLanguageCatalog.Default.Formatting);
+            DdfLanguageDefinition language = editorLanguageSession.ActivePackage.Language;
+            incrementalLexer = new IncrementalDdfLexer(language);
+            quickFixService = DdfQuickFixService.CreateDefault(language.Formatting);
         }
 
         private void initializeLanguagePackageCommands()
         {
             saveLanguagePackagePathSetting = AppSettingsStore.SaveLanguagePackagePath;
-            loadLanguageArchiveMenuItem = new ToolStripMenuItem("Carica archivio .ddflang...")
-            {
-                Name = "loadLanguageArchiveMenuItem"
-            };
-            loadLanguageArchiveMenuItem.Click += loadLanguageArchiveMenuItem_Click;
-            loadLanguageFolderMenuItem = new ToolStripMenuItem("Carica da cartella...")
-            {
-                Name = "loadLanguageFolderMenuItem"
-            };
-            loadLanguageFolderMenuItem.Click += loadLanguageFolderMenuItem_Click;
-            useEmbeddedLanguageMenuItem = new ToolStripMenuItem("Ripristina linguaggio incorporato")
+            useEmbeddedLanguageMenuItem = new ToolStripMenuItem("Ripristina DDF incorporato")
             {
                 Name = "useEmbeddedLanguageMenuItem"
             };
@@ -77,8 +167,6 @@ namespace DDF___Program_Language_Editor
             languagePackageInfoMenuItem.DropDownItems.Add(validateLanguagePackageMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(languagePlaygroundMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(new ToolStripSeparator());
-            languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageArchiveMenuItem);
-            languagePackageInfoMenuItem.DropDownItems.Add(loadLanguageFolderMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(useEmbeddedLanguageMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(new ToolStripSeparator());
             var detailsItem = new ToolStripMenuItem("Informazioni sul pacchetto attivo...")
@@ -103,19 +191,33 @@ namespace DDF___Program_Language_Editor
             toolbarLanguageButton.DropDownItems.Add("Convalida pacchetto attivo", null, validateLanguagePackageMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add("Playground...", null, languagePlaygroundMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add(new ToolStripSeparator());
-            toolbarLanguageButton.DropDownItems.Add("Carica archivio .ddflang...", null, loadLanguageArchiveMenuItem_Click);
-            toolbarLanguageButton.DropDownItems.Add("Carica da cartella...", null, loadLanguageFolderMenuItem_Click);
-            toolbarLanguageButton.DropDownItems.Add("Ripristina incorporato", null, useEmbeddedLanguageMenuItem_Click);
+            toolbarLanguageButton.DropDownItems.Add("Ripristina DDF incorporato", null, useEmbeddedLanguageMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add(new ToolStripSeparator());
             toolbarLanguageButton.DropDownItems.Add("Informazioni...", null, languagePackageInfoMenuItem_Click);
             toolStripMain.Items.Add(new ToolStripSeparator());
             toolStripMain.Items.Add(toolbarLanguageButton);
             panelEditor.AttachLanguageSession(editorLanguageSession);
+            observedLanguagePackage = editorLanguageSession.ActivePackage;
+            editorLanguageSession.ActiveLanguageChanged += editorLanguageSession_ActiveLanguageChanged;
+            panelEditor.LanguageSessionChanged += panelEditor_LanguageSessionChanged;
+        }
+
+        private void panelEditor_LanguageSessionChanged(object sender, EventArgs e)
+        {
+            IDdfLanguagePackageSession replacement = panelEditor.LanguageSession;
+            if (replacement == null || ReferenceEquals(replacement, editorLanguageSession)) return;
+            DdfLanguagePackage previousPackage = observedLanguagePackage;
+            if (editorLanguageSession != null)
+                editorLanguageSession.ActiveLanguageChanged -= editorLanguageSession_ActiveLanguageChanged;
+            editorLanguageSession = replacement;
+            observedLanguagePackage = replacement.ActivePackage;
+            replacement.ActiveLanguageChanged += editorLanguageSession_ActiveLanguageChanged;
+            applyLanguagePackageChange(previousPackage, replacement.ActivePackage, null, false);
         }
 
         private void applyActiveLanguagePackageStatus()
         {
-            DdfLanguagePackage package = DdfLanguageCatalog.DefaultPackage;
+            DdfLanguagePackage package = editorLanguageSession.ActivePackage;
             string origin = package.Origin == DdfLanguagePackageOrigin.Directory
                 ? "cartella"
                 : package.Origin == DdfLanguagePackageOrigin.Archive ? "archivio" : "incorporato";
@@ -126,10 +228,10 @@ namespace DDF___Program_Language_Editor
                 "Origine: " + origin + Environment.NewLine +
                 "Sorgente: " + package.Source;
 
-            if (DdfLanguageCatalog.LoadDiagnostics.Count > 0)
+            if (editorLanguageSession.Diagnostics.Count > 0)
             {
                 statusEncodingLabel.ToolTipText += Environment.NewLine + Environment.NewLine +
-                    string.Join(Environment.NewLine, DdfLanguageCatalog.LoadDiagnostics.Select(item => item.ToString()));
+                    string.Join(Environment.NewLine, editorLanguageSession.Diagnostics.Select(item => item.ToString()));
             }
             if (languagePackageActivationDiagnostics.Count > 0)
             {
@@ -147,39 +249,13 @@ namespace DDF___Program_Language_Editor
                 toolbarLanguageButton.ToolTipText = "Linguaggio attivo: " + package.Name + " " + package.LanguageVersion;
                 toolbarLanguageButton.AccessibleName = toolbarLanguageButton.ToolTipText;
             }
-        }
-
-        private void loadLanguageArchiveMenuItem_Click(object sender, EventArgs e)
-        {
-            using (var dialog = new OpenFileDialog
-            {
-                CheckFileExists = true,
-                DefaultExt = "ddflang",
-                Filter = "Pacchetti linguaggio DDF (*.ddflang)|*.ddflang|Tutti i file (*.*)|*.*",
-                Multiselect = false,
-                Title = "Carica pacchetto linguaggio"
-            })
-            {
-                if (dialog.ShowDialog(this) == DialogResult.OK) activateLanguagePackage(dialog.FileName);
-            }
-        }
-
-        private void loadLanguageFolderMenuItem_Click(object sender, EventArgs e)
-        {
-            using (var dialog = new FolderBrowserDialog
-            {
-                Description = "Seleziona la cartella che contiene manifest.json del pacchetto linguaggio",
-                ShowNewFolderButton = false
-            })
-            {
-                if (dialog.ShowDialog(this) == DialogResult.OK) activateLanguagePackage(dialog.SelectedPath);
-            }
+            flowchartView?.ApplyPresentation(package.Language.Intellisense.Flowchart);
         }
 
         private void useEmbeddedLanguageMenuItem_Click(object sender, EventArgs e)
         {
             cancelBackgroundAnalysis();
-            applyLanguagePackageResult(DdfLanguageCatalog.ActivateEmbedded(), string.Empty);
+            applyLanguagePackageResult(DdfLanguagePackageLoader.LoadEmbeddedDefault(), string.Empty);
         }
 
         private void manageLanguagePackagesMenuItem_Click(object sender, EventArgs e)
@@ -190,7 +266,8 @@ namespace DDF___Program_Language_Editor
                 languagePackageManagerForm = new LanguagePackageManagerForm(store,
                     activateLanguagePackage,
                     () => useEmbeddedLanguageMenuItem_Click(this, EventArgs.Empty),
-                    showLanguagePlayground);
+                    showLanguagePlayground,
+                    () => editorLanguageSession.ActivePackage);
                 languagePackageManagerForm.FormClosed += (closedSender, closedArgs) => languagePackageManagerForm = null;
                 languagePackageManagerForm.Show(this);
                 return;
@@ -200,7 +277,7 @@ namespace DDF___Program_Language_Editor
 
         private void validateLanguagePackageMenuItem_Click(object sender, EventArgs e)
         {
-            DdfLanguagePackage active = DdfLanguageCatalog.DefaultPackage;
+            DdfLanguagePackage active = editorLanguageSession.ActivePackage;
             DdfLanguagePackageLoadResult result = active.Origin == DdfLanguagePackageOrigin.Embedded
                 ? DdfLanguagePackageLoader.LoadEmbeddedDefault()
                 : DdfLanguagePackageLoader.Load(active.Source);
@@ -212,7 +289,7 @@ namespace DDF___Program_Language_Editor
         }
 
         private void languagePlaygroundMenuItem_Click(object sender, EventArgs e) =>
-            showLanguagePlayground(DdfLanguageCatalog.DefaultPackage);
+            showLanguagePlayground(editorLanguageSession.ActivePackage);
 
         private void showLanguagePlayground(DdfLanguagePackage package)
         {
@@ -225,7 +302,7 @@ namespace DDF___Program_Language_Editor
         private void activateLanguagePackage(string path)
         {
             cancelBackgroundAnalysis();
-            applyLanguagePackageResult(DdfLanguageCatalog.TryActivate(path), path);
+            applyLanguagePackageResult(DdfLanguagePackageLoader.Load(path), path);
         }
 
         private void applyLanguagePackageResult(DdfLanguagePackageLoadResult result, string persistedPath)
@@ -243,24 +320,63 @@ namespace DDF___Program_Language_Editor
             }
 
             languagePackageActivationDiagnostics = result.Diagnostics;
-            editorLanguageSession?.UsePackage(result.Package, result.Diagnostics);
-            try
-            {
-                saveLanguagePackagePathSetting(persistedPath ?? string.Empty);
-            }
-            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
-            {
-                statusFileLabel.ToolTipText = "Pacchetto attivato, ma preferenza non salvata: " + exception.Message;
-            }
+            pendingLanguagePreferencePath = persistedPath ?? string.Empty;
+            persistPendingLanguagePreference = true;
+            editorLanguageSession.UsePackage(result.Package, result.Diagnostics);
+        }
 
+        private void editorLanguageSession_ActiveLanguageChanged(object sender,
+            DdfLanguagePackageChangedEventArgs e)
+        {
+            DdfLanguagePackage previousPackage = observedLanguagePackage;
+            observedLanguagePackage = e.Package;
+            string persistedPath = pendingLanguagePreferencePath;
+            bool persistPreference = persistPendingLanguagePreference;
+            pendingLanguagePreferencePath = null;
+            persistPendingLanguagePreference = false;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => applyLanguagePackageChange(previousPackage, e.Package,
+                    persistedPath, persistPreference)));
+                return;
+            }
+            applyLanguagePackageChange(previousPackage, e.Package, persistedPath, persistPreference);
+        }
+
+        private void applyLanguagePackageChange(DdfLanguagePackage previousPackage,
+            DdfLanguagePackage package, string persistedPath, bool persistPreference)
+        {
+            if (package == null || IsDisposed || Disposing) return;
             stopExecution();
             cancelBackgroundAnalysis();
             hideCompletion();
             hideSignatureHelp();
             leaveFoldedView();
+            int convertedDocuments = convertOpenDocumentSyntax(previousPackage, package);
+            if (persistPreference)
+            {
+                try
+                {
+                    saveLanguagePackagePathSetting(persistedPath ?? string.Empty);
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    statusFileLabel.ToolTipText = "Pacchetto attivato, ma preferenza non salvata: " + exception.Message;
+                }
+            }
+
+            cancelBackgroundAnalysis();
             recreateLanguageServices();
             languagePackageInfoForm?.Close();
             applyActiveLanguagePackageStatus();
+            appendOutput("Linguaggio attivo: " + package.Name + " " +
+                package.LanguageVersion + ". " +
+                (convertedDocuments == 0
+                    ? "Nessun documento richiedeva conversione."
+                    : convertedDocuments + (convertedDocuments == 1
+                        ? " documento convertito automaticamente."
+                        : " documenti convertiti automaticamente.")) +
+                (previousPackage == null ? string.Empty : " Profilo precedente: " + previousPackage.Id + "."));
 
             if (workspaceIndex != null) startWorkspaceLoad(workspaceIndex.RootPath);
             else
@@ -272,21 +388,43 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private static bool isActiveLanguageExtension(string path)
+        private int convertOpenDocumentSyntax(
+            DdfLanguagePackage sourcePackage, DdfLanguagePackage targetPackage)
+        {
+            if (sourcePackage == null || targetPackage == null ||
+                string.Equals(sourcePackage.Id, targetPackage.Id, StringComparison.Ordinal)) return 0;
+            int converted = 0;
+            foreach (DocumentView view in documentViews.Values.ToList())
+            {
+                string source = view.Editor.Text;
+                DdfSyntaxProfileConversionResult result = DdfSyntaxProfileConverter.Convert(
+                    source, sourcePackage.Language, targetPackage.Language);
+                if (!result.Changed) continue;
+                EditorEdit edit = result.CreateEdit(source,
+                    view.Editor.SelectionStart, view.Editor.SelectionLength);
+                view.Editor.Select(edit.Start, edit.Length);
+                view.Editor.SelectedText = edit.Replacement;
+                view.Editor.Select(edit.SelectionStart, edit.SelectionLength);
+                converted++;
+            }
+            return converted;
+        }
+
+        private bool isActiveLanguageExtension(string path)
         {
             string extension = Path.GetExtension(path);
-            return DdfLanguageCatalog.DefaultPackage.FileExtensions.Any(item =>
+            return editorLanguageSession.ActivePackage.FileExtensions.Any(item =>
                 string.Equals(item, extension, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static string getDefaultDocumentExtension()
+        private string getDefaultDocumentExtension()
         {
-            return DdfLanguageCatalog.DefaultPackage.FileExtensions.First().TrimStart('.');
+            return editorLanguageSession.ActivePackage.FileExtensions.First().TrimStart('.');
         }
 
-        private static string getDocumentFilter()
+        private string getDocumentFilter()
         {
-            DdfLanguagePackage package = DdfLanguageCatalog.DefaultPackage;
+            DdfLanguagePackage package = editorLanguageSession.ActivePackage;
             string patterns = string.Join(";", package.FileExtensions.Select(item => "*" + item));
             string name = (package.Name ?? "Linguaggio").Replace("|", string.Empty);
             return "Sorgenti " + name + " (" + patterns + ")|" + patterns + "|Tutti i file (*.*)|*.*";
@@ -296,7 +434,8 @@ namespace DDF___Program_Language_Editor
         {
             if (languagePackageInfoForm == null || languagePackageInfoForm.IsDisposed)
             {
-                languagePackageInfoForm = new LanguagePackageInfoForm();
+                languagePackageInfoForm = new LanguagePackageInfoForm(editorLanguageSession.ActivePackage,
+                    editorLanguageSession.Diagnostics.Concat(languagePackageActivationDiagnostics).ToList());
                 languagePackageInfoForm.FormClosed += (closedSender, closedArgs) => languagePackageInfoForm = null;
                 languagePackageInfoForm.Show(this);
                 return;
@@ -306,5 +445,6 @@ namespace DDF___Program_Language_Editor
                 languagePackageInfoForm.WindowState = System.Windows.Forms.FormWindowState.Normal;
             languagePackageInfoForm.Activate();
         }
+
     }
 }

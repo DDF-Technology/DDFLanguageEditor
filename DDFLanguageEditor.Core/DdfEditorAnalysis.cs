@@ -273,6 +273,7 @@ namespace DDFLanguageEditor.Core
                     Array.Empty<DdfCompletionItem>());
             IReadOnlyList<DdfDiagnostic> diagnostics = MergeDiagnostics(
                 parse.ValidationDiagnostics, semantics.Diagnostics, types.Diagnostics, ir.Diagnostics);
+            diagnostics = diagnostics.Select(language.Intellisense.Diagnostics.Apply).ToList().AsReadOnly();
             return new DdfEditorAnalysisSnapshot(requestId, request, lex, parse, semantics, types,
                 ir, symbols, folding, completions, diagnostics, DateTimeOffset.UtcNow);
         }

@@ -6,6 +6,7 @@ namespace DDF___Program_Language_Editor
 {
     internal static class AppSettingsStore
     {
+        private const string UserDataDirectoryEnvironmentVariable = "DDF_LANGUAGE_EDITOR_USER_DATA";
         private const string RecentFilesSettingsFileName = "recent-files.txt";
         private const string RecentWorkspacesSettingsFileName = "recent-workspaces.txt";
         private const string EditorSettingsFileName = "editor-settings.txt";
@@ -13,6 +14,7 @@ namespace DDF___Program_Language_Editor
         private const string ToolbarLayoutSettingsFileName = "toolbar-layout.txt";
         private const string ShortcutSettingsFileName = "shortcut-settings.txt";
         private const string LanguagePackageSettingsFileName = "language-package.txt";
+        private const string LanguagePackageSeedsSettingsFileName = "language-package-seeds.txt";
         private const string HotExitSnapshotFileName = "hot-exit.json";
         private const string WorkspaceSessionFileName = "workspace-session.json";
         private const string CrashRecoveryFileName = "crash-recovery.json";
@@ -113,10 +115,19 @@ namespace DDF___Program_Language_Editor
             Save(LanguagePackageSettingsFileName, value ?? string.Empty);
         }
 
+        public static string LoadLanguagePackageSeeds()
+        {
+            return Load(LanguagePackageSeedsSettingsFileName);
+        }
+
+        public static void SaveLanguagePackageSeeds(string value)
+        {
+            Save(LanguagePackageSeedsSettingsFileName, value ?? string.Empty);
+        }
+
         public static string GetLanguagePackagesDirectory()
         {
-            string localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(localData, "DDF.Technology", "DDFLanguageEditor", "language-packages");
+            return Path.Combine(GetUserDataDirectory(), "language-packages");
         }
 
         public static string LoadHotExitSnapshot()
@@ -221,8 +232,16 @@ namespace DDF___Program_Language_Editor
 
         private static string GetSettingsPath(string fileName)
         {
+            return Path.Combine(GetUserDataDirectory(), fileName);
+        }
+
+        private static string GetUserDataDirectory()
+        {
+            string overridden = (Environment.GetEnvironmentVariable(UserDataDirectoryEnvironmentVariable) ??
+                string.Empty).Trim();
+            if (overridden.Length > 0) return Path.GetFullPath(overridden);
             string localData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(localData, "DDF.Technology", "DDFLanguageEditor", fileName);
+            return Path.Combine(localData, "DDF.Technology", "DDFLanguageEditor");
         }
     }
 }
