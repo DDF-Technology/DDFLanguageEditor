@@ -47,13 +47,40 @@ non sostituiscono il futuro test di compilazione DDF -> IR -> C# -> IL.
 | standard library | compatibile via ABI | binding stabili esistono; serve una runtime library compilata e versionata |
 | API host | base molto favorevole | delegate, adapter, permessi e snapshot CLR; usare un bridge, mai reflection implicita |
 | effetti e database | compatibili via bridge | conservare cancellazione, timeout, simulazione e transazioni correnti |
-| embedded | compatibile | VM/JIT resta opzionale; niente compilazione o load senza consenso dell'host |
+| embedded | confine fissato | solo scripting VM governato dall'host; compilatore Roslyn, emit e load di assembly sono assenti dall'SDK |
 | standalone EXE | pianificato | mancano emit PE/PDB, runtimeconfig, dipendenze, publish e firma |
 | debugger | parzialmente pronto | gli span DDF esistono; servono sequence point e Portable PDB sul sorgente DDF |
 | flowchart/IDE | indipendenti | consumano IR e analisi, non devono dipendere dal C# generato |
 | sicurezza | compatibile come modello | deny-by-default presente; load/unload dell'assembly va isolato |
 
 ## Gate obbligatori prima del generatore C#
+
+### R0 — Compilatore esclusivamente standalone
+
+Il backend Roslyn, l'emit PE/PDB, il linker/loader e la pubblicazione EXE devono
+vivere in un assembly separato referenziato soltanto dall'applicazione standalone
+e dalla sua CLI. `DDFLanguageEditor.Core` e `DDFLanguageEditor.WinForms`, quindi
+anche `DdfEditorView` e `DdfEmbeddedEditorControl`, non devono referenziare
+`Microsoft.CodeAnalysis` né il progetto del compilatore.
+
+La modalità embedded resta sempre scripting di espansione dell'host:
+
+- conserva analisi, convalida, formattazione, IntelliSense, flowchart, VM, Run
+  richiesto dall'evento host e debug dello script;
+- non offre Compila, Pubblica, assembly, PDB, linker, loader o esecuzione di un
+  artefatto DDF compilato;
+- persiste sorgente, breakpoint e stato editoriale, non binari generati;
+- usa librerie esterne soltanto tramite capacità e adapter registrati dall'host.
+
+Il corrente `IDdfEditorBuildService` prepara e convalida un artefatto IR in
+memoria per Run/Debug: non è compilazione Roslyn. Prima della `0.13`, il contratto
+SDK deve separare chiaramente `Validate/PrepareScript` dal nuovo servizio di
+compilazione standalone. Il controllo embedded non deve poter ricevere o
+abilitare quest'ultimo neppure programmaticamente.
+
+Un test architetturale deve fallire se Core o WinForms acquisiscono riferimenti
+al compilatore/Roslyn, e uno smoke deve continuare a verificare l'assenza dei
+comandi di compilazione nella shell embedded.
 
 ### R1 — IR bound e tipizzata
 
@@ -104,16 +131,16 @@ Il C# deve essere costruito con le API sintattiche Roslyn o con token escapati e
 validati; sorgente, stringhe, direttive e nomi DDF non possono diventare frammenti
 C# arbitrari.
 
-### R5 — Runtime ABI e host bridge
+### R5 — Runtime ABI standalone e bridge VM dell'host
 
 Creare una piccola libreria runtime versionata, indipendente dalla UI, che
-fornisca controlli numerici, output, input, budget, cancellazione, `end`, errori
-DDF e ponte alle capacità host. L'assembly generato dipende da questa ABI e non
-da classi WinForms o dettagli interni della VM.
+fornisca controlli numerici, output, input, budget, cancellazione, `end` ed errori
+DDF. L'assembly standalone generato dipende da questa ABI e non da classi
+WinForms, cataloghi dell'host o dettagli interni della VM.
 
-Le chiamate host compilate devono attraversare lo stesso catalogo, gli stessi
-adapter, permessi, timeout, criteri di effetto e transazioni della VM. Nessun
-delegate deve essere serializzato nell'assembly.
+Soltanto la VM embedded attraversa il catalogo host, i relativi adapter,
+permessi, timeout, criteri di effetto e transazioni. Nessun delegate o riferimento
+all'applicazione incorporante deve entrare nell'assembly standalone.
 
 ### R6 — Riferimenti e dipendenze riproducibili
 
@@ -146,8 +173,9 @@ o Source Link quando applicabile. Il debugger VM resta l'oracolo del corpus.
 ### R9 — Packaging e caricamento
 
 Lo standalone deve produrre assembly, PDB, `.deps.json`, `.runtimeconfig.json` e
-pubblicazione coerente col runtime scelto. Il percorso embedded deve restare
-governato dall'host: compilazione, caricamento e persistenza sono opt-in.
+pubblicazione coerente col runtime scelto. Il percorso embedded non compila e
+non carica artefatti DDF: esegue sempre il sorgente come script tramite il runtime
+governato dall'host.
 
 Assembly dinamici o di terze parti vanno caricati in un confine esplicito e,
 quando richiesto, scaricabile/isolato. La compatibilità Roslyn non equivale a
@@ -184,7 +212,8 @@ la release oppure richiede una decisione DDF versionata.
 4. creare un backend Roslyn verticale su un sottoinsieme chiuso;
 5. aggiungere PE/PDB e confronto differenziale;
 6. estendere host bridge, packaging e debug;
-7. rendere Roslyn selezionabile, poi predefinito soltanto dopo i gate.
+7. rendere Roslyn selezionabile, poi predefinito **soltanto nello standalone**
+   dopo i gate; l'embedded resta sulla pipeline di scripting.
 
 ## Riferimenti tecnici
 

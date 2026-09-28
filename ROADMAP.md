@@ -36,8 +36,10 @@ completo di quei linguaggi e delle loro librerie. Il cambio di profilo non
 modifica la semantica; nell'editor standalone converte invece dinamicamente la
 sintassi equivalente delle schede aperte. Il backend principale previsto
 è .NET + Roslyn: dalla IR si genera C#, compilato in assembly .NET, con mappe
-verso il sorgente originale. In modalità integrata si usano le API autorizzate
-dell'host; in modalità standalone si pubblica un EXE self-contained con dipendenze.
+verso il sorgente originale, esclusivamente nella versione standalone e nella
+relativa CLI. In modalità integrata il sorgente resta sempre uno script eseguito
+dalla VM sulle API autorizzate dell'host; non vengono generati o caricati assembly
+DDF. In modalità standalone si pubblica un EXE self-contained con dipendenze.
 
 ## Stato delle release
 
@@ -734,6 +736,11 @@ durante la transizione; la sua conservazione successiva richiede un caso d'uso
 esplicito. Il collegamento iniziale usa riferimenti tra assembly e risoluzione
 delle dipendenze .NET, senza richiedere un linker nativo proprietario.
 
+Questa toolchain appartiene esclusivamente all'applicazione standalone e alla
+CLI. I pacchetti `DDFLanguageEditor.Core` e `DDFLanguageEditor.WinForms` restano
+compiler-free; l'embedded conserva validazione e preparazione IR in memoria per
+Run/Debug, ma esegue sempre scripting interpretato e non produce assembly.
+
 Prima del backend completo, realizzare un prototipo verticale dello stesso
 programma come script integrato e EXE autonomo: includere una chiamata host,
 un errore, un breakpoint e il confronto con la VM. Roslyn non fornisce
@@ -745,6 +752,8 @@ Il backend può iniziare soltanto dopo i gate R1–R6 di
 
 ### 0.13.0 — Contratti e formato compilato
 
+- [ ] Creare un assembly compilatore Roslyn separato, referenziabile soltanto da standalone e CLI; aggiungere un test architetturale che vieti riferimenti a Roslyn/compilatore da Core e WinForms.
+- [ ] Separare nel contratto SDK `Validate/PrepareScript` dall'attuale nome storico Build e non esporre mai il servizio di compilazione tramite `DdfEditorView` o `DdfEmbeddedEditorControl`.
 - [ ] Definire unità di compilazione, interfacce esportate e separazione tra sorgente, IR e artefatti persistenti.
 - [ ] Definire assembly .NET, manifest versionato, dipendenze, simboli PDB e mappe verso profilo e sorgente originali.
 - [ ] Specificare compatibilità con runtime .NET e SDK host, diagnostiche per artefatti incompatibili e limiti di caricamento.
@@ -771,7 +780,7 @@ Il backend può iniziare soltanto dopo i gate R1–R6 di
 - [ ] Caricare ed eseguire il programma senza richiedere i sorgenti originali o l'editor.
 - [ ] Validare struttura, istruzioni e riferimenti degli artefatti prima dell'esecuzione.
 - [ ] Conservare breakpoint, call stack e ispezione delle variabili tramite mappe di debug opzionali.
-- [ ] Definire caricamento/scaricamento degli assembly e compatibilità con il runtime dell'applicazione ospitante; per codice non fidato usare isolamento di processo e permessi del sistema operativo.
+- [ ] Definire caricamento/scaricamento degli assembly nel processo standalone/CLI; per codice non fidato usare isolamento di processo e permessi del sistema operativo. L'host embedded non carica artefatti DDF compilati.
 
 ### 0.13.3 — CLI e distribuzione
 
@@ -785,13 +794,13 @@ Il backend può iniziare soltanto dopo i gate R1–R6 di
 
 ### 0.13.4 — Riferimenti a librerie esterne
 
-Consentire a progetti standalone e applicazioni embedded di usare librerie
+Consentire a progetti standalone e script embedded di usare librerie
 installate nel sistema o fornite da terzi senza permettere agli script di caricare
 arbitrariamente file, assembly o simboli nativi. Il progetto dichiara una
 dipendenza logica; il resolver del contesto decide se e come soddisfarla.
 
 - [ ] Estendere il manifest di progetto con riferimenti versionati a librerie gestite .NET, componenti COM/ActiveX registrati, librerie native e servizi forniti dall'host, distinguendone identità, versione, architettura, origine e capacità richieste.
-- [ ] Introdurre un resolver sostituibile: in standalone usa origini configurate e autorizzate dall'utente; in embedded è l'applicazione host ad approvare, rifiutare o sostituire ogni riferimento.
+- [ ] Introdurre un resolver sostituibile: in standalone risolve riferimenti di compilazione da origini configurate e autorizzate dall'utente; in embedded l'applicazione host approva o rifiuta capacità e fornisce adapter runtime, senza consegnare assembly al compilatore.
 - [ ] Evitare ricerca implicita e non deterministica nell'intero sistema: produrre un lockfile con versione, percorso risolto, hash e dipendenze transitive per build riproducibili.
 - [ ] Importare nello script soltanto API esplicitamente descritte o adattate, alimentando con gli stessi metadati type checker, IntelliSense, documentazione, runtime e debugger; nessuna reflection o `P/Invoke` arbitraria dal sorgente DDF.
 - [ ] Supportare per prime le librerie .NET compatibili con il runtime scelto; gestire DLL native successivamente tramite adapter tipizzati o worker isolato, verificando ABI, architettura, ownership della memoria, callback ed errori.
@@ -801,7 +810,7 @@ dipendenza logica; il resolver del contesto decide se e come soddisfarla.
 - [ ] Applicare permessi, attendibilità, firma/hash, timeout, cancellazione e limiti di risorse anche alle chiamate esterne; una libreria non fidata o non interrompibile deve essere eseguita fuori processo.
 - [ ] Rendere diagnostici e navigabili riferimenti mancanti, versioni incompatibili, conflitti, architetture errate e simboli non esposti, senza effettuare fallback silenziosi.
 - [ ] Definire packaging e distribuzione: distinguere librerie da incorporare, dipendenze già presenti nel sistema e componenti forniti dall'host, rispettando licenze e divieti di redistribuzione.
-- [ ] Verificare lo stesso progetto in modalità standalone ed embedded, includendo build, esecuzione, debug, aggiornamento della libreria, revoca di un permesso e assenza della dipendenza.
+- [ ] Verificare lo stesso contratto tipizzato nei due contesti: build/esecuzione compilata standalone e convalida/esecuzione interpretata embedded, includendo debug, aggiornamento della libreria, revoca di un permesso e assenza della dipendenza.
 
 ### Criteri di completamento della 0.13
 
@@ -809,7 +818,7 @@ dipendenza logica; il resolver del contesto decide se e come soddisfarla.
 - esecuzione da sorgente e da artefatto produce gli stessi risultati sul corpus normativo;
 - build ripetute con gli stessi input producono artefatti deterministici;
 - moduli incompatibili o malformati vengono rifiutati con diagnostiche chiare;
-- riferimenti esterni sono risolti in modo deterministico e producono lo stesso contratto tipizzato in standalone ed embedded, pur lasciando all'host l'ultima decisione sulle dipendenze autorizzate;
+- riferimenti esterni producono lo stesso contratto tipizzato, ma vengono risolti per la compilazione soltanto nello standalone e come adapter/capacità runtime nell'embedded;
 - debug e CLI condividono le regole del pacchetto senza implementazioni parallele del linguaggio.
 
 ## 0.14 — DDF Language Package Studio
@@ -979,6 +988,7 @@ e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-28 | Limitare compilatore Roslyn, emit, linker, loader e pubblicazione a standalone e CLI | L'embedded deve rimanere sempre scripting interpretato di espansione dell'host: conserva analisi e debug, ma non genera, carica o persiste assembly DDF e non acquisisce dipendenze dal compilatore. |
 | 2026-09-27 | Includere soltanto il DDF e trattare tutti gli altri profili come pacchetti utente installati | Mantenere una sola identità linguistica predefinita e un solo fallback affidabile; italiano, like-C e futuri profili attraversano lo stesso catalogo, la stessa convalida e lo stesso lifecycle dei pacchetti creati dagli utenti. |
 | 2026-09-27 | Convertire dinamicamente le schede aperte quando cambia il profilo sintattico | Rendere immediatamente osservabile il cambio lingua senza riscritture manuali; la trasformazione usa ruoli semantici, resta in memoria, marca i buffer modificati ed è annullabile. I file non aperti richiederanno una futura conversione workspace esplicita prima di qualsiasi scrittura su disco. |
 | 2026-09-25 | Prevedere librerie esterne sia in standalone sia in embedded tramite riferimenti dichiarati, resolver e adapter controllati | Riutilizzare assembly .NET, componenti COM registrati come `ADODB`, DLL di sistema e componenti di terzi mantenendo build riproducibili; l'utente autorizza le origini standalone e l'applicazione host conserva il controllo completo in modalità embedded. |
@@ -987,7 +997,7 @@ e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
 | 2026-09-05 | Prevedere assistenza IA opzionale locale e cloud con adapter sostituibili | Permettere di scegliere in base a hardware, qualità, riservatezza e costo, con configurazione esplicita sia standalone sia integrata e senza fallback cloud implicito. |
 | 2026-09-05 | Priorità allo scripting incorporabile per automazioni, dati e logiche personalizzate | CAD e SCADA erano esempi; l'obiettivo è estendere applicazioni generiche tramite variabili, servizi e comandi host, senza un percorso di certificazioni settoriali. |
 | 2026-09-05 | Rendere la modalità didattica sempre attivabile e disattivabile in standalone e integrato | Offrire assistenza didattica come opzione indipendente da sintassi e host, preservando codice, debug, permessi e risultato compilato. |
-| 2026-09-05 | Adottare .NET + Roslyn come backend principale | Generare C# dalla IR comune e assembly eseguibili nel CLR, riusando librerie e distribuzione .NET per integrazione host ed EXE autonomi. |
+| 2026-09-05 | Adottare .NET + Roslyn come backend principale | Generare C# dalla IR comune e assembly eseguibili nel CLR per programmi standalone e CLI; l'integrazione host resta invece scripting interpretato tramite VM e capacità registrate. |
 | 2026-09-05 | Presentare i pacchetti come profili sintattici della piattaforma | Offrire familiarità e localizzazione didattica senza promettere compatibilità completa con C++, Java, C# o VB; semantica e capacità restano condivise. |
 | 2026-09-05 | Orientare il prodotto anche all'integrazione in CAD, SCADA, calcolo e formazione | Offrire scripting e strumenti di codice sulle API dell'applicazione ospitante tramite un componente riutilizzabile; primo SDK rinumerato nella `0.11.2`. |
 | 2026-09-05 | Inserire la flowchart dinamica, ora `0.11.1`, inizialmente derivata dal codice | Rendere visibili struttura e passi runtime per autori e studenti mantenendo una fonte autorevole e riusando AST/IR e debugger. |

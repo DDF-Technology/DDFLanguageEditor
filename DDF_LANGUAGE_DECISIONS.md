@@ -198,3 +198,19 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Conseguenze:** la IR deve evolvere alla versione bound prima del backend.
   Name mangling, runtime ABI, reference set, opzioni di compilazione, Portable
   PDB e confronto VM/Roslyn diventano gate obbligatori e verificabili.
+
+## DDF-0015 — Compilazione esclusiva dello standalone
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** Roslyn, emit, linker, loader e pubblicazione appartengono
+  esclusivamente all'applicazione standalone e alla CLI. L'editor embedded resta
+  sempre uno strumento di scripting interpretato che amplia l'host attraverso
+  capacità registrate; non genera, carica o persiste assembly DDF.
+- **Alternative rifiutate:** compilazione opzionale abilitabile dall'host;
+  nascondere soltanto i pulsanti mantenendo il compilatore nell'SDK embedded;
+  eseguire silenziosamente assembly generati al posto dello script.
+- **Conseguenze:** il compilatore vive in un assembly separato non referenziato
+  da Core/WinForms. Convalida e preparazione IR restano condivise, mentre il
+  servizio compilatore non è esposto da `DdfEditorView` o
+  `DdfEmbeddedEditorControl`; un test architetturale protegge il confine.

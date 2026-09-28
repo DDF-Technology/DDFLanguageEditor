@@ -6,6 +6,9 @@ Dal contratto DDF `0.12.2`, ogni tipo eseguibile deve avere un mapping CLR/C#
 versionato e validabile da Roslyn. Il mapping non cambia la semantica DDF e non
 concede accesso automatico al framework: overflow, non-null, bounds e capacità
 host restano controllati dalla IR e dagli adapter autorizzati.
+Il compilatore Roslyn appartiene esclusivamente allo standalone e alla relativa
+CLI. Il componente embedded non genera né carica assembly DDF: interpreta sempre
+lo script per espandere l'applicazione host attraverso capacità autorizzate.
 Lo schema descrive il prodotto da costruire, non funzionalità già tutte disponibili.
 
 ## Vista a livelli
@@ -17,7 +20,8 @@ di architettura e-learning fornito dall'utente. Specifica del prompt finale:
 diagramma italiano a cinque livelli, blocchi azzurri e archivi cilindrici su fondo
 bianco; mostrare utilizzo, editor, analisi, .NET/Roslyn e servizi; mantenere frecce
 brevi nei flussi di analisi, compilazione e accesso dati, evitando collegamenti
-tra livelli ambigui. Il diagramma Mermaid seguente dettaglia le dipendenze.
+tra livelli ambigui. La tavola è concettuale; il diagramma Mermaid seguente è
+normativo e separa la compilazione standalone dallo scripting embedded.
 
 ## Dipendenze dei componenti
 
@@ -56,12 +60,12 @@ flowchart TB
     core --> backend
     core -.-> vm
     backend --> runtime
-    runtime --> host
     backend -->|SDK .NET publish| exe
     exe -->|esecuzione autonoma| runtime
+    vm -->|scripting interpretato| host
     api --> ide
     api -->|tipi e operazioni disponibili| core
-    api -->|binding autorizzati| runtime
+    api -->|binding autorizzati| vm
     plugins -.-> api
     backend -->|mappe e punti di controllo| debug
     runtime -->|stato di esecuzione| debug
@@ -73,8 +77,9 @@ flowchart TB
 ## Come si usa
 
 - Integrato: l'applicazione incorpora il controllo, registra oggetti e operazioni
-  e decide persistenza, permessi e modalità di esecuzione. Lo script amplia
-  l'applicazione attraverso quel contratto.
+  e decide persistenza, permessi e modalità di esecuzione. Lo script interpretato
+  amplia l'applicazione attraverso quel contratto; non viene compilato in un
+  assembly e non espone comandi di compilazione o pubblicazione.
 - Standalone: l'autore scrive e prova il programma, poi lo pubblica per un sistema
   e un'architettura specifici. L'EXE si avvia senza l'editor; inizialmente possono
   essere necessari file di supporto nella stessa distribuzione.
@@ -135,8 +140,10 @@ linguaggi di cui ricordano la scrittura. Selezionare un profilo non converte un
 documento. Tradurre tra profili richiederà un comando esplicito e controlli di
 compatibilità.
 
-Il backend genera C# dalla IR, conservando le regole del DDF. Roslyn compila quel
-C#; il CLR esegue gli assembly. IntelliSense e flowchart si basano sul modello
+Nello standalone il backend genera C# dalla IR, conservando le regole del DDF.
+Roslyn compila quel C# e il CLR esegue gli assembly. Nell'embedded la VM esegue
+invece il sorgente come script e attraversa esclusivamente il catalogo host.
+IntelliSense e flowchart si basano sul modello
 originale. Il debugger richiede mappe sorgente e un meccanismo esplicito per pausa,
 avanzamento e snapshot: non viene fornito automaticamente da Roslyn.
 

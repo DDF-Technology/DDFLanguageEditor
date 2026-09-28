@@ -58,7 +58,7 @@ Il contratto `0.32` espone:
 - il servizio di analisi versionato e sostituibile tramite `AnalysisService` e
   `AttachAnalysisService`, insieme all'ultimo snapshot e al relativo evento;
 - analisi esplicita e navigazione alla definizione locale o tra buffer host;
-- build e convalida in memoria di tutti i buffer, senza I/O implicito;
+- convalida e preparazione IR in memoria di tutti i buffer, senza I/O implicito;
 - il catalogo dei comandi associato tramite `CommandService` e
   `AttachCommandService`.
 - una strategia di persistenza opzionale fornita dall'host.
@@ -120,6 +120,21 @@ invocazione di procedure, breakpoint e continuazione del debug. In modalità
 embedded la compilazione e l'avvio manuale restano nascosti: è l'evento
 dell'applicazione ospitante a richiedere l'esecuzione. `DdfEditorView` rimane
 disponibile per host che vogliono costruire una UI personalizzata sopra i servizi.
+
+### Confine permanente fra scripting e compilazione
+
+La shell embedded resta intenzionalmente compiler-free anche dopo
+l'introduzione di Roslyn. `ExecuteScript` ed `ExecuteProcedure` useranno sempre
+la pipeline interpretata governata dall'host; non produrranno né caricheranno
+assembly DDF. Compila, Pubblica, linker, loader, PE e PDB appartengono soltanto a
+`DDFLanguageEditor.App` e alla CLI standalone.
+
+Il servizio oggi denominato `IDdfEditorBuildService` crea un piano IR in memoria
+usato da convalida, Run e Debug: non emette IL e non è il futuro compilatore.
+Prima della `0.13` il contratto verrà separato in modo esplicito in
+convalida/preparazione script e compilazione standalone. Quest'ultima non sarà
+collegabile a `DdfEditorView` o `DdfEmbeddedEditorControl`, nemmeno tramite API.
+Core e WinForms non acquisiranno riferimenti a `Microsoft.CodeAnalysis`.
 
 Le API devono essere usate dal thread UI WinForms. L'evento
 `SourceTextChanged` viene emesso una sola volta anche quando l'host assegna il
