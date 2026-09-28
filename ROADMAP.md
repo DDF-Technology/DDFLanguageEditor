@@ -683,11 +683,13 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.2 — Tipi e semantica definitiva
 
-- [ ] Formalizzare tipi primitivi e composti, inferenza, conversioni, mutabilità, scope e durata dei valori.
-- [ ] Definire assegnazione, confronto, uguaglianza, verità, overflow, valori assenti ed errori.
-- [ ] Specificare chiamate, parametri, valori restituiti, overload o la loro esclusione esplicita.
-- [ ] Stabilire regole di inizializzazione, shadowing, visibilità e diagnostiche semantiche.
-- [ ] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate.
+- [x] Formalizzare tipi primitivi e composti, assenza di inferenza dichiarativa, conversioni, mutabilità, scope e durata dei valori (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
+- [x] Definire assegnazione, confronto, uguaglianza, verità, overflow, valori assenti ed errori (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
+- [x] Specificare chiamate, parametri, valori restituiti ed esclusione esplicita degli overload (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
+- [x] Stabilire regole di inizializzazione, divieto di shadowing, visibilità e diagnostiche semantiche (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
+- [x] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
+- [ ] Allineare pacchetto, type checker, VM e servizi IDE agli undici gap di conformità censiti nella specifica.
+- [ ] Creare il corpus normativo dei tipi e confrontare diagnostiche e risultati fra VM e futuro backend Roslyn.
 
 ### 0.12.3 — Moduli e libreria standard
 

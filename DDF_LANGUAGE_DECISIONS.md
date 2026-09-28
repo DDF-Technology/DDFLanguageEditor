@@ -116,3 +116,54 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Conseguenze:** l'EBNF diventa il validatore normativo del pacchetto tramite
   `ValidationDiagnostics`. Il parser AST storico può ancora recuperare forme
   incomplete per i servizi interattivi, senza renderle programmi validi.
+
+## DDF-0009 — Tipi espliciti e conversioni conservative
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** dichiarazioni, parametri e risultati mantengono tipi espliciti;
+  non esistono `var`, truthiness o cast impliciti con perdita. L'unica promozione
+  generale è `int -> float`; una stringa di una code unit inizializza `char`
+  soltanto come regola contestuale finché non esisterà un letterale dedicato.
+- **Alternative rifiutate:** inferenza globale; conversioni automatiche fra
+  stringhe, numeri e booleani; mantenere `char` come numero.
+- **Conseguenze:** completamento, checker, VM e Roslyn possono mostrare sempre il
+  tipo effettivo e produrre gli stessi errori.
+
+## DDF-0010 — Valori gestiti non nulli e collezioni chiuse
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** primitivi e stringhe hanno semantica di valore; array
+  monodimensionali e strutture hanno identità gestita condivisa ma non possono
+  essere nulli. `dict` viene escluso dal nucleo finché non avrà chiavi e valori
+  tipizzati, sintassi e iterazione definite.
+- **Alternative rifiutate:** dizionario dinamico non tipizzato; array
+  multidimensionali soltanto perché il parser beta accetta più suffissi;
+  uguaglianza implicita per riferimento dei composti.
+- **Conseguenze:** aliasing di array e strutture è documentato; la loro
+  uguaglianza richiederà funzioni esplicite e `dict` sarà rimosso dal pacchetto.
+
+## DDF-0011 — Errori numerici osservabili e deterministici
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** `int` è signed 32 bit con overflow checked; `float` è binary64
+  finito. Divisione per zero, NaN, infinito e potenze intere non rappresentabili
+  sono errori runtime DDF con posizione sorgente.
+- **Alternative rifiutate:** wrap-around silenzioso; far dipendere conversioni e
+  overflow dal backend; propagare NaN e infinito in codice didattico/embedded.
+- **Conseguenze:** la VM deve abbandonare l'aritmetica intera mediata da `double`
+  e il backend Roslyn deve emettere controlli equivalenti.
+
+## DDF-0012 — Nomi univoci e firme senza overload
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** non è ammesso nascondere un valore già visibile; funzioni e
+  strutture hanno nomi univoci nel progetto e non esistono overload. Le funzioni
+  non `void` devono restituire su ogni percorso raggiungibile.
+- **Alternative rifiutate:** shadowing libero della beta; risoluzione overload;
+  ritorno implicito del valore iniziale.
+- **Conseguenze:** navigazione, debug e diagnostiche restano non ambigui; il
+  checker necessita analisi dei duplicati e dei percorsi di controllo.

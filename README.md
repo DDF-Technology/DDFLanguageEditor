@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.11.2 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.12.2 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -334,6 +334,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_LEXICAL_SPEC.md`: contratto normativo di identificatori, letterali, stringhe e commenti DDF 0.12;
 - `DDF_OPERATOR_SPEC.md`: contratto normativo di operatori, precedenza e associatività DDF 0.12;
 - `DDF_SYNTAX_SPEC.md`: contratto normativo di unità, dichiarazioni, blocchi, funzioni e controllo di flusso;
+- `DDF_TYPE_SYSTEM_SPEC.md`: contratto normativo di tipi, conversioni, valori, scope, chiamate ed errori DDF 0.12;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: migrazione esplicita dei sorgenti beta alla sintassi 0.12;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
@@ -365,7 +366,7 @@ vedere [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## English summary
 
-**Beta 0.11.2 — experimental work in progress.** DDFLanguageEditor is a small
+**Beta 0.12.2 — experimental work in progress.** DDFLanguageEditor is a small
 Windows Forms source editor with UTF-8 `.ddf` document workflows, recent files,
 find/replace, a formal lexer, a typed AST parser, source diagnostics, line
 numbers and assisted indentation. It includes a first semantic analyzer but no

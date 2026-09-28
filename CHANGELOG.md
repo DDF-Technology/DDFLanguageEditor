@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.12.1 - in sviluppo
+## 0.12.2 - in sviluppo
+
+- Pubblicata la specifica normativa del sistema dei tipi: primitivi espliciti, array monodimensionali e strutture non nulle, unica promozione implicita `int -> float`, nessuna truthiness o overload, shadowing vietato, aritmetica checked e firme con ritorno completo. `dict` viene escluso dal nucleo finché non avrà una semantica parametrica. Un audit separa undici gap dell'implementazione beta dal contratto da raggiungere e le decisioni DDF-0009–DDF-0012 ne registrano le motivazioni.
+
+## 0.12.1 - 2026-09-28
 
 - Fissato il primo nucleo lessicale della `0.12.1`: identificatori Unicode case-sensitive, numeri con cifre ASCII, soli booleani minuscoli, stringhe su una riga ed escape dichiarati. Gli escape sconosciuti producono `DDF005` e una prova Core verifica il contratto.
 - Portato il pacchetto DDF a `0.12.1` con la prima chiusura intenzionale degli operatori: `!=`, `&&` e `^^` sostituiscono `!!`, `&` e `|&|`; gli pseudo-operatori di intervallo `>><<`/`<<>>` e radice `^/` sono rimossi. Precedenza, runtime, type checker, campioni e smoke sono allineati e la migrazione dalle beta è documentata.

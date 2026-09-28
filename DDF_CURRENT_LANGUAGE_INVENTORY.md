@@ -1,6 +1,6 @@
 # Inventario del linguaggio DDF corrente
 
-Stato: inventario evolutivo della beta, aggiornato al pacchetto DDF `0.12.1`.
+Stato: inventario evolutivo della beta, aggiornato al contratto DDF `0.12.2`.
 
 Questo inventario separa il comportamento realmente disponibile dalle scelte
 ancora aperte. Le fonti eseguibili sono i file in `language-packages/ddf`; la
@@ -32,9 +32,9 @@ vecchia `DDF - Program Language Spec.txt` è soltanto una bozza storica.
 
 | Gruppo | Forme correnti | Stato / questione aperta |
 | --- | --- | --- |
-| Tipi primitivi | `int`, `float`, `char`, `bool`, `void`, `string` | Implementati; semantica definitiva nella `0.12.2` |
-| Tipo dizionario | `dict` | Parziale; sintassi, chiavi, valori e runtime da definire |
-| Strutture | `struct` | Implementato nel sottoinsieme corrente; modello da formalizzare |
+| Tipi primitivi | `int`, `float`, `char`, `bool`, `void`, `string` | Contratto normativo in `DDF_TYPE_SYSTEM_SPEC.md`; allineamento del motore in corso |
+| Tipo dizionario | `dict` | Residuo beta da rimuovere; escluso dal nucleo normativo 0.12 |
+| Strutture | `struct` | Contratto nominale non nullo definito; allineamento del motore in corso |
 | Funzioni | `out`, `ret` | Conservate come forma distintiva DDF nella `0.12.1` |
 | Controllo | `if`, `else`, `while`, `do`, `for` | Implementato con struttura prevalentemente C-like |
 | Salti controllati | `brk`, `end` | Implementati; chiarire scope di `end` e future alternative |
@@ -72,7 +72,11 @@ forme binarie sono associative a sinistra.
 | Interruzione | `brk;` | Implementato soltanto nel ciclo corrente |
 | Fine programma | `end;` | Implementato come terminazione esplicita |
 
-## Semantica corrente
+## Semantica beta corrente
+
+La lista seguente fotografa ancora l'implementazione e non sostituisce il
+contratto normativo di `DDF_TYPE_SYSTEM_SPEC.md`. In particolare conversione
+numerica di `char`, shadowing e `dict` sono gap da rimuovere.
 
 - scope separati per funzioni, blocchi e inizializzatori `for`;
 - parametri, variabili e campi mutabili; shadowing consentito;
@@ -137,7 +141,7 @@ un caso d'uso, una decisione e operazioni sicure nella IR.
 | `True` / `False` | compatibilità beta | eliminare come letterali; restano identificatori ordinari |
 | istruzioni al livello principale | parser beta | eliminate dal programma valido; il parser storico può recuperarle soltanto per tooling interno |
 | `@@'Library'` | lexer e parser beta | modificare: sostituire il significato provvisorio con dipendenze formali |
-| `dict` | lessico e tipi beta | modificare o eliminare se non riceve semantica completa nella `0.12.2` |
+| `dict` | lessico e tipi beta | eliminare dal nucleo 0.12; una futura mappa dovrà essere parametrica e tipizzata |
 
 ## Debito documentale rilevato
 
