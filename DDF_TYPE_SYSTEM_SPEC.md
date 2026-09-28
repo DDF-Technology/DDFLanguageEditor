@@ -22,6 +22,9 @@ rende parte del linguaggio.
 - Ogni errore numerico o di accesso deve produrre una diagnostica DDF stabile,
   non un'eccezione .NET visibile allo script.
 - VM, debugger e futuro backend Roslyn devono osservare la stessa semantica.
+- Ogni tipo eseguibile deve possedere una rappresentazione CLR/C# esplicita e
+  verificabile da Roslyn; un pacchetto sintattico non può inventare tipi privi
+  di tale mapping.
 
 ## Tipi primitivi
 
@@ -44,6 +47,39 @@ Il nucleo 0.12 non contiene `dict`. Il nome storico viene rimosso dal catalogo
 dei tipi: un dizionario senza tipi di chiave e valore non sarebbe verificabile.
 Una futura collezione associativa richiederà sintassi parametrica, iterazione e
 semantica d'uguaglianza proprie prima di essere ammessa.
+
+## Compatibilità .NET e Roslyn
+
+Il backend principale genera C# dalla IR e lo compila tramite Roslyn. Il mapping
+normativo del nucleo è:
+
+| Tipo DDF | Tipo CLR | Forma C# generata | Nota |
+| --- | --- | --- | --- |
+| `int` | `System.Int32` | `int` | operazioni emesse in contesto `checked` |
+| `float` | `System.Double` | `double` | non corrisponde a `System.Single`/`float` di C# |
+| `char` | `System.Char` | `char` | una code unit UTF-16 |
+| `bool` | `System.Boolean` | `bool` | nessuna conversione numerica |
+| `string` | `System.String` | `string` | valore DDF sempre non nullo |
+| `void` | `System.Void` | `void` | ammesso soltanto come risultato |
+| `T[n]` | `T[]` SZArray | `T[]` | lunghezza controllata dalla semantica DDF |
+| struttura DDF | classe CLR generata | `sealed class` interna | conserva identità condivisa e non-null |
+
+La parola DDF `struct` non impone quindi `System.ValueType`: descrive un record
+nominale DDF con semantica di riferimento. Questa scelta evita che VM e backend
+divergano per copie implicite dei valori composti.
+
+La compatibilità Roslyn è un vincolo necessario ma non sufficiente. Il codice
+generato deve aggiungere i controlli DDF per overflow, valori floating non
+finiti, bounds, non-null e capacità host; non può adottare silenziosamente il
+comportamento C# quando è diverso. Le stringhe e i nomi generati devono usare
+confronti ordinali coerenti con la specifica.
+
+Un futuro tipo aggiunto dal nucleo o da un'estensione eseguibile deve dichiarare
+un mapping backend versionato verso un tipo CLR accessibile a Roslyn e un adapter
+per VM, host, debugger e serializzazione. In assenza di tutti questi elementi il
+pacchetto può offrire soltanto una diversa grafia di tipi DDF esistenti e deve
+essere rifiutato se dichiara un nuovo tipo. Nessun mapping autorizza reflection,
+caricamento di assembly o accesso a membri non esposti dal catalogo host.
 
 ## Letterali
 
@@ -258,7 +294,9 @@ Questi punti devono essere corretti prima di dichiarare completata la `0.12.2`:
 8. verificare che ogni percorso di una funzione non `void` restituisca;
 9. vietare uguaglianza di array e strutture invece del confronto di riferimento;
 10. rifiutare l'uso dell'indice di `string` come destinazione modificabile;
-11. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
+11. estendere il contratto dei tipi con mapping CLR/Roslyn versionati e
+    validarli durante il caricamento del pacchetto;
+12. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
 
 Fino alla chiusura di questi gap, editor e VM possono mostrare il comportamento
 beta preesistente; la specifica, non quel comportamento, governa la migrazione.

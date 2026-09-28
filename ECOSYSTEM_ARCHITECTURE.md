@@ -1,6 +1,11 @@
 # Ecosistema DDF — architettura di destinazione
 
 Decisione del 5 settembre 2026: .NET + Roslyn è il backend principale previsto.
+
+Dal contratto DDF `0.12.2`, ogni tipo eseguibile deve avere un mapping CLR/C#
+versionato e validabile da Roslyn. Il mapping non cambia la semantica DDF e non
+concede accesso automatico al framework: overflow, non-null, bounds e capacità
+host restano controllati dalla IR e dagli adapter autorizzati.
 Lo schema descrive il prodotto da costruire, non funzionalità già tutte disponibili.
 
 ## Vista a livelli

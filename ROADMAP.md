@@ -688,7 +688,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Specificare chiamate, parametri, valori restituiti ed esclusione esplicita degli overload (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
 - [x] Stabilire regole di inizializzazione, divieto di shadowing, visibilità e diagnostiche semantiche (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
 - [x] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
-- [ ] Allineare pacchetto, type checker, VM e servizi IDE agli undici gap di conformità censiti nella specifica.
+- [x] Vincolare ogni tipo eseguibile a un mapping CLR/C# deterministico accettato da Roslyn, mantenendo distinti compatibilità di rappresentazione e accesso autorizzato alle API .NET (`DDF_TYPE_SYSTEM_SPEC.md`, DDF-0013, 2026-09-28).
+- [ ] Allineare pacchetto, type checker, VM e servizi IDE ai dodici gap di conformità censiti nella specifica, incluso il mapping backend versionato.
 - [ ] Creare il corpus normativo dei tipi e confrontare diagnostiche e risultati fra VM e futuro backend Roslyn.
 
 ### 0.12.3 — Moduli e libreria standard
@@ -747,7 +748,7 @@ pausa sono attività esplicite della milestone.
 ### 0.13.1 — Compilazione separata
 
 - [ ] Compilare singoli moduli e librerie mantenendo i controlli della pipeline condivisa.
-- [ ] Generare C# dalla IR e compilare con Roslyn, conservando la semantica DDF di valori, conversioni, overflow, scope e ordine di valutazione.
+- [ ] Generare C# dalla IR e compilare con Roslyn, usando esclusivamente i mapping CLR versionati dei tipi e conservando la semantica DDF di valori, conversioni, overflow, non-null, scope e ordine di valutazione.
 - [ ] Riportare diagnostiche e punti di pausa al codice originale e implementare l'ispezione delle variabili senza esporre nomi temporanei generati.
 - [ ] Conservare diagnostiche e informazioni di debug per file, riga, simbolo e scope.
 - [ ] Rendere riproducibili gli artefatti e definire invalidazione della cache per sorgenti, pacchetti e opzioni.

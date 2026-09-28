@@ -2,7 +2,7 @@
 
 ## 0.12.2 - in sviluppo
 
-- Pubblicata la specifica normativa del sistema dei tipi: primitivi espliciti, array monodimensionali e strutture non nulle, unica promozione implicita `int -> float`, nessuna truthiness o overload, shadowing vietato, aritmetica checked e firme con ritorno completo. `dict` viene escluso dal nucleo finché non avrà una semantica parametrica. Un audit separa undici gap dell'implementazione beta dal contratto da raggiungere e le decisioni DDF-0009–DDF-0012 ne registrano le motivazioni.
+- Pubblicata la specifica normativa del sistema dei tipi: primitivi espliciti, array monodimensionali e strutture non nulle, unica promozione implicita `int -> float`, nessuna truthiness o overload, shadowing vietato, aritmetica checked e firme con ritorno completo. `dict` viene escluso dal nucleo finché non avrà una semantica parametrica. Ogni tipo eseguibile richiede ora un mapping CLR/C# versionato accettabile da Roslyn (`float` DDF è `System.Double`; le strutture diventano classi CLR generate), senza esporre automaticamente API .NET. Un audit separa dodici gap dell'implementazione beta dal contratto da raggiungere e le decisioni DDF-0009–DDF-0013 ne registrano le motivazioni.
 
 ## 0.12.1 - 2026-09-28
 

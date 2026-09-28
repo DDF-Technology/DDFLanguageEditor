@@ -167,3 +167,19 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   ritorno implicito del valore iniziale.
 - **Conseguenze:** navigazione, debug e diagnostiche restano non ambigui; il
   checker necessita analisi dei duplicati e dei percorsi di controllo.
+
+## DDF-0013 — Mapping CLR obbligatorio per ogni tipo eseguibile
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** ogni tipo DDF eseguibile deve avere un mapping CLR/C# stabile,
+  versionato e accettabile da Roslyn. `int`, `float`, `char`, `bool`, `string` e
+  `void` corrispondono rispettivamente a `System.Int32`, `System.Double`,
+  `System.Char`, `System.Boolean`, `System.String` e `System.Void`; array DDF a
+  SZArray e strutture DDF a classi CLR generate per conservarne l'aliasing.
+- **Alternative rifiutate:** tipi solo interpretabili dalla VM; mapping deciso
+  durante la generazione senza contratto; uso di `System.Single` per il DDF
+  `float`; generazione di C# `struct` con copie divergenti dalla VM.
+- **Conseguenze:** lo schema dei tipi dovrà dichiarare e validare il mapping di
+  backend. La compatibilità CLR non sostituisce i controlli DDF e non espone
+  automaticamente reflection, assembly o membri .NET allo script.
