@@ -1,0 +1,9 @@
+same(int[2] left, int[2] right) out bool
+{
+    ret left == right;
+}
+
+main() out int
+{
+    ret 0;
+}

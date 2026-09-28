@@ -26,5 +26,6 @@
     <None Include="..\..\language-packages\ddf-it-didactic\**\*.*" Link="LanguageProfiles\ddf-it-didactic\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\language-packages\ddf-c-familiar\**\*.*" Link="LanguageProfiles\ddf-c-familiar\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\language-profiles\**\*.*" Link="ProfileCorpus\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\type-system\**\*.ddf" Link="Corpus\Types\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

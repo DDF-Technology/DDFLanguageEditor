@@ -91,17 +91,20 @@ namespace DDFLanguageEditor.Core
         {
             private readonly string source;
             private readonly CompilationUnitSyntax root;
+            private readonly IReadOnlyList<CompilationUnitSyntax> allRoots;
             private readonly DdfTypeSystemDefinition typeSystem;
             private readonly DdfStandardLibraryDefinition standardLibrary;
             private readonly DdfRuntimeDefinition runtime;
             private readonly DdfHostCatalogSnapshot hostCatalog;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
+            private readonly HashSet<string> ddfStructures = new HashSet<string>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfTypeSymbol> globals = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfHostObjectDefinition> hostObjects = new Dictionary<string, DdfHostObjectDefinition>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, DdfTypeSymbol>> scopes = new List<Dictionary<string, DdfTypeSymbol>>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
             private readonly List<DdfTypedSpan> spans = new List<DdfTypedSpan>();
+            private readonly Dictionary<ExpressionSyntax, DdfTypeSymbol> expressionTypes = new Dictionary<ExpressionSyntax, DdfTypeSymbol>();
             private DdfTypeSymbol currentReturnType = DdfTypeSymbol.Error;
 
             public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
@@ -116,11 +119,14 @@ namespace DDFLanguageEditor.Core
                 this.runtime = runtime;
                 var roots = new List<CompilationUnitSyntax> { root };
                 if (externalRoots != null) roots.AddRange(externalRoots.Where(item => item != null));
+                allRoots = roots.AsReadOnly();
                 CollectDeclarations(roots);
             }
 
             public DdfTypeCheckResult Check()
             {
+                ValidateTopLevelDeclarations();
+                ValidateStructureContainment();
                 foreach (MemberSyntax member in root.Members)
                 {
                     if (member is FunctionDeclarationSyntax function) CheckFunction(function);
@@ -140,6 +146,7 @@ namespace DDFLanguageEditor.Core
                     {
                         if (!structures.ContainsKey(structure.Name))
                             structures.Add(structure.Name, new StructureInfo { Name = structure.Name, Fields = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal) });
+                        ddfStructures.Add(structure.Name);
                     }
                 }
                 foreach (CompilationUnitSyntax unit in roots)
@@ -234,12 +241,12 @@ namespace DDFLanguageEditor.Core
                 {
                     DdfTypeSymbol type = ResolveType(parameter.Type, true);
                     AddSpan(parameter.Type, type);
-                    Declare(parameter.Name, type);
+                    Declare(parameter.Name, type, parameter.NameStart, parameter.NameLength);
                     AddSpan(parameter.NameStart, parameter.NameLength, type);
                 }
                 CheckStatement(function.Body);
                 if (typeSystem.Signatures.RequireReturnForNonVoid && !currentReturnType.IsError &&
-                    currentReturnType.Name != typeSystem.Signatures.VoidType && !ContainsReturn(function.Body))
+                    currentReturnType.Name != typeSystem.Signatures.VoidType && !AlwaysReturns(function.Body))
                 {
                     Report("DDF307", "La funzione '" + function.Name + "' deve restituire un valore " + currentReturnType + ".", function.NameStart, Math.Max(1, function.NameLength));
                 }
@@ -307,7 +314,7 @@ namespace DDFLanguageEditor.Core
                     if (!CanAssign(declared, actual, context))
                         Report("DDF301", "Impossibile inizializzare " + declared + " con " + actual + ".", variable.Initializer);
                 }
-                Declare(variable.Name, declared);
+                Declare(variable.Name, declared, variable.NameStart, variable.NameLength);
                 AddSpan(variable.NameStart, variable.NameLength, declared);
                 foreach (ExpressionSyntax length in variable.Type.ArrayLengths)
                 {
@@ -341,6 +348,9 @@ namespace DDFLanguageEditor.Core
                 else if (expression is PostfixExpressionSyntax postfix)
                 {
                     DdfTypeSymbol operand = CheckExpression(postfix.Operand);
+                    if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(postfix.Operand)) ||
+                        IsReadOnlyStringIndex(postfix.Operand))
+                        Report("DDF308", "La destinazione dell'operatore '" + postfix.OperatorText + "' non è modificabile.", postfix.Operand);
                     ReportReadOnlyHostTarget(postfix.Operand);
                     result = runtime.TryGetPostfixOperation(postfix.OperatorText, out string operation) &&
                         (operation == DdfVmExpressionOperations.Increment || operation == DdfVmExpressionOperations.Decrement) &&
@@ -352,6 +362,7 @@ namespace DDFLanguageEditor.Core
                 else if (expression is IndexExpressionSyntax index) result = CheckIndex(index);
                 else if (expression is MemberAccessExpressionSyntax member) result = CheckMember(member);
                 else result = DdfTypeSymbol.Error;
+                expressionTypes[expression] = result;
                 AddSpan(expression.Start, expression.Length, result);
                 return result;
             }
@@ -379,6 +390,8 @@ namespace DDFLanguageEditor.Core
                 {
                     if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
                         Report("DDF308", "La destinazione dell'assegnazione non è modificabile.", binary.Left);
+                    else if (IsReadOnlyStringIndex(binary.Left))
+                        Report("DDF308", "Un carattere di stringa non è una destinazione modificabile.", binary.Left);
                     ReportReadOnlyHostTarget(binary.Left);
                     if (!CanAssign(left, right)) Report("DDF301", "Impossibile assegnare " + right + " a " + left + ".", binary);
                     return left;
@@ -389,7 +402,7 @@ namespace DDFLanguageEditor.Core
                     operation == DdfVmExpressionOperations.LogicalAnd)
                     return IsBoolean(left) && IsBoolean(right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
                 if (operation == DdfVmExpressionOperations.Equal || operation == DdfVmExpressionOperations.NotEqual)
-                    return CanAssign(left, right) || CanAssign(right, left) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
+                    return CanCompareEquality(left, right) ? new DdfTypeSymbol(typeSystem.Literals.Boolean) : InvalidOperator(op, left, right, binary);
                 if (operation == DdfVmExpressionOperations.Less || operation == DdfVmExpressionOperations.LessOrEqual ||
                     operation == DdfVmExpressionOperations.Greater || operation == DdfVmExpressionOperations.GreaterOrEqual ||
                     operation == DdfVmExpressionOperations.BetweenExclusive || operation == DdfVmExpressionOperations.OutsideExclusive)
@@ -446,6 +459,11 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol ResolveType(TypeReferenceSyntax type, bool reportUnknown)
             {
                 if (type == null || string.IsNullOrEmpty(type.Name)) return DdfTypeSymbol.Error;
+                if (type.ArrayLengths.Count > 1)
+                {
+                    Report("DDF310", "Gli array DDF possono avere un solo suffisso di dimensione.", type);
+                    return DdfTypeSymbol.Error;
+                }
                 bool known = typeSystem.IsKnownPrimitive(type.Name) || structures.ContainsKey(type.Name);
                 if (!known)
                 {
@@ -462,11 +480,22 @@ namespace DDFLanguageEditor.Core
                 return globals.TryGetValue(name, out DdfTypeSymbol global) ? global : DdfTypeSymbol.Error;
             }
 
-            private void Declare(string name, DdfTypeSymbol type)
+            private void Declare(string name, DdfTypeSymbol type, int start, int length)
             {
                 if (string.IsNullOrEmpty(name)) return;
-                if (scopes.Count == 0) globals[name] = type;
-                else scopes[scopes.Count - 1][name] = type;
+                if (scopes.Count == 0) return;
+                Dictionary<string, DdfTypeSymbol> current = scopes[scopes.Count - 1];
+                bool duplicate = current.ContainsKey(name);
+                bool shadowsVisible = !typeSystem.Scopes.AllowShadowing &&
+                    (globals.ContainsKey(name) || scopes.Take(scopes.Count - 1).Any(scope => scope.ContainsKey(name)));
+                if (duplicate || shadowsVisible)
+                {
+                    Report("DDF311", duplicate
+                        ? "Il valore '" + name + "' è già dichiarato in questo scope."
+                        : "Il valore '" + name + "' nasconde una dichiarazione già visibile.", start, Math.Max(1, length));
+                    return;
+                }
+                current.Add(name, type);
             }
 
             private void PushScope() => scopes.Add(new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal));
@@ -512,6 +541,21 @@ namespace DDFLanguageEditor.Core
                 return string.Empty;
             }
 
+            private bool CanCompareEquality(DdfTypeSymbol left, DdfTypeSymbol right)
+            {
+                if (left.IsError || right.IsError) return typeSystem.Compatibility.ErrorTypeCompatible;
+                if (left.ArrayRank > 0 || right.ArrayRank > 0 ||
+                    ddfStructures.Contains(left.Name) || ddfStructures.Contains(right.Name)) return false;
+                return CanAssign(left, right) || CanAssign(right, left);
+            }
+
+            private bool IsReadOnlyStringIndex(ExpressionSyntax expression)
+            {
+                if (!(expression is IndexExpressionSyntax index) ||
+                    !expressionTypes.TryGetValue(index.Target, out DdfTypeSymbol target)) return false;
+                return target.ArrayRank == 0 && target.Name == typeSystem.Literals.String;
+            }
+
             private void ReportReadOnlyHostTarget(ExpressionSyntax expression)
             {
                 string rootName = GetRootName(expression);
@@ -551,16 +595,78 @@ namespace DDFLanguageEditor.Core
                 }
             }
 
-            private static bool ContainsReturn(StatementSyntax statement)
+            private void ValidateStructureContainment()
+            {
+                foreach (StructDeclarationSyntax structure in root.Members.OfType<StructDeclarationSyntax>())
+                    if (HasContainmentPath(structure.Name, structure.Name, new HashSet<string>(StringComparer.Ordinal)))
+                        Report("DDF312", "La struttura '" + structure.Name +
+                            "' ha un ciclo di contenimento e non può essere costruita senza valori nulli.",
+                            structure.NameStart, Math.Max(1, structure.NameLength));
+            }
+
+            private void ValidateTopLevelDeclarations()
+            {
+                foreach (MemberSyntax member in root.Members)
+                {
+                    string name;
+                    int start;
+                    int length;
+                    int count;
+                    if (member is StructDeclarationSyntax structure)
+                    {
+                        name = structure.Name;
+                        start = structure.NameStart;
+                        length = structure.NameLength;
+                        count = allRoots.Sum(unit => unit.Members.OfType<StructDeclarationSyntax>()
+                            .Count(item => item.Name == name));
+                    }
+                    else if (member is FunctionDeclarationSyntax function)
+                    {
+                        name = function.Name;
+                        start = function.NameStart;
+                        length = function.NameLength;
+                        count = allRoots.Sum(unit => unit.Members.OfType<FunctionDeclarationSyntax>()
+                            .Count(item => item.Name == name));
+                    }
+                    else if (member is GlobalStatementSyntax global &&
+                             global.Statement is VariableDeclarationStatementSyntax variable)
+                    {
+                        name = variable.Name;
+                        start = variable.NameStart;
+                        length = variable.NameLength;
+                        count = allRoots.Sum(unit => unit.Members.OfType<GlobalStatementSyntax>()
+                            .Count(item => item.Statement is VariableDeclarationStatementSyntax candidate &&
+                                           candidate.Name == name));
+                    }
+                    else continue;
+
+                    if (!string.IsNullOrEmpty(name) && count > 1)
+                        Report("DDF311", "La dichiarazione '" + name +
+                            "' deve avere un nome univoco nel progetto.", start, Math.Max(1, length));
+                }
+            }
+
+            private bool HasContainmentPath(string current, string target, HashSet<string> visited)
+            {
+                if (!structures.TryGetValue(current, out StructureInfo structure) || !visited.Add(current)) return false;
+                foreach (DdfTypeSymbol field in structure.Fields.Values)
+                {
+                    if (!ddfStructures.Contains(field.Name)) continue;
+                    if (field.Name == target || HasContainmentPath(field.Name, target, visited)) return true;
+                }
+                visited.Remove(current);
+                return false;
+            }
+
+            private static bool AlwaysReturns(StatementSyntax statement)
             {
                 if (statement == null) return false;
                 if (statement is ReturnStatementSyntax) return true;
-                if (statement is BlockStatementSyntax block) return block.Statements.Any(ContainsReturn);
-                if (statement is IfStatementSyntax conditional) return conditional.ElseBody != null &&
-                    ContainsReturn(conditional.Body) && ContainsReturn(conditional.ElseBody);
-                if (statement is WhileStatementSyntax loop) return ContainsReturn(loop.Body);
-                if (statement is DoWhileStatementSyntax doLoop) return ContainsReturn(doLoop.Body);
-                if (statement is ForStatementSyntax forLoop) return ContainsReturn(forLoop.Body);
+                if (statement is BlockStatementSyntax block)
+                    return block.Statements.Any(AlwaysReturns);
+                if (statement is IfStatementSyntax conditional)
+                    return conditional.ElseBody != null && AlwaysReturns(conditional.Body) && AlwaysReturns(conditional.ElseBody);
+                if (statement is DoWhileStatementSyntax doLoop) return AlwaysReturns(doLoop.Body);
                 return false;
             }
 

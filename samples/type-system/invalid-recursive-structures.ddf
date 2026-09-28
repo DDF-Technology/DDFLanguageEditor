@@ -1,0 +1,19 @@
+struct Node
+{
+    Node child;
+}
+
+struct Left
+{
+    Right[1] right;
+}
+
+struct Right
+{
+    Left left;
+}
+
+main() out int
+{
+    ret 0;
+}

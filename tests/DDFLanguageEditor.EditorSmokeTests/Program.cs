@@ -246,6 +246,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             string layoutPath = Path.Combine(layoutDirectory, "layout.json");
             {
                 var form = new DatabaseDemoForm();
+                form.EditorHost.UseEmbeddedLanguage();
                 form.LayoutPersistencePath = layoutPath;
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
@@ -265,7 +266,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             document.DisplayName == "API host - documentazione.ddf") &&
                         !FindControl<ListBox>(form, "listBoxDiagnostics").Items
                             .Cast<object>().Any(item => item.ToString().Contains("DDF201")),
-                    "La demo database non incorpora la shell completa con il catalogo host.");
+                    "La demo database non incorpora la shell completa con il catalogo host. Diagnostiche: " +
+                    string.Join(" | ", analysis.Diagnostics.Select(item => item.Code + ": " + item.Message)));
                 Require(form.Editor.CommandService.Find(DdfEditorCommandIds.BuildProject)?.IsVisible == false &&
                         form.Editor.CommandService.Find(DdfEditorCommandIds.StartDebugging)?.IsVisible == false &&
                         form.Editor.CommandService.Find(DdfEditorCommandIds.RunWithoutDebug)?.IsVisible == false,
@@ -2249,24 +2251,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         {
                             Id = "ddf-it-didactic",
                             Name = "DDF didattico italiano",
-                            Source = "main() restituisce int { restituisci 2; }",
+                            Source = "helper() restituisce int { restituisci 2; }",
                             PreviousSource = "helper() out int { ret 1; }",
                             ConvertedSource = "helper() restituisce int { restituisci 1; }",
                             ConvertedWorkspaceMain = "main() restituisce int { restituisci helper(); }",
                             TrueLabel = "Sì",
-                            InvalidSource = "main() restituisce int { restituisci missing; }",
+                            InvalidSource = "helper() restituisce int { restituisci missing; }",
                             DiagnosticMessage = "Questo nome non è stato dichiarato: dichiaralo oppure correggine la grafia."
                         },
                         new
                         {
                             Id = "ddf-c-familiar",
                             Name = "DDF sintassi familiare C",
-                            Source = "main() returns int { return 2; }",
-                            PreviousSource = "main() restituisce int { restituisci 2; }",
-                            ConvertedSource = "main() returns int { return 2; }",
+                            Source = "helper() returns int { return 2; }",
+                            PreviousSource = "helper() restituisce int { restituisci 2; }",
+                            ConvertedSource = "helper() returns int { return 2; }",
                             ConvertedWorkspaceMain = "main() returns int { return helper(); }",
                             TrueLabel = "Yes",
-                            InvalidSource = "main() returns int { return missing; }",
+                            InvalidSource = "helper() returns int { return missing; }",
                             DiagnosticMessage = "Unresolved symbol."
                         }
                     };
@@ -2317,8 +2319,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                                             GetPrivateField<IDdfLanguagePackageSession>(form,
                                                 "editorLanguageSession").Revision,
                             5000, "L'analisi non viene applicata dopo l'attivazione di " + profile.Id + ".");
-                        Require(GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form, "activeDiagnostics").Count == 0,
-                            "La sintassi minima di " + profile.Id + " produce diagnostiche dopo l'attivazione.");
+                        IReadOnlyList<DdfDiagnostic> profileDiagnostics =
+                            GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form, "activeDiagnostics");
+                        Require(profileDiagnostics.Count == 0,
+                            "La sintassi minima di " + profile.Id + " produce diagnostiche dopo l'attivazione: " +
+                            string.Join(" | ", profileDiagnostics.Select(item => item.Code + ": " + item.Message)));
                         Control localizedFlowchartCanvas = FindControl<Control>(form, "flowchartCanvas");
                         Require(GetPropertyValue<string>(localizedFlowchartCanvas, "TrueLabel") == profile.TrueLabel,
                             "La Flowchart non applica le etichette del profilo " + profile.Id + ".");

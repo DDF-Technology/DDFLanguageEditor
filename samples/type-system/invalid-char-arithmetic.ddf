@@ -1,0 +1,6 @@
+main() out int
+{
+    char symbol << "a";
+    symbol + 1;
+    ret 0;
+}

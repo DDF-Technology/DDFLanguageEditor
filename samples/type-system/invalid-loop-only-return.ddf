@@ -1,0 +1,7 @@
+main() out int
+{
+    while(true)
+    {
+        ret 1;
+    }
+}

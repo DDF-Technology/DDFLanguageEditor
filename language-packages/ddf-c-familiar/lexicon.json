@@ -67,7 +67,6 @@
     { "text": "bool", "tokenKind": "DataTypeKeyword", "role": "None" },
     { "text": "void", "tokenKind": "DataTypeKeyword", "role": "None" },
     { "text": "string", "tokenKind": "DataTypeKeyword", "role": "None" },
-    { "text": "dict", "tokenKind": "DataTypeKeyword", "role": "None" },
     { "text": "struct", "tokenKind": "DataTypeKeyword", "role": "Structure" },
     { "text": "return", "tokenKind": "FunctionKeyword", "role": "Return" },
     { "text": "break", "tokenKind": "FunctionKeyword", "role": "Break" },

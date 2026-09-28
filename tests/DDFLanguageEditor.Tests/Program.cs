@@ -169,6 +169,8 @@ namespace DDFLanguageEditor.Tests
             Run("reports unknown types and members", ReportsUnknownTypesAndMembers);
             Run("checks function signatures from another document", ChecksFunctionSignaturesFromAnotherDocument);
             Run("reports missing returns and invalid assignment targets", ReportsMissingReturnsAndInvalidAssignmentTargets);
+            Run("enforces the DDF 0.12 compound type and scope rules", EnforcesDdf012CompoundTypeAndScopeRules);
+            Run("validates the normative DDF type corpus", ValidatesNormativeDdfTypeCorpus);
             Run("type-checks the editor smoke sample", TypeChecksEditorSmokeSample);
             Run("executes functions control flow and output", ExecutesFunctionsControlFlowAndOutput);
             Run("executes arrays and structure members", ExecutesArraysAndStructureMembers);
@@ -1138,9 +1140,9 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.12.1", result.Package.PackageVersion);
+            Equal("0.12.2", result.Package.PackageVersion);
             Equal("0.12", result.Package.LanguageVersion);
-            Equal(17, result.Package.Language.Keywords.Count);
+            Equal(16, result.Package.Language.Keywords.Count);
             Equal(19, result.Package.Language.Operators.Count);
             Equal(0, result.Package.NativeExtensions.Count);
             Equal(true, result.Package.Grammar != null);
@@ -1353,10 +1355,10 @@ namespace DDFLanguageEditor.Tests
                 if (!load.Success)
                     throw new InvalidOperationException(string.Join(" | ", load.Diagnostics.Select(item => item.ToString())));
                 DdfTypeSystemDefinition types = load.Package.Language.Types;
-                Equal(7, types.Primitives.Count);
+                Equal(6, types.Primitives.Count);
                 Equal(false, types.CanDeclareVariable("void"));
                 Equal("char", types.GetIndexedElementType("string"));
-                Equal(true, types.Scopes.AllowShadowing);
+                Equal(false, types.Scopes.AllowShadowing);
                 Equal(true, types.Mutability.VariablesMutable);
                 Equal(true, types.Signatures.ExactArity);
 
@@ -3369,7 +3371,8 @@ namespace DDFLanguageEditor.Tests
                 DdfProjectManifest duplicateEntry = DdfProjectManifest.CreateImplicit("Duplicate", package, null);
                 DdfBuildResult duplicateResult = new DdfBuildService().Validate(root, duplicateEntry, package);
                 Equal(false, duplicateResult.Success);
-                Equal(true, duplicateResult.Issues.Any(item => item.Code == "DDFB009"));
+                Equal(true, duplicateResult.Issues.Any(item =>
+                    item.Code == "DDF311" || item.Code == "DDFB009"));
                 File.Delete(duplicatePath);
 
                 string duplicateFunctionA = Path.Combine(root, "a.ddf");
@@ -3379,7 +3382,8 @@ namespace DDFLanguageEditor.Tests
                 DdfBuildResult duplicateFunctionResult = new DdfBuildService().Validate(root,
                     DdfProjectManifest.CreateImplicit("Duplicate function", package, "main.ddf"), package);
                 Equal(false, duplicateFunctionResult.Success);
-                Equal(true, duplicateFunctionResult.Issues.Any(item => item.Code == "DDFB010"));
+                Equal(true, duplicateFunctionResult.Issues.Any(item =>
+                    item.Code == "DDF311" || item.Code == "DDFB010"));
                 File.Delete(duplicateFunctionA);
                 File.Delete(duplicateFunctionB);
 
@@ -4543,6 +4547,74 @@ namespace DDFLanguageEditor.Tests
             DdfTypeCheckResult result = DdfTypeChecker.Check(source, DdfParser.Parse(source).Root);
             Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF307"));
             Equal(true, result.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF308"));
+        }
+
+        private static void EnforcesDdf012CompoundTypeAndScopeRules()
+        {
+            DdfTypeSystemDefinition types = DdfTypeSystemDefinition.CreateDdfCompatibleDefault();
+            Equal(false, types.IsKnownPrimitive("dict"));
+            Equal(false, types.IsNumeric("char"));
+            Equal(false, types.CanImplicitlyConvert("char", "float"));
+            Equal(false, types.Scopes.AllowShadowing);
+
+            const string arraysAndShadowing =
+                "int value << 1; main() out int { int[2][3] matrix; int value << 2; ret value; }";
+            DdfTypeCheckResult declarations = DdfTypeChecker.Check(arraysAndShadowing,
+                DdfParser.Parse(arraysAndShadowing).Root);
+            Equal(true, declarations.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF310"));
+            Equal(true, declarations.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF311"));
+
+            const string duplicateDeclarations =
+                "int shared; int shared; helper() out int { ret 1; } helper() out int { ret 2; } " +
+                "main() out int { int local; int local; ret 0; }";
+            DdfTypeCheckResult duplicates = DdfTypeChecker.Check(duplicateDeclarations,
+                DdfParser.Parse(duplicateDeclarations).Root);
+            Equal(true, duplicates.Diagnostics.Count(diagnostic => diagnostic.Code == "DDF311") >= 5);
+
+            const string recursiveStructures =
+                "struct Node { Node child; } struct Left { Right[1] right; } struct Right { Left left; } " +
+                "main() out int { ret 0; }";
+            DdfTypeCheckResult containment = DdfTypeChecker.Check(recursiveStructures,
+                DdfParser.Parse(recursiveStructures).Root);
+            Equal(3, containment.Diagnostics.Count(diagnostic => diagnostic.Code == "DDF312"));
+
+            const string invalidOperations =
+                "same(int[2] left, int[2] right) out bool { ret left == right; } " +
+                "main() out int { string text << \"abc\"; text[0] << \"z\"; while(true) { ret 1; } }";
+            DdfTypeCheckResult operations = DdfTypeChecker.Check(invalidOperations,
+                DdfParser.Parse(invalidOperations).Root);
+            Equal(true, operations.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF302"));
+            Equal(true, operations.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF308" &&
+                diagnostic.Message.Contains("stringa", StringComparison.Ordinal)));
+            Equal(true, operations.Diagnostics.Any(diagnostic => diagnostic.Code == "DDF307"));
+        }
+
+        private static void ValidatesNormativeDdfTypeCorpus()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Types");
+            var expected = new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["invalid-char-arithmetic.ddf"] = new[] { "DDF302" },
+                ["invalid-array-rank.ddf"] = new[] { "DDF310" },
+                ["invalid-shadowing.ddf"] = new[] { "DDF311" },
+                ["invalid-recursive-structures.ddf"] = new[] { "DDF312" },
+                ["invalid-array-equality.ddf"] = new[] { "DDF302" },
+                ["invalid-string-index-assignment.ddf"] = new[] { "DDF301", "DDF308" },
+                ["invalid-loop-only-return.ddf"] = new[] { "DDF307" }
+            };
+
+            foreach (KeyValuePair<string, string[]> item in expected)
+            {
+                string source = File.ReadAllText(Path.Combine(corpus, item.Key));
+                DdfParseResult parse = DdfParser.Parse(source);
+                Equal(0, parse.ValidationDiagnostics.Count);
+                string[] actual = DdfTypeChecker.Check(source, parse.Root).Diagnostics
+                    .Select(diagnostic => diagnostic.Code)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(code => code, StringComparer.Ordinal)
+                    .ToArray();
+                SequenceEqual(item.Value.OrderBy(code => code, StringComparer.Ordinal), actual);
+            }
         }
 
         private static void TypeChecksEditorSmokeSample()

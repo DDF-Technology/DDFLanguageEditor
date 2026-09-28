@@ -197,8 +197,7 @@ namespace DDFLanguageEditor.Core
                     requirePrimitive(primitive.IndexedElementType, "indexed element type");
             numericTypes = new HashSet<string>(this.primitives.Values
                 .Where(item => item.Category == DdfPrimitiveTypeCategory.Integer ||
-                               item.Category == DdfPrimitiveTypeCategory.Floating ||
-                               item.Category == DdfPrimitiveTypeCategory.Character)
+                               item.Category == DdfPrimitiveTypeCategory.Floating)
                 .Select(item => item.Name), StringComparer.Ordinal);
             requireCategory(signatures.VoidType, DdfPrimitiveTypeCategory.Void, "void type");
             requireCategory(literals.Integer, DdfPrimitiveTypeCategory.Integer, "integer literal type");
@@ -245,18 +244,16 @@ namespace DDFLanguageEditor.Core
                     new DdfPrimitiveTypeDefinition("char", DdfPrimitiveTypeCategory.Character),
                     new DdfPrimitiveTypeDefinition("bool", DdfPrimitiveTypeCategory.Boolean),
                     new DdfPrimitiveTypeDefinition("void", DdfPrimitiveTypeCategory.Void, false),
-                    new DdfPrimitiveTypeDefinition("string", DdfPrimitiveTypeCategory.String, true, "char"),
-                    new DdfPrimitiveTypeDefinition("dict", DdfPrimitiveTypeCategory.Dictionary)
+                    new DdfPrimitiveTypeDefinition("string", DdfPrimitiveTypeCategory.String, true, "char")
                 },
                 new[]
                 {
                     new DdfTypeConversionDefinition("int", "float", DdfConversionContext.General),
-                    new DdfTypeConversionDefinition("char", "float", DdfConversionContext.General),
                     new DdfTypeConversionDefinition("string", "char", DdfConversionContext.VariableInitializerSingleCharacterLiteral)
                 },
                 new DdfTypeCompatibilityDefinition(true, true, true),
                 new DdfMutabilityDefinition(true, true, true, new[] { "Name", "Index", "Member" }),
-                new DdfScopeDefinition(true, true, true, true, true),
+                new DdfScopeDefinition(true, true, true, true, false),
                 new DdfSignatureDefinition(true, true, "void", "declared"),
                 new DdfLiteralTypeDefinition("int", "float", "bool", "string"),
                 "int", "float", "int");

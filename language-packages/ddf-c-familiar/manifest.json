@@ -3,7 +3,7 @@
   "engineApi": "1.0",
   "id": "ddf-c-familiar",
   "name": "DDF sintassi familiare C",
-  "packageVersion": "0.12.1.1",
+  "packageVersion": "0.12.2",
   "languageVersion": "0.12",
   "fileExtensions": [ ".ddfc", ".ddf" ],
   "nativeExtensions": [],

@@ -1,0 +1,5 @@
+main() out int
+{
+    int[2][3] matrix;
+    ret 0;
+}

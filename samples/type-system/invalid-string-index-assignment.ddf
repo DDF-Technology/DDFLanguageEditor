@@ -1,0 +1,6 @@
+main() out int
+{
+    string text << "abc";
+    text[0] << "z";
+    ret 0;
+}

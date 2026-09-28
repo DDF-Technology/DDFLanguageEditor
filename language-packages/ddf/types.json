@@ -8,12 +8,10 @@
     { "name": "char", "category": "Character", "canDeclareVariable": true },
     { "name": "bool", "category": "Boolean", "canDeclareVariable": true },
     { "name": "void", "category": "Void", "canDeclareVariable": false },
-    { "name": "string", "category": "String", "canDeclareVariable": true, "indexedElementType": "char" },
-    { "name": "dict", "category": "Dictionary", "canDeclareVariable": true }
+    { "name": "string", "category": "String", "canDeclareVariable": true, "indexedElementType": "char" }
   ],
   "conversions": [
     { "from": "int", "to": "float", "context": "General" },
-    { "from": "char", "to": "float", "context": "General" },
     { "from": "string", "to": "char", "context": "VariableInitializerSingleCharacterLiteral" }
   ],
   "compatibility": { "arraysInvariant": true, "userTypesNominal": true, "errorTypeCompatible": true },
@@ -28,7 +26,7 @@
     "blocks": true,
     "forInitializers": true,
     "structureFields": true,
-    "allowShadowing": true
+    "allowShadowing": false
   },
   "signatures": {
     "exactArity": true,
