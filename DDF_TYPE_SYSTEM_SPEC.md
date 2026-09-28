@@ -263,6 +263,12 @@ finito, divisione per zero, indice fuori intervallo, dimensione array negativa,
 violazione di capacità host e limite di esecuzione. Gli errori devono indicare
 codice diagnostico, documento e intervallo sorgente quando disponibili.
 
+La VM di riferimento assegna codici stabili ai nuovi errori numerici: `DDF417`
+per overflow `int`, `DDF418` per un risultato `float` NaN o infinito e `DDF419`
+per una potenza intera con esponente negativo. La divisione per zero conserva
+`DDF404`. Questi codici fanno parte del corpus differenziale destinato anche al
+backend Roslyn.
+
 Il tipo interno di errore usato dal checker è compatibile con gli altri tipi
 soltanto per evitare diagnostiche a cascata; non è un tipo dichiarabile né un
 valore eseguibile.
@@ -304,5 +310,8 @@ Questi punti devono essere corretti prima di dichiarare completata la `0.12.2`:
     validarli durante il caricamento del pacchetto;
 13. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
 
-Fino alla chiusura di questi gap, editor e VM possono mostrare il comportamento
-beta preesistente; la specifica, non quel comportamento, governa la migrazione.
+I gap 1-11 sono ora coperti da checker, servizi IDE, VM o corpus eseguibile; in
+particolare i punti 4-6 sono verificati sia sul tipo CLR realmente restituito sia
+sulle diagnostiche runtime. Restano da chiudere completamente il mapping backend
+versionato e il corpus differenziale VM/Roslyn dei punti 12-13. Fino ad allora la
+specifica, non eventuali comportamenti beta residui, governa la migrazione.

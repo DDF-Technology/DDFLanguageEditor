@@ -318,7 +318,11 @@ namespace DDFLanguageEditor.Core
                                 ConvertForType(arguments[index], function.Parameters[index].Type, function.Parameters[index]),
                                 FormatType(function.Parameters[index].Type), DdfRuntimeVariableKind.Parameter);
                         try { ExecuteBlock(function.Body, false); }
-                        catch (ReturnSignal signal) { return signal.Value; }
+                        catch (ReturnSignal signal)
+                        {
+                            return ConvertForType(signal.Value, function.ReturnType,
+                                signal.Node ?? (DdfIrNode)function);
+                        }
                         return null;
                     }
                     finally { PopScope(); }
@@ -342,7 +346,9 @@ namespace DDFLanguageEditor.Core
                 if (statement is DdfIrBlock block) ExecuteBlock(block, true);
                 else if (statement is DdfIrVariableDeclaration variable)
                 {
-                    object value = variable.Initializer == null ? CreateDefault(variable.Type) : ConvertForType(Evaluate(variable.Initializer), variable.Type, variable);
+                    object value = variable.Initializer == null ? CreateDefault(variable.Type) :
+                        ConvertForType(Evaluate(variable.Initializer), variable.Type, variable,
+                            variable.Initializer is DdfIrLiteral);
                     Declare(variable.Name, value, FormatType(variable.Type), DdfRuntimeVariableKind.Local);
                 }
                 else if (statement is DdfIrExpressionStatement expression) Evaluate(expression.Expression);
@@ -377,7 +383,8 @@ namespace DDFLanguageEditor.Core
                     }
                     finally { PopScope(); }
                 }
-                else if (statement is DdfIrReturn returned) throw new ReturnSignal(returned.Expression == null ? null : Evaluate(returned.Expression));
+                else if (statement is DdfIrReturn returned) throw new ReturnSignal(
+                    returned.Expression == null ? null : Evaluate(returned.Expression), returned);
                 else if (statement is DdfIrBreak) throw new BreakSignal();
                 else if (statement is DdfIrEnd) throw new EndSignal();
             }
@@ -400,7 +407,12 @@ namespace DDFLanguageEditor.Core
                 {
                     object operand = Evaluate(unary.Operand);
                     if (unary.OperationId == DdfVmExpressionOperations.LogicalNot) return !AsBoolean(operand, unary);
-                    if (unary.OperationId == DdfVmExpressionOperations.Negate) return IsFloating(operand) ? (object)(-ToDouble(operand, unary)) : -ToInt(operand, unary);
+                    if (unary.OperationId == DdfVmExpressionOperations.Negate)
+                    {
+                        if (IsFloating(operand)) return EnsureFinite(-ToDouble(operand, unary), unary);
+                        try { return checked(-ToInt(operand, unary)); }
+                        catch (OverflowException) { FailIntegerOverflow(unary); }
+                    }
                     if (unary.OperationId == DdfVmExpressionOperations.Positive) return operand;
                     Fail("DDFE004", "Operazione unaria IR non supportata: '" + unary.OperationId + "'.", unary,
                         DdfDiagnosticDomain.EngineCapability);
@@ -414,8 +426,14 @@ namespace DDFLanguageEditor.Core
                         postfix.OperationId == DdfVmExpressionOperations.Decrement ? -1 : 0;
                     if (delta == 0) Fail("DDFE004", "Operazione postfix IR non supportata: '" + postfix.OperationId + "'.", postfix,
                         DdfDiagnosticDomain.EngineCapability);
-                    WriteCell(cell, IsFloating(old) ? (object)(ToDouble(old, postfix) + delta) :
-                        ToInt(old, postfix) + delta, postfix.Operand);
+                    object updated;
+                    if (IsFloating(old)) updated = EnsureFinite(ToDouble(old, postfix) + delta, postfix);
+                    else
+                    {
+                        try { updated = checked(ToInt(old, postfix) + delta); }
+                        catch (OverflowException) { FailIntegerOverflow(postfix); return null; }
+                    }
+                    WriteCell(cell, updated, postfix.Operand);
                     return old;
                 }
                 if (expression is DdfIrCall call)
@@ -478,7 +496,9 @@ namespace DDFLanguageEditor.Core
                     }
                     if (function.BindingId == DdfHostFunctionBindings.ToFloat)
                     {
-                        if (double.TryParse(arguments[0] as string, NumberStyles.Float, CultureInfo.InvariantCulture, out double floating)) return floating;
+                        if (double.TryParse(arguments[0] as string, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double floating) &&
+                            !double.IsNaN(floating) && !double.IsInfinity(floating)) return floating;
                         Fail("DDF408", "Impossibile convertire il testo in float.", node);
                     }
                     Fail("DDFE002", "Funzione standard non implementata: '" + function.Name + "'.", node,
@@ -747,7 +767,8 @@ namespace DDFLanguageEditor.Core
                 if (op == DdfVmExpressionOperations.Assign)
                 {
                     Cell target = ResolveCell(binary.Left);
-                    object value = Evaluate(binary.Right);
+                    object value = ConvertForTypeName(Evaluate(binary.Right), target.TypeName,
+                        binary.Right);
                     WriteCell(target, value, binary.Left);
                     return value;
                 }
@@ -783,13 +804,13 @@ namespace DDFLanguageEditor.Core
                 if (op == DdfVmExpressionOperations.Greater) return ToDouble(left, binary) > ToDouble(right, binary);
                 if (op == DdfVmExpressionOperations.GreaterOrEqual) return ToDouble(left, binary) >= ToDouble(right, binary);
                 if (op == DdfVmExpressionOperations.Add && (left is string || right is string)) return FormatValue(left) + FormatValue(right);
-                double a = ToDouble(left, binary), b = ToDouble(right, binary);
-                if (op == DdfVmExpressionOperations.Add) return NumericResult(left, right, a + b);
-                if (op == DdfVmExpressionOperations.Subtract) return NumericResult(left, right, a - b);
-                if (op == DdfVmExpressionOperations.Multiply) return NumericResult(left, right, a * b);
-                if (op == DdfVmExpressionOperations.Divide) { if (b == 0) Fail("DDF404", "Divisione per zero.", binary); return NumericResult(left, right, a / b); }
-                if (op == DdfVmExpressionOperations.Power) return NumericResult(left, right, Math.Pow(a, b));
-                if (op == DdfVmExpressionOperations.Root) { if (b == 0) Fail("DDF404", "Indice della radice uguale a zero.", binary); return Math.Pow(a, 1d / b); }
+                if (op == DdfVmExpressionOperations.Add ||
+                    op == DdfVmExpressionOperations.Subtract ||
+                    op == DdfVmExpressionOperations.Multiply ||
+                    op == DdfVmExpressionOperations.Divide ||
+                    op == DdfVmExpressionOperations.Power ||
+                    op == DdfVmExpressionOperations.Root)
+                    return EvaluateNumericBinary(op, left, right, binary);
                 Fail("DDFE004", "Operatore runtime non supportato: '" + op + "'.", binary,
                     DdfDiagnosticDomain.EngineCapability);
                 return null;
@@ -839,7 +860,9 @@ namespace DDFLanguageEditor.Core
                     {
                         foreach (DdfIrVariableDeclaration field in structure.Fields)
                             fields[field.Name] = new Cell(
-                                field.Initializer == null ? CreateDefault(field.Type) : Evaluate(field.Initializer),
+                                field.Initializer == null ? CreateDefault(field.Type) :
+                                    ConvertForType(Evaluate(field.Initializer), field.Type, field,
+                                        field.Initializer is DdfIrLiteral),
                                 FormatType(field.Type), DdfRuntimeVariableKind.Field);
                         return fields;
                     }
@@ -856,16 +879,26 @@ namespace DDFLanguageEditor.Core
                 return null;
             }
 
-            private object ConvertForType(object value, DdfIrType type, DdfIrNode node)
+            private object ConvertForType(object value, DdfIrType type, DdfIrNode node,
+                bool allowCharacterLiteral = false)
             {
                 if (value == null) return CreateDefault(type);
                 if (type.ArrayLengths.Count > 0 || structures.ContainsKey(type.Name)) return value;
-                if (typeSystem.TryGetPrimitive(type.Name, out DdfPrimitiveTypeDefinition primitive))
-                {
-                    if (primitive.Category == DdfPrimitiveTypeCategory.Floating) return ToDouble(value, node);
-                    if (primitive.Category == DdfPrimitiveTypeCategory.Integer) return ToInt(value, node);
-                    if (primitive.Category == DdfPrimitiveTypeCategory.Character && value is string text && text.Length == 1) return text[0];
-                }
+                return ConvertForTypeName(value, type.Name, node, allowCharacterLiteral);
+            }
+
+            private object ConvertForTypeName(object value, string typeName, DdfIrNode node,
+                bool allowCharacterLiteral = false)
+            {
+                if (value == null || string.IsNullOrEmpty(typeName) ||
+                    typeName.EndsWith("[]", StringComparison.Ordinal) ||
+                    !typeSystem.TryGetPrimitive(typeName, out DdfPrimitiveTypeDefinition primitive))
+                    return value;
+                if (primitive.Category == DdfPrimitiveTypeCategory.Floating)
+                    return EnsureFinite(ToDouble(value, node), node);
+                if (primitive.Category == DdfPrimitiveTypeCategory.Integer) return ToInt(value, node);
+                if (primitive.Category == DdfPrimitiveTypeCategory.Character &&
+                    allowCharacterLiteral && value is string text && text.Length == 1) return text[0];
                 return value;
             }
 
@@ -1078,7 +1111,6 @@ namespace DDFLanguageEditor.Core
             {
                 if (value is int integer) return integer;
                 if (value is double floating) return floating;
-                if (value is char character) return character;
                 Fail("DDF403", "Era atteso un valore numerico.", node);
                 return 0;
             }
@@ -1086,15 +1118,97 @@ namespace DDFLanguageEditor.Core
             private int ToInt(object value, DdfIrNode node)
             {
                 if (value is int integer) return integer;
-                if (value is char character) return character;
-                if (value is double floating && floating >= int.MinValue && floating <= int.MaxValue) return (int)floating;
                 Fail("DDF403", "Era atteso un valore int.", node);
                 return 0;
             }
 
             private static bool IsFloating(object value) => value is double;
-            private static object NumericResult(object left, object right, double result) => IsFloating(left) || IsFloating(right) ? (object)result : (int)result;
-            private static bool EqualsValue(object left, object right) => left is int || left is double || left is char ? Convert.ToDouble(left, CultureInfo.InvariantCulture) == Convert.ToDouble(right, CultureInfo.InvariantCulture) : Equals(left, right);
+            private object EvaluateNumericBinary(string operation, object left, object right,
+                DdfIrNode node)
+            {
+                if (left is int leftInteger && right is int rightInteger &&
+                    operation != DdfVmExpressionOperations.Root)
+                {
+                    try
+                    {
+                        if (operation == DdfVmExpressionOperations.Add)
+                            return checked(leftInteger + rightInteger);
+                        if (operation == DdfVmExpressionOperations.Subtract)
+                            return checked(leftInteger - rightInteger);
+                        if (operation == DdfVmExpressionOperations.Multiply)
+                            return checked(leftInteger * rightInteger);
+                        if (operation == DdfVmExpressionOperations.Divide)
+                        {
+                            if (rightInteger == 0) Fail("DDF404", "Divisione per zero.", node);
+                            return checked(leftInteger / rightInteger);
+                        }
+                        if (operation == DdfVmExpressionOperations.Power)
+                        {
+                            if (rightInteger < 0)
+                                Fail("DDF419", "Una potenza intera richiede un esponente non negativo.", node);
+                            return IntegerPower(leftInteger, rightInteger);
+                        }
+                    }
+                    catch (OverflowException) { FailIntegerOverflow(node); }
+                }
+
+                double a = ToDouble(left, node);
+                double b = ToDouble(right, node);
+                double result;
+                if (operation == DdfVmExpressionOperations.Add) result = a + b;
+                else if (operation == DdfVmExpressionOperations.Subtract) result = a - b;
+                else if (operation == DdfVmExpressionOperations.Multiply) result = a * b;
+                else if (operation == DdfVmExpressionOperations.Divide)
+                {
+                    if (b == 0d) Fail("DDF404", "Divisione per zero.", node);
+                    result = a / b;
+                }
+                else if (operation == DdfVmExpressionOperations.Power) result = Math.Pow(a, b);
+                else if (operation == DdfVmExpressionOperations.Root)
+                {
+                    if (b == 0d) Fail("DDF404", "Indice della radice uguale a zero.", node);
+                    result = Math.Pow(a, 1d / b);
+                }
+                else
+                {
+                    Fail("DDFE004", "Operazione numerica runtime non supportata: '" +
+                        operation + "'.", node, DdfDiagnosticDomain.EngineCapability);
+                    return null;
+                }
+                return EnsureFinite(result, node);
+            }
+
+            private static int IntegerPower(int value, int exponent)
+            {
+                int result = 1;
+                int factor = value;
+                int remaining = exponent;
+                while (remaining > 0)
+                {
+                    if ((remaining & 1) != 0) result = checked(result * factor);
+                    remaining >>= 1;
+                    if (remaining > 0) factor = checked(factor * factor);
+                }
+                return result;
+            }
+
+            private double EnsureFinite(double value, DdfIrNode node)
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value))
+                    Fail("DDF418", "Il risultato float non è finito.", node);
+                return value;
+            }
+
+            private void FailIntegerOverflow(DdfIrNode node)
+            {
+                Fail("DDF417", "Overflow dell'aritmetica int checked.", node);
+            }
+
+            private static bool EqualsValue(object left, object right) =>
+                (left is int || left is double) && (right is int || right is double)
+                    ? Convert.ToDouble(left, CultureInfo.InvariantCulture) ==
+                        Convert.ToDouble(right, CultureInfo.InvariantCulture)
+                    : Equals(left, right);
             private static string FormatValue(object value)
             {
                 if (value == null) return "null";
@@ -1300,7 +1414,12 @@ namespace DDFLanguageEditor.Core
                 public DdfIrNode Node { get; }
                 public IReadOnlyList<DdfRuntimeStackFrame> DdfStackTrace { get; }
             }
-            private sealed class ReturnSignal : Exception { public ReturnSignal(object value) { Value = value; } public object Value { get; } }
+            private sealed class ReturnSignal : Exception
+            {
+                public ReturnSignal(object value, DdfIrNode node) { Value = value; Node = node; }
+                public object Value { get; }
+                public DdfIrNode Node { get; }
+            }
             private sealed class BreakSignal : Exception { }
             private sealed class EndSignal : Exception { }
             private sealed class CancelledSignal : Exception { }

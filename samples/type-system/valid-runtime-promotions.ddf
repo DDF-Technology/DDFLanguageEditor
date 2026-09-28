@@ -1,0 +1,17 @@
+acceptFloat(float value) out float
+{
+    ret value;
+}
+
+produceFloat() out float
+{
+    ret 2;
+}
+
+main() out float
+{
+    float initialized << 1;
+    float assigned << 0;
+    assigned << acceptFloat(3);
+    ret initialized + assigned + produceFloat();
+}

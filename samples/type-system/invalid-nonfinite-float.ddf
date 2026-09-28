@@ -1,0 +1,5 @@
+main() out float
+{
+    float huge << toFloat("1e200");
+    ret huge * huge;
+}

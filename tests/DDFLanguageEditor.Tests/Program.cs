@@ -171,6 +171,7 @@ namespace DDFLanguageEditor.Tests
             Run("reports missing returns and invalid assignment targets", ReportsMissingReturnsAndInvalidAssignmentTargets);
             Run("enforces the DDF 0.12 compound type and scope rules", EnforcesDdf012CompoundTypeAndScopeRules);
             Run("validates the normative DDF type corpus", ValidatesNormativeDdfTypeCorpus);
+            Run("enforces the DDF 0.12 runtime numeric contract", EnforcesDdf012RuntimeNumericContract);
             Run("type-checks the editor smoke sample", TypeChecksEditorSmokeSample);
             Run("executes functions control flow and output", ExecutesFunctionsControlFlowAndOutput);
             Run("executes arrays and structure members", ExecutesArraysAndStructureMembers);
@@ -4615,6 +4616,61 @@ namespace DDFLanguageEditor.Tests
                     .ToArray();
                 SequenceEqual(item.Value.OrderBy(code => code, StringComparer.Ordinal), actual);
             }
+        }
+
+        private static void EnforcesDdf012RuntimeNumericContract()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Types");
+
+            DdfExecutionResult promotions = ExecuteTypeCorpus(corpus,
+                "valid-runtime-promotions.ddf");
+            Equal(true, promotions.Succeeded);
+            Equal(true, promotions.ReturnValue is double);
+            Equal(6d, promotions.ReturnValue);
+
+            DdfExecutionResult integerDivision = ExecuteTypeCorpus(corpus,
+                "valid-integer-division.ddf");
+            Equal(true, integerDivision.Succeeded);
+            Equal(3, integerDivision.ReturnValue);
+
+            DdfExecutionResult underflow = DdfInterpreter.Execute(
+                "main() out float { ret 0.1 ^ 10000; }");
+            Equal(true, underflow.Succeeded);
+            Equal(0d, underflow.ReturnValue);
+
+            var failures = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["invalid-runtime-overflow.ddf"] = "DDF417",
+                ["invalid-nonfinite-float.ddf"] = "DDF418",
+                ["invalid-negative-integer-power.ddf"] = "DDF419"
+            };
+            foreach (KeyValuePair<string, string> item in failures)
+            {
+                string source = File.ReadAllText(Path.Combine(corpus, item.Key));
+                DdfParseResult parse = DdfParser.Parse(source);
+                Equal(0, parse.ValidationDiagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+                DdfExecutionResult result = DdfInterpreter.Execute(source);
+                Equal(false, result.Succeeded);
+                Equal(item.Value, result.Diagnostics.Single().Code);
+            }
+
+            DdfExecutionResult postfixOverflow = DdfInterpreter.Execute(
+                "main() out int { int value << 2147483647; value++; ret value; }");
+            Equal("DDF417", postfixOverflow.Diagnostics.Single().Code);
+
+            DdfExecutionResult unaryOverflow = DdfInterpreter.Execute(
+                "main() out int { int value << -2147483647 - 1; ret -value; }");
+            Equal("DDF417", unaryOverflow.Diagnostics.Single().Code);
+        }
+
+        private static DdfExecutionResult ExecuteTypeCorpus(string corpus, string fileName)
+        {
+            string source = File.ReadAllText(Path.Combine(corpus, fileName));
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.ValidationDiagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+            return DdfInterpreter.Execute(source);
         }
 
         private static void TypeChecksEditorSmokeSample()

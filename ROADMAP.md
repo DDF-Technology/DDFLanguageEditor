@@ -694,7 +694,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Eseguire l'audit trasversale di compatibilità con .NET 10/Roslyn e fissare i gate per IR bound, mapping, runtime ABI, nomi, riferimenti, emit, PDB, packaging e confronto differenziale (`ROSLYN_COMPATIBILITY_AUDIT.md`, DDF-0014, 2026-09-28).
 - [ ] Allineare pacchetto, type checker, VM e servizi IDE ai tredici gap di conformità censiti nella specifica, inclusi cicli di strutture e mapping backend versionato.
   - [x] Chiudere i gap semantici di pacchetto/checker: `dict` escluso dal DDF, `char` non numerico, array monodimensionali, niente shadowing, ritorno su ogni percorso, uguaglianza vietata per composti, indici stringa in sola lettura e contenimento strutture aciclico; aggiungere il primo corpus negativo eseguibile (`0.12.2`, 2026-09-28).
-  - [ ] Allineare valori realmente memorizzati e VM: promozione `int -> float`, aritmetica intera checked, potenze intere e risultati floating non finiti.
+  - [x] Allineare valori realmente memorizzati e VM: promozione `int -> float` su inizializzazioni, assegnazioni, argomenti, campi e ritorni; aritmetica intera checked senza passaggio da `double`; divisione intera verso zero; potenze intere non negative; diagnostiche stabili per overflow e risultati floating non finiti (`0.12.2`, 2026-09-28).
 - [ ] Creare il corpus normativo dei tipi e confrontare diagnostiche e risultati fra VM e futuro backend Roslyn.
 
 ### 0.12.3 — Moduli e libreria standard
