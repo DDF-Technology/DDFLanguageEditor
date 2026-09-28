@@ -183,3 +183,18 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Conseguenze:** lo schema dei tipi dovrà dichiarare e validare il mapping di
   backend. La compatibilità CLR non sostituisce i controlli DDF e non espone
   automaticamente reflection, assembly o membri .NET allo script.
+
+## DDF-0014 — Roslyn consuma soltanto IR bound
+
+- **Stato:** Accettata
+- **Data:** 2026-09-28
+- **Decisione:** il backend Roslyn non interpreta AST, token o nomi DDF grezzi.
+  Consuma una IR bound con simboli, tipi, conversioni, chiamate e destinazioni
+  già risolti dal compilatore DDF; genera alberi C# sicuri e usa Roslyn per
+  validazione ed emit IL/PDB, non come fonte della semantica DDF.
+- **Alternative rifiutate:** traduzione testuale DDF -> C#; affidare binding e
+  conversioni al compilatore C#; concatenare identificatori o frammenti sorgente
+  non attendibili nel codice generato.
+- **Conseguenze:** la IR deve evolvere alla versione bound prima del backend.
+  Name mangling, runtime ABI, reference set, opzioni di compilazione, Portable
+  PDB e confronto VM/Roslyn diventano gate obbligatori e verificabili.

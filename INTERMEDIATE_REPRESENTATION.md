@@ -58,3 +58,11 @@ artefatto in memoria e una ricevuta di build deterministica. La successiva
 evoluzione sostituirà gradualmente il ponte legacy con il lowering diretto delle
 operazioni semantiche pianificate; eventuali estensioni native resteranno
 plug-in espliciti e autorizzabili.
+
+L'audit Roslyn ha inoltre fissato il successivo confine: la IR strutturale `1.0`
+non verrà passata direttamente al generatore C#. Una IR bound `2.0` dovrà
+assegnare identità stabile ai simboli, annotare il tipo di ogni espressione,
+materializzare conversioni e destinazioni e risolvere ogni chiamata. In questo
+modo Roslyn convalida ed emette il programma senza diventare accidentalmente il
+definitore della semantica DDF. I gate completi sono in
+`ROSLYN_COMPATIBILITY_AUDIT.md`.

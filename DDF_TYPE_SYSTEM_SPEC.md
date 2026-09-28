@@ -127,6 +127,11 @@ a funzione condividono l'istanza; modificare un campo attraverso un alias rende
 la modifica visibile agli altri alias. Riassegnare il parametro non riassegna la
 variabile del chiamante.
 
+Il grafo di contenimento fra strutture deve essere aciclico, considerando anche
+i campi array: con valori sempre non nulli, una struttura che contiene se stessa
+direttamente o indirettamente non avrebbe una costruzione finita. La ricorsione
+dei dati richiederà in futuro un tipo opzionale o un riferimento esplicito.
+
 ## Compatibilità e conversioni
 
 L'identità di tipo è sempre ammessa. L'unica conversione implicita generale è:
@@ -294,9 +299,10 @@ Questi punti devono essere corretti prima di dichiarare completata la `0.12.2`:
 8. verificare che ogni percorso di una funzione non `void` restituisca;
 9. vietare uguaglianza di array e strutture invece del confronto di riferimento;
 10. rifiutare l'uso dell'indice di `string` come destinazione modificabile;
-11. estendere il contratto dei tipi con mapping CLR/Roslyn versionati e
+11. diagnosticare cicli diretti o indiretti nel contenimento delle strutture;
+12. estendere il contratto dei tipi con mapping CLR/Roslyn versionati e
     validarli durante il caricamento del pacchetto;
-12. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
+13. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
 
 Fino alla chiusura di questi gap, editor e VM possono mostrare il comportamento
 beta preesistente; la specifica, non quel comportamento, governa la migrazione.

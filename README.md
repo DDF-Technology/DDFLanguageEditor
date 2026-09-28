@@ -335,6 +335,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_OPERATOR_SPEC.md`: contratto normativo di operatori, precedenza e associatività DDF 0.12;
 - `DDF_SYNTAX_SPEC.md`: contratto normativo di unità, dichiarazioni, blocchi, funzioni e controllo di flusso;
 - `DDF_TYPE_SYSTEM_SPEC.md`: contratto normativo di tipi, conversioni, valori, scope, chiamate ed errori DDF 0.12;
+- `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: migrazione esplicita dei sorgenti beta alla sintassi 0.12;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;

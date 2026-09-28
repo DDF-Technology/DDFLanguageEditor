@@ -689,7 +689,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Stabilire regole di inizializzazione, divieto di shadowing, visibilità e diagnostiche semantiche (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
 - [x] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
 - [x] Vincolare ogni tipo eseguibile a un mapping CLR/C# deterministico accettato da Roslyn, mantenendo distinti compatibilità di rappresentazione e accesso autorizzato alle API .NET (`DDF_TYPE_SYSTEM_SPEC.md`, DDF-0013, 2026-09-28).
-- [ ] Allineare pacchetto, type checker, VM e servizi IDE ai dodici gap di conformità censiti nella specifica, incluso il mapping backend versionato.
+- [x] Eseguire l'audit trasversale di compatibilità con .NET 10/Roslyn e fissare i gate per IR bound, mapping, runtime ABI, nomi, riferimenti, emit, PDB, packaging e confronto differenziale (`ROSLYN_COMPATIBILITY_AUDIT.md`, DDF-0014, 2026-09-28).
+- [ ] Allineare pacchetto, type checker, VM e servizi IDE ai tredici gap di conformità censiti nella specifica, inclusi cicli di strutture e mapping backend versionato.
 - [ ] Creare il corpus normativo dei tipi e confrontare diagnostiche e risultati fra VM e futuro backend Roslyn.
 
 ### 0.12.3 — Moduli e libreria standard
@@ -739,6 +740,9 @@ un errore, un breakpoint e il confronto con la VM. Roslyn non fornisce
 automaticamente il debugger del nostro linguaggio: mappatura e controllo della
 pausa sono attività esplicite della milestone.
 
+Il backend può iniziare soltanto dopo i gate R1–R6 di
+`ROSLYN_COMPATIBILITY_AUDIT.md`; non sono ammesse traduzioni testuali dirette.
+
 ### 0.13.0 — Contratti e formato compilato
 
 - [ ] Definire unità di compilazione, interfacce esportate e separazione tra sorgente, IR e artefatti persistenti.
@@ -748,12 +752,17 @@ pausa sono attività esplicite della milestone.
 ### 0.13.1 — Compilazione separata
 
 - [ ] Compilare singoli moduli e librerie mantenendo i controlli della pipeline condivisa.
-- [ ] Generare C# dalla IR e compilare con Roslyn, usando esclusivamente i mapping CLR versionati dei tipi e conservando la semantica DDF di valori, conversioni, overflow, non-null, scope e ordine di valutazione.
+- [ ] Evolvere la IR strutturale `1.0` in una IR bound `2.0` con simboli stabili, tipo di ogni espressione, conversioni esplicite, l-value e chiamate risolte.
+- [ ] Generare alberi C# dalla IR bound e compilare con Roslyn, usando esclusivamente i mapping CLR versionati dei tipi e conservando la semantica DDF di valori, conversioni, overflow, non-null, scope e ordine di valutazione.
+- [ ] Introdurre una runtime ABI DDF indipendente dalla UI per controlli numerici, errori, I/O, budget, cancellazione, `end` e bridge delle capacità host.
+- [ ] Applicare name mangling deterministico e impedire che identificatori, stringhe o direttive DDF vengano inseriti come sorgente C# non validato.
+- [ ] Fissare versione Roslyn/C#, reference assemblies, nullable, overflow, ottimizzazione e determinismo nella ricevuta di build.
 - [ ] Riportare diagnostiche e punti di pausa al codice originale e implementare l'ispezione delle variabili senza esporre nomi temporanei generati.
 - [ ] Conservare diagnostiche e informazioni di debug per file, riga, simbolo e scope.
 - [ ] Rendere riproducibili gli artefatti e definire invalidazione della cache per sorgenti, pacchetti e opzioni.
 - [ ] Verificare equivalenza osservabile tra esecuzione da sorgente e da modulo compilato.
 - [ ] Confrontare il backend .NET e la VM su risultati, errori e chiamate host prima di sostituire il percorso predefinito.
+- [ ] Emettere Portable PDB con sequence point sui documenti DDF originali e verificare breakpoint, stepping, call stack e variabili contro il debugger VM.
 
 ### 0.13.2 — Linker e loader
 
