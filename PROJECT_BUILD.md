@@ -82,6 +82,11 @@ stop the build. The store is excluded from application source globbing and does
 not define namespaces. Resolved modules and their source hashes are recorded in
 the artifact. `IDdfModuleResolver` allows a host to substitute the storage
 lookup without changing language semantics.
+Runtime functions, structures and globals are internally scoped by exact module
+identity and version, so separate dependencies may reuse private names. Source
+code still uses unqualified names: lookup starts in the current module and then
+considers only direct exported dependencies; ambiguous public APIs fail type
+checking.
 See [the module-system specification](DDF_MODULE_SYSTEM_SPEC.md) for visibility,
 initialization, dependency and directive rules.
 

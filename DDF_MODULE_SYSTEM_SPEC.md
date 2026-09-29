@@ -30,6 +30,11 @@ che un riordino delle cartelle cambi la semantica. Namespace annidati non fanno
 parte del nucleo `0.12.3`; potranno essere aggiunti solo con una nuova decisione
 di linguaggio.
 
+Il runtime qualifica internamente funzioni, strutture e globali con la coppia
+`module.id@module.version`. Moduli diversi possono quindi usare gli stessi nomi
+privati senza collisioni; questa qualificazione non introduce una nuova sintassi
+nel sorgente e non espone automaticamente i simboli al consumatore.
+
 ## 3. Esportazioni
 
 `module.exports` contiene nomi top-level univoci. Ogni nome deve corrispondere a
@@ -80,11 +85,11 @@ stessa identità (`DDFB016`) e moduli che usano linguaggio, pacchetto o backend
 diversi (`DDFB017`). Moduli risolti, export e sorgenti partecipano alla ricevuta
 e al fingerprint.
 
-La VM beta usa ancora un dizionario runtime piatto: finché la IR bound non avrà
-simboli qualificati, dichiarazioni omonime appartenenti a moduli diversi vengono
-rifiutate con `DDFB018`, anche quando private. Questa limitazione evita binding
-ambiguo e verrà rimossa tramite qualificazione/name mangling, non scegliendo una
-dichiarazione arbitraria.
+La VM conserva identità, dipendenze ed export in ogni `DdfIrModule`. Chiamate,
+tipi e globali vengono risolti prima nel modulo attivo e poi negli export delle
+sole dipendenze dirette. Anche inizializzazione, Watch e snapshot del debugger
+usano lo stesso contesto qualificato. Se due dipendenze esportano lo stesso nome,
+il type checker rifiuta l'ambiguità invece di scegliere in base all'ordine.
 
 ## 6. Direttive e librerie esterne
 
@@ -123,7 +128,6 @@ DDF-0015.
 | `DDFB015` | ciclo nel grafo delle dipendenze |
 | `DDFB016` | due versioni della stessa identità richieste nello stesso grafo |
 | `DDFB017` | linguaggio, pacchetto o backend incompatibile |
-| `DDFB018` | collisione di un nome runtime fra moduli distinti |
 | `DDF312` | chiamata a funzione non visibile o sconosciuta |
 | `DDF313` | riferimento a valore non visibile o sconosciuto |
 

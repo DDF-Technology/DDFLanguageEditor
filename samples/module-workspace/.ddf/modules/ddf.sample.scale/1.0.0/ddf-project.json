@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.1",
+  "name": "DDF sample scale library",
+  "module": {
+    "id": "ddf.sample.scale",
+    "version": "1.0.0",
+    "exports": [ "scale" ]
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.2.1",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": null,
+  "entryPoint": "unused",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "scale.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": false,
+    "maxInstructions": 100000
+  }
+}

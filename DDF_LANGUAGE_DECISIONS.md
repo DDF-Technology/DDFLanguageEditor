@@ -245,5 +245,6 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   intervalli di versione nella linea `0.12`; visibilità transitiva; deduzione
   dell'identità dalla cartella; inclusione dello store nel workspace applicativo.
 - **Conseguenze:** risoluzione, cicli e conflitti sono deterministici e l'intero
-  grafo entra nella ricevuta. Finché la IR non possiede simboli qualificati, le
-  collisioni runtime fra moduli sono rifiutate anziché risolte arbitrariamente.
+  grafo entra nella ricevuta. `DdfIrModule` conserva identità, export e dipendenze;
+  la VM qualifica il contesto di funzioni, strutture e globali, consentendo nomi
+  privati uguali in moduli diversi senza introdurre namespace sintattici.

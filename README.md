@@ -25,7 +25,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - manifest `ddf-project.json` separato dal pacchetto, con identità/versione/export del modulo, sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
 - comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
-- resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, rilevamento cicli e ricevuta riproducibile;
+- resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, simboli privati qualificati, rilevamento cicli e ricevuta riproducibile;
 - catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;
 - modalità host separate per sola analisi, simulazione senza scritture esterne ed esecuzione con effetti reali; le operazioni mutanti richiedono un sostituto esplicito per poter essere simulate;
 - operazioni host asincrone con token e scadenza, timeout e budget configurabili e risorse per esecuzione rilasciate deterministicamente; il codice non fidato o non cooperativo richiede un processo worker separato;

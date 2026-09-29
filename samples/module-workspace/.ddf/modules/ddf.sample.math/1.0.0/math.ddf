@@ -1,6 +1,15 @@
+struct Box
+{
+    int value;
+}
+
+int offset << 1;
+
 hiddenOffset() out int
 {
-    ret 1;
+    Box box;
+    box.value << offset;
+    ret box.value;
 }
 
 add(int left, int right) out int

@@ -1,0 +1,18 @@
+struct Box
+{
+    int value;
+}
+
+int offset << 2;
+
+hiddenOffset() out int
+{
+    Box box;
+    box.value << offset;
+    ret box.value;
+}
+
+scale(int value) out int
+{
+    ret value * 2 + hiddenOffset();
+}

@@ -161,10 +161,16 @@ namespace DDFLanguageEditor.Core
             private readonly DdfTypeSystemDefinition typeSystem;
             private readonly DdfStandardLibraryDefinition standardLibrary;
             private readonly DdfExecutionOptions options;
-            private readonly Dictionary<string, DdfIrFunction> functions = new Dictionary<string, DdfIrFunction>(StringComparer.Ordinal);
+            private readonly Dictionary<string, Dictionary<string, DdfIrFunction>> functionsByModule =
+                new Dictionary<string, Dictionary<string, DdfIrFunction>>(StringComparer.Ordinal);
             private readonly Dictionary<DdfIrFunction, DdfIrModule> functionModules = new Dictionary<DdfIrFunction, DdfIrModule>();
-            private readonly Dictionary<string, DdfIrStructure> structures = new Dictionary<string, DdfIrStructure>(StringComparer.Ordinal);
+            private readonly Dictionary<string, Dictionary<string, DdfIrStructure>> structuresByModule =
+                new Dictionary<string, Dictionary<string, DdfIrStructure>>(StringComparer.Ordinal);
             private readonly Dictionary<DdfIrStructure, DdfIrModule> structureModules = new Dictionary<DdfIrStructure, DdfIrModule>();
+            private readonly Dictionary<string, DdfIrModule> moduleDescriptors =
+                new Dictionary<string, DdfIrModule>(StringComparer.Ordinal);
+            private readonly Dictionary<string, Dictionary<string, Cell>> globalsByModule =
+                new Dictionary<string, Dictionary<string, Cell>>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, Cell>> scopes = new List<Dictionary<string, Cell>>();
             private readonly Stack<int> debugFrameScopes = new Stack<int>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
@@ -176,6 +182,7 @@ namespace DDFLanguageEditor.Core
             private int instructions;
             private int hostCalls;
             private DdfIrModule activeModule;
+            private bool declaringGlobal;
 
             public Runner(IReadOnlyList<DdfIrModule> modules, DdfRuntimeDefinition runtime,
                 DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary,
@@ -212,12 +219,18 @@ namespace DDFLanguageEditor.Core
                     {
                         activeModule = module;
                         foreach (DdfIrMember member in module.Program.Members)
-                            if (member is DdfIrGlobal global) ExecuteStatement(global.Statement);
+                            if (member is DdfIrGlobal global)
+                            {
+                                declaringGlobal = true;
+                                try { ExecuteStatement(global.Statement); }
+                                finally { declaringGlobal = false; }
+                            }
                     }
 
                     if (!string.IsNullOrWhiteSpace(options.EntryPoint))
                     {
-                        if (!functions.TryGetValue(options.EntryPoint, out DdfIrFunction entry))
+                        if (!TryResolveFunction(activeModule, options.EntryPoint, false,
+                            out DdfIrFunction entry))
                             Fail("DDF401", "Funzione di ingresso '" + options.EntryPoint + "' non trovata.", activeModule.Program);
                         returnTypeName = FormatType(entry.ReturnType);
                         returnValue = Invoke(entry, BindEntryArguments(entry), null);
@@ -240,6 +253,7 @@ namespace DDFLanguageEditor.Core
                     hostValues = CaptureHostValues();
                     ReleaseHostResources();
                     scopes.Clear();
+                    globalsByModule.Clear();
                 }
 
                 return new DdfExecutionResult(returnValue, instructions, cancelled,
@@ -284,6 +298,20 @@ namespace DDFLanguageEditor.Core
             {
                 foreach (DdfIrModule module in modules)
                 {
+                    string moduleKey = ModuleKey(module);
+                    moduleDescriptors[moduleKey] = module;
+                    if (!functionsByModule.TryGetValue(moduleKey, out Dictionary<string, DdfIrFunction> functions))
+                    {
+                        functions = new Dictionary<string, DdfIrFunction>(StringComparer.Ordinal);
+                        functionsByModule.Add(moduleKey, functions);
+                    }
+                    if (!structuresByModule.TryGetValue(moduleKey, out Dictionary<string, DdfIrStructure> structures))
+                    {
+                        structures = new Dictionary<string, DdfIrStructure>(StringComparer.Ordinal);
+                        structuresByModule.Add(moduleKey, structures);
+                    }
+                    if (!globalsByModule.ContainsKey(moduleKey))
+                        globalsByModule.Add(moduleKey, new Dictionary<string, Cell>(StringComparer.Ordinal));
                     foreach (DdfIrMember member in module.Program.Members)
                     {
                         if (member is DdfIrFunction function && !string.IsNullOrEmpty(function.Name))
@@ -439,7 +467,8 @@ namespace DDFLanguageEditor.Core
                 if (expression is DdfIrCall call)
                 {
                     var target = call.Target as DdfIrName;
-                    if (target != null && functions.TryGetValue(target.Name, out DdfIrFunction function))
+                    if (target != null && TryResolveFunction(activeModule, target.Name, true,
+                        out DdfIrFunction function))
                     {
                         var userArguments = new List<object>();
                         foreach (DdfIrExpression argument in call.Arguments) userArguments.Add(Evaluate(argument));
@@ -851,7 +880,7 @@ namespace DDFLanguageEditor.Core
                         cells[index] = new Cell(CreateDefault(elementType), FormatType(elementType), DdfRuntimeVariableKind.Element);
                     return cells;
                 }
-                if (structures.TryGetValue(type.Name, out DdfIrStructure structure))
+                if (TryResolveStructure(activeModule, type.Name, true, out DdfIrStructure structure))
                 {
                     DdfIrModule previousModule = activeModule;
                     activeModule = structureModules[structure];
@@ -883,7 +912,8 @@ namespace DDFLanguageEditor.Core
                 bool allowCharacterLiteral = false)
             {
                 if (value == null) return CreateDefault(type);
-                if (type.ArrayLengths.Count > 0 || structures.ContainsKey(type.Name)) return value;
+                if (type.ArrayLengths.Count > 0 ||
+                    TryResolveStructure(activeModule, type.Name, true, out _)) return value;
                 return ConvertForTypeName(value, type.Name, node, allowCharacterLiteral);
             }
 
@@ -922,8 +952,16 @@ namespace DDFLanguageEditor.Core
 
             private Cell FindCell(string name, DdfIrNode node)
             {
-                for (int index = scopes.Count - 1; index >= 0; index--)
+                for (int index = scopes.Count - 1; index >= 1; index--)
                     if (scopes[index].TryGetValue(name, out Cell cell)) return cell;
+                string activeKey = ModuleKey(activeModule);
+                if (globalsByModule.TryGetValue(activeKey, out Dictionary<string, Cell> ownGlobals) &&
+                    ownGlobals.TryGetValue(name, out Cell ownGlobal)) return ownGlobal;
+                foreach (DdfIrModule dependency in DirectDependencies(activeModule))
+                    if (dependency.Exports.Contains(name, StringComparer.Ordinal) &&
+                        globalsByModule.TryGetValue(ModuleKey(dependency), out Dictionary<string, Cell> dependencyGlobals) &&
+                        dependencyGlobals.TryGetValue(name, out Cell dependencyGlobal)) return dependencyGlobal;
+                if (scopes.Count > 0 && scopes[0].TryGetValue(name, out Cell hostCell)) return hostCell;
                 if (options.HostCatalog?.TryGetObject(name,
                     out DdfHostObjectDefinition deniedObject) == true &&
                     !options.HostCatalog.HasPermissions(deniedObject.RequiredPermissions))
@@ -935,9 +973,58 @@ namespace DDFLanguageEditor.Core
 
             private void Declare(string name, object value, string typeName, DdfRuntimeVariableKind kind)
             {
-                if (!string.IsNullOrEmpty(name))
-                    scopes[scopes.Count - 1][name] = new Cell(value, typeName, kind);
+                if (string.IsNullOrEmpty(name)) return;
+                var cell = new Cell(value, typeName,
+                    declaringGlobal ? DdfRuntimeVariableKind.Global : kind);
+                if (declaringGlobal)
+                    globalsByModule[ModuleKey(activeModule)][name] = cell;
+                else
+                    scopes[scopes.Count - 1][name] = cell;
             }
+
+            private bool TryResolveFunction(DdfIrModule module, string name,
+                bool includeDependencies, out DdfIrFunction function)
+            {
+                if (functionsByModule.TryGetValue(ModuleKey(module),
+                    out Dictionary<string, DdfIrFunction> ownFunctions) &&
+                    ownFunctions.TryGetValue(name, out function)) return true;
+                if (includeDependencies)
+                    foreach (DdfIrModule dependency in DirectDependencies(module))
+                        if (dependency.Exports.Contains(name, StringComparer.Ordinal) &&
+                            functionsByModule.TryGetValue(ModuleKey(dependency),
+                                out Dictionary<string, DdfIrFunction> dependencyFunctions) &&
+                            dependencyFunctions.TryGetValue(name, out function)) return true;
+                function = null;
+                return false;
+            }
+
+            private bool TryResolveStructure(DdfIrModule module, string name,
+                bool includeDependencies, out DdfIrStructure structure)
+            {
+                if (structuresByModule.TryGetValue(ModuleKey(module),
+                    out Dictionary<string, DdfIrStructure> ownStructures) &&
+                    ownStructures.TryGetValue(name, out structure)) return true;
+                if (includeDependencies)
+                    foreach (DdfIrModule dependency in DirectDependencies(module))
+                        if (dependency.Exports.Contains(name, StringComparer.Ordinal) &&
+                            structuresByModule.TryGetValue(ModuleKey(dependency),
+                                out Dictionary<string, DdfIrStructure> dependencyStructures) &&
+                            dependencyStructures.TryGetValue(name, out structure)) return true;
+                structure = null;
+                return false;
+            }
+
+            private IEnumerable<DdfIrModule> DirectDependencies(DdfIrModule module)
+            {
+                foreach (DdfProjectDependency dependency in module.Dependencies)
+                    if (moduleDescriptors.TryGetValue(ModuleKey(dependency.Id, dependency.Version),
+                        out DdfIrModule resolved)) yield return resolved;
+            }
+
+            private static string ModuleKey(DdfIrModule module) =>
+                ModuleKey(module.ModuleId, module.ModuleVersion);
+
+            private static string ModuleKey(string id, string version) => id + "@" + version;
 
             private Cell DeclareHost(DdfHostObjectDefinition definition, object value,
                 Func<object> reader, Action<object> writer)
@@ -1222,6 +1309,7 @@ namespace DDFLanguageEditor.Core
             {
                 int budget = 4096;
                 var globals = CaptureScopeRange(0, Math.Min(1, scopes.Count), ref budget, true);
+                globals.AddRange(CaptureVisibleModuleGlobals(ref budget));
                 var stack = new List<DdfRuntimeStackFrame>();
                 for (int index = callStack.Count - 1; index >= 0; index--)
                 {
@@ -1243,6 +1331,31 @@ namespace DDFLanguageEditor.Core
                 if (frames.Count > 0) variables.AddRange(frames[0].Variables);
                 variables.AddRange(globals);
                 return new DdfRuntimeStateSnapshot(variables.AsReadOnly(), stack.AsReadOnly(), frames.AsReadOnly());
+            }
+
+            private IEnumerable<DdfRuntimeVariableSnapshot> CaptureVisibleModuleGlobals(ref int budget)
+            {
+                var variables = new List<DdfRuntimeVariableSnapshot>();
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                AppendModuleGlobals(activeModule, false, variables, names, ref budget);
+                foreach (DdfIrModule dependency in DirectDependencies(activeModule))
+                    AppendModuleGlobals(dependency, true, variables, names, ref budget);
+                return variables;
+            }
+
+            private void AppendModuleGlobals(DdfIrModule module, bool exportsOnly,
+                ICollection<DdfRuntimeVariableSnapshot> variables, ISet<string> names,
+                ref int budget)
+            {
+                if (!globalsByModule.TryGetValue(ModuleKey(module),
+                    out Dictionary<string, Cell> globals)) return;
+                foreach (KeyValuePair<string, Cell> pair in globals)
+                {
+                    if (exportsOnly && !module.Exports.Contains(pair.Key, StringComparer.Ordinal)) continue;
+                    if (!names.Add(pair.Key)) continue;
+                    variables.Add(CaptureDebugValue(pair.Key, pair.Value, 0, 0,
+                        ref budget, DdfRuntimeVariableKind.Global));
+                }
             }
 
             private List<DdfRuntimeVariableSnapshot> CaptureScopeRange(int start, int end,

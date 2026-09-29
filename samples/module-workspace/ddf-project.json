@@ -13,7 +13,8 @@
   "entrySource": "main.ddf",
   "entryPoint": "main",
   "dependencies": [
-    { "id": "ddf.sample.math", "version": "1.0.0" }
+    { "id": "ddf.sample.math", "version": "1.0.0" },
+    { "id": "ddf.sample.scale", "version": "1.0.0" }
   ],
   "backend": "ddf-vm-ir-v1",
   "output": {

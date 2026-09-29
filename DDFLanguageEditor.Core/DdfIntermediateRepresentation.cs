@@ -26,15 +26,34 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfIrModule
     {
         public DdfIrModule(string documentPath, string source, DdfIrProgram program)
+            : this(documentPath, source, program, "local.module", "0.0.0",
+                Array.Empty<string>(), Array.Empty<DdfProjectDependency>())
+        {
+        }
+
+        public DdfIrModule(string documentPath, string source, DdfIrProgram program,
+            string moduleId, string moduleVersion, IEnumerable<string> exports,
+            IEnumerable<DdfProjectDependency> dependencies)
         {
             DocumentPath = documentPath ?? string.Empty;
             Source = source ?? throw new ArgumentNullException(nameof(source));
             Program = program ?? throw new ArgumentNullException(nameof(program));
+            ModuleId = string.IsNullOrWhiteSpace(moduleId) ? "local.module" : moduleId;
+            ModuleVersion = string.IsNullOrWhiteSpace(moduleVersion) ? "0.0.0" : moduleVersion;
+            Exports = (exports ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal)
+                .ToList().AsReadOnly();
+            Dependencies = (dependencies ?? Array.Empty<DdfProjectDependency>())
+                .Select(item => new DdfProjectDependency { Id = item.Id, Version = item.Version })
+                .ToList().AsReadOnly();
         }
 
         public string DocumentPath { get; }
         public string Source { get; }
         public DdfIrProgram Program { get; }
+        public string ModuleId { get; }
+        public string ModuleVersion { get; }
+        public IReadOnlyList<string> Exports { get; }
+        public IReadOnlyList<DdfProjectDependency> Dependencies { get; }
     }
 
     public abstract class DdfIrMember : DdfIrNode

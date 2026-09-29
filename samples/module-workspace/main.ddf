@@ -1,6 +1,6 @@
 main() out int
 {
-    int total << add(20, 21);
+    int total << add(10, 11) + scale(9);
     total >> Console;
     ret total;
 }

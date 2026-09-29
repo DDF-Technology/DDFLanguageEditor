@@ -33,6 +33,13 @@ per breakpoint, pausa, diagnostiche runtime e stack trace navigabile.
 analisi dell'editor unisce tali diagnostiche a lexer, parser, risoluzione e type
 checker. Run viene bloccato se una fase non riesce a rappresentare il sorgente.
 
+`DdfIrModule` associa inoltre ogni programma sorgente a identità/versione del
+modulo, export e dipendenze dirette. La VM usa questi metadati per qualificare
+funzioni, strutture e globali: più moduli possono conservare gli stessi nomi
+privati, mentre il lookup attraversa soltanto gli export dichiarati. Questa è
+qualificazione runtime deterministica; il futuro IR bound `2.0` assegnerà anche
+un'identità simbolica stabile a ogni riferimento già risolto.
+
 Ogni diagnostica dichiara anche il proprio dominio: `Codice sorgente`,
 `Definizione linguaggio`, `Funzionalità motore` oppure `Runtime`. Il lowerer usa
 il dominio del motore quando incontra un nodo non rappresentabile; l'interprete

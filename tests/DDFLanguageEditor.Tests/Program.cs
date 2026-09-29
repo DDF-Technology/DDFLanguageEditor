@@ -3513,16 +3513,19 @@ namespace DDFLanguageEditor.Tests
                 DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
                 string mainPath = Path.Combine(root, "main.ddf");
                 File.WriteAllText(mainPath,
-                    "main() out int { ret add(4, 5); }", new UTF8Encoding(false));
+                    "main() out int { ret add(4, 5) + scale(3); }", new UTF8Encoding(false));
                 DdfProjectManifest application = DdfProjectManifest.CreateImplicit("Module application", package, "main.ddf");
                 application.Module.Id = "example.application";
                 application.Module.Version = "1.0.0";
                 application.Dependencies.Add(new DdfProjectDependency { Id = "example.math", Version = "1.0.0" });
+                application.Dependencies.Add(new DdfProjectDependency { Id = "example.scale", Version = "1.0.0" });
 
                 string mathRoot = Path.Combine(root, ".ddf", "modules", "example.math", "1.0.0");
                 Directory.CreateDirectory(mathRoot);
                 File.WriteAllText(Path.Combine(mathRoot, "math.ddf"),
-                    "hidden() out int { ret 1; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    "struct Box { int value; } int offset << 1; " +
+                    "hidden() out int { Box box; box.value << offset; ret box.value; } " +
+                    "add(int left, int right) out int { ret hidden() + left + right; }",
                     new UTF8Encoding(false));
                 DdfProjectManifest math = DdfProjectManifest.CreateImplicit("Math", package, null);
                 math.Module.Id = "example.math";
@@ -3533,14 +3536,30 @@ namespace DDFLanguageEditor.Tests
                     JsonSerializer.Serialize(math, new JsonSerializerOptions { WriteIndented = true }),
                     new UTF8Encoding(false));
 
+                string scaleRoot = Path.Combine(root, ".ddf", "modules", "example.scale", "1.0.0");
+                Directory.CreateDirectory(scaleRoot);
+                File.WriteAllText(Path.Combine(scaleRoot, "scale.ddf"),
+                    "struct Box { int value; } int offset << 2; " +
+                    "hidden() out int { Box box; box.value << offset; ret box.value; } " +
+                    "scale(int value) out int { ret value * 2 + hidden(); }",
+                    new UTF8Encoding(false));
+                DdfProjectManifest scale = DdfProjectManifest.CreateImplicit("Scale", package, null);
+                scale.Module.Id = "example.scale";
+                scale.Module.Version = "1.0.0";
+                scale.Module.Exports.Add("scale");
+                scale.EntryPoint = "unused";
+                File.WriteAllText(Path.Combine(scaleRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(scale, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
                 var service = new DdfBuildService();
                 DdfBuildResult valid = service.Validate(root, application, package);
                 if (!valid.Success)
                     throw new InvalidOperationException(string.Join(" | ", valid.Issues.Select(issue => issue.ToString())));
                 Equal(true, valid.Success);
-                SequenceEqual(new[] { "example.math", "example.application" },
+                SequenceEqual(new[] { "example.math", "example.scale", "example.application" },
                     valid.Artifact.ResolvedModules.Select(item => item.Id));
-                Equal(2, valid.Artifact.Sources.Count);
+                Equal(3, valid.Artifact.Sources.Count);
                 Equal(true, valid.Artifact.Sources.Any(item =>
                     item.RelativePath == "@example.math/1.0.0/math.ddf"));
                 DdfWorkspaceIndex workspace = DdfWorkspaceIndex.Load(root);
@@ -3549,17 +3568,21 @@ namespace DDFLanguageEditor.Tests
                 DdfExecutionResult execution = DdfInterpreter.Execute(valid.Artifact.RuntimeModules,
                     package.Language, new DdfExecutionOptions { EntryPoint = valid.Artifact.EntryPoint });
                 Equal(true, execution.Succeeded);
-                Equal(10, execution.ReturnValue);
+                Equal(18, execution.ReturnValue);
 
                 string mathPath = Path.Combine(mathRoot, "math.ddf");
                 File.WriteAllText(mathPath,
-                    "hidden() out int { ret 2; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    "struct Box { int value; } int offset << 2; " +
+                    "hidden() out int { Box box; box.value << offset; ret box.value; } " +
+                    "add(int left, int right) out int { ret hidden() + left + right; }",
                     new UTF8Encoding(false));
                 DdfBuildResult changedDependency = service.Validate(root, application, package);
                 Equal(true, changedDependency.Success);
                 Equal(false, valid.Artifact.Fingerprint == changedDependency.Artifact.Fingerprint);
                 File.WriteAllText(mathPath,
-                    "hidden() out int { ret 1; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    "struct Box { int value; } int offset << 1; " +
+                    "hidden() out int { Box box; box.value << offset; ret box.value; } " +
+                    "add(int left, int right) out int { ret hidden() + left + right; }",
                     new UTF8Encoding(false));
 
                 File.WriteAllText(mainPath, "main() out int { ret hidden(); }", new UTF8Encoding(false));
@@ -3567,7 +3590,7 @@ namespace DDFLanguageEditor.Tests
                 Equal(false, privateReference.Success);
                 Equal(true, privateReference.Issues.Any(item => item.Code == "DDF312"));
 
-                File.WriteAllText(mainPath, "main() out int { ret add(4, 5); }", new UTF8Encoding(false));
+                File.WriteAllText(mainPath, "main() out int { ret add(4, 5) + scale(3); }", new UTF8Encoding(false));
                 math.Dependencies.Add(new DdfProjectDependency
                 {
                     Id = application.Module.Id,
@@ -3651,7 +3674,7 @@ namespace DDFLanguageEditor.Tests
                 throw new InvalidOperationException(string.Join(" | ", result.Issues.Select(
                     issue => issue.Code + ": " + issue.Message)));
             Equal(true, result.Success);
-            SequenceEqual(new[] { "ddf.sample.math", "ddf.sample.module-app" },
+            SequenceEqual(new[] { "ddf.sample.math", "ddf.sample.scale", "ddf.sample.module-app" },
                 result.Artifact.ResolvedModules.Select(item => item.Id));
             DdfExecutionResult execution = DdfInterpreter.Execute(result.Artifact.RuntimeModules,
                 package.Language, new DdfExecutionOptions { EntryPoint = result.Artifact.EntryPoint });

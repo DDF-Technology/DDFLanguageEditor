@@ -707,7 +707,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
   - [x] Implementare il resolver di dipendenze trans-modulo, la visibilità non transitiva dei soli export e il rifiuto dei cicli fra moduli; registrare l'intero grafo nella ricevuta riproducibile (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0017, 2026-09-29).
 - [ ] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor.
   - [x] Riservare `.ddf/modules/<id>/<version>` come store locale sostituibile, escluso da glob e indice workspace e privo di significato semantico (`0.12.3`, 2026-09-29).
-  - [ ] Definire formato di distribuzione/installazione e qualificazione dei simboli per eliminare le collisioni tra nomi privati di moduli diversi.
+  - [x] Qualificare funzioni, strutture e globali nella VM tramite identità/versione del modulo, mantenendo visibili soltanto gli export diretti e permettendo nomi privati uguali (`0.12.3`, 2026-09-29).
+  - [ ] Definire formato di distribuzione/installazione dei moduli e relativo gestore, senza trasformare i percorsi in namespace.
 - [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
 
 ### 0.12.4 — Specifica verificabile e migrazione

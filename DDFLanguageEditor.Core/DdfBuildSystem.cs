@@ -474,33 +474,29 @@ namespace DDFLanguageEditor.Core
                         issues.Add(DdfBuildIssue.Configuration("DDFB012",
                             "L'esportazione '" + export + "' non corrisponde a una dichiarazione del modulo '" +
                             module.Manifest.Module.Id + "'.", Path.Combine(module.Root, DdfProjectManifest.FileName)));
-            var runtimeCollisions = declarations.GroupBy(item => item.Name, StringComparer.Ordinal)
-                .Where(group => group.Select(item => item.Module.Manifest.Module.Id)
-                    .Distinct(StringComparer.Ordinal).Count() > 1);
-            foreach (var collision in runtimeCollisions)
-                issues.Add(DdfBuildIssue.Configuration("DDFB018",
-                    "Il nome runtime '" + collision.Key + "' è dichiarato da più moduli: " +
-                    string.Join(", ", collision.Select(item => item.Module.Manifest.Module.Id)
-                        .Distinct(StringComparer.Ordinal)) + "."));
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfBuildResult(null, issues);
 
             var orderedGlobals = parsed.Where(item => programs.ContainsKey(item)).SelectMany(item => programs[item].Members
                 .OfType<DdfIrGlobal>()
                 .Where(global => global.Statement is DdfIrVariableDeclaration)
-                .Select(global => new { Source = item.Source, Variable = (DdfIrVariableDeclaration)global.Statement }))
+                .Select(global => new { item.Module, Source = item.Source, Variable = (DdfIrVariableDeclaration)global.Statement }))
                 .ToList();
-            var globalOrder = orderedGlobals.Select((item, index) => new { item.Variable.Name, Index = index })
-                .ToDictionary(item => item.Name, item => item.Index, StringComparer.Ordinal);
-            for (int index = 0; index < orderedGlobals.Count; index++)
+            foreach (var moduleGlobals in orderedGlobals.GroupBy(item => item.Module))
             {
-                var current = orderedGlobals[index];
-                foreach (string dependency in EnumerateNames(current.Variable.Initializer).Distinct(StringComparer.Ordinal))
-                    if (globalOrder.TryGetValue(dependency, out int dependencyIndex) && dependencyIndex >= index)
-                        issues.Add(DdfBuildIssue.Configuration("DDFB011",
-                            "La globale '" + current.Variable.Name + "' dipende da '" + dependency +
-                            "', dichiarata successivamente o coinvolta in un ciclo. L'inizializzazione segue l'ordine dei file e delle dichiarazioni.",
-                            current.Source.Path));
+                var globals = moduleGlobals.ToList();
+                var globalOrder = globals.Select((item, index) => new { item.Variable.Name, Index = index })
+                    .ToDictionary(item => item.Name, item => item.Index, StringComparer.Ordinal);
+                for (int index = 0; index < globals.Count; index++)
+                {
+                    var current = globals[index];
+                    foreach (string dependency in EnumerateNames(current.Variable.Initializer).Distinct(StringComparer.Ordinal))
+                        if (globalOrder.TryGetValue(dependency, out int dependencyIndex) && dependencyIndex >= index)
+                            issues.Add(DdfBuildIssue.Configuration("DDFB011",
+                                "La globale '" + current.Variable.Name + "' dipende da '" + dependency +
+                                "', dichiarata successivamente o coinvolta in un ciclo. L'inizializzazione segue l'ordine dei file e delle dichiarazioni.",
+                                current.Source.Path));
+                }
             }
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfBuildResult(null, issues);
@@ -515,7 +511,9 @@ namespace DDFLanguageEditor.Core
             string fingerprint = Fingerprint(manifest, package, artifactSources, maxInstructions, modules);
             IReadOnlyList<DdfIrModule> runtimeModules = parsed
                 .Where(item => programs.ContainsKey(item))
-                .Select(item => new DdfIrModule(item.Source.Path, item.Source.Source, programs[item]))
+                .Select(item => new DdfIrModule(item.Source.Path, item.Source.Source, programs[item],
+                    item.Module.Manifest.Module.Id, item.Module.Manifest.Module.Version,
+                    item.Module.Manifest.Module.Exports, item.Module.Manifest.Dependencies))
                 .ToList().AsReadOnly();
             IReadOnlyList<DdfBuildResolvedModule> resolvedModules = modules
                 .Select(module => new DdfBuildResolvedModule(module.Manifest.Module.Id,
