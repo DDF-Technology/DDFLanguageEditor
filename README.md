@@ -24,6 +24,9 @@ versionato dichiara risultati e diagnostiche attesi per sorgenti completi,
 incompleti e progetti multi-file. I programmi validi sono duplicati in forma
 auto-contenuta come casi `corpus:*` del `tests.json` canonico: vengono eseguiti
 prima dell'attivazione del pacchetto e una regressione ne impedisce la divergenza.
+Versionamento, compatibilità, deprecazioni e confini delle future migrazioni sono
+definiti in [DDF_LANGUAGE_VERSIONING.md](DDF_LANGUAGE_VERSIONING.md) e nella
+policy macchina `ddf-language-version-policy.json`.
 
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
@@ -348,6 +351,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_CURRENT_LANGUAGE_INVENTORY.md`: fotografia verificabile della sintassi e semantica beta, con decisioni ancora aperte;
 - `DDF_LANGUAGE_DECISIONS.md`: registro versionato delle decisioni e delle alternative rifiutate;
 - `DDF_LANGUAGE_PROFILES.md`: profili DDF canonico, didattico italiano e familiare C con contratto di equivalenza;
+- `DDF_LANGUAGE_VERSIONING.md`: policy normativa per versioni, compatibilità, deprecazioni e migrazioni;
 - `DDF_LEXICAL_SPEC.md`: contratto normativo di identificatori, letterali, stringhe e commenti DDF 0.12;
 - `DDF_OPERATOR_SPEC.md`: contratto normativo di operatori, precedenza e associatività DDF 0.12;
 - `DDF_SYNTAX_SPEC.md`: contratto normativo di unità, dichiarazioni, blocchi, funzioni e controllo di flusso;

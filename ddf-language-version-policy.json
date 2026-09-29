@@ -1,0 +1,51 @@
+{
+  "$schema": "./ddf-language-version-policy.schema.json",
+  "schemaVersion": "1.0",
+  "languageId": "ddf",
+  "languageVersion": "0.12",
+  "packageVersion": "0.12.3",
+  "stability": "beta",
+  "versionDomains": [
+    { "id": "productVersion", "owner": "applicazione standalone e SDK", "format": "MAJOR.MINOR.PATCH[-prerelease]", "compatibility": "segue il ciclo di rilascio del prodotto e non determina la semantica DDF" },
+    { "id": "languageVersion", "owner": "contratto semantico DDF", "format": "MAJOR.MINOR", "compatibility": "la stessa versione indica lo stesso significato osservabile dei programmi validi" },
+    { "id": "packageVersion", "owner": "manifest del pacchetto linguaggio", "format": "MAJOR.MINOR.PATCH", "compatibility": "i progetti selezionano una revisione esatta e riproducibile" },
+    { "id": "engineApi", "owner": "loader e motore", "format": "MAJOR.MINOR", "compatibility": "una versione non supportata viene rifiutata prima dell'attivazione" },
+    { "id": "schemaVersion", "owner": "singolo documento JSON", "format": "MAJOR.MINOR", "compatibility": "forma incompatibile rifiutata atomicamente" },
+    { "id": "moduleVersion", "owner": "autore del modulo", "format": "MAJOR.MINOR.PATCH", "compatibility": "dipendenze e store usano sempre la coppia id/versione esatta" },
+    { "id": "standardLibraryVersion", "owner": "libreria ddf.standard", "format": "MAJOR.MINOR.PATCH", "compatibility": "firma, effetto, binding ed errori fanno parte del contratto" }
+  ],
+  "releaseRules": [
+    { "change": "implementationOnly", "languageBump": "none", "packageBump": "patch" },
+    { "change": "presentationOrEquivalentSyntax", "languageBump": "none", "packageBump": "patch" },
+    { "change": "additiveLanguageContract", "languageBump": "minor", "packageBump": "minor" },
+    { "change": "breakingLanguageContractDuringBeta", "languageBump": "minor", "packageBump": "minor" },
+    { "change": "breakingLanguageContractAfterOne", "languageBump": "major", "packageBump": "major" }
+  ],
+  "compatibility": {
+    "projectPackage": "exact",
+    "moduleDependency": "exact",
+    "profileEquivalence": "same-language-and-semantic-contract",
+    "unknownVersions": "reject-before-activation"
+  },
+  "deprecations": [
+    {
+      "id": "legacy-library-directive",
+      "status": "deprecated",
+      "deprecatedIn": "0.12",
+      "replacement": "ddf-project.json dependencies or explicit host capabilities",
+      "removal": "not-scheduled",
+      "automaticMigration": false
+    }
+  ],
+  "migrations": [
+    { "id": "beta-not-equal", "scope": "source", "classification": "syntax-preserving", "automation": "candidate", "availability": "specified-not-implemented", "from": "!!", "to": "!=", "requiresPreview": true, "requiresBackup": true },
+    { "id": "beta-logical-and", "scope": "source", "classification": "syntax-preserving", "automation": "candidate", "availability": "specified-not-implemented", "from": "&", "to": "&&", "requiresPreview": true, "requiresBackup": true },
+    { "id": "beta-logical-xor", "scope": "source", "classification": "syntax-preserving", "automation": "candidate", "availability": "specified-not-implemented", "from": "|&|", "to": "^^", "requiresPreview": true, "requiresBackup": true },
+    { "id": "project-manifest-1-0-to-1-1", "scope": "project-manifest", "classification": "syntax-preserving", "automation": "candidate", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true, "note": "Richiede identita, versione ed export espliciti del modulo." },
+    { "id": "beta-range-operators", "scope": "source", "classification": "semantic-review", "automation": "manual", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true, "note": "I vecchi operatori non codificavano entrambi i limiti." },
+    { "id": "beta-root-operator", "scope": "source", "classification": "semantic-review", "automation": "manual", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true },
+    { "id": "removed-dict-type", "scope": "source", "classification": "semantic-review", "automation": "manual", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true },
+    { "id": "multidimensional-arrays", "scope": "source", "classification": "semantic-review", "automation": "manual", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true },
+    { "id": "shadowed-declarations", "scope": "source", "classification": "semantic-review", "automation": "manual", "availability": "specified-not-implemented", "requiresPreview": true, "requiresBackup": true }
+  ]
+}

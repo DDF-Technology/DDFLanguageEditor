@@ -307,7 +307,8 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Stato:** Accettata
 - **Data:** 2026-09-29
 - **Decisione:** `DDF_LANGUAGE_SPEC.md` consolida in un unico documento
-  autosufficiente il contratto DDF `0.12.3`. Ogni sezione è normativa salvo
+  autosufficiente il contratto del linguaggio DDF `0.12`, distribuito dal
+  pacchetto canonico `0.12.3`. Ogni sezione è normativa salvo
   marcatura esplicita; esempi e matrice delle fonti sono non normativi. I
   documenti lessicale, sintattico, operatori, tipi, moduli e libreria standard
   restano approfondimenti, non autorità semantiche concorrenti.
@@ -319,3 +320,25 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   insieme la specifica autonoma, il pacchetto eseguibile e i test. Una
   divergenza blocca il rilascio; gli strumenti possono continuare a recuperare
   forme incomplete senza promuoverle a sintassi valida.
+
+## DDF-0022 — Versioni separate e migrazioni conservative
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** versione del prodotto, `languageVersion`, `packageVersion`,
+  `engineApi`, schemi, moduli e libreria standard sono domini indipendenti. La
+  stessa versione del linguaggio garantisce la stessa semantica osservabile; i
+  progetti e i moduli continuano a selezionare revisioni esatte. Durante `0.x`
+  ogni cambiamento semantico incrementa il minor del linguaggio; dopo `1.0` un
+  cambiamento incompatibile incrementa il major. Le migrazioni automatiche sono
+  ammesse soltanto se strutturali, equivalenti, idempotenti, con anteprima e
+  checkpoint; ogni caso ambiguo resta manuale.
+- **Alternative rifiutate:** usare la versione dell'app per identificare il
+  linguaggio; considerare compatibili tutti i pacchetti con ID simile; scegliere
+  automaticamente la revisione più recente; sostituzioni testuali globali;
+  migrare o salvare implicitamente durante il cambio profilo; promettere un
+  migratore prima di implementarlo.
+- **Conseguenze:** `DDF_LANGUAGE_VERSIONING.md` è la policy normativa e
+  `ddf-language-version-policy.json` la rappresentazione verificabile. Le
+  trasformazioni beta sicure sono soltanto candidate non ancora implementate;
+  operatori ambigui, tipi rimossi e cambi strutturali richiedono revisione umana.

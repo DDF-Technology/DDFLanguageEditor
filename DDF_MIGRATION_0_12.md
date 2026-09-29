@@ -8,6 +8,12 @@ Il contratto completo di destinazione è `DDF_LANGUAGE_SPEC.md`; questa guida
 descrive soltanto le trasformazioni dai sorgenti beta e non ridefinisce la
 semantica.
 
+La classificazione normativa fra migrazioni candidate all'automazione e
+trasformazioni che richiedono revisione umana è in
+`DDF_LANGUAGE_VERSIONING.md` e `ddf-language-version-policy.json`. Le candidate
+sono attualmente **specificate ma non implementate**: questa guida non implica
+modifiche automatiche dei file.
+
 ## Operatori — pacchetto 0.12.1
 
 | Forma beta | Forma 0.12 | Nota |

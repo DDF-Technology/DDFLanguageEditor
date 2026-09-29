@@ -1,10 +1,11 @@
-# Specifica autonoma del linguaggio DDF 0.12.3
+# Specifica autonoma del linguaggio DDF 0.12
 
-Stato: **normativa** per il profilo canonico `ddf` versione `0.12.3`.
+Stato: **normativa** per il linguaggio DDF `0.12`, distribuito dal pacchetto
+canonico `ddf` versione `0.12.3`.
 
 Questo documento definisce in modo autosufficiente il nucleo del linguaggio
 DDF. Non è necessario consultare bozze storiche, codice dell'editor o altri
-documenti per stabilire se un programma appartiene al nucleo `0.12.3` e quale
+documenti per stabilire se un programma appartiene al nucleo `0.12` e quale
 comportamento deve avere. I file JSON del pacchetto sono la rappresentazione
 eseguibile dello stesso contratto, non una fonte di semantica alternativa.
 
@@ -14,7 +15,7 @@ Tutto il testo è normativo salvo le sezioni marcate **non normativa**. Le parol
 ## 1. Scopo e conformità
 
 DDF è un linguaggio imperativo, staticamente tipizzato, case-sensitive e
-orientato a programmi modulari. La versione `0.12.3` definisce:
+orientato a programmi modulari. Il linguaggio `0.12` definisce:
 
 - testo sorgente e token;
 - unità di compilazione e grammatica canonica;
@@ -512,6 +513,10 @@ Una modifica a grafia o presentazione equivalente incrementa il pacchetto. Una
 modifica osservabile a tipi, semantica, libreria standard, moduli o runtime
 richiede una nuova versione del contratto DDF e una guida di migrazione. Un
 comportamento accidentale dell'implementazione non modifica questa specifica.
+La policy completa e verificabile è `DDF_LANGUAGE_VERSIONING.md`; la sua
+rappresentazione macchina è `ddf-language-version-policy.json`. Essa distingue
+versione del linguaggio, revisione del pacchetto, API motore, schemi, moduli e
+libreria standard e non autorizza fallback verso versioni non richieste.
 
 ---
 

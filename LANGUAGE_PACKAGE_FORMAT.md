@@ -274,6 +274,12 @@ restano quelli attualmente implementati; le nuove capacità seguiranno la roadma
 La `0.9.6.0` accetta `schemaVersion` ed `engineApi` `1.0`. Versioni incompatibili
 vengono rifiutate prima di creare il catalogo attivo.
 
+La policy normativa che stabilisce incrementi, compatibilità fra profili,
+deprecazioni e requisiti delle migrazioni è `DDF_LANGUAGE_VERSIONING.md`, con
+contratto macchina in `ddf-language-version-policy.json`. In particolare, una
+patch del pacchetto non può cambiare il significato osservabile della stessa
+`languageVersion`.
+
 ## Creazione di un archivio
 
 Per distribuire un pacchetto, comprimere direttamente il contenuto della sua

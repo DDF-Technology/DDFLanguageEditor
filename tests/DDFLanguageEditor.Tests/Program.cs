@@ -119,6 +119,7 @@ namespace DDFLanguageEditor.Tests
             Run("loads and executes package-defined standard functions", LoadsAndExecutesPackageDefinedStandardFunctions);
             Run("enforces the versioned minimum standard library contract", EnforcesMinimumStandardLibraryContract);
             Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
+            Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
@@ -3434,6 +3435,90 @@ namespace DDFLanguageEditor.Tests
             if (fenceStart < 0 || contentStart <= 0 || fenceEnd < contentStart)
                 throw new InvalidOperationException("Fence " + language + " non valida nella specifica autonoma.");
             return block.Substring(contentStart, fenceEnd - contentStart).Trim();
+        }
+
+        private static void KeepsDdfVersionPolicyAligned()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-version-policy.json"), Encoding.UTF8)).AsObject();
+            JsonObject package = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "manifest.json"), Encoding.UTF8)).AsObject();
+            JsonObject corpus = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "samples", "language-corpus", "corpus.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", policy["schemaVersion"].GetValue<string>());
+            Equal("ddf", policy["languageId"].GetValue<string>());
+            Equal("beta", policy["stability"].GetValue<string>());
+            Equal(package["id"].GetValue<string>(), policy["languageId"].GetValue<string>());
+            Equal(package["languageVersion"].GetValue<string>(), policy["languageVersion"].GetValue<string>());
+            Equal(package["packageVersion"].GetValue<string>(), policy["packageVersion"].GetValue<string>());
+            Equal(corpus["languageVersion"].GetValue<string>(), policy["languageVersion"].GetValue<string>());
+            Equal(corpus["languagePackageVersion"].GetValue<string>(), policy["packageVersion"].GetValue<string>());
+
+            JsonArray domains = policy["versionDomains"].AsArray();
+            string[] domainIds = domains.Select(item => item.AsObject()["id"].GetValue<string>()).ToArray();
+            Equal(domainIds.Length, domainIds.Distinct(StringComparer.Ordinal).Count());
+            SequenceEqual(new[]
+            {
+                "engineApi", "languageVersion", "moduleVersion", "packageVersion",
+                "productVersion", "schemaVersion", "standardLibraryVersion"
+            }, domainIds.OrderBy(id => id, StringComparer.Ordinal));
+
+            JsonArray releases = policy["releaseRules"].AsArray();
+            string[] changes = releases.Select(item => item.AsObject()["change"].GetValue<string>()).ToArray();
+            Equal(changes.Length, changes.Distinct(StringComparer.Ordinal).Count());
+            Equal(true, releases.Any(item => item.AsObject()["change"].GetValue<string>() ==
+                "breakingLanguageContractAfterOne" && item.AsObject()["languageBump"].GetValue<string>() == "major"));
+
+            JsonArray migrations = policy["migrations"].AsArray();
+            string[] migrationIds = migrations.Select(item => item.AsObject()["id"].GetValue<string>()).ToArray();
+            Equal(migrationIds.Length, migrationIds.Distinct(StringComparer.Ordinal).Count());
+            Equal(true, migrations.Any(item => item.AsObject()["automation"].GetValue<string>() == "candidate"));
+            Equal(true, migrations.Any(item => item.AsObject()["automation"].GetValue<string>() == "manual"));
+            foreach (JsonNode node in migrations)
+            {
+                JsonObject migration = node.AsObject();
+                Equal("specified-not-implemented", migration["availability"].GetValue<string>());
+                Equal(true, migration["requiresPreview"].GetValue<bool>());
+                Equal(true, migration["requiresBackup"].GetValue<bool>());
+                Equal(migration["automation"].GetValue<string>() == "candidate"
+                        ? "syntax-preserving" : "semantic-review",
+                    migration["classification"].GetValue<string>());
+            }
+
+            JsonArray deprecations = policy["deprecations"].AsArray();
+            Equal(true, deprecations.Any(item => item.AsObject()["id"].GetValue<string>() ==
+                "legacy-library-directive" && !item.AsObject()["automaticMigration"].GetValue<bool>()));
+
+            string versioning = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_VERSIONING.md"), Encoding.UTF8);
+            foreach (string migrationId in migrationIds)
+                Equal(true, versioning.Contains(migrationId, StringComparison.Ordinal) ||
+                    ReadMigrationAliases(versioning).Contains(migrationId, StringComparer.Ordinal));
+        }
+
+        private static IEnumerable<string> ReadMigrationAliases(string versioning)
+        {
+            if (versioning.Contains("operatori beta di intervallo", StringComparison.Ordinal))
+                yield return "beta-range-operators";
+            if (versioning.Contains("operatori beta di intervallo e radice", StringComparison.Ordinal))
+                yield return "beta-root-operator";
+            if (versioning.Contains("`dict`", StringComparison.Ordinal))
+                yield return "removed-dict-type";
+            if (versioning.Contains("array multidimensionali", StringComparison.Ordinal))
+                yield return "multidimensional-arrays";
+            if (versioning.Contains("dichiarazioni in shadowing", StringComparison.Ordinal))
+                yield return "shadowed-declarations";
+            if (versioning.Contains("`!! -> !=`", StringComparison.Ordinal))
+                yield return "beta-not-equal";
+            if (versioning.Contains("`& -> &&`", StringComparison.Ordinal))
+                yield return "beta-logical-and";
+            if (versioning.Contains("`|&| -> ^^`", StringComparison.Ordinal))
+                yield return "beta-logical-xor";
+            if (versioning.Contains("`1.0 -> 1.1`", StringComparison.Ordinal))
+                yield return "project-manifest-1-0-to-1-1";
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()
