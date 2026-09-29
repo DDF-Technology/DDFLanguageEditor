@@ -76,6 +76,7 @@ namespace DDF___Program_Language_Editor
             initializeEditingExperience();
             initializeMainToolbar();
             initializeLanguagePackageCommands();
+            initializeModulePackageCommands();
             panelEditor.AttachBuildService(new DdfEditorBuildService(
                 () => openDocuments,
                 () => editorLanguageSession,
@@ -266,6 +267,7 @@ namespace DDF___Program_Language_Editor
             disposeCrashRecovery();
             disposeExternalChangeMonitoring();
             disposeFlowchart();
+            closeModulePackageManager();
             if (panelEditor != null) panelEditor.HostCatalogChanged -= panelEditor_HostCatalogChanged;
             if (panelEditor != null) panelEditor.LanguageSessionChanged -= panelEditor_LanguageSessionChanged;
             if (editorLanguageSession != null)

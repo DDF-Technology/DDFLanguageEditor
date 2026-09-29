@@ -709,7 +709,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
   - [x] Riservare `.ddf/modules/<id>/<version>` come store locale sostituibile, escluso da glob e indice workspace e privo di significato semantico (`0.12.3`, 2026-09-29).
   - [x] Qualificare funzioni, strutture e globali nella VM tramite identità/versione del modulo, mantenendo visibili soltanto gli export diretti e permettendo nomi privati uguali (`0.12.3`, 2026-09-29).
   - [x] Definire `.ddfmod` come archivio sorgente deterministico e implementare il gestore Core con staging, rollback, versioni affiancate, sostituzione esplicita, rimozione esatta e difese da path traversal (`DDF_MODULE_PACKAGE_FORMAT.md`, DDF-0018, 2026-09-29).
-  - [ ] Integrare il gestore moduli nella UI standalone con anteprima di identità, versione, export e dipendenze; l'embedded lo esporrà soltanto se autorizzato dall'host.
+  - [x] Integrare il gestore moduli nella UI standalone con anteprima non distruttiva di identità, versione, linguaggio, export e dipendenze, creazione, installazione/sostituzione, convalida e rimozione (`0.12.3`, 2026-09-29).
+  - [ ] Definire una capability host esplicita prima di rendere qualunque operazione sullo store disponibile nell'embedded; per impostazione predefinita menu e toolbar restano assenti.
 - [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
 
 ### 0.12.4 — Specifica verificabile e migrazione

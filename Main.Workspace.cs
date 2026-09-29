@@ -115,6 +115,7 @@ namespace DDF___Program_Language_Editor
         private void closeWorkspaceMenuItem_Click(object sender, EventArgs e)
         {
             cancelWorkspaceLoad();
+            closeModulePackageManager();
             switchWatchProject(null);
             workspaceIndex = null;
             treeViewWorkspace.Nodes.Clear();
@@ -142,6 +143,7 @@ namespace DDF___Program_Language_Editor
 
         private async void startWorkspaceLoad(string rootPath)
         {
+            closeModulePackageManager();
             long version = ++workspaceLoadRequestVersion;
             long languageRevision = editorLanguageSession.Revision;
             workspaceLoadCancellation?.Cancel();

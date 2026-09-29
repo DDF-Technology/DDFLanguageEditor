@@ -14,6 +14,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripButton toolbarValidateButton;
         private ToolStripButton toolbarLanguageManagerButton;
         private ToolStripButton toolbarLanguagePlaygroundButton;
+        private ToolStripButton toolbarModuleManagerButton;
         private ToolStripButton toolbarStopButton;
         private ToolStripButton toolbarBreakpointButton;
         private ToolStripButton toolbarSaveAllButton;
@@ -60,7 +61,7 @@ namespace DDF___Program_Language_Editor
             new ToolbarGroupDefinition("project", "Progetto e linguaggio", "toolStripProject", new[]
             {
                 "toolbarSettingsButton", "toolbarValidateButton", "toolbarBuildButton", "toolbarLanguageManagerButton",
-                "toolbarLanguagePlaygroundButton", "toolbarLanguageButton"
+                "toolbarLanguagePlaygroundButton", "toolbarLanguageButton", "toolbarModuleManagerButton"
             }),
             new ToolbarGroupDefinition("debug", "Esecuzione e debug", "toolStripDebug", new[]
             {

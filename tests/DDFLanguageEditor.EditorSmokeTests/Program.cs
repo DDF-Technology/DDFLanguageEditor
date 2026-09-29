@@ -65,6 +65,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertInstalledProfilesAndCloseAllWorkspaceDocuments(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument, "--module-manager-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertModuleMenu(visible);
+                    return 0;
+                }
                 if (!args.Any(argument => string.Equals(argument, "--skip-host-demo",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -87,7 +93,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 74 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 76 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -1794,6 +1800,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertEditAndFindReplaceMenus(visible);
                 AssertViewMenu(visible);
                 AssertHelpMenu(visible);
+                AssertModuleMenu(visible);
                 AssertFileMenu(visible);
             }
             finally
@@ -2779,6 +2786,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "runWithoutDebugMenuItem", "runProgramMenuItem", "stepIntoMenuItem", "stepOverMenuItem", "stepOutMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "highlightCurrentLineMenuItem", "showWhitespaceMenuItem",
                     "showIndentGuidesMenuItem", "wordWrapMenuItem", "showOverviewMenuItem", "educationalModeMenuItem", "languagePackageInfoMenuItem",
+                    "modulesMenuItem", "manageModulePackagesMenuItem",
                     "showToolbarFileMenuItem", "showToolbarEditMenuItem", "showToolbarCodeMenuItem",
                     "showToolbarNavigationMenuItem", "showToolbarViewMenuItem", "showToolbarProjectMenuItem",
                     "showToolbarDebugMenuItem",
@@ -2937,6 +2945,92 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             Console.WriteLine("PASS menu Help: pacchetto linguaggio attivo, About, autore, sito, licenza, versione beta e icona");
+        }
+
+        private static void AssertModuleMenu(bool visible)
+        {
+            string projectRoot = Path.Combine(Path.GetTempPath(), "ddf-module-ui-project-" + Guid.NewGuid().ToString("N"));
+            string moduleRoot = Path.Combine(Path.GetTempPath(), "ddf-module-ui-source-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(projectRoot);
+            Directory.CreateDirectory(moduleRoot);
+            try
+            {
+                DdfLanguagePackage language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+                File.WriteAllText(Path.Combine(projectRoot, "main.ddf"),
+                    "main() out int { ret add(1, 2); }", new UTF8Encoding(false));
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit("Module UI", language, "main.ddf");
+                project.Module.Id = "example.module-ui";
+                project.Module.Version = "1.0.0";
+                project.Dependencies.Add(new DdfProjectDependency { Id = "example.ui-library", Version = "1.0.0" });
+                File.WriteAllText(Path.Combine(projectRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(project, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                File.WriteAllText(Path.Combine(moduleRoot, "library.ddf"),
+                    "add(int left, int right) out int { ret left + right; }", new UTF8Encoding(false));
+                DdfProjectManifest module = DdfProjectManifest.CreateImplicit("UI library", language, null);
+                module.Module.Id = "example.ui-library";
+                module.Module.Version = "1.0.0";
+                module.Module.Exports.Add("add");
+                module.EntryPoint = "unused";
+                File.WriteAllText(Path.Combine(moduleRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(module, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+                DdfModulePackageResult installed = new DdfModulePackageStore(projectRoot).Install(moduleRoot);
+                Require(installed.Success, "Preparazione del modulo per lo smoke UI non riuscita.");
+
+                using (var form = ShowSmokeForm(visible))
+                {
+                    Require((bool)InvokePrivate(form, "openWorkspace", projectRoot),
+                        "Il workspace per il gestore moduli non viene aperto.");
+                    PumpUntil(() => GetPrivateField<object>(form, "workspaceIndex") != null, 4000,
+                        "Il workspace per il gestore moduli non completa il caricamento.");
+                    Require(FindToolbarButton(form, "toolbarModuleManagerButton").Text !=
+                            FindToolbarButton(form, "toolbarLanguageManagerButton").Text,
+                        "Gestore moduli e gestore linguaggi usano la stessa icona.");
+                    ToolStripMenuItem modules = FindMenuItem(form, "modulesMenuItem");
+                    Require(modules.DropDownItems.Count == 1,
+                        "La voce Moduli non contiene il comando del gestore.");
+                    modules.PerformClick();
+                    PumpMessages(30);
+                    Require(!Application.OpenForms.Cast<Form>().Any(openForm =>
+                            openForm.Name == "ModulePackageManagerForm" && openForm.Owner == form),
+                        "Un clic sulla voce padre Moduli esegue inaspettatamente un comando.");
+                    FindMenuItem(form, "manageModulePackagesMenuItem").PerformClick();
+                    PumpMessages(100);
+                    Form manager = Application.OpenForms.Cast<Form>().FirstOrDefault(openForm =>
+                        openForm.Name == "ModulePackageManagerForm" && openForm.Owner == form);
+                    Require(manager != null && manager.StartPosition == FormStartPosition.CenterScreen &&
+                            IsLight(manager.BackColor),
+                        "Il gestore moduli non è stato aperto come finestra chiara e centrata.");
+                    ListView list = FindControl<ListView>(manager, "modulePackagesListView");
+                    Require(list.Items.Count == 1 && list.Items[0].SubItems[1].Text == "example.ui-library" &&
+                            list.Items[0].SubItems[2].Text == "1.0.0" &&
+                            list.Items[0].SubItems[3].Text == "1",
+                        "Il gestore non mostra identità, versione ed export del modulo installato.");
+                    list.Items[0].Selected = true;
+                    list.Select();
+                    PumpMessages(40);
+                    string details = FindControl<TextBox>(manager, "modulePackageDetailsTextBox").Text;
+                    Require(details.Contains("example.ui-library@1.0.0") && details.Contains("add") &&
+                            details.Contains("Dipendenze:"),
+                        "Il dettaglio non mostra identità, export e dipendenze del modulo.");
+                    foreach (string name in new[] { "modulePackageInstallArchiveButton", "modulePackageInstallFolderButton",
+                        "modulePackageCreateButton", "modulePackageRemoveButton", "modulePackageValidateButton",
+                        "modulePackageRefreshButton", "modulePackageManagerCloseButton" })
+                        Require(FindControl<Button>(manager, name) != null,
+                            "Comando mancante nel gestore moduli: " + name + ".");
+                    FindControl<Button>(manager, "modulePackageManagerCloseButton").PerformClick();
+                    PumpMessages(40);
+                    Require(manager.IsDisposed, "Chiudi non termina il gestore moduli.");
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, true);
+                if (Directory.Exists(moduleRoot)) Directory.Delete(moduleRoot, true);
+            }
+            Console.WriteLine("PASS menu Moduli: store progetto, metadati, toolbar e gestore standalone");
         }
 
         private static void AssertEditAndFindReplaceMenus(bool visible)
@@ -5506,7 +5600,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarShowWhitespaceButton", "toolbarShowIndentGuidesButton", "toolbarWordWrapButton",
                 "toolbarOverviewButton",
                 "toolbarValidateButton", "toolbarBuildButton", "toolbarRunWithoutDebugButton",
-                "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton",
+                "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton", "toolbarModuleManagerButton",
                 "toolbarBreakpointButton", "toolbarRunButton", "toolbarStepIntoButton", "toolbarStepOverButton", "toolbarStepOutButton", "toolbarStopButton"
             };
             foreach (string name in expected)
@@ -5563,7 +5657,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS sette toolbar mobili per categoria con 52 comandi, posizione e visibilità persistenti");
+            Console.WriteLine("PASS sette toolbar mobili per categoria con 53 comandi, posizione e visibilità persistenti");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)

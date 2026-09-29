@@ -3711,6 +3711,12 @@ namespace DDFLanguageEditor.Tests
                 Equal(true, File.Exists(firstArchive));
                 Equal(true, store.Pack(moduleRoot, secondArchive).Success);
                 Equal(true, File.ReadAllBytes(firstArchive).SequenceEqual(File.ReadAllBytes(secondArchive)));
+                DdfModulePackageResult preview = store.Inspect(firstArchive);
+                Equal(true, preview.Success);
+                Equal("example.packaged-math", preview.Module.Id);
+                SequenceEqual(new[] { "add" }, preview.Module.Exports);
+                Equal(0, preview.Module.Dependencies.Count);
+                Equal(0, store.List().Count);
 
                 DdfModulePackageResult installed = store.Install(firstArchive);
                 Equal(true, installed.Success);

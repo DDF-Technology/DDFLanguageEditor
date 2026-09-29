@@ -97,6 +97,12 @@ replacement of the same version, and supports exact listing/removal. Different
 versions coexist. Archive names and installation paths never affect symbol
 identity. See [the module package format](DDF_MODULE_PACKAGE_FORMAT.md).
 
+In the standalone editor, open a workspace and choose **Modules > Manage project
+modules** (`Moduli > Gestisci moduli progetto...`). The dialog previews package
+metadata before installation and can pack the active workspace, install a
+package or source folder, validate, refresh and remove exact versions. These
+filesystem operations are intentionally absent from the embedded shell.
+
 ## Planned .NET backend
 
 The selected direction for 0.13.x is common IR to generated C#, compiled with

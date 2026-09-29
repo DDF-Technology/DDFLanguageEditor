@@ -38,7 +38,7 @@ namespace DDF___Program_Language_Editor
             "moveLinesDownMenuItem", "deleteLinesMenuItem", "quickFixMenuItem",
             "validateProjectMenuItem", "buildProjectMenuItem", "runWithoutDebugMenuItem",
             "settingsMenuItem", "manageLanguagePackagesMenuItem", "validateLanguagePackageMenuItem",
-            "languagePlaygroundMenuItem"
+            "languagePlaygroundMenuItem", "manageModulePackagesMenuItem"
         };
 
         private static readonly HashSet<string> DebugUnsafeToolbarCommands = new HashSet<string>(StringComparer.Ordinal)
@@ -50,7 +50,7 @@ namespace DDF___Program_Language_Editor
             "toolbarCompletionButton", "toolbarQuickFixButton", "toolbarFormatButton",
             "toolbarValidateButton", "toolbarBuildButton", "toolbarRunWithoutDebugButton",
             "toolbarSettingsButton", "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton",
-            "toolbarLanguageButton"
+            "toolbarLanguageButton", "toolbarModuleManagerButton"
         };
 
         private void runMenuItem_DropDownOpening(object sender, EventArgs e)
@@ -417,6 +417,7 @@ namespace DDF___Program_Language_Editor
         {
             if (locked == debugUiLocked) return;
             debugUiLocked = locked;
+            if (locked) closeModulePackageManager();
             if (locked) debugBaseWindowTitle = Text;
             foreach (ToolStripMenuItem item in enumerateMenuItems(menuStripMain.Items))
                 if (DebugUnsafeMenuCommands.Contains(item.Name)) item.Enabled = !locked;

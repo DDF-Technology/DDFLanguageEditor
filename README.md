@@ -27,6 +27,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
 - resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, simboli privati qualificati, rilevamento cicli e ricevuta riproducibile;
 - pacchetti modulo sorgente deterministici `.ddfmod` e gestore Core con installazione atomica, versioni affiancate, sostituzione esplicita, rimozione esatta e protezioni da path traversal;
+- menu standalone **Moduli > Gestisci moduli progetto** con anteprima di identità, versione, linguaggio, export e dipendenze, creazione del pacchetto del workspace, installazione, convalida e rimozione; la shell embedded non espone accessi allo store per impostazione predefinita;
 - catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;
 - modalità host separate per sola analisi, simulazione senza scritture esterne ed esecuzione con effetti reali; le operazioni mutanti richiedono un sostituto esplicito per poter essere simulate;
 - operazioni host asincrone con token e scadenza, timeout e budget configurabili e risorse per esecuzione rilasciate deterministicamente; il codice non fidato o non cooperativo richiede un processo worker separato;
@@ -75,7 +76,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`, Entra nella funzione con `F11`, Passo successivo con `F10` ed Esci dalla funzione con `Shift+F11`;
 - libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
-- sette barre mobili con 52 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, build e debug;
+- sette barre mobili con 53 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, moduli, build e debug;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
@@ -280,7 +281,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 74 comandi presenti nei menu File, Modifica, Esegui, Visualizza e Help; la
+inoltre tutti i 76 comandi presenti nei menu File, Modifica, Moduli, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:

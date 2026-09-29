@@ -116,6 +116,19 @@ blocco e il blocco delle modifiche nella vista compressa.
 | Pacchetto linguaggio attivo | apre il popup centrato e verifica stato, versione, origine, sorgente e diagnostiche di caricamento |
 | About | apre il popup e verifica icona ad alta risoluzione, autore, sito, licenza MIT, versione e stato beta |
 
+## Moduli
+
+| Comando | Verifica dinamica |
+| --- | --- |
+| Gestisci moduli progetto | richiede un workspace, apre il gestore centrato e mostra identità, versione, export, dipendenze e store locale |
+
+Il gestore consente di ispezionare e confermare un `.ddfmod` prima
+dell'installazione, installare una cartella sorgente, creare il pacchetto del
+progetto attivo, sostituire esplicitamente una versione esistente, convalidare e
+rimuovere una coppia esatta. Lo smoke usa un modulo reale installato nello store
+temporaneo e verifica anche il pulsante dedicato della toolbar. Il comando non è
+presente nella shell embedded.
+
 Lo smoke controlla inoltre che la finestra principale sia configurata per
 l'avvio massimizzato, che la diagnostica resti visibile anche senza problemi e
 che la precedente barra beta non sia più presente nel layout. Verifica anche il
@@ -129,7 +142,7 @@ ritorno alla posizione precedente tramite Navigazione indietro.
 
 ## Barre degli strumenti
 
-Le sette barre mobili raggruppano per categoria 51 pulsanti a icona con tooltip: File, Modifica, Codice e formattazione,
+Le sette barre mobili raggruppano per categoria 53 pulsanti a icona con tooltip: File, Modifica, Codice e formattazione,
 Navigazione e ricerca, Visualizzazione, Progetto e linguaggio, Esecuzione e debug. Possono essere riordinate tramite la
 maniglia e mostrate o nascoste da **Visualizza > Barre degli strumenti**. Lo smoke verifica disposizione iniziale compatta,
 persistenza, accessibilità e condivisione degli handler Convalida/Build/Run/Debug/Breakpoint/Stop con il menu Esegui.

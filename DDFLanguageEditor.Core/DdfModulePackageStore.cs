@@ -26,6 +26,9 @@ namespace DDFLanguageEditor.Core
             LanguagePackageVersion = manifest.LanguagePackageVersion;
             Exports = manifest.Module.Exports.OrderBy(item => item, StringComparer.Ordinal)
                 .ToList().AsReadOnly();
+            Dependencies = manifest.Dependencies.Select(item =>
+                    new DdfModuleDependencyInfo(item.Id, item.Version))
+                .OrderBy(item => item.Id, StringComparer.Ordinal).ToList().AsReadOnly();
             Path = System.IO.Path.GetFullPath(path);
         }
 
@@ -35,7 +38,17 @@ namespace DDFLanguageEditor.Core
         public string LanguageId { get; }
         public string LanguagePackageVersion { get; }
         public IReadOnlyList<string> Exports { get; }
+        public IReadOnlyList<DdfModuleDependencyInfo> Dependencies { get; }
         public string Path { get; }
+        public override string ToString() => Id + "@" + Version;
+    }
+
+    public sealed class DdfModuleDependencyInfo
+    {
+        internal DdfModuleDependencyInfo(string id, string version)
+        { Id = id; Version = version; }
+        public string Id { get; }
+        public string Version { get; }
         public override string ToString() => Id + "@" + Version;
     }
 
@@ -99,6 +112,51 @@ namespace DDFLanguageEditor.Core
             }
             return modules.OrderBy(item => item.Id, StringComparer.Ordinal)
                 .ThenByDescending(item => Version.Parse(item.Version)).ToList().AsReadOnly();
+        }
+
+        public DdfModulePackageResult Inspect(string sourcePath)
+        {
+            var diagnostics = new List<DdfModulePackageDiagnostic>();
+            string source;
+            try { source = Path.GetFullPath(sourcePath ?? throw new ArgumentNullException(nameof(sourcePath))); }
+            catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException)
+            { return Failure("DDFM001", exception.Message, diagnostics); }
+            if (!Directory.Exists(source) && !File.Exists(source))
+                return Failure("DDFM001", "Pacchetto o cartella modulo non trovati.", diagnostics);
+            if (File.Exists(source) && !source.EndsWith(PackageExtension, StringComparison.OrdinalIgnoreCase))
+                return Failure("DDFM002", "Il pacchetto deve usare l'estensione " + PackageExtension + ".", diagnostics);
+
+            if (Directory.Exists(source))
+            {
+                DdfProjectManifestLoadResult direct = DdfProjectManifestLoader.Load(source);
+                if (!direct.Success) return Failure("DDFM003", Describe(direct.Issues), diagnostics);
+                try { ValidatePayloadSources(source, direct.Manifest); }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                                                    exception is InvalidDataException)
+                { return Failure("DDFM004", exception.Message, diagnostics); }
+                return new DdfModulePackageResult(new DdfInstalledModule(direct.Manifest, source),
+                    null, diagnostics, false);
+            }
+
+            string staging = Path.Combine(Path.GetTempPath(),
+                "ddf-module-inspecting-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(staging);
+                ExtractArchive(source, staging);
+                DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(staging);
+                if (!loaded.Success) return Failure("DDFM003", Describe(loaded.Issues), diagnostics);
+                ValidatePayloadSources(staging, loaded.Manifest);
+                return new DdfModulePackageResult(new DdfInstalledModule(loaded.Manifest, source),
+                    source, diagnostics, false);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                                                exception is InvalidDataException || exception is InvalidOperationException)
+            { return Failure("DDFM007", exception.Message, diagnostics); }
+            finally
+            {
+                if (Directory.Exists(staging)) Directory.Delete(staging, true);
+            }
         }
 
         public DdfModulePackageResult Pack(string moduleRoot, string packagePath)

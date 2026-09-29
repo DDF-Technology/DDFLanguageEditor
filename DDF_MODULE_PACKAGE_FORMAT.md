@@ -43,6 +43,12 @@ esplicitamente `replaceExisting: true`. `List()` restituisce soltanto directory
 la cui identità coincide con il percorso dello store; `Remove(id, version)`
 rimuove esclusivamente la coppia esatta.
 
+`Inspect(sourcePath)` applica gli stessi controlli senza modificare lo store e
+restituisce identità, versione, linguaggio, export e dipendenze per l'anteprima.
+Nello standalone **Moduli > Gestisci moduli progetto...** usa questa operazione
+prima di chiedere conferma. Il comando richiede una cartella workspace e non è
+esposto automaticamente dalla shell embedded.
+
 L'installazione copia o estrae prima in staging, ricarica e valida il manifesto e
 verifica che esso selezioni almeno un sorgente. Solo dopo sposta atomicamente il
 contenuto nella destinazione. In caso di errore ripristina la versione precedente.
