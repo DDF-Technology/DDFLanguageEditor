@@ -44,8 +44,9 @@ DDF. In modalità standalone si pubblica un EXE self-contained con dipendenze.
 ## Stato delle release
 
 Ordine operativo aggiornato il 2026-09-26: completati il runtime multi-file
-`0.11.0`, la flowchart dinamica `0.11.1` e l'Editor SDK `0.11.2`; è iniziata
-la definizione completa del linguaggio nella `0.12.0`.
+`0.11.0`, la flowchart dinamica `0.11.1` e l'Editor SDK `0.11.2`; completate
+le definizioni e la migrazione `0.12.0`–`0.12.4`, è iniziato il ciclo candidato
+`0.12.5`.
 Il precedente identificativo provvisorio `0.10.2` è stato sostituito. Tutte le
 milestone successive conservano ordine e ambito.
 
@@ -87,7 +88,7 @@ milestone successive conservano ordine e ambito.
 | `0.11.0` | Runtime multi-file del workspace | Completata |
 | `0.11.1` | Flowchart dinamica del codice e collegamento al debugger | Completata |
 | `0.11.2` | Editor incorporabile e primo SDK per applicazioni host | Completata |
-| `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | In corso (`0.12.0` completata) |
+| `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | In corso (`0.12.0`–`0.12.4` completate; `0.12.5` avviata) |
 | `0.13.x` | Compilatore, linker, loader e CLI | Pianificata |
 | `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Pianificata |
 | `0.15.x` | Extension SDK e host sicuro per plug-in eseguibili | Pianificata |
@@ -664,15 +665,15 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.1 — Lessico e sintassi definitiva
 
-- [ ] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
+- [x] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
   - [x] Fissare il nucleo lessicale: identificatori Unicode case-sensitive, cifre ASCII, booleani minuscoli, stringhe su una riga, escape chiusi e commenti (`DDF_LEXICAL_SPEC.md`, 2026-09-26).
   - [x] Chiudere le direttive insieme al modello moduli della `0.12.3`: `@@'Nome'` resta una richiesta legacy deprecata di libreria/capacità e non include sorgenti o moduli (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
   - [x] Chiudere keyword e delimitatori del nucleo, senza alias impliciti (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
   - [x] Chiudere l'insieme degli operatori del nucleo: identità DDF per `<<`/`>>`, logica leggibile con `!`, `&&`, `||`, `^^`, confronti ordinari e rimozione delle forme beta ambigue (`DDF_OPERATOR_SPEC.md`, 2026-09-26).
 - [x] Definire precedenza, associatività e forme prefisse, infisse e postfisse senza ambiguità (`DDF_OPERATOR_SPEC.md`).
-- [ ] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
+- [x] Specificare dichiarazioni, espressioni, blocchi, controllo di flusso, funzioni, strutture e collezioni.
   - [x] Fissare unità di compilazione, globali dichiarative, funzioni, strutture, espressioni e corpi di controllo obbligatoriamente racchiusi tra graffe (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
-  - [ ] Chiudere la sintassi delle collezioni insieme alla semantica di array e `dict` nella `0.12.2`.
+  - [x] Chiudere la sintassi delle collezioni insieme alla semantica di array e `dict`: il nucleo ammette esclusivamente array monodimensionali `T[n]` a lunghezza fissa ed esclude `dict`, array jagged e multidimensionali (`DDF_LANGUAGE_SPEC.md`, `DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-29).
 - [x] Eliminare contraddizioni e alias provvisori dal nucleo eseguibile, mantenendo la prima bozza soltanto come documento storico esplicitamente non normativo (`DDF_SYNTAX_CONFORMANCE.md`, 2026-09-27).
 - [x] Allineare EBNF, metadati del pacchetto, formatter, snippet, Quick Fix ed esempi canonici (`DDF_SYNTAX_CONFORMANCE.md` e corpus `samples/language-profiles`, 2026-09-27).
   - [x] Rendere l'EBNF il validatore normativo per analisi, Build e test dichiarativi mantenendo separato il recupero dell'AST storico (2026-09-27).
@@ -724,7 +725,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.5 — DDF Language Candidate
 
-- [ ] Congelare temporaneamente grammatica e semantica per un ciclo completo di utilizzo reale.
+- [x] Congelare temporaneamente grammatica e semantica per un ciclo completo di utilizzo reale: `DDF_LANGUAGE_CANDIDATE.md` definisce perimetro, regola di modifica, registro problemi e gate; `ddf-language-candidate-baseline.json` rende verificabili con SHA-256 normalizzati i 17 artefatti normativi (`0.12.5`, 2026-09-29).
 - [ ] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e build sul corpus normativo.
 - [ ] Raccogliere e classificare i problemi senza modificare implicitamente la specifica.
 - [ ] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio.

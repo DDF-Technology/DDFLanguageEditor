@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -120,6 +121,7 @@ namespace DDFLanguageEditor.Tests
             Run("enforces the versioned minimum standard library contract", EnforcesMinimumStandardLibraryContract);
             Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
+            Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
@@ -3498,6 +3500,52 @@ namespace DDFLanguageEditor.Tests
                 Equal(true, migrationGuide.Contains("`" + migrationId + "`", StringComparison.Ordinal));
             Equal(true, migrationGuide.Contains("## Percorso consigliato", StringComparison.Ordinal));
             Equal(true, migrationGuide.Contains("## Criteri di completamento", StringComparison.Ordinal));
+        }
+
+        private static void KeepsDdfCandidateBaselineFrozen()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject baseline = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-baseline.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", baseline["schemaVersion"].GetValue<string>());
+            Equal("ddf-0.12-candidate-cycle-1", baseline["candidateId"].GetValue<string>());
+            Equal("ddf", baseline["languageId"].GetValue<string>());
+            Equal("0.12", baseline["languageVersion"].GetValue<string>());
+            Equal("0.12.3", baseline["packageVersion"].GetValue<string>());
+            Equal("frozen-evaluation", baseline["status"].GetValue<string>());
+            Equal("sha256-utf8-lf", baseline["hashAlgorithm"].GetValue<string>());
+
+            JsonArray artifacts = baseline["artifacts"].AsArray();
+            Equal(17, artifacts.Count);
+            string[] paths = artifacts.Select(item => item.AsObject()["path"].GetValue<string>()).ToArray();
+            Equal(paths.Length, paths.Distinct(StringComparer.Ordinal).Count());
+            foreach (JsonNode node in artifacts)
+            {
+                JsonObject artifact = node.AsObject();
+                string relativePath = artifact["path"].GetValue<string>();
+                Equal(false, Path.IsPathRooted(relativePath));
+                string fullPath = Path.GetFullPath(Path.Combine(projectRoot,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                Equal(true, fullPath.StartsWith(projectRoot + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase));
+                Equal(true, File.Exists(fullPath));
+
+                string normalized = File.ReadAllText(fullPath, Encoding.UTF8)
+                    .Replace("\r\n", "\n", StringComparison.Ordinal)
+                    .Replace("\r", "\n", StringComparison.Ordinal);
+                string actual = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))
+                    .ToLowerInvariant();
+                Equal(artifact["sha256"].GetValue<string>(), actual);
+            }
+
+            string candidateGuide = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_CANDIDATE.md"), Encoding.UTF8);
+            Equal(true, candidateGuide.Contains("## Regola di modifica", StringComparison.Ordinal));
+            Equal(true, candidateGuide.Contains("## Registro dei problemi del candidato", StringComparison.Ordinal));
+            Equal(true, candidateGuide.Contains("## Gate del ciclo", StringComparison.Ordinal));
+            Equal(true, candidateGuide.Contains("stato pubblico `beta`", StringComparison.Ordinal));
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

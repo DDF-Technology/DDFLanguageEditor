@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "candidateId": "ddf-0.12-candidate-cycle-1",
+  "languageId": "ddf",
+  "languageVersion": "0.12",
+  "packageVersion": "0.12.3",
+  "status": "frozen-evaluation",
+  "frozenAt": "2026-09-29",
+  "hashAlgorithm": "sha256-utf8-lf",
+  "artifacts": [
+    { "path": "DDF_LANGUAGE_SPEC.md", "sha256": "3929a35d9ae3c74cd6d196e9b0676fd3217ee656c43b4b13cc66c6c9938b1dd3" },
+    { "path": "DDF_LEXICAL_SPEC.md", "sha256": "dcc922b3cab61e99045392cc5cc0984bb4b69041b7d108e92ee9cdf4f7a47534" },
+    { "path": "DDF_SYNTAX_SPEC.md", "sha256": "56a4f3c3f8e9ecadd71b5458859a3cd38d40953c000edb6844ab1dcfb9298b82" },
+    { "path": "DDF_OPERATOR_SPEC.md", "sha256": "aea21e028e41b2d49ed9239e55677bb7f3b250830daa7be0e7e6b4417c69f9e6" },
+    { "path": "DDF_TYPE_SYSTEM_SPEC.md", "sha256": "2733256c85a22b5cf6b8d639d1674fbcebdf2c1ea8113e4cc8dbc883df9c5c67" },
+    { "path": "DDF_MODULE_SYSTEM_SPEC.md", "sha256": "aadf925714b918aa99c1ed28ffaba1bc340976cf3d7d6dc7494ce8c2d7dec71e" },
+    { "path": "DDF_STANDARD_LIBRARY_SPEC.md", "sha256": "f2ae97eadf6d77a803e0ed5d663fbd50800c4923f093e197c5f8c6f66c18a147" },
+    { "path": "DDF_LANGUAGE_VERSIONING.md", "sha256": "80551360549032e6e6fd42eecb92505da54970739743e58bda803aebe1f44e14" },
+    { "path": "ddf-language-version-policy.json", "sha256": "27a22a1ee468495d6b357b774816f7b938f58050ecbb6a33bfebd0e8e6be545f" },
+    { "path": "language-packages/ddf/manifest.json", "sha256": "e8da5174cc60280a68d32db848950bfa162bc23cd6fe4201828202d3ac62cc1e" },
+    { "path": "language-packages/ddf/lexicon.json", "sha256": "06d9f1f3eea7a793a1627750c837e41900b94c0a67195490551e6bdc12afc93e" },
+    { "path": "language-packages/ddf/grammar.ebnf", "sha256": "6d00046eacff5355f0fef7c6be09f8d8a860c8fbe432274c30cc1ba2244bae3d" },
+    { "path": "language-packages/ddf/types.json", "sha256": "3031e6e80b9a29ac35bf9e8fc4b98ad19b5b3b89be7f21fcaefa115dfd10f407" },
+    { "path": "language-packages/ddf/semantics.json", "sha256": "62999fa46b9d5eb0a0a0eaf9407cb11de1be35611435ac0ce348f3d5ae0f8edb" },
+    { "path": "language-packages/ddf/runtime.json", "sha256": "08e046ca38d2fec87534010714cd2908eface8b8cd556ab00aaf7e42a21dcfdb" },
+    { "path": "language-packages/ddf/standard-library.json", "sha256": "4a1b60d170020d1069ed74f3e944986086d959d67f484ed4e766d9be3b9510f9" },
+    { "path": "samples/language-corpus/corpus.json", "sha256": "f8d5628356605b41f2a9f09d75881bb63df653d998810e58fa95450fefe8b5d9" }
+  ]
+}

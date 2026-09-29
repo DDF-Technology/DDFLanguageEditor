@@ -342,3 +342,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   `ddf-language-version-policy.json` la rappresentazione verificabile. Le
   trasformazioni beta sicure sono soltanto candidate non ancora implementate;
   operatori ambigui, tipi rimossi e cambi strutturali richiedono revisione umana.
+
+## DDF-0023 — Baseline verificabile durante il ciclo candidato
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** il primo ciclo candidato congela temporaneamente i documenti
+  normativi, il pacchetto DDF canonico, la policy di versione e il manifesto del
+  corpus tramite un elenco versionato di impronte SHA-256 su UTF-8/LF. Lo stato
+  pubblico resta `beta` finché tutti i gate della `0.12.5` non sono superati.
+  Ogni modifica al perimetro deve partire da un problema classificato, rispettare
+  la policy di versione e aggiornare congiuntamente tutte le rappresentazioni.
+- **Alternative rifiutate:** affidarsi soltanto alla revisione Git; dichiarare
+  subito `candidate`; congelare anche UI e test; aggiornare le impronte senza una
+  motivazione registrata; permettere alla VM storica di ridefinire il contratto.
+- **Conseguenze:** una regressione rileva qualsiasi deriva degli artefatti
+  congelati indipendentemente dai terminatori di riga. Correzioni UI e di
+  conformità restano possibili, ma un cambiamento del linguaggio riavvia i gate
+  interessati e può richiedere una nuova versione DDF.

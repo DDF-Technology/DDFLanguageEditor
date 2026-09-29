@@ -27,6 +27,10 @@ prima dell'attivazione del pacchetto e una regressione ne impedisce la divergenz
 Versionamento, compatibilità, deprecazioni e confini delle future migrazioni sono
 definiti in [DDF_LANGUAGE_VERSIONING.md](DDF_LANGUAGE_VERSIONING.md) e nella
 policy macchina `ddf-language-version-policy.json`.
+Il ciclo di valutazione `0.12.5` è descritto in
+[DDF_LANGUAGE_CANDIDATE.md](DDF_LANGUAGE_CANDIDATE.md); la baseline macchina
+`ddf-language-candidate-baseline.json` impedisce modifiche involontarie ai 17
+artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
