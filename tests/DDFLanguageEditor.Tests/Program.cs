@@ -124,6 +124,7 @@ namespace DDFLanguageEditor.Tests
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
             Run("validates the shipped versioned module workspace", ValidatesShippedModuleWorkspace);
+            Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
             Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
@@ -3680,6 +3681,97 @@ namespace DDFLanguageEditor.Tests
                 package.Language, new DdfExecutionOptions { EntryPoint = result.Artifact.EntryPoint });
             Equal(true, execution.Succeeded);
             Equal(42, execution.ReturnValue);
+        }
+
+        private static void ManagesVersionedModulePackagesSafely()
+        {
+            string moduleRoot = CreateTemporaryDirectory();
+            string projectRoot = CreateTemporaryDirectory();
+            string packageDirectory = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage language = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+                File.WriteAllText(Path.Combine(moduleRoot, "math.ddf"),
+                    "add(int left, int right) out int { ret left + right; }", new UTF8Encoding(false));
+                DdfProjectManifest module = DdfProjectManifest.CreateImplicit("Math module", language, null);
+                module.Module.Id = "example.packaged-math";
+                module.Module.Version = "1.0.0";
+                module.Module.Exports.Add("add");
+                module.EntryPoint = "unused";
+                File.WriteAllText(Path.Combine(moduleRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(module, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                var store = new DdfModulePackageStore(projectRoot);
+                string firstArchive = Path.Combine(packageDirectory, "math" + DdfModulePackageStore.PackageExtension);
+                string secondArchive = Path.Combine(packageDirectory, "math-copy" + DdfModulePackageStore.PackageExtension);
+                DdfModulePackageResult packed = store.Pack(moduleRoot, firstArchive);
+                Equal(true, packed.Success);
+                Equal("example.packaged-math", packed.Module.Id);
+                Equal(true, File.Exists(firstArchive));
+                Equal(true, store.Pack(moduleRoot, secondArchive).Success);
+                Equal(true, File.ReadAllBytes(firstArchive).SequenceEqual(File.ReadAllBytes(secondArchive)));
+
+                DdfModulePackageResult installed = store.Install(firstArchive);
+                Equal(true, installed.Success);
+                Equal(false, installed.Replaced);
+                Equal(1, store.List().Count);
+                Equal(true, File.Exists(Path.Combine(installed.Module.Path, "math.ddf")));
+                Equal(installed.Module.Path, new DdfProjectModuleStoreResolver().ResolveModuleRoot(projectRoot,
+                    new DdfProjectDependency { Id = module.Module.Id, Version = module.Module.Version }));
+
+                File.WriteAllText(Path.Combine(projectRoot, "main.ddf"),
+                    "main() out int { ret add(4, 5); }", new UTF8Encoding(false));
+                DdfProjectManifest application = DdfProjectManifest.CreateImplicit("Package consumer", language, "main.ddf");
+                application.Dependencies.Add(new DdfProjectDependency
+                {
+                    Id = module.Module.Id,
+                    Version = module.Module.Version
+                });
+                DdfBuildResult build = new DdfBuildService().Validate(projectRoot, application, language);
+                if (!build.Success)
+                    throw new InvalidOperationException(string.Join(" | ", build.Issues.Select(item => item.ToString())));
+                Equal(9, DdfInterpreter.Execute(build.Artifact.RuntimeModules, language.Language,
+                    new DdfExecutionOptions { EntryPoint = build.Artifact.EntryPoint }).ReturnValue);
+
+                DdfModulePackageResult duplicate = store.Install(firstArchive);
+                Equal(false, duplicate.Success);
+                Equal("DDFM006", duplicate.Diagnostics.Single().Code);
+                DdfModulePackageResult replaced = store.Install(firstArchive, true);
+                Equal(true, replaced.Success);
+                Equal(true, replaced.Replaced);
+
+                module.Module.Version = "2.0.0";
+                File.WriteAllText(Path.Combine(moduleRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(module, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+                string nextArchive = Path.Combine(packageDirectory, "math-2" + DdfModulePackageStore.PackageExtension);
+                Equal(true, store.Pack(moduleRoot, nextArchive).Success);
+                Equal(true, store.Install(nextArchive).Success);
+                Equal(2, store.List().Count);
+
+                string malicious = Path.Combine(packageDirectory, "unsafe" + DdfModulePackageStore.PackageExtension);
+                using (ZipArchive archive = ZipFile.Open(malicious, ZipArchiveMode.Create))
+                {
+                    using StreamWriter writer = new StreamWriter(archive.CreateEntry("../escape.ddf").Open());
+                    writer.Write("unsafe");
+                }
+                DdfModulePackageResult rejected = store.Install(malicious);
+                Equal(false, rejected.Success);
+                Equal("DDFM007", rejected.Diagnostics.Single().Code);
+                Equal(false, File.Exists(Path.Combine(projectRoot, ".ddf", "modules", "escape.ddf")));
+
+                Equal(true, store.Remove(module.Module.Id, "1.0.0"));
+                Equal(true, store.Remove(module.Module.Id, "2.0.0"));
+                Equal(0, store.List().Count);
+                Equal(false, store.Remove(module.Module.Id, module.Module.Version));
+            }
+            finally
+            {
+                if (Directory.Exists(moduleRoot)) Directory.Delete(moduleRoot, true);
+                if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, true);
+                if (Directory.Exists(packageDirectory)) Directory.Delete(packageDirectory, true);
+            }
         }
 
         private static void InstallsAndUpdatesVersionedLanguagePackages()

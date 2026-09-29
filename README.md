@@ -26,6 +26,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
 - resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, simboli privati qualificati, rilevamento cicli e ricevuta riproducibile;
+- pacchetti modulo sorgente deterministici `.ddfmod` e gestore Core con installazione atomica, versioni affiancate, sostituzione esplicita, rimozione esatta e protezioni da path traversal;
 - catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;
 - modalità host separate per sola analisi, simulazione senza scritture esterne ed esecuzione con effetti reali; le operazioni mutanti richiedono un sostituto esplicito per poter essere simulate;
 - operazioni host asincrone con token e scadenza, timeout e budget configurabili e risorse per esecuzione rilasciate deterministicamente; il codice non fidato o non cooperativo richiede un processo worker separato;
@@ -329,6 +330,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
 - `DDF_MODULE_SYSTEM_SPEC.md`: identità, visibilità, export, inizializzazione e dipendenze dei moduli;
+- `DDF_MODULE_PACKAGE_FORMAT.md`: archivio `.ddfmod`, store, installazione atomica e limiti di sicurezza;
 - `EDITOR_SDK.md`: primo contratto pubblico della superficie incorporabile, esempio d'uso e limiti correnti;
 - `DDF_LANGUAGE_DESIGN.md`: obiettivi, principi e confini progettuali del linguaggio;
 - `DDF_CURRENT_LANGUAGE_INVENTORY.md`: fotografia verificabile della sintassi e semantica beta, con decisioni ancora aperte;

@@ -248,3 +248,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   grafo entra nella ricevuta. `DdfIrModule` conserva identità, export e dipendenze;
   la VM qualifica il contesto di funzioni, strutture e globali, consentendo nomi
   privati uguali in moduli diversi senza introdurre namespace sintattici.
+
+## DDF-0018 — Pacchetti modulo sorgente immutabili per versione
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** `.ddfmod` è un archivio ZIP deterministico con il manifesto alla
+  radice e i sorgenti da esso selezionati. Identità e versione provengono soltanto
+  dal manifesto. Versioni diverse convivono nello store; la stessa coppia è
+  immutabile salvo sostituzione esplicita. Il gestore installa tramite staging,
+  validazione e rollback e non esegue codice.
+- **Alternative rifiutate:** dedurre identità dal filename; includere l'intera
+  cartella di sviluppo; aggiornare silenziosamente una versione esistente;
+  trattare il percorso di installazione come namespace; installare assembly o
+  concedere capability insieme ai sorgenti.
+- **Conseguenze:** i pacchetti sono riproducibili e sicuri rispetto al filesystem,
+  ma non ancora firmati né provenienti da un registry. La validazione semantica
+  completa resta nella pipeline di build del consumatore; la UI del gestore può
+  essere aggiunta senza cambiare formato o resolver.

@@ -90,6 +90,13 @@ checking.
 See [the module-system specification](DDF_MODULE_SYSTEM_SPEC.md) for visibility,
 initialization, dependency and directive rules.
 
+Source modules can be packed as deterministic `.ddfmod` ZIP archives and
+installed with `DdfModulePackageStore`. The manager stages and validates the
+payload before moving it to `.ddf/modules/<id>/<version>`, rejects implicit
+replacement of the same version, and supports exact listing/removal. Different
+versions coexist. Archive names and installation paths never affect symbol
+identity. See [the module package format](DDF_MODULE_PACKAGE_FORMAT.md).
+
 ## Planned .NET backend
 
 The selected direction for 0.13.x is common IR to generated C#, compiled with

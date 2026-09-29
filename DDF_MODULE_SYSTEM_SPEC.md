@@ -112,7 +112,20 @@ standalone potrà compilare l'IR bound tramite Roslyn; l'embedded continuerà a
 eseguire script interpretati e capacità autorizzate dall'host, come stabilito da
 DDF-0015.
 
-## 8. Diagnostiche del contratto
+## 8. Distribuzione e installazione
+
+Un modulo sorgente può essere distribuito come archivio `.ddfmod` secondo
+`DDF_MODULE_PACKAGE_FORMAT.md`. Il pacchetto conserva il manifesto alla radice e
+i sorgenti selezionati, ma non introduce namespace, import impliciti o accesso a
+componenti .NET. Versioni differenti convivono nello store; sostituire la stessa
+coppia identità/versione richiede un'operazione esplicita.
+
+Il gestore Core esegue staging, validazione e sostituzione atomica con rollback,
+impone limiti al payload e rifiuta path traversal. Installare non significa
+eseguire o autorizzare il modulo: export, grafo e semantica vengono verificati
+dal build del progetto consumatore.
+
+## 9. Diagnostiche del contratto
 
 | Codice | Significato |
 | --- | --- |
