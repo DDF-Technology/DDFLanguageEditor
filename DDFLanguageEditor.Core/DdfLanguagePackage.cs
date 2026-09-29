@@ -77,6 +77,7 @@ namespace DDFLanguageEditor.Core
     public static class DdfLanguagePackageLoader
     {
         public const string SupportedSchemaVersion = "1.0";
+        public const string SupportedTypesSchemaVersion = "1.1";
         public const string SupportedEngineApi = "1.0";
         private static readonly string[] RequiredSections =
         {
@@ -367,7 +368,9 @@ namespace DDFLanguageEditor.Core
         private static void validateSection(string name, string file, SectionDto section,
             IReadOnlyDictionary<string, string> sectionFiles, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
         {
-            require(section.SchemaVersion == SupportedSchemaVersion, diagnostics, "DDFL030",
+            string supportedSchemaVersion = name == "types"
+                ? SupportedTypesSchemaVersion : SupportedSchemaVersion;
+            require(section.SchemaVersion == supportedSchemaVersion, diagnostics, "DDFL030",
                 "Versione sezione non supportata.", file, "$.schemaVersion", DdfDiagnosticDomain.EngineCapability);
             require(SupportedAdapters[name] == section.Adapter, diagnostics, "DDFL031",
                 "Adapter non supportato per " + name + ": " + section.Adapter, file, "$.adapter",
@@ -548,7 +551,8 @@ namespace DDFLanguageEditor.Core
                     "Elenco conversioni richiesto.", file, "$.conversions");
                 require(value.Compatibility != null && value.Mutability != null && value.Scopes != null &&
                         value.Signatures != null && value.Literals != null && value.Numeric != null &&
-                        value.Indexing != null,
+                        value.Indexing != null && value.ClrMapping != null &&
+                        value.ClrMapping.Primitives != null,
                     diagnostics, "DDFL092", "Configurazione del sistema di tipi incompleta.", file, "$");
                 if (hasErrors(diagnostics)) return null;
 
@@ -557,6 +561,8 @@ namespace DDFLanguageEditor.Core
                 validateUnique(value.Conversions.Select(item => item == null ? null :
                     item.From + "->" + item.To + "@" + item.Context), "conversione", file,
                     "$.conversions", diagnostics);
+                validateUnique(value.ClrMapping.Primitives.Select(item => item?.Type),
+                    "mapping primitivo CLR", file, "$.clrMapping.primitives", diagnostics);
                 require(value.Mutability.AssignmentTargets != null && value.Mutability.AssignmentTargets.Count > 0,
                     diagnostics, "DDFL093", "Destinazioni di assegnazione richieste.", file,
                     "$.mutability.assignmentTargets");
@@ -574,6 +580,11 @@ namespace DDFLanguageEditor.Core
                     item.CanDeclareVariable.Value, item.IndexedElementType));
                 var conversions = value.Conversions.Select(item => new DdfTypeConversionDefinition(
                     item.From, item.To, parseRequiredEnum<DdfConversionContext>(item.Context, "conversion context")));
+                var clrMapping = new DdfClrTypeMappingDefinition(value.ClrMapping.Backend,
+                    value.ClrMapping.MappingVersion, value.ClrMapping.ArrayRepresentation,
+                    value.ClrMapping.StructureRepresentation,
+                    value.ClrMapping.Primitives.Select(item => new DdfClrPrimitiveTypeMapping(
+                        item.Type, item.ClrType, item.CsharpType)));
                 return new DdfTypeSystemDefinition(
                     primitives,
                     conversions,
@@ -590,7 +601,8 @@ namespace DDFLanguageEditor.Core
                         value.Signatures.ParameterOrder),
                     new DdfLiteralTypeDefinition(value.Literals.Integer, value.Literals.Decimal,
                         value.Literals.Boolean, value.Literals.String),
-                    value.Numeric.ResultType, value.Numeric.DominantType, value.Indexing.IndexType);
+                    value.Numeric.ResultType, value.Numeric.DominantType, value.Indexing.IndexType,
+                    clrMapping);
             }
             catch (DdfEngineCapabilityException exception)
             {
@@ -1063,7 +1075,7 @@ namespace DDFLanguageEditor.Core
         private sealed class GrammarNodeDto { public string Rule { get; set; } public string Kind { get; set; } public List<GrammarFieldDto> Fields { get; set; } public GrammarIdeDto Ide { get; set; } }
         private sealed class GrammarFieldDto { public string Name { get; set; } public string SourceRule { get; set; } public bool Multiple { get; set; } }
         private sealed class GrammarIdeDto { public string SymbolKind { get; set; } public string NameField { get; set; } public string NamePrefix { get; set; } public string NameSuffix { get; set; } public string Detail { get; set; } public string FoldingKind { get; set; } public string FoldingField { get; set; } public string BreadcrumbKind { get; set; } public string BreadcrumbLabel { get; set; } public string BreadcrumbSelectionField { get; set; } public int BreadcrumbSelectionLength { get; set; } public bool Selectable { get; set; } public string TypeField { get; set; } public string ReturnTypeField { get; set; } public string ParametersField { get; set; } public string ChildSymbolKind { get; set; } }
-        private sealed class TypesDto : SectionDto { public List<PrimitiveTypeDto> Primitives { get; set; } public List<TypeConversionDto> Conversions { get; set; } public TypeCompatibilityDto Compatibility { get; set; } public MutabilityDto Mutability { get; set; } public ScopesDto Scopes { get; set; } public SignaturesDto Signatures { get; set; } public LiteralTypesDto Literals { get; set; } public NumericTypesDto Numeric { get; set; } public IndexingDto Indexing { get; set; } }
+        private sealed class TypesDto : SectionDto { public List<PrimitiveTypeDto> Primitives { get; set; } public List<TypeConversionDto> Conversions { get; set; } public TypeCompatibilityDto Compatibility { get; set; } public MutabilityDto Mutability { get; set; } public ScopesDto Scopes { get; set; } public SignaturesDto Signatures { get; set; } public LiteralTypesDto Literals { get; set; } public NumericTypesDto Numeric { get; set; } public IndexingDto Indexing { get; set; } public ClrMappingDto ClrMapping { get; set; } }
         private sealed class PrimitiveTypeDto { public string Name { get; set; } public string Category { get; set; } public bool? CanDeclareVariable { get; set; } public string IndexedElementType { get; set; } }
         private sealed class TypeConversionDto { public string From { get; set; } public string To { get; set; } public string Context { get; set; } }
         private sealed class TypeCompatibilityDto { public bool? ArraysInvariant { get; set; } public bool? UserTypesNominal { get; set; } public bool? ErrorTypeCompatible { get; set; } }
@@ -1073,6 +1085,8 @@ namespace DDFLanguageEditor.Core
         private sealed class LiteralTypesDto { public string Integer { get; set; } public string Decimal { get; set; } public string Boolean { get; set; } public string String { get; set; } }
         private sealed class NumericTypesDto { public string ResultType { get; set; } public string DominantType { get; set; } }
         private sealed class IndexingDto { public string IndexType { get; set; } }
+        private sealed class ClrMappingDto { public string Backend { get; set; } public string MappingVersion { get; set; } public string ArrayRepresentation { get; set; } public string StructureRepresentation { get; set; } public List<ClrPrimitiveMappingDto> Primitives { get; set; } }
+        private sealed class ClrPrimitiveMappingDto { public string Type { get; set; } public string ClrType { get; set; } public string CsharpType { get; set; } }
         private sealed class SemanticsDto : SectionDto { public string OperationSet { get; set; } public string OperationSetVersion { get; set; } public List<SemanticBindingDto> Bindings { get; set; } }
         private sealed class SemanticBindingDto { public string Rule { get; set; } public List<SemanticOperationDto> Operations { get; set; } }
         private sealed class SemanticOperationDto { public string Id { get; set; } public Dictionary<string, string> Arguments { get; set; } }

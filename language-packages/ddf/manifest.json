@@ -3,7 +3,7 @@
   "engineApi": "1.0",
   "id": "ddf",
   "name": "DDF",
-  "packageVersion": "0.12.2",
+  "packageVersion": "0.12.2.1",
   "languageVersion": "0.12",
   "fileExtensions": [ ".ddf" ],
   "nativeExtensions": [],

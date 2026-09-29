@@ -38,7 +38,7 @@ non sostituiscono il futuro test di compilazione DDF -> IR -> C# -> IL.
 | parser e AST | pronta come front-end | Roslyn non deve analizzare DDF; riceve C# generato dalla IR |
 | IR strutturale 1.0 | base valida | nodi immutabili, moduli, operazioni e span sono presenti |
 | IR semantica | bloccante | mancano simboli risolti, tipi di ogni espressione e conversioni esplicite |
-| tipi primitivi | mapping definito | tabella DDF -> CLR nella specifica; manca il contratto eseguibile nel pacchetto |
+| tipi primitivi | mapping eseguibile pronto | `types.json` dichiara e il loader valida `dotnet-roslyn-v1`, mapping primitivi, SZArray e classi sigillate |
 | array | compatibile con vincoli | mapping a SZArray `T[]`; rango uno, allocazione e default non-null da imporre |
 | strutture | compatibile con lowering | generare classi sigillate; vietare cicli di contenimento non-null |
 | operatori | compatibili con helper | potenza, non-finite, output e `end` richiedono lowering/runtime DDF |
@@ -192,8 +192,8 @@ la release oppure richiede una decisione DDF versionata.
 ## Questioni rilevate durante l'audit
 
 1. La IR corrente non è ancora bound o completamente tipizzata.
-2. Il pacchetto non contiene ancora mapping CLR verificabili.
-3. I gap della `0.12.2` produrrebbero divergenze fra VM e assembly.
+2. Risolto il 2026-09-29: il pacchetto contiene mapping CLR verificabili e identici nei tre profili.
+3. Risolto lato VM il 2026-09-29: i gap della `0.12.2` sono protetti dal corpus; il backend dovrà dimostrare parità.
 4. Le strutture ricorsive non-null devono essere diagnosticate.
 5. I nomi DDF richiedono mangling deterministico.
 6. Non esiste ancora la runtime ABI usata dall'assembly generato.

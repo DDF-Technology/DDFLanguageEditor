@@ -1,0 +1,9 @@
+identity(int value) out int
+{
+    ret "wrong";
+}
+
+main() out int
+{
+    ret identity(1.5);
+}

@@ -11,8 +11,7 @@ namespace DDFLanguageEditor.Core
         Integer,
         Floating,
         Character,
-        String,
-        Dictionary
+        String
     }
 
     public enum DdfConversionContext
@@ -53,6 +52,86 @@ namespace DDFLanguageEditor.Core
         public string From { get; }
         public string To { get; }
         public DdfConversionContext Context { get; }
+    }
+
+    public sealed class DdfClrPrimitiveTypeMapping
+    {
+        public DdfClrPrimitiveTypeMapping(string typeName, string clrTypeName,
+            string csharpTypeName)
+        {
+            TypeName = require(typeName, nameof(typeName));
+            ClrTypeName = require(clrTypeName, nameof(clrTypeName));
+            CSharpTypeName = require(csharpTypeName, nameof(csharpTypeName));
+        }
+
+        public string TypeName { get; }
+        public string ClrTypeName { get; }
+        public string CSharpTypeName { get; }
+
+        private static string require(string value, string name)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("CLR type mapping value is required.", name);
+            return value;
+        }
+    }
+
+    public sealed class DdfClrTypeMappingDefinition
+    {
+        public const string SupportedBackend = "dotnet-roslyn-v1";
+        public const string SupportedMappingVersion = "1.0";
+        public const string SupportedArrayRepresentation = "SZArray";
+        public const string SupportedStructureRepresentation = "SealedClass";
+
+        private readonly IReadOnlyDictionary<string, DdfClrPrimitiveTypeMapping> primitives;
+        private readonly IReadOnlyCollection<DdfClrPrimitiveTypeMapping> primitiveMappings;
+
+        public DdfClrTypeMappingDefinition(string backend, string mappingVersion,
+            string arrayRepresentation, string structureRepresentation,
+            IEnumerable<DdfClrPrimitiveTypeMapping> primitives)
+        {
+            if (backend != SupportedBackend)
+                throw new DdfEngineCapabilityException("Il backend CLR '" + backend +
+                    "' non è supportato.");
+            if (mappingVersion != SupportedMappingVersion)
+                throw new DdfEngineCapabilityException("La versione mapping CLR '" +
+                    mappingVersion + "' non è supportata.");
+            if (arrayRepresentation != SupportedArrayRepresentation ||
+                structureRepresentation != SupportedStructureRepresentation)
+                throw new DdfEngineCapabilityException(
+                    "La rappresentazione CLR di array o strutture non è supportata.");
+            var values = (primitives ?? throw new ArgumentNullException(nameof(primitives))).ToList();
+            if (values.Count == 0 || values.Select(item => item.TypeName)
+                .Distinct(StringComparer.Ordinal).Count() != values.Count)
+                throw new ArgumentException("I mapping primitivi CLR devono essere presenti e univoci.",
+                    nameof(primitives));
+            this.primitives = values.ToDictionary(item => item.TypeName, StringComparer.Ordinal);
+            primitiveMappings = values.AsReadOnly();
+            Backend = backend;
+            MappingVersion = mappingVersion;
+            ArrayRepresentation = arrayRepresentation;
+            StructureRepresentation = structureRepresentation;
+        }
+
+        public string Backend { get; }
+        public string MappingVersion { get; }
+        public string ArrayRepresentation { get; }
+        public string StructureRepresentation { get; }
+        public IReadOnlyCollection<DdfClrPrimitiveTypeMapping> Primitives => primitiveMappings;
+        public bool TryGetPrimitive(string typeName, out DdfClrPrimitiveTypeMapping mapping) =>
+            primitives.TryGetValue(typeName ?? string.Empty, out mapping);
+
+        public static DdfClrTypeMappingDefinition CreateDdfDefault() =>
+            new DdfClrTypeMappingDefinition(SupportedBackend, SupportedMappingVersion,
+                SupportedArrayRepresentation, SupportedStructureRepresentation, new[]
+                {
+                    new DdfClrPrimitiveTypeMapping("int", "System.Int32", "int"),
+                    new DdfClrPrimitiveTypeMapping("float", "System.Double", "double"),
+                    new DdfClrPrimitiveTypeMapping("char", "System.Char", "char"),
+                    new DdfClrPrimitiveTypeMapping("bool", "System.Boolean", "bool"),
+                    new DdfClrPrimitiveTypeMapping("void", "System.Void", "void"),
+                    new DdfClrPrimitiveTypeMapping("string", "System.String", "string")
+                });
     }
 
     public sealed class DdfTypeCompatibilityDefinition
@@ -168,7 +247,8 @@ namespace DDFLanguageEditor.Core
             DdfLiteralTypeDefinition literals,
             string numericResultType,
             string numericDominantType,
-            string indexType)
+            string indexType,
+            DdfClrTypeMappingDefinition clrMapping)
         {
             this.primitives = (primitives ?? throw new ArgumentNullException(nameof(primitives)))
                 .ToDictionary(item => item.Name, StringComparer.Ordinal);
@@ -182,6 +262,7 @@ namespace DDFLanguageEditor.Core
             NumericResultType = requirePrimitive(numericResultType, nameof(numericResultType));
             NumericDominantType = requirePrimitive(numericDominantType, nameof(numericDominantType));
             IndexType = requirePrimitive(indexType, nameof(indexType));
+            ClrMapping = clrMapping ?? throw new ArgumentNullException(nameof(clrMapping));
             requirePrimitive(signatures.VoidType, nameof(signatures.VoidType));
             requirePrimitive(literals.Integer, nameof(literals.Integer));
             requirePrimitive(literals.Decimal, nameof(literals.Decimal));
@@ -206,6 +287,7 @@ namespace DDFLanguageEditor.Core
             requireCategory(literals.String, DdfPrimitiveTypeCategory.String, "string literal type");
             if (!numericTypes.Contains(NumericResultType) || !numericTypes.Contains(NumericDominantType))
                 throw new ArgumentException("Numeric result and dominant types must have a numeric category.");
+            validateClrMapping();
         }
 
         public IReadOnlyCollection<DdfPrimitiveTypeDefinition> Primitives => primitives.Values;
@@ -218,6 +300,7 @@ namespace DDFLanguageEditor.Core
         public string NumericResultType { get; }
         public string NumericDominantType { get; }
         public string IndexType { get; }
+        public DdfClrTypeMappingDefinition ClrMapping { get; }
 
         public bool IsKnownPrimitive(string name) => primitives.ContainsKey(name ?? string.Empty);
         public bool TryGetPrimitive(string name, out DdfPrimitiveTypeDefinition primitive) =>
@@ -256,7 +339,32 @@ namespace DDFLanguageEditor.Core
                 new DdfScopeDefinition(true, true, true, true, false),
                 new DdfSignatureDefinition(true, true, "void", "declared"),
                 new DdfLiteralTypeDefinition("int", "float", "bool", "string"),
-                "int", "float", "int");
+                "int", "float", "int", DdfClrTypeMappingDefinition.CreateDdfDefault());
+        }
+
+        private void validateClrMapping()
+        {
+            var expected = new Dictionary<DdfPrimitiveTypeCategory, Tuple<string, string>>
+            {
+                [DdfPrimitiveTypeCategory.Integer] = Tuple.Create("System.Int32", "int"),
+                [DdfPrimitiveTypeCategory.Floating] = Tuple.Create("System.Double", "double"),
+                [DdfPrimitiveTypeCategory.Character] = Tuple.Create("System.Char", "char"),
+                [DdfPrimitiveTypeCategory.Boolean] = Tuple.Create("System.Boolean", "bool"),
+                [DdfPrimitiveTypeCategory.Void] = Tuple.Create("System.Void", "void"),
+                [DdfPrimitiveTypeCategory.String] = Tuple.Create("System.String", "string")
+            };
+            foreach (DdfPrimitiveTypeDefinition primitive in primitives.Values)
+            {
+                if (!ClrMapping.TryGetPrimitive(primitive.Name, out DdfClrPrimitiveTypeMapping mapping))
+                    throw new ArgumentException("Mapping CLR mancante per il tipo '" +
+                        primitive.Name + "'.");
+                if (!expected.TryGetValue(primitive.Category, out Tuple<string, string> contract) ||
+                    mapping.ClrTypeName != contract.Item1 || mapping.CSharpTypeName != contract.Item2)
+                    throw new DdfEngineCapabilityException("Mapping CLR incompatibile per il tipo '" +
+                        primitive.Name + "'.");
+            }
+            if (ClrMapping.Primitives.Count != primitives.Count)
+                throw new ArgumentException("Il mapping CLR contiene tipi non dichiarati.");
         }
 
         private string requirePrimitive(string name, string label)

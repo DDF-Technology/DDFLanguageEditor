@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "adapter": "ddf-types-v1",
   "dependsOn": [ "grammar" ],
   "primitives": [
@@ -37,5 +37,19 @@
   "literals": { "integer": "int", "decimal": "float", "boolean": "bool", "string": "string" },
   "numeric": { "resultType": "int", "dominantType": "float" },
   "indexing": { "indexType": "int" },
+  "clrMapping": {
+    "backend": "dotnet-roslyn-v1",
+    "mappingVersion": "1.0",
+    "arrayRepresentation": "SZArray",
+    "structureRepresentation": "SealedClass",
+    "primitives": [
+      { "type": "int", "clrType": "System.Int32", "csharpType": "int" },
+      { "type": "float", "clrType": "System.Double", "csharpType": "double" },
+      { "type": "char", "clrType": "System.Char", "csharpType": "char" },
+      { "type": "bool", "clrType": "System.Boolean", "csharpType": "bool" },
+      { "type": "void", "clrType": "System.Void", "csharpType": "void" },
+      { "type": "string", "clrType": "System.String", "csharpType": "string" }
+    ]
+  },
   "description": "Tipi, conversioni, compatibilità, mutabilità, scope e firme DDF correnti."
 }

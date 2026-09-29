@@ -310,8 +310,9 @@ Questi punti devono essere corretti prima di dichiarare completata la `0.12.2`:
     validarli durante il caricamento del pacchetto;
 13. aggiungere un corpus normativo condiviso da checker, VM e futuro backend.
 
-I gap 1-11 sono ora coperti da checker, servizi IDE, VM o corpus eseguibile; in
-particolare i punti 4-6 sono verificati sia sul tipo CLR realmente restituito sia
-sulle diagnostiche runtime. Restano da chiudere completamente il mapping backend
-versionato e il corpus differenziale VM/Roslyn dei punti 12-13. Fino ad allora la
+I tredici gap sono ora coperti per pacchetto, checker, servizi IDE e VM. Il
+mapping `dotnet-roslyn-v1` è versionato e validato in `types.json`; il manifesto
+del corpus registra diagnostiche, tipo CLR, valore o errore runtime atteso e
+identifica la VM come oracolo. Il confronto con assembly Roslyn diventerà
+eseguibile quando esisterà il backend verticale della `0.13`; fino ad allora la
 specifica, non eventuali comportamenti beta residui, governa la migrazione.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -1141,7 +1142,7 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.12.2", result.Package.PackageVersion);
+            Equal("0.12.2.1", result.Package.PackageVersion);
             Equal("0.12", result.Package.LanguageVersion);
             Equal(16, result.Package.Language.Keywords.Count);
             Equal(19, result.Package.Language.Operators.Count);
@@ -1362,6 +1363,14 @@ namespace DDFLanguageEditor.Tests
                 Equal(false, types.Scopes.AllowShadowing);
                 Equal(true, types.Mutability.VariablesMutable);
                 Equal(true, types.Signatures.ExactArity);
+                Equal("dotnet-roslyn-v1", types.ClrMapping.Backend);
+                Equal("1.0", types.ClrMapping.MappingVersion);
+                Equal("SZArray", types.ClrMapping.ArrayRepresentation);
+                Equal("SealedClass", types.ClrMapping.StructureRepresentation);
+                Equal(true, types.ClrMapping.TryGetPrimitive("float",
+                    out DdfClrPrimitiveTypeMapping floatMapping));
+                Equal("System.Double", floatMapping.ClrTypeName);
+                Equal("double", floatMapping.CSharpTypeName);
 
                 const string source = "main() out int { int value << 1.5; ret value; }";
                 DdfParseResult parse = DdfParser.Parse(source, load.Package.Language);
@@ -1391,6 +1400,41 @@ namespace DDFLanguageEditor.Tests
                 Equal(false, result.Success);
                 Equal(true, result.Package == null);
                 Equal(true, result.Diagnostics.Any(item => item.Code == "DDFL095" && item.File == "types.json"));
+
+                string incompatibleRoot = Path.Combine(root, "incompatible");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(incompatibleRoot);
+                string incompatiblePath = Path.Combine(incompatibleRoot, "types.json");
+                JsonObject incompatible = JsonNode.Parse(File.ReadAllText(
+                    incompatiblePath, Encoding.UTF8)).AsObject();
+                JsonObject floatMapping = incompatible["clrMapping"].AsObject()["primitives"]
+                    .AsArray().Select(item => item.AsObject())
+                    .Single(item => item["type"].GetValue<string>() == "float");
+                floatMapping["clrType"] = "System.Single";
+                floatMapping["csharpType"] = "float";
+                File.WriteAllText(incompatiblePath, incompatible.ToJsonString(
+                    new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult incompatibleResult =
+                    DdfLanguagePackageLoader.Load(incompatibleRoot);
+                Equal(false, incompatibleResult.Success);
+                Equal(true, incompatibleResult.Diagnostics.Any(item =>
+                    item.Code == "DDFL096" && item.File == "types.json" &&
+                    item.Domain == DdfDiagnosticDomain.EngineCapability));
+
+                string missingRoot = Path.Combine(root, "missing");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(missingRoot);
+                string missingPath = Path.Combine(missingRoot, "types.json");
+                JsonObject missing = JsonNode.Parse(File.ReadAllText(
+                    missingPath, Encoding.UTF8)).AsObject();
+                missing.Remove("clrMapping");
+                File.WriteAllText(missingPath, missing.ToJsonString(
+                    new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+
+                DdfLanguagePackageLoadResult missingResult =
+                    DdfLanguagePackageLoader.Load(missingRoot);
+                Equal(false, missingResult.Success);
+                Equal(true, missingResult.Diagnostics.Any(item =>
+                    item.Code == "DDFL092" && item.File == "types.json"));
             }
             finally
             {
@@ -3802,6 +3846,7 @@ namespace DDFLanguageEditor.Tests
                 new[] { new DdfHostParameterDefinition("value", "int") },
                 arguments => Convert.ToInt32(arguments[0]) * 2));
             string expectedShape = null;
+            string expectedClrMapping = null;
             foreach (var profile in cases)
             {
                 DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(Path.Combine(profiles, profile.Id));
@@ -3822,6 +3867,16 @@ namespace DDFLanguageEditor.Tests
                 string shape = SemanticIrShape(ir.Program);
                 if (expectedShape == null) expectedShape = shape;
                 else Equal(expectedShape, shape);
+                string clrMapping = load.Package.Language.Types.ClrMapping.Backend + "|" +
+                    load.Package.Language.Types.ClrMapping.MappingVersion + "|" +
+                    load.Package.Language.Types.ClrMapping.ArrayRepresentation + "|" +
+                    load.Package.Language.Types.ClrMapping.StructureRepresentation + "|" +
+                    string.Join(",", load.Package.Language.Types.ClrMapping.Primitives
+                        .OrderBy(item => item.TypeName, StringComparer.Ordinal)
+                        .Select(item => item.TypeName + "=" + item.ClrTypeName + "/" +
+                            item.CSharpTypeName));
+                if (expectedClrMapping == null) expectedClrMapping = clrMapping;
+                else Equal(expectedClrMapping, clrMapping);
             }
         }
 
@@ -4593,28 +4648,58 @@ namespace DDFLanguageEditor.Tests
         private static void ValidatesNormativeDdfTypeCorpus()
         {
             string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Types");
-            var expected = new Dictionary<string, string[]>(StringComparer.Ordinal)
-            {
-                ["invalid-char-arithmetic.ddf"] = new[] { "DDF302" },
-                ["invalid-array-rank.ddf"] = new[] { "DDF310" },
-                ["invalid-shadowing.ddf"] = new[] { "DDF311" },
-                ["invalid-recursive-structures.ddf"] = new[] { "DDF312" },
-                ["invalid-array-equality.ddf"] = new[] { "DDF302" },
-                ["invalid-string-index-assignment.ddf"] = new[] { "DDF301", "DDF308" },
-                ["invalid-loop-only-return.ddf"] = new[] { "DDF307" }
-            };
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(
+                Path.Combine(corpus, "corpus.json"), Encoding.UTF8)).AsObject();
+            Equal("1.0", manifest["schemaVersion"].GetValue<string>());
+            Equal("0.12", manifest["languageVersion"].GetValue<string>());
+            Equal("ddf-vm-ir-v1", manifest["oracleBackend"].GetValue<string>());
+            Equal("dotnet-roslyn-v1", manifest["futureBackend"].GetValue<string>());
 
-            foreach (KeyValuePair<string, string[]> item in expected)
+            JsonArray cases = manifest["cases"].AsArray();
+            string[] declaredFiles = cases.Select(item =>
+                    item.AsObject()["file"].GetValue<string>())
+                .OrderBy(name => name, StringComparer.Ordinal).ToArray();
+            Equal(declaredFiles.Length, declaredFiles.Distinct(StringComparer.Ordinal).Count());
+            SequenceEqual(Directory.GetFiles(corpus, "*.ddf").Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal), declaredFiles);
+
+            foreach (JsonNode item in cases)
             {
-                string source = File.ReadAllText(Path.Combine(corpus, item.Key));
+                JsonObject testCase = item.AsObject();
+                string fileName = testCase["file"].GetValue<string>();
+                string source = File.ReadAllText(Path.Combine(corpus, fileName));
                 DdfParseResult parse = DdfParser.Parse(source);
                 Equal(0, parse.ValidationDiagnostics.Count);
+                string[] expectedDiagnostics = testCase["semanticDiagnostics"].AsArray()
+                    .Select(code => code.GetValue<string>())
+                    .OrderBy(code => code, StringComparer.Ordinal).ToArray();
                 string[] actual = DdfTypeChecker.Check(source, parse.Root).Diagnostics
                     .Select(diagnostic => diagnostic.Code)
                     .Distinct(StringComparer.Ordinal)
                     .OrderBy(code => code, StringComparer.Ordinal)
                     .ToArray();
-                SequenceEqual(item.Value.OrderBy(code => code, StringComparer.Ordinal), actual);
+                SequenceEqual(expectedDiagnostics, actual);
+
+                JsonObject runtime = testCase["runtime"] as JsonObject;
+                if (runtime == null) continue;
+                Equal(0, actual.Length);
+                DdfExecutionResult result = DdfInterpreter.Execute(source);
+                string status = runtime["status"].GetValue<string>();
+                if (status == "success")
+                {
+                    Equal(true, result.Succeeded);
+                    Equal(runtime["returnClrType"].GetValue<string>(),
+                        result.ReturnValue?.GetType().FullName);
+                    Equal(runtime["returnValue"].GetValue<string>(),
+                        Convert.ToString(result.ReturnValue, CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    Equal(false, result.Succeeded);
+                    DdfDiagnostic diagnostic = result.Diagnostics.Single();
+                    Equal(runtime["diagnosticCode"].GetValue<string>(), diagnostic.Code);
+                    Equal(runtime["line"].GetValue<int>(), diagnostic.Line);
+                }
             }
         }
 

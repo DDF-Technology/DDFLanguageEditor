@@ -37,3 +37,22 @@ formatter non modifica la semantica e non migra le vecchie grafie.
 Le successive incompatibilità della linea 0.12 saranno aggiunte a questo file
 insieme alla versione minima del pacchetto che le introduce.
 
+## Tipi e pacchetti — pacchetto 0.12.2.1
+
+- `dict` non è più un tipo primitivo del nucleo;
+- `char` non partecipa all'aritmetica e non viene promosso a numero;
+- gli array sono monodimensionali;
+- non è più ammesso dichiarare un nome già visibile nello scope;
+- `float` non viene convertito implicitamente in `int`;
+- array e strutture non supportano `==` o `!=`;
+- un indice di `string` è leggibile ma non modificabile.
+
+I pacchetti personalizzati devono portare `types.json` allo schema `1.1` e
+aggiungere la sezione obbligatoria `clrMapping` conforme a
+`language-types.schema.json`. Il mapping
+`dotnet-roslyn-v1` non abilita compilazione o accesso alle API .NET: descrive
+soltanto la rappresentazione futura dei tipi e viene validato anche quando il
+pacchetto è usato dalla VM. Copiare la sezione dal pacchetto DDF `0.12.2.1` è
+corretto soltanto per profili sintattici che conservano esattamente la stessa
+semantica dei tipi.
+

@@ -1,0 +1,19 @@
+struct Box
+{
+    int value;
+}
+
+update(Box item) out int
+{
+    item.value << 9;
+    ret item.value;
+}
+
+main() out int
+{
+    Box original;
+    Box alias << original;
+    int[2] values;
+    values[0] << update(alias);
+    ret original.value + values[0];
+}

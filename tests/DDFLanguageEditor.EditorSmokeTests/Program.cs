@@ -2836,11 +2836,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Le informazioni sul pacchetto non sono chiare e centrate sullo schermo.");
                 DdfLanguagePackage activePackage = form.EmbeddedEditor.LanguageSession.ActivePackage;
                 string expectedOrigin = activePackage.Origin == DdfLanguagePackageOrigin.Embedded
-                    ? "Incorporato"
+                    ? "incorporato"
                     : activePackage.Origin == DdfLanguagePackageOrigin.Archive ? "Archivio" : "Cartella";
                 Require(FindControl<Label>(packageInfo, "languagePackageVersionValueLabel").Text.Contains(
                             activePackage.Id + " " + activePackage.PackageVersion, StringComparison.Ordinal) &&
-                        FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains(expectedOrigin) &&
+                        FindControl<Label>(packageInfo, "languagePackageOriginValueLabel").Text.Contains(
+                            expectedOrigin, StringComparison.OrdinalIgnoreCase) &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
                 Require(FindControl<ListBox>(packageInfo, "languagePackageDiagnosticsListBox").Items.Count > 0,

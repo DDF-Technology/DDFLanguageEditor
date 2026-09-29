@@ -1,0 +1,13 @@
+main() out int
+{
+    int number;
+    float decimalValue;
+    char letter << "A";
+    bool enabled;
+    string text;
+    if(!enabled && text == "")
+    {
+        ret number;
+    }
+    ret 1;
+}

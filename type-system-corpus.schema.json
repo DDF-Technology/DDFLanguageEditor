@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddflang/type-system-corpus-1.0.json",
+  "title": "DDF normative type-system corpus 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "languageVersion", "oracleBackend", "futureBackend", "cases" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "languageVersion": { "type": "string", "minLength": 1 },
+    "oracleBackend": { "const": "ddf-vm-ir-v1" },
+    "futureBackend": { "const": "dotnet-roslyn-v1" },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "file", "semanticDiagnostics" ],
+        "properties": {
+          "file": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.ddf$" },
+          "semanticDiagnostics": {
+            "type": "array", "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+          },
+          "runtime": {
+            "type": "object", "additionalProperties": false,
+            "required": [ "status" ],
+            "properties": {
+              "status": { "enum": [ "success", "diagnostic" ] },
+              "returnClrType": { "type": "string" },
+              "returnValue": { "type": "string" },
+              "diagnosticCode": { "type": "string", "pattern": "^DDF[0-9]{3}$" },
+              "line": { "type": "integer", "minimum": 1 }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "status": { "const": "success" } } },
+                "then": { "required": [ "returnClrType", "returnValue" ] }
+              },
+              {
+                "if": { "properties": { "status": { "const": "diagnostic" } } },
+                "then": { "required": [ "diagnosticCode", "line" ] }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

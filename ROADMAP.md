@@ -692,10 +692,11 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Associare ogni costrutto alle operazioni sicure della IR e dichiarare le capacità non supportate (`DDF_TYPE_SYSTEM_SPEC.md`, 2026-09-28).
 - [x] Vincolare ogni tipo eseguibile a un mapping CLR/C# deterministico accettato da Roslyn, mantenendo distinti compatibilità di rappresentazione e accesso autorizzato alle API .NET (`DDF_TYPE_SYSTEM_SPEC.md`, DDF-0013, 2026-09-28).
 - [x] Eseguire l'audit trasversale di compatibilità con .NET 10/Roslyn e fissare i gate per IR bound, mapping, runtime ABI, nomi, riferimenti, emit, PDB, packaging e confronto differenziale (`ROSLYN_COMPATIBILITY_AUDIT.md`, DDF-0014, 2026-09-28).
-- [ ] Allineare pacchetto, type checker, VM e servizi IDE ai tredici gap di conformità censiti nella specifica, inclusi cicli di strutture e mapping backend versionato.
+- [x] Allineare pacchetto, type checker, VM e servizi IDE ai tredici gap di conformità censiti nella specifica, inclusi cicli di strutture e mapping backend versionato (`0.12.2`, 2026-09-29).
   - [x] Chiudere i gap semantici di pacchetto/checker: `dict` escluso dal DDF, `char` non numerico, array monodimensionali, niente shadowing, ritorno su ogni percorso, uguaglianza vietata per composti, indici stringa in sola lettura e contenimento strutture aciclico; aggiungere il primo corpus negativo eseguibile (`0.12.2`, 2026-09-28).
   - [x] Allineare valori realmente memorizzati e VM: promozione `int -> float` su inizializzazioni, assegnazioni, argomenti, campi e ritorni; aritmetica intera checked senza passaggio da `double`; divisione intera verso zero; potenze intere non negative; diagnostiche stabili per overflow e risultati floating non finiti (`0.12.2`, 2026-09-28).
-- [ ] Creare il corpus normativo dei tipi e confrontare diagnostiche e risultati fra VM e futuro backend Roslyn.
+- [x] Creare il corpus normativo dei tipi con manifesto e schema versionati, copertura completa dei sorgenti, diagnostiche semantiche e oracoli runtime CLR; dichiarare VM e futuro backend Roslyn nello stesso contratto differenziale (`0.12.2`, 2026-09-29).
+  - [ ] Collegare il runner Roslyn allo stesso manifesto quando il backend verticale sarà introdotto nella `0.13`; ogni divergenza rispetto all'oracolo VM bloccherà il rilascio.
 
 ### 0.12.3 — Moduli e libreria standard
 

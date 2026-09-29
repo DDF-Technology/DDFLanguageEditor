@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "languageVersion": "0.12",
+  "oracleBackend": "ddf-vm-ir-v1",
+  "futureBackend": "dotnet-roslyn-v1",
+  "cases": [
+    { "file": "valid-default-values.ddf", "semanticDiagnostics": [], "runtime": { "status": "success", "returnClrType": "System.Int32", "returnValue": "0" } },
+    { "file": "valid-compound-aliasing.ddf", "semanticDiagnostics": [], "runtime": { "status": "success", "returnClrType": "System.Int32", "returnValue": "18" } },
+    { "file": "valid-runtime-promotions.ddf", "semanticDiagnostics": [], "runtime": { "status": "success", "returnClrType": "System.Double", "returnValue": "6" } },
+    { "file": "valid-integer-division.ddf", "semanticDiagnostics": [], "runtime": { "status": "success", "returnClrType": "System.Int32", "returnValue": "3" } },
+
+    { "file": "invalid-char-arithmetic.ddf", "semanticDiagnostics": [ "DDF302" ] },
+    { "file": "invalid-array-rank.ddf", "semanticDiagnostics": [ "DDF310" ] },
+    { "file": "invalid-shadowing.ddf", "semanticDiagnostics": [ "DDF311" ] },
+    { "file": "invalid-recursive-structures.ddf", "semanticDiagnostics": [ "DDF312" ] },
+    { "file": "invalid-array-equality.ddf", "semanticDiagnostics": [ "DDF302" ] },
+    { "file": "invalid-string-index-assignment.ddf", "semanticDiagnostics": [ "DDF301", "DDF308" ] },
+    { "file": "invalid-loop-only-return.ddf", "semanticDiagnostics": [ "DDF307" ] },
+    { "file": "invalid-narrowing-conversion.ddf", "semanticDiagnostics": [ "DDF301" ] },
+    { "file": "invalid-truthiness.ddf", "semanticDiagnostics": [ "DDF306" ] },
+    { "file": "invalid-function-contract.ddf", "semanticDiagnostics": [ "DDF303", "DDF304" ] },
+
+    { "file": "invalid-runtime-overflow.ddf", "semanticDiagnostics": [], "runtime": { "status": "diagnostic", "diagnosticCode": "DDF417", "line": 4 } },
+    { "file": "invalid-nonfinite-float.ddf", "semanticDiagnostics": [], "runtime": { "status": "diagnostic", "diagnosticCode": "DDF418", "line": 4 } },
+    { "file": "invalid-negative-integer-power.ddf", "semanticDiagnostics": [], "runtime": { "status": "diagnostic", "diagnosticCode": "DDF419", "line": 3 } }
+  ]
+}

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.ddf.technology/schemas/ddflang/types-1.0.json",
-  "title": "DDF language package type system 1.0",
+  "$id": "https://www.ddf.technology/schemas/ddflang/types-1.1.json",
+  "title": "DDF language package type system 1.1",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "schemaVersion", "adapter", "primitives", "conversions", "compatibility", "mutability", "scopes", "signatures", "literals", "numeric", "indexing" ],
+  "required": [ "schemaVersion", "adapter", "primitives", "conversions", "compatibility", "mutability", "scopes", "signatures", "literals", "numeric", "indexing", "clrMapping" ],
   "properties": {
-    "schemaVersion": { "const": "1.0" },
+    "schemaVersion": { "const": "1.1" },
     "adapter": { "const": "ddf-types-v1" },
     "dependsOn": { "type": "array", "items": { "type": "string" } },
     "description": { "type": "string" },
@@ -17,7 +17,7 @@
         "required": [ "name", "category", "canDeclareVariable" ],
         "properties": {
           "name": { "$ref": "#/$defs/name" },
-          "category": { "enum": [ "Void", "Boolean", "Integer", "Floating", "Character", "String", "Dictionary" ] },
+          "category": { "enum": [ "Void", "Boolean", "Integer", "Floating", "Character", "String" ] },
           "canDeclareVariable": { "type": "boolean" },
           "indexedElementType": { "$ref": "#/$defs/name" }
         }
@@ -75,6 +75,28 @@
     "indexing": {
       "type": "object", "additionalProperties": false, "required": [ "indexType" ],
       "properties": { "indexType": { "$ref": "#/$defs/name" } }
+    },
+    "clrMapping": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "backend", "mappingVersion", "arrayRepresentation", "structureRepresentation", "primitives" ],
+      "properties": {
+        "backend": { "const": "dotnet-roslyn-v1" },
+        "mappingVersion": { "const": "1.0" },
+        "arrayRepresentation": { "const": "SZArray" },
+        "structureRepresentation": { "const": "SealedClass" },
+        "primitives": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": [ "type", "clrType", "csharpType" ],
+            "properties": {
+              "type": { "$ref": "#/$defs/name" },
+              "clrType": { "type": "string", "minLength": 1 },
+              "csharpType": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": { "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$" } }
