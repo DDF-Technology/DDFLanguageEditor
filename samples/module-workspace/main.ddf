@@ -1,0 +1,6 @@
+main() out int
+{
+    int total << add(20, 21);
+    total >> Console;
+    ret total;
+}

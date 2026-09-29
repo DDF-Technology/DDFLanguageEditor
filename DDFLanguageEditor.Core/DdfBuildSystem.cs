@@ -47,6 +47,30 @@ namespace DDFLanguageEditor.Core
         public string Version { get; set; }
     }
 
+    public interface IDdfModuleResolver
+    {
+        string ResolveModuleRoot(string projectRoot, DdfProjectDependency dependency);
+    }
+
+    public sealed class DdfProjectModuleStoreResolver : IDdfModuleResolver
+    {
+        public const string StoreDirectory = ".ddf/modules";
+
+        public string ResolveModuleRoot(string projectRoot, DdfProjectDependency dependency)
+        {
+            if (string.IsNullOrWhiteSpace(projectRoot) || dependency == null ||
+                string.IsNullOrWhiteSpace(dependency.Id) || string.IsNullOrWhiteSpace(dependency.Version))
+                return null;
+            string root = Path.GetFullPath(projectRoot);
+            string candidate = Path.GetFullPath(Path.Combine(root, ".ddf", "modules",
+                dependency.Id, dependency.Version));
+            string store = Path.GetFullPath(Path.Combine(root, ".ddf", "modules"))
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return candidate.StartsWith(store, StringComparison.OrdinalIgnoreCase) && Directory.Exists(candidate)
+                ? candidate : null;
+        }
+    }
+
     public sealed class DdfProjectModule
     {
         public string Id { get; set; }
@@ -266,6 +290,21 @@ namespace DDFLanguageEditor.Core
         public bool FromUnsavedBuffer { get; }
     }
 
+    public sealed class DdfBuildResolvedModule
+    {
+        internal DdfBuildResolvedModule(string id, string version, IEnumerable<string> exports)
+        {
+            Id = id;
+            Version = version;
+            Exports = (exports ?? Array.Empty<string>()).OrderBy(item => item, StringComparer.Ordinal)
+                .ToList().AsReadOnly();
+        }
+
+        public string Id { get; }
+        public string Version { get; }
+        public IReadOnlyList<string> Exports { get; }
+    }
+
     public sealed class DdfBuildArtifact
     {
         public const string ReceiptFormat = "ddf-build-receipt-1.0";
@@ -273,9 +312,10 @@ namespace DDFLanguageEditor.Core
             IReadOnlyList<string> exports, string languageId, string languagePackageVersion,
             string backend, string entrySource, string entryPoint, string fingerprint,
             IReadOnlyList<DdfBuildArtifactSource> sources, IReadOnlyList<DdfProjectDependency> dependencies,
+            IReadOnlyList<DdfBuildResolvedModule> resolvedModules,
             DdfIrProgram entryProgram, IReadOnlyList<DdfIrModule> runtimeModules,
             int maxInstructions, bool useUnsavedBuffers)
-        { ProjectName = projectName; ModuleId = moduleId; ModuleVersion = moduleVersion; Exports = exports; LanguageId = languageId; LanguagePackageVersion = languagePackageVersion; Backend = backend; EntrySource = entrySource; EntryPoint = entryPoint; Fingerprint = fingerprint; Sources = sources; Dependencies = dependencies; EntryProgram = entryProgram; RuntimeModules = runtimeModules; MaxInstructions = maxInstructions; UseUnsavedBuffers = useUnsavedBuffers; }
+        { ProjectName = projectName; ModuleId = moduleId; ModuleVersion = moduleVersion; Exports = exports; LanguageId = languageId; LanguagePackageVersion = languagePackageVersion; Backend = backend; EntrySource = entrySource; EntryPoint = entryPoint; Fingerprint = fingerprint; Sources = sources; Dependencies = dependencies; ResolvedModules = resolvedModules; EntryProgram = entryProgram; RuntimeModules = runtimeModules; MaxInstructions = maxInstructions; UseUnsavedBuffers = useUnsavedBuffers; }
         public string Format => ReceiptFormat;
         public string ProjectName { get; }
         public string ModuleId { get; }
@@ -289,6 +329,7 @@ namespace DDFLanguageEditor.Core
         public string Fingerprint { get; }
         public IReadOnlyList<DdfBuildArtifactSource> Sources { get; }
         public IReadOnlyList<DdfProjectDependency> Dependencies { get; }
+        public IReadOnlyList<DdfBuildResolvedModule> ResolvedModules { get; }
         [JsonIgnore] public DdfIrProgram EntryProgram { get; }
         [JsonIgnore] public IReadOnlyList<DdfIrModule> RuntimeModules { get; }
         public int MaxInstructions { get; }
@@ -319,6 +360,21 @@ namespace DDFLanguageEditor.Core
             IReadOnlyList<DdfBuildSource> sources);
     }
 
+    internal sealed class DdfBuildModuleInput
+    {
+        internal DdfBuildModuleInput(string root, DdfProjectManifest manifest,
+            IReadOnlyList<DdfBuildSource> sources)
+        {
+            Root = root;
+            Manifest = manifest;
+            Sources = sources;
+        }
+
+        internal string Root { get; }
+        internal DdfProjectManifest Manifest { get; }
+        internal IReadOnlyList<DdfBuildSource> Sources { get; }
+    }
+
     public sealed class DdfVmBuildBackend : IDdfBuildBackend
     {
         public const string BackendId = "ddf-vm-ir-v1";
@@ -334,36 +390,60 @@ namespace DDFLanguageEditor.Core
             DdfLanguagePackage package, IReadOnlyList<DdfBuildSource> sources,
             DdfHostCatalogSnapshot hostCatalog)
         {
+            return Build(workspaceRoot, manifest, package, sources, hostCatalog,
+                Array.Empty<DdfBuildModuleInput>());
+        }
+
+        internal DdfBuildResult Build(string workspaceRoot, DdfProjectManifest manifest,
+            DdfLanguagePackage package, IReadOnlyList<DdfBuildSource> sources,
+            DdfHostCatalogSnapshot hostCatalog, IReadOnlyList<DdfBuildModuleInput> dependencies)
+        {
             var issues = new List<DdfBuildIssue>();
-            var parsed = sources.Select(item => new { Source = item, Parse = DdfParser.Parse(item.Source, package.Language) }).ToList();
+            var entryModule = new DdfBuildModuleInput(workspaceRoot, manifest, sources);
+            var modules = (dependencies ?? Array.Empty<DdfBuildModuleInput>()).Concat(new[] { entryModule }).ToList();
+            var parsed = modules.SelectMany(module => module.Sources.Select(source => new ParsedModuleSource
+            {
+                Module = module,
+                Source = source,
+                Parse = DdfParser.Parse(source.Source, package.Language)
+            })).ToList();
             foreach (var item in parsed)
                 issues.AddRange(item.Parse.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
-            var programs = new Dictionary<string, DdfIrProgram>(StringComparer.OrdinalIgnoreCase);
+            var programs = new Dictionary<ParsedModuleSource, DdfIrProgram>();
             foreach (var item in parsed)
             {
-                var externalRoots = parsed.Where(other => !ReferenceEquals(other, item)).Select(other => other.Parse.Root).ToList();
+                var externalRoots = parsed.Where(other => ReferenceEquals(other.Module, item.Module) &&
+                        !ReferenceEquals(other, item)).Select(other => other.Parse.Root).ToList();
+                foreach (DdfProjectDependency dependency in item.Module.Manifest.Dependencies)
+                {
+                    DdfBuildModuleInput dependencyModule = modules.FirstOrDefault(module =>
+                        module.Manifest.Module.Id == dependency.Id && module.Manifest.Module.Version == dependency.Version);
+                    if (dependencyModule == null) continue;
+                    externalRoots.AddRange(parsed.Where(other => ReferenceEquals(other.Module, dependencyModule))
+                        .Select(other => ExportedRoot(other.Parse.Root, dependencyModule.Manifest.Module.Exports)));
+                }
                 DdfTypeCheckResult types = DdfTypeChecker.Check(item.Source.Source, item.Parse.Root, externalRoots,
                     package.Language.Types, package.Language.StandardLibrary, hostCatalog,
                     package.Language.Runtime);
                 issues.AddRange(types.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
                 DdfIrBuildResult ir = DdfIrLowerer.Lower(item.Source.Source, item.Parse, package.Language);
                 issues.AddRange(ir.Diagnostics.Select(diagnostic => DdfBuildIssue.FromDiagnostic(item.Source.Path, diagnostic)));
-                if (ir.Success) programs[item.Source.RelativePath] = ir.Program;
+                if (ir.Success) programs[item] = ir.Program;
             }
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error)) return new DdfBuildResult(null, issues);
 
-            DdfBuildSource[] entryCandidates = sources.Where(item =>
-                programs.TryGetValue(item.RelativePath, out DdfIrProgram candidateProgram) &&
+            ParsedModuleSource[] entryCandidates = parsed.Where(item => ReferenceEquals(item.Module, entryModule) &&
+                programs.TryGetValue(item, out DdfIrProgram candidateProgram) &&
                 candidateProgram.Members.OfType<DdfIrFunction>().Any(function => function.Name == manifest.EntryPoint))
                 .ToArray();
             if (entryCandidates.Length > 1)
             {
                 issues.Add(DdfBuildIssue.Configuration("DDFB009",
                     "La funzione di ingresso '" + manifest.EntryPoint + "' deve essere unica nel progetto. Trovata in: " +
-                    string.Join(", ", entryCandidates.Select(item => item.RelativePath)) + "."));
+                    string.Join(", ", entryCandidates.Select(item => item.Source.RelativePath)) + "."));
                 return new DdfBuildResult(null, issues);
             }
-            DdfBuildSource entry = ResolveEntrySource(manifest, sources, programs);
+            ParsedModuleSource entry = ResolveEntrySource(entryModule, parsed, programs);
             if (entry == null)
             {
                 issues.Add(DdfBuildIssue.Configuration("DDFB001", "Sorgente o funzione di ingresso non trovata."));
@@ -371,7 +451,8 @@ namespace DDFLanguageEditor.Core
             }
             var declarations = programs.SelectMany(pair => pair.Value.Members.Select(member => new
                 {
-                    Path = pair.Key,
+                    Module = pair.Key.Module,
+                    Path = pair.Key.Source.RelativePath,
                     Kind = member is DdfIrFunction ? "funzione" : member is DdfIrStructure ? "struttura" :
                         member is DdfIrGlobal global && global.Statement is DdfIrVariableDeclaration ? "globale" : null,
                     Name = member is DdfIrFunction function ? function.Name : member is DdfIrStructure structure ? structure.Name :
@@ -379,25 +460,35 @@ namespace DDFLanguageEditor.Core
                 }))
                 .Where(item => item.Kind != null && !string.IsNullOrEmpty(item.Name))
                 .ToList();
-            var duplicateDeclarations = declarations.GroupBy(item => item.Name, StringComparer.Ordinal)
+            var duplicateDeclarations = declarations.GroupBy(item => item.Module)
+                .SelectMany(group => group.GroupBy(item => item.Name, StringComparer.Ordinal))
                 .Where(group => group.Count() > 1)
                 .ToList();
             foreach (var duplicate in duplicateDeclarations)
                 issues.Add(DdfBuildIssue.Configuration("DDFB010",
                     "Dichiarazione runtime duplicata '" + duplicate.Key + "': " +
                     string.Join(", ", duplicate.Select(item => item.Path)) + "."));
-            foreach (string export in manifest.Module.Exports)
-                if (!declarations.Any(item => item.Name == export))
-                    issues.Add(DdfBuildIssue.Configuration("DDFB012",
-                        "L'esportazione '" + export + "' non corrisponde a una dichiarazione del modulo '" +
-                        manifest.Module.Id + "'."));
+            foreach (DdfBuildModuleInput module in modules)
+                foreach (string export in module.Manifest.Module.Exports)
+                    if (!declarations.Any(item => ReferenceEquals(item.Module, module) && item.Name == export))
+                        issues.Add(DdfBuildIssue.Configuration("DDFB012",
+                            "L'esportazione '" + export + "' non corrisponde a una dichiarazione del modulo '" +
+                            module.Manifest.Module.Id + "'.", Path.Combine(module.Root, DdfProjectManifest.FileName)));
+            var runtimeCollisions = declarations.GroupBy(item => item.Name, StringComparer.Ordinal)
+                .Where(group => group.Select(item => item.Module.Manifest.Module.Id)
+                    .Distinct(StringComparer.Ordinal).Count() > 1);
+            foreach (var collision in runtimeCollisions)
+                issues.Add(DdfBuildIssue.Configuration("DDFB018",
+                    "Il nome runtime '" + collision.Key + "' è dichiarato da più moduli: " +
+                    string.Join(", ", collision.Select(item => item.Module.Manifest.Module.Id)
+                        .Distinct(StringComparer.Ordinal)) + "."));
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfBuildResult(null, issues);
 
-            var orderedGlobals = sources.SelectMany(source => programs[source.RelativePath].Members
+            var orderedGlobals = parsed.Where(item => programs.ContainsKey(item)).SelectMany(item => programs[item].Members
                 .OfType<DdfIrGlobal>()
                 .Where(global => global.Statement is DdfIrVariableDeclaration)
-                .Select(global => new { Source = source, Variable = (DdfIrVariableDeclaration)global.Statement }))
+                .Select(global => new { Source = item.Source, Variable = (DdfIrVariableDeclaration)global.Statement }))
                 .ToList();
             var globalOrder = orderedGlobals.Select((item, index) => new { item.Variable.Name, Index = index })
                 .ToDictionary(item => item.Name, item => item.Index, StringComparer.Ordinal);
@@ -415,35 +506,46 @@ namespace DDFLanguageEditor.Core
                 return new DdfBuildResult(null, issues);
 
             int maxInstructions = manifest.Options.MaxInstructions ?? package.Language.Runtime.DefaultInstructionLimit;
-            IReadOnlyList<DdfBuildArtifactSource> artifactSources = sources.Select(item =>
-                new DdfBuildArtifactSource(item.RelativePath, Hash(item.Source), item.FromUnsavedBuffer)).ToList().AsReadOnly();
-            string fingerprint = Fingerprint(manifest, package, artifactSources, maxInstructions);
-            IReadOnlyList<DdfIrModule> runtimeModules = sources
-                .Where(item => programs.ContainsKey(item.RelativePath))
-                .Select(item => new DdfIrModule(item.Path, item.Source, programs[item.RelativePath]))
+            IReadOnlyList<DdfBuildArtifactSource> artifactSources = parsed.Select(item =>
+                new DdfBuildArtifactSource(ReferenceEquals(item.Module, entryModule)
+                    ? item.Source.RelativePath
+                    : "@" + item.Module.Manifest.Module.Id + "/" + item.Module.Manifest.Module.Version + "/" +
+                      item.Source.RelativePath,
+                    Hash(item.Source.Source), item.Source.FromUnsavedBuffer)).ToList().AsReadOnly();
+            string fingerprint = Fingerprint(manifest, package, artifactSources, maxInstructions, modules);
+            IReadOnlyList<DdfIrModule> runtimeModules = parsed
+                .Where(item => programs.ContainsKey(item))
+                .Select(item => new DdfIrModule(item.Source.Path, item.Source.Source, programs[item]))
+                .ToList().AsReadOnly();
+            IReadOnlyList<DdfBuildResolvedModule> resolvedModules = modules
+                .Select(module => new DdfBuildResolvedModule(module.Manifest.Module.Id,
+                    module.Manifest.Module.Version, module.Manifest.Module.Exports))
                 .ToList().AsReadOnly();
             var artifact = new DdfBuildArtifact(manifest.Name, manifest.Module.Id,
                 manifest.Module.Version, manifest.Module.Exports.OrderBy(item => item, StringComparer.Ordinal)
                     .ToList().AsReadOnly(), package.Id, package.PackageVersion, Id,
-                entry.RelativePath, manifest.EntryPoint, fingerprint, artifactSources,
+                entry.Source.RelativePath, manifest.EntryPoint, fingerprint, artifactSources,
                 manifest.Dependencies.OrderBy(item => item.Id, StringComparer.Ordinal)
                     .Select(item => new DdfProjectDependency { Id = item.Id, Version = item.Version }).ToList().AsReadOnly(),
-                programs[entry.RelativePath], runtimeModules, maxInstructions, manifest.Options.UseUnsavedBuffers);
+                resolvedModules, programs[entry], runtimeModules, maxInstructions, manifest.Options.UseUnsavedBuffers);
             return new DdfBuildResult(artifact, issues);
         }
 
-        private static DdfBuildSource ResolveEntrySource(DdfProjectManifest manifest, IReadOnlyList<DdfBuildSource> sources,
-            IReadOnlyDictionary<string, DdfIrProgram> programs)
+        private static ParsedModuleSource ResolveEntrySource(DdfBuildModuleInput entryModule,
+            IReadOnlyList<ParsedModuleSource> sources, IReadOnlyDictionary<ParsedModuleSource, DdfIrProgram> programs)
         {
+            DdfProjectManifest manifest = entryModule.Manifest;
             if (!string.IsNullOrWhiteSpace(manifest.EntrySource))
-                return sources.FirstOrDefault(item => string.Equals(Normalize(item.RelativePath), Normalize(manifest.EntrySource), StringComparison.OrdinalIgnoreCase) &&
-                    programs.TryGetValue(item.RelativePath, out DdfIrProgram program) && program.Members.OfType<DdfIrFunction>().Any(function => function.Name == manifest.EntryPoint));
-            return sources.FirstOrDefault(item => programs.TryGetValue(item.RelativePath, out DdfIrProgram program) &&
+                return sources.FirstOrDefault(item => ReferenceEquals(item.Module, entryModule) &&
+                    string.Equals(Normalize(item.Source.RelativePath), Normalize(manifest.EntrySource), StringComparison.OrdinalIgnoreCase) &&
+                    programs.TryGetValue(item, out DdfIrProgram program) && program.Members.OfType<DdfIrFunction>().Any(function => function.Name == manifest.EntryPoint));
+            return sources.FirstOrDefault(item => ReferenceEquals(item.Module, entryModule) && programs.TryGetValue(item, out DdfIrProgram program) &&
                 program.Members.OfType<DdfIrFunction>().Any(function => function.Name == manifest.EntryPoint));
         }
 
         private static string Fingerprint(DdfProjectManifest manifest, DdfLanguagePackage package,
-            IReadOnlyList<DdfBuildArtifactSource> sources, int maxInstructions)
+            IReadOnlyList<DdfBuildArtifactSource> sources, int maxInstructions,
+            IReadOnlyList<DdfBuildModuleInput> modules)
         {
             var value = new StringBuilder();
             value.Append(DdfBuildArtifact.ReceiptFormat).Append('\n').Append(manifest.Name).Append('\n')
@@ -456,9 +558,40 @@ namespace DDFLanguageEditor.Core
                 .Append("useUnsavedBuffers:").Append(manifest.Options.UseUnsavedBuffers).Append('\n');
             foreach (DdfProjectDependency dependency in manifest.Dependencies.OrderBy(item => item.Id, StringComparer.Ordinal))
                 value.Append("dep:").Append(dependency.Id).Append('@').Append(dependency.Version).Append('\n');
+            foreach (DdfBuildModuleInput module in modules)
+            {
+                value.Append("module:").Append(module.Manifest.Module.Id).Append('@')
+                    .Append(module.Manifest.Module.Version).Append(':')
+                    .Append(string.Join(",", module.Manifest.Module.Exports.OrderBy(item => item,
+                        StringComparer.Ordinal))).Append('\n');
+                foreach (DdfProjectDependency dependency in module.Manifest.Dependencies
+                    .OrderBy(item => item.Id, StringComparer.Ordinal))
+                    value.Append("module-dep:").Append(module.Manifest.Module.Id).Append(':')
+                        .Append(dependency.Id).Append('@').Append(dependency.Version).Append('\n');
+            }
             foreach (DdfBuildArtifactSource source in sources)
                 value.Append("src:").Append(Normalize(source.RelativePath)).Append(':').Append(source.Sha256).Append('\n');
             return Hash(value.ToString());
+        }
+        private static CompilationUnitSyntax ExportedRoot(CompilationUnitSyntax root,
+            IReadOnlyCollection<string> exports)
+        {
+            var names = new HashSet<string>(exports ?? Array.Empty<string>(), StringComparer.Ordinal);
+            return new CompilationUnitSyntax(root.Members.Where(member =>
+                names.Contains(MemberName(member))).ToList().AsReadOnly(), root.Length);
+        }
+        private static string MemberName(MemberSyntax member) => member switch
+        {
+            FunctionDeclarationSyntax function => function.Name,
+            StructDeclarationSyntax structure => structure.Name,
+            GlobalStatementSyntax global when global.Statement is VariableDeclarationStatementSyntax variable => variable.Name,
+            _ => string.Empty
+        };
+        private sealed class ParsedModuleSource
+        {
+            internal DdfBuildModuleInput Module { get; set; }
+            internal DdfBuildSource Source { get; set; }
+            internal DdfParseResult Parse { get; set; }
         }
 
         internal static string Hash(string value)
@@ -490,12 +623,15 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfBuildService
     {
         private readonly IReadOnlyDictionary<string, IDdfBuildBackend> backends;
+        private readonly IDdfModuleResolver moduleResolver;
         private static readonly JsonSerializerOptions ReceiptOptions = new JsonSerializerOptions { WriteIndented = true };
 
-        public DdfBuildService(IEnumerable<IDdfBuildBackend> backends = null)
+        public DdfBuildService(IEnumerable<IDdfBuildBackend> backends = null,
+            IDdfModuleResolver moduleResolver = null)
         {
             var values = (backends ?? new IDdfBuildBackend[] { new DdfVmBuildBackend() }).ToList();
             this.backends = values.ToDictionary(item => item.Id, StringComparer.Ordinal);
+            this.moduleResolver = moduleResolver ?? new DdfProjectModuleStoreResolver();
         }
 
         public DdfBuildResult Validate(string workspaceRoot, DdfProjectManifest manifest, DdfLanguagePackage package,
@@ -538,9 +674,11 @@ namespace DDFLanguageEditor.Core
 
             IReadOnlyList<DdfBuildSource> sources = ResolveSources(root, manifest, unsavedBuffers, issues);
             if (sources.Count == 0) issues.Add(DdfBuildIssue.Configuration("DDFB006", "Nessun sorgente corrisponde al manifest."));
+            IReadOnlyList<DdfBuildModuleInput> dependencyModules = ResolveDependencyModules(root,
+                manifest, issues);
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error)) return new DdfBuildResult(null, issues);
             DdfBuildResult compiled = backend is DdfVmBuildBackend vmBackend
-                ? vmBackend.Build(root, manifest, package, sources, hostCatalog)
+                ? vmBackend.Build(root, manifest, package, sources, hostCatalog, dependencyModules)
                 : backend.Build(root, manifest, package, sources);
             if (!compiled.Success || !writeArtifact) return compiled;
 
@@ -553,6 +691,94 @@ namespace DDFLanguageEditor.Core
             return new DdfBuildResult(compiled.Artifact, compiled.Issues, artifactPath);
         }
 
+        private IReadOnlyList<DdfBuildModuleInput> ResolveDependencyModules(string projectRoot,
+            DdfProjectManifest projectManifest, ICollection<DdfBuildIssue> issues)
+        {
+            var result = new List<DdfBuildModuleInput>();
+            var completed = new HashSet<string>(StringComparer.Ordinal);
+            var visiting = new List<string> { ModuleKey(projectManifest.Module.Id, projectManifest.Module.Version) };
+            var selectedVersions = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [projectManifest.Module.Id] = projectManifest.Module.Version
+            };
+
+            void Visit(DdfProjectDependency dependency)
+            {
+                string key = ModuleKey(dependency.Id, dependency.Version);
+                if (visiting.Contains(key, StringComparer.Ordinal))
+                {
+                    int start = visiting.FindIndex(item => item == key);
+                    issues.Add(DdfBuildIssue.Configuration("DDFB015",
+                        "Ciclo tra moduli: " + string.Join(" -> ", visiting.Skip(Math.Max(0, start)).Concat(new[] { key })) + "."));
+                    return;
+                }
+                if (selectedVersions.TryGetValue(dependency.Id, out string selectedVersion) &&
+                    selectedVersion != dependency.Version)
+                {
+                    issues.Add(DdfBuildIssue.Configuration("DDFB016",
+                        "Versioni incompatibili richieste per il modulo '" + dependency.Id +
+                        "': " + selectedVersion + " e " + dependency.Version + "."));
+                    return;
+                }
+                selectedVersions[dependency.Id] = dependency.Version;
+                if (completed.Contains(key)) return;
+
+                string moduleRoot = moduleResolver.ResolveModuleRoot(projectRoot, dependency);
+                if (string.IsNullOrWhiteSpace(moduleRoot))
+                {
+                    issues.Add(DdfBuildIssue.Configuration("DDFB013",
+                        "Modulo richiesto non trovato: " + key + ". Atteso nello store '" +
+                        DdfProjectModuleStoreResolver.StoreDirectory + "'."));
+                    return;
+                }
+                DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(moduleRoot);
+                if (!loaded.Success)
+                {
+                    foreach (DdfBuildIssue issue in loaded.Issues) issues.Add(issue);
+                    return;
+                }
+                DdfProjectManifest moduleManifest = loaded.Manifest;
+                if (moduleManifest.Module.Id != dependency.Id || moduleManifest.Module.Version != dependency.Version)
+                {
+                    issues.Add(DdfBuildIssue.Configuration("DDFB014",
+                        "Il modulo risolto dichiara '" + moduleManifest.Module.Id + "@" +
+                        moduleManifest.Module.Version + "', ma era richiesto '" + key + "'.",
+                        Path.Combine(moduleRoot, DdfProjectManifest.FileName)));
+                    return;
+                }
+                if (moduleManifest.LanguageId != projectManifest.LanguageId ||
+                    moduleManifest.LanguagePackageVersion != projectManifest.LanguagePackageVersion ||
+                    moduleManifest.Backend != projectManifest.Backend)
+                {
+                    issues.Add(DdfBuildIssue.Configuration("DDFB017",
+                        "Il modulo '" + key + "' non usa lo stesso linguaggio, pacchetto e backend del progetto.",
+                        Path.Combine(moduleRoot, DdfProjectManifest.FileName),
+                        DdfDiagnosticDomain.LanguageDefinition));
+                    return;
+                }
+
+                visiting.Add(key);
+                foreach (DdfProjectDependency transitive in moduleManifest.Dependencies) Visit(transitive);
+                visiting.RemoveAt(visiting.Count - 1);
+                if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error)) return;
+
+                var sourceIssues = new List<DdfBuildIssue>();
+                IReadOnlyList<DdfBuildSource> moduleSources = ResolveSources(moduleRoot, moduleManifest,
+                    null, sourceIssues);
+                foreach (DdfBuildIssue issue in sourceIssues) issues.Add(issue);
+                if (moduleSources.Count == 0)
+                    issues.Add(DdfBuildIssue.Configuration("DDFB006",
+                        "Nessun sorgente corrisponde al modulo '" + key + "'.",
+                        Path.Combine(moduleRoot, DdfProjectManifest.FileName)));
+                if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error)) return;
+                result.Add(new DdfBuildModuleInput(moduleRoot, moduleManifest, moduleSources));
+                completed.Add(key);
+            }
+
+            foreach (DdfProjectDependency dependency in projectManifest.Dependencies) Visit(dependency);
+            return result.AsReadOnly();
+        }
+
         private static IReadOnlyList<DdfBuildSource> ResolveSources(string root, DdfProjectManifest manifest,
             IReadOnlyDictionary<string, string> buffers, ICollection<DdfBuildIssue> issues)
         {
@@ -563,7 +789,8 @@ namespace DDFLanguageEditor.Core
                 {
                     string extension = Path.GetExtension(pattern.Substring(3));
                     foreach (string path in Directory.EnumerateFiles(root, "*" + extension, SearchOption.AllDirectories))
-                        if (!IsOutputPath(root, manifest, path)) paths.Add(Path.GetFullPath(path));
+                        if (!IsOutputPath(root, manifest, path) && !IsModuleStorePath(root, path))
+                            paths.Add(Path.GetFullPath(path));
                 }
                 else
                 {
@@ -594,6 +821,13 @@ namespace DDFLanguageEditor.Core
             string full = Path.GetFullPath(path);
             return full.StartsWith(output.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
+        private static bool IsModuleStorePath(string root, string path)
+        {
+            string store = Path.GetFullPath(Path.Combine(root, ".ddf", "modules"))
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return Path.GetFullPath(path).StartsWith(store, StringComparison.OrdinalIgnoreCase);
+        }
+        private static string ModuleKey(string id, string version) => id + "@" + version;
         private static string Relative(string root, string path) => Path.GetRelativePath(root, path).Replace('\\', '/');
         private static void EnsureInside(string root, string path)
         {

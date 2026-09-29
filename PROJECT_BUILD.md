@@ -75,8 +75,13 @@ frames retain their source document. Duplicate runtime declarations produce
 forward or cyclic global dependencies produce `DDFB011`.
 
 Module identity, version and sorted exports are pinned reproducibly in the
-receipt and fingerprint. Dependencies are also pinned, but cross-module package
-resolution is not implemented yet and therefore cannot satisfy a source symbol.
+receipt and fingerprint. Exact dependencies are resolved recursively from
+`.ddf/modules/<id>/<version>`; only direct exports are visible, dependencies are
+initialized before consumers, and missing modules, version conflicts and cycles
+stop the build. The store is excluded from application source globbing and does
+not define namespaces. Resolved modules and their source hashes are recorded in
+the artifact. `IDdfModuleResolver` allows a host to substitute the storage
+lookup without changing language semantics.
 See [the module-system specification](DDF_MODULE_SYSTEM_SPEC.md) for visibility,
 initialization, dependency and directive rules.
 

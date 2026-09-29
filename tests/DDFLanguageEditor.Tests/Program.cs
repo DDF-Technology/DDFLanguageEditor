@@ -120,8 +120,10 @@ namespace DDFLanguageEditor.Tests
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
             Run("rejects unsafe or mismatched project configurations", RejectsUnsafeOrMismatchedProjectConfigurations);
+            Run("resolves versioned modules with export visibility and cycle checks", ResolvesVersionedModulesWithExportVisibilityAndCycleChecks);
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
+            Run("validates the shipped versioned module workspace", ValidatesShippedModuleWorkspace);
             Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
@@ -3503,6 +3505,94 @@ namespace DDFLanguageEditor.Tests
             }
         }
 
+        private static void ResolvesVersionedModulesWithExportVisibilityAndCycleChecks()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+                string mainPath = Path.Combine(root, "main.ddf");
+                File.WriteAllText(mainPath,
+                    "main() out int { ret add(4, 5); }", new UTF8Encoding(false));
+                DdfProjectManifest application = DdfProjectManifest.CreateImplicit("Module application", package, "main.ddf");
+                application.Module.Id = "example.application";
+                application.Module.Version = "1.0.0";
+                application.Dependencies.Add(new DdfProjectDependency { Id = "example.math", Version = "1.0.0" });
+
+                string mathRoot = Path.Combine(root, ".ddf", "modules", "example.math", "1.0.0");
+                Directory.CreateDirectory(mathRoot);
+                File.WriteAllText(Path.Combine(mathRoot, "math.ddf"),
+                    "hidden() out int { ret 1; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    new UTF8Encoding(false));
+                DdfProjectManifest math = DdfProjectManifest.CreateImplicit("Math", package, null);
+                math.Module.Id = "example.math";
+                math.Module.Version = "1.0.0";
+                math.Module.Exports.Add("add");
+                math.EntryPoint = "unused";
+                File.WriteAllText(Path.Combine(mathRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(math, new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+
+                var service = new DdfBuildService();
+                DdfBuildResult valid = service.Validate(root, application, package);
+                if (!valid.Success)
+                    throw new InvalidOperationException(string.Join(" | ", valid.Issues.Select(issue => issue.ToString())));
+                Equal(true, valid.Success);
+                SequenceEqual(new[] { "example.math", "example.application" },
+                    valid.Artifact.ResolvedModules.Select(item => item.Id));
+                Equal(2, valid.Artifact.Sources.Count);
+                Equal(true, valid.Artifact.Sources.Any(item =>
+                    item.RelativePath == "@example.math/1.0.0/math.ddf"));
+                DdfWorkspaceIndex workspace = DdfWorkspaceIndex.Load(root);
+                Equal(1, workspace.Documents.Count);
+                Equal("main.ddf", workspace.Documents.Single().RelativePath);
+                DdfExecutionResult execution = DdfInterpreter.Execute(valid.Artifact.RuntimeModules,
+                    package.Language, new DdfExecutionOptions { EntryPoint = valid.Artifact.EntryPoint });
+                Equal(true, execution.Succeeded);
+                Equal(10, execution.ReturnValue);
+
+                string mathPath = Path.Combine(mathRoot, "math.ddf");
+                File.WriteAllText(mathPath,
+                    "hidden() out int { ret 2; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    new UTF8Encoding(false));
+                DdfBuildResult changedDependency = service.Validate(root, application, package);
+                Equal(true, changedDependency.Success);
+                Equal(false, valid.Artifact.Fingerprint == changedDependency.Artifact.Fingerprint);
+                File.WriteAllText(mathPath,
+                    "hidden() out int { ret 1; } add(int left, int right) out int { ret hidden() + left + right; }",
+                    new UTF8Encoding(false));
+
+                File.WriteAllText(mainPath, "main() out int { ret hidden(); }", new UTF8Encoding(false));
+                DdfBuildResult privateReference = service.Validate(root, application, package);
+                Equal(false, privateReference.Success);
+                Equal(true, privateReference.Issues.Any(item => item.Code == "DDF312"));
+
+                File.WriteAllText(mainPath, "main() out int { ret add(4, 5); }", new UTF8Encoding(false));
+                math.Dependencies.Add(new DdfProjectDependency
+                {
+                    Id = application.Module.Id,
+                    Version = application.Module.Version
+                });
+                File.WriteAllText(Path.Combine(mathRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(math), new UTF8Encoding(false));
+                DdfBuildResult cycle = service.Validate(root, application, package);
+                Equal(false, cycle.Success);
+                Equal(true, cycle.Issues.Any(item => item.Code == "DDFB015"));
+
+                math.Dependencies.Clear();
+                File.WriteAllText(Path.Combine(mathRoot, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(math), new UTF8Encoding(false));
+                application.Dependencies[0].Version = "9.0.0";
+                DdfBuildResult missing = service.Validate(root, application, package);
+                Equal(false, missing.Success);
+                Equal(true, missing.Issues.Any(item => item.Code == "DDFB013"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void ValidatesShippedSampleProject()
         {
             string root = Path.Combine(Environment.CurrentDirectory, "samples", "project");
@@ -3548,6 +3638,25 @@ namespace DDFLanguageEditor.Tests
             Equal(true, execution.Succeeded);
             Equal(301, execution.ReturnValue);
             SequenceEqual(new[] { "Flowchart workspace completed" }, output);
+        }
+
+        private static void ValidatesShippedModuleWorkspace()
+        {
+            string root = Path.Combine(Environment.CurrentDirectory, "samples", "module-workspace");
+            DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
+            Equal(true, loaded.Success);
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfBuildResult result = new DdfBuildService().Validate(root, loaded.Manifest, package);
+            if (!result.Success)
+                throw new InvalidOperationException(string.Join(" | ", result.Issues.Select(
+                    issue => issue.Code + ": " + issue.Message)));
+            Equal(true, result.Success);
+            SequenceEqual(new[] { "ddf.sample.math", "ddf.sample.module-app" },
+                result.Artifact.ResolvedModules.Select(item => item.Id));
+            DdfExecutionResult execution = DdfInterpreter.Execute(result.Artifact.RuntimeModules,
+                package.Language, new DdfExecutionOptions { EntryPoint = result.Artifact.EntryPoint });
+            Equal(true, execution.Succeeded);
+            Equal(42, execution.ReturnValue);
         }
 
         private static void InstallsAndUpdatesVersionedLanguagePackages()

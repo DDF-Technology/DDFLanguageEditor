@@ -231,3 +231,19 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
 - **Conseguenze:** il build valida identità, versione ed esportazioni e le lega
   al fingerprint. Il futuro resolver dovrà consumare soltanto API esportate,
   rifiutare cicli e produrre la stessa IR bound per VM e Roslyn.
+
+## DDF-0017 — Risoluzione esatta e visibilità non transitiva
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** una dipendenza seleziona una sola coppia esatta `id@version`.
+  Il consumatore vede soltanto gli export delle dipendenze dirette; un modulo
+  non re-esporta implicitamente le proprie dipendenze. Lo store locale
+  `.ddf/modules/<id>/<version>` è il resolver predefinito ma non partecipa ai
+  nomi e può essere sostituito tramite `IDdfModuleResolver`.
+- **Alternative rifiutate:** scelta automatica della versione più recente;
+  intervalli di versione nella linea `0.12`; visibilità transitiva; deduzione
+  dell'identità dalla cartella; inclusione dello store nel workspace applicativo.
+- **Conseguenze:** risoluzione, cicli e conflitti sono deterministici e l'intero
+  grafo entra nella ricevuta. Finché la IR non possiede simboli qualificati, le
+  collisioni runtime fra moduli sono rifiutate anziché risolte arbitrariamente.

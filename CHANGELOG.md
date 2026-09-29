@@ -2,7 +2,8 @@
 
 ## 0.12.3 - in sviluppo
 
-- Formalizzato il modello multi-file come modulo esplicito: `ddf-project.json` schema `1.1` richiede identità, versione ed esportazioni, incluse nella ricevuta e nel fingerprint. Il build valida export inesistenti (`DDFB012`), auto-dipendenze e metadati; file e cartelle non creano namespace e le globali mantengono l'ordine deterministico già verificato. `DDF_MODULE_SYSTEM_SPEC.md` e DDF-0016 stabiliscono inoltre che `@@'...'` è una direttiva legacy deprecata e non un include/import; la risoluzione fra moduli resta il prossimo blocco della milestone.
+- Formalizzato il modello multi-file come modulo esplicito: `ddf-project.json` schema `1.1` richiede identità, versione ed esportazioni, incluse nella ricevuta e nel fingerprint. Il build valida export inesistenti (`DDFB012`), auto-dipendenze e metadati; file e cartelle non creano namespace e le globali mantengono l'ordine deterministico già verificato. `DDF_MODULE_SYSTEM_SPEC.md` e DDF-0016 stabiliscono inoltre che `@@'...'` è una direttiva legacy deprecata e non un include/import.
+- Implementato il primo resolver sorgente trans-modulo: dipendenze esatte vengono caricate ricorsivamente dallo store locale `.ddf/modules/<id>/<version>`, ordinate prima dei consumatori e registrate con export e hash nella ricevuta. Il type checker vede soltanto gli export diretti e segnala funzioni/valori sconosciuti; moduli mancanti o incompatibili, conflitti di versione, cicli e collisioni runtime fermano il build. Lo store non viene incluso nei glob né nell'indice workspace. Un workspace campione e due nuove regressioni portano la suite Core a 214 test.
 
 ## 0.12.2 - 2026-09-29
 

@@ -1,7 +1,7 @@
 # Specifica del sistema di moduli DDF 0.12.3
 
-Stato: normativa per il modello interno al progetto; la risoluzione delle
-dipendenze fra moduli resta pianificata.
+Stato: normativa per il modello interno al progetto e per la risoluzione locale
+delle dipendenze sorgente.
 
 ## 1. Modulo e progetto
 
@@ -36,8 +36,10 @@ di linguaggio.
 una funzione, struttura o globale del modulo, altrimenti il build produce
 `DDFB012`. Un elenco vuoto significa che il modulo non pubblica API.
 
-Le esportazioni non cambiano la visibilità interna. Diventeranno il solo insieme
-risolvibile dai moduli dipendenti quando sarà disponibile il resolver; non
+Le esportazioni non cambiano la visibilità interna. Sono il solo insieme
+risolvibile dai moduli che dichiarano una dipendenza diretta; gli export non
+vengono re-esportati transitivamente. Un riferimento a una funzione o a un
+valore non visibile produce rispettivamente `DDF312` o `DDF313`. Gli export non
 abilitano reflection, accesso host o API .NET. La funzione di ingresso può
 essere esportata, ma non è obbligatorio farlo.
 
@@ -59,17 +61,30 @@ l'avvio dell'ingresso.
 ## 5. Dipendenze
 
 `dependencies` identifica moduli con coppie `id`/`version` esatte. Un modulo non
-può dipendere da sé stesso (`DDFP017`). Il resolver trans-modulo non è ancora
-implementato: oggi le dipendenze sono validate e incluse nella ricevuta e nel
-fingerprint, ma non rendono disponibili simboli o codice esterno.
+può dipendere da sé stesso (`DDFP017`). Il resolver predefinito cerca ogni
+dipendenza sotto la radice dell'applicazione nel percorso riservato:
 
-Il resolver futuro dovrà:
+```text
+.ddf/modules/<id>/<version>/ddf-project.json
+```
 
-- selezionare esattamente la versione richiesta;
-- esporre soltanto i simboli elencati in `exports`;
-- rifiutare moduli mancanti, versioni incompatibili e cicli;
-- produrre una IR bound indipendente da cartelle e nomi file;
-- conservare la medesima semantica in VM e nel backend Roslyn.
+La posizione è uno store, non un namespace e non influenza l'identità. I suoi
+sorgenti sono esclusi dal workspace dell'applicazione e dai glob del modulo
+radice; vengono caricati soltanto attraversando il grafo delle dipendenze. Un
+host può fornire un diverso `IDdfModuleResolver` mantenendo le stesse regole.
+
+La risoluzione è deterministica e depth-first, con dipendenze prima del modulo
+che le usa. Sono rifiutati moduli mancanti (`DDFB013`), identità/versioni diverse
+da quelle richieste (`DDFB014`), cicli (`DDFB015`), richieste incompatibili della
+stessa identità (`DDFB016`) e moduli che usano linguaggio, pacchetto o backend
+diversi (`DDFB017`). Moduli risolti, export e sorgenti partecipano alla ricevuta
+e al fingerprint.
+
+La VM beta usa ancora un dizionario runtime piatto: finché la IR bound non avrà
+simboli qualificati, dichiarazioni omonime appartenenti a moduli diversi vengono
+rifiutate con `DDFB018`, anche quando private. Questa limitazione evita binding
+ambiguo e verrà rimossa tramite qualificazione/name mangling, non scegliendo una
+dichiarazione arbitraria.
 
 ## 6. Direttive e librerie esterne
 
@@ -103,4 +118,12 @@ DDF-0015.
 | `DDFB010` | dichiarazione runtime duplicata nel modulo |
 | `DDFB011` | globale riferita prima dell'inizializzazione o ciclo globale |
 | `DDFB012` | esportazione priva di dichiarazione top-level corrispondente |
+| `DDFB013` | modulo richiesto assente dallo store configurato |
+| `DDFB014` | identità o versione risolta diversa da quella richiesta |
+| `DDFB015` | ciclo nel grafo delle dipendenze |
+| `DDFB016` | due versioni della stessa identità richieste nello stesso grafo |
+| `DDFB017` | linguaggio, pacchetto o backend incompatibile |
+| `DDFB018` | collisione di un nome runtime fra moduli distinti |
+| `DDF312` | chiamata a funzione non visibile o sconosciuta |
+| `DDF313` | riferimento a valore non visibile o sconosciuto |
 

@@ -74,3 +74,9 @@ dichiarate. Un elenco vuoto conserva un progetto applicativo senza API pubblica.
 Le cartelle non diventano namespace. Le dipendenze restano dichiarate nel
 manifesto e `@@'...'` non deve essere usato per includere file o moduli.
 
+Le dipendenze sorgente usate dal resolver predefinito vanno installate come
+cartelle complete in `.ddf/modules/<id>/<version>`. Ogni cartella contiene il
+proprio `ddf-project.json`; ID e versione devono coincidere esattamente con la
+dipendenza dichiarata. Copiare semplicemente un `.ddf` accanto al chiamante lo
+rende parte del modulo applicativo, non una libreria separata.
+

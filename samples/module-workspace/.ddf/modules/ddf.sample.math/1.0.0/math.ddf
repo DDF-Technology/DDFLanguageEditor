@@ -1,0 +1,9 @@
+hiddenOffset() out int
+{
+    ret 1;
+}
+
+add(int left, int right) out int
+{
+    ret left + right + hiddenOffset();
+}

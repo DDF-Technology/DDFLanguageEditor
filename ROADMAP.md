@@ -666,7 +666,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 - [ ] Definire caratteri ammessi, identificatori, letterali, commenti, direttive, keyword, operatori e delimitatori.
   - [x] Fissare il nucleo lessicale: identificatori Unicode case-sensitive, cifre ASCII, booleani minuscoli, stringhe su una riga, escape chiusi e commenti (`DDF_LEXICAL_SPEC.md`, 2026-09-26).
-  - [ ] Chiudere le direttive insieme al modello moduli della `0.12.3`; `@@'Nome'` resta l'unica forma transitoria ammessa e deve precedere le dichiarazioni.
+  - [x] Chiudere le direttive insieme al modello moduli della `0.12.3`: `@@'Nome'` resta una richiesta legacy deprecata di libreria/capacità e non include sorgenti o moduli (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
   - [x] Chiudere keyword e delimitatori del nucleo, senza alias impliciti (`DDF_SYNTAX_SPEC.md`, 2026-09-27).
   - [x] Chiudere l'insieme degli operatori del nucleo: identità DDF per `<<`/`>>`, logica leggibile con `!`, `&&`, `||`, `^^`, confronti ordinari e rimozione delle forme beta ambigue (`DDF_OPERATOR_SPEC.md`, 2026-09-26).
 - [x] Definire precedenza, associatività e forme prefisse, infisse e postfisse senza ambiguità (`DDF_OPERATOR_SPEC.md`).
@@ -702,10 +702,12 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 - [x] Consolidare il modello multi-file sperimentato nella `0.11.0` in una semantica formale dei moduli (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
 - [x] Decidere la forma definitiva di import/include: nessun include testuale; `@@'...'` è una direttiva legacy deprecata e le dipendenze appartengono al manifesto (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
-- [ ] Definire esportazioni, globali, ordine di inizializzazione, dipendenze cicliche e risoluzione dei nomi.
+- [x] Definire esportazioni, globali, ordine di inizializzazione, dipendenze cicliche e risoluzione dei nomi (`DDF_MODULE_SYSTEM_SPEC.md`, 2026-09-29).
   - [x] Rendere espliciti identità, versione ed export del modulo; validare API pubblica, ordine globale deterministico e auto-dipendenza (`ddf-project.json` schema `1.1`, 2026-09-29).
-  - [ ] Implementare il resolver di dipendenze trans-modulo, la visibilità dei soli export e il rifiuto dei cicli fra moduli.
+  - [x] Implementare il resolver di dipendenze trans-modulo, la visibilità non transitiva dei soli export e il rifiuto dei cicli fra moduli; registrare l'intero grafo nella ricevuta riproducibile (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0017, 2026-09-29).
 - [ ] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor.
+  - [x] Riservare `.ddf/modules/<id>/<version>` come store locale sostituibile, escluso da glob e indice workspace e privo di significato semantico (`0.12.3`, 2026-09-29).
+  - [ ] Definire formato di distribuzione/installazione e qualificazione dei simboli per eliminare le collisioni tra nomi privati di moduli diversi.
 - [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
 
 ### 0.12.4 — Specifica verificabile e migrazione

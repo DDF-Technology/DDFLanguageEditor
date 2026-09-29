@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.1",
+  "name": "DDF sample math library",
+  "module": {
+    "id": "ddf.sample.math",
+    "version": "1.0.0",
+    "exports": [ "add" ]
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.2.1",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": null,
+  "entryPoint": "unused",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "math.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": false,
+    "maxInstructions": 100000
+  }
+}

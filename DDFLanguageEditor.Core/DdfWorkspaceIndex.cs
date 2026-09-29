@@ -75,7 +75,7 @@ namespace DDFLanguageEditor.Core
                     normalizedRoot, "*" + extension, SearchOption.AllDirectories))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    paths.Add(path);
+                    if (!IsModuleStorePath(normalizedRoot, path)) paths.Add(path);
                 }
             }
             paths = paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -89,6 +89,13 @@ namespace DDFLanguageEditor.Core
             }
 
             return new DdfWorkspaceIndex(normalizedRoot, documents.AsReadOnly(), normalizedExtensions);
+        }
+
+        private static bool IsModuleStorePath(string root, string path)
+        {
+            string store = Path.GetFullPath(Path.Combine(root, ".ddf", "modules"))
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return Path.GetFullPath(path).StartsWith(store, StringComparison.OrdinalIgnoreCase);
         }
 
         public DdfWorkspaceIndex WithDocument(string path, string source)

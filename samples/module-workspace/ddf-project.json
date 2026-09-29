@@ -1,0 +1,27 @@
+{
+  "$schema": "../../ddf-project.schema.json",
+  "schemaVersion": "1.1",
+  "name": "DDF module workspace",
+  "module": {
+    "id": "ddf.sample.module-app",
+    "version": "0.1.0",
+    "exports": []
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.2.1",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [
+    { "id": "ddf.sample.math", "version": "1.0.0" }
+  ],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "module-sample.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": true,
+    "maxInstructions": 100000
+  }
+}

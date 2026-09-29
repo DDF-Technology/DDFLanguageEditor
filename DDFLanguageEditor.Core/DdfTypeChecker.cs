@@ -341,6 +341,9 @@ namespace DDFLanguageEditor.Core
                 else if (expression is NameExpressionSyntax name)
                 {
                     result = Lookup(name.Name);
+                    if (result.IsError)
+                        Report("DDF313", "Valore sconosciuto: '" + name.Name + "'.",
+                            name.Start, Math.Max(1, name.Length));
                 }
                 else if (expression is ParenthesizedExpressionSyntax parenthesized) result = CheckExpression(parenthesized.Expression);
                 else if (expression is UnaryExpressionSyntax unary) result = CheckUnary(unary);
@@ -382,10 +385,11 @@ namespace DDFLanguageEditor.Core
             private DdfTypeSymbol CheckBinary(BinaryExpressionSyntax binary)
             {
                 DdfTypeSymbol left = CheckExpression(binary.Left);
-                DdfTypeSymbol right = CheckExpression(binary.Right);
                 string op = binary.OperatorText;
                 if (!runtime.TryGetBinaryOperation(op, out string operation))
-                    return InvalidOperator(op, left, right, binary);
+                    return InvalidOperator(op, left, CheckExpression(binary.Right), binary);
+                if (operation == DdfVmExpressionOperations.Output) return left;
+                DdfTypeSymbol right = CheckExpression(binary.Right);
                 if (operation == DdfVmExpressionOperations.Assign)
                 {
                     if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
@@ -396,7 +400,6 @@ namespace DDFLanguageEditor.Core
                     if (!CanAssign(left, right)) Report("DDF301", "Impossibile assegnare " + right + " a " + left + ".", binary);
                     return left;
                 }
-                if (operation == DdfVmExpressionOperations.Output) return left;
                 if (operation == DdfVmExpressionOperations.LogicalOr ||
                     operation == DdfVmExpressionOperations.LogicalXor ||
                     operation == DdfVmExpressionOperations.LogicalAnd)
@@ -421,7 +424,13 @@ namespace DDFLanguageEditor.Core
             {
                 var target = call.Target as NameExpressionSyntax;
                 List<DdfTypeSymbol> arguments = call.Arguments.Select(CheckExpression).ToList();
-                if (target == null || !functions.TryGetValue(target.Name, out FunctionInfo function)) return DdfTypeSymbol.Error;
+                if (target == null) return DdfTypeSymbol.Error;
+                if (!functions.TryGetValue(target.Name, out FunctionInfo function))
+                {
+                    Report("DDF312", "Funzione sconosciuta: '" + target.Name + "'.",
+                        target.Start, Math.Max(1, target.Length));
+                    return DdfTypeSymbol.Error;
+                }
                 if (typeSystem.Signatures.ExactArity && arguments.Count != function.Parameters.Count)
                     Report("DDF303", "La funzione '" + function.Name + "' richiede " + function.Parameters.Count + " argomenti, ricevuti " + arguments.Count + ".", call);
                 int count = Math.Min(arguments.Count, function.Parameters.Count);
