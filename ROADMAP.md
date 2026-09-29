@@ -726,7 +726,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 ### 0.12.5 — DDF Language Candidate
 
 - [x] Congelare temporaneamente grammatica e semantica per un ciclo completo di utilizzo reale: `DDF_LANGUAGE_CANDIDATE.md` definisce perimetro, regola di modifica, registro problemi e gate; `ddf-language-candidate-baseline.json` rende verificabili con SHA-256 normalizzati i 17 artefatti normativi (`0.12.5`, 2026-09-29).
-- [ ] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e build sul corpus normativo.
+- [x] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e Build sul corpus normativo: il gate trasversale copre 6 programmi validi, 8 non validi, 4 incompleti e 3 workspace; sui validi prova snapshot IDE e completamento, formattazione idempotente con equivalenza runtime, pausa/ripresa del debugger e fingerprint Build riproducibile (`0.12.5`, 2026-09-29).
 - [ ] Raccogliere e classificare i problemi senza modificare implicitamente la specifica.
 - [ ] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio.
 - [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.

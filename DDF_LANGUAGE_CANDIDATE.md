@@ -61,11 +61,18 @@ dimostra l'esito.
 | Gate | Stato iniziale | Evidenza richiesta |
 | --- | --- | --- |
 | Baseline normativa immutata | Attivo | test delle impronte SHA-256 |
-| Analisi e diagnostiche | Da verificare | corpus valido, non valido e incompleto |
-| IntelliSense e formatter | Da verificare | prove automatiche e smoke UI |
-| Debugger e runtime VM | Da verificare | corpus eseguibile, multi-file e debug |
-| Build di preparazione corrente | Da verificare | ricevuta riproducibile e nessuna compilazione embedded |
+| Analisi e diagnostiche | Verificato automaticamente | 6 validi, 8 non validi, 4 incompleti e 3 workspace multi-file |
+| IntelliSense e formatter | Verificato nel Core | snapshot di completamento sui validi/incompleti; formatter idempotente e semanticamente equivalente sui 6 validi |
+| Debugger e runtime VM | Verificato nel Core | pausa/ripresa sulla `ret` raggiungibile e risultato invariato per ognuno dei 6 programmi validi; oracoli runtime e multi-file |
+| Build di preparazione corrente | Verificato nel Core | doppia validazione con fingerprint riproducibile dei 6 validi e Build dei 3 workspace; backend `ddf-vm-ir-v1` |
 | Uso reale | Da verificare | sessioni registrate e problemi classificati |
+
+La regressione `verifies the DDF candidate toolchain against the normative corpus`
+costituisce il gate trasversale. Riusa tutti i casi dichiarati dal manifesto e
+verifica esplicitamente che la formattazione non cambi output o valore restituito,
+che il debugger raggiunga una pausa reale e che due preparazioni Build producano
+la stessa impronta. Gli smoke WinForms restano un gate complementare per la UI,
+non una nuova definizione della semantica.
 
 Il runner Roslyn non appartiene a questo ciclo: verrà collegato allo stesso corpus
 nella `0.13`. La parola “Build” nella `0.12.5` indica ancora validazione e

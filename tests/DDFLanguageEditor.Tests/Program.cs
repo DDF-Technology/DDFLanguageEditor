@@ -122,6 +122,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
+            Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
@@ -3546,6 +3547,125 @@ namespace DDFLanguageEditor.Tests
             Equal(true, candidateGuide.Contains("## Registro dei problemi del candidato", StringComparison.Ordinal));
             Equal(true, candidateGuide.Contains("## Gate del ciclo", StringComparison.Ordinal));
             Equal(true, candidateGuide.Contains("stato pubblico `beta`", StringComparison.Ordinal));
+        }
+
+        private static void VerifiesDdfCandidateToolchainAgainstNormativeCorpus()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Language");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(
+                Path.Combine(corpus, "corpus.json"), Encoding.UTF8)).AsObject();
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+
+            foreach (JsonNode node in manifest["valid"].AsArray())
+            {
+                JsonObject testCase = node.AsObject();
+                string id = testCase["id"].GetValue<string>();
+                string source = ReadCorpusSource(corpus, "valid", testCase);
+                string expectedReturn = testCase["returnValue"].GetValue<string>();
+                string[] expectedOutput = testCase["output"].AsArray()
+                    .Select(item => item.GetValue<string>()).ToArray();
+                int mainOffset = source.IndexOf("main()", StringComparison.Ordinal);
+                Equal(true, mainOffset >= 0);
+                int returnOffset = source.IndexOf("ret ", mainOffset, StringComparison.Ordinal);
+                Equal(true, returnOffset >= 0);
+
+                using (var analysis = new DdfEditorAnalysisService())
+                {
+                    var request = new DdfEditorAnalysisRequest(source, returnOffset,
+                        1, package, 1, id, id + ".ddf", includeAllCompletions: true);
+                    DdfEditorAnalysisSnapshot snapshot = analysis.Analyze(request);
+                    Equal(0, snapshot.Diagnostics.Count);
+                    Equal(true, snapshot.CompletionsComputed);
+                    Equal(true, snapshot.Completions.Items.Count > 0);
+                    Equal(true, snapshot.Symbols.Any(symbol => symbol.Name == "main"));
+                }
+
+                string formatted = DdfFormatter.Format(source, package.Language).Text;
+                Equal(formatted, DdfFormatter.Format(formatted, package.Language).Text);
+                DdfParseResult formattedParse = DdfParser.Parse(formatted, package.Language);
+                Equal(0, formattedParse.ValidationDiagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(formatted, formattedParse.Root, null,
+                    package.Language.Types, package.Language.StandardLibrary, null,
+                    package.Language.Runtime).Diagnostics.Count);
+                var formattedOutput = new List<string>();
+                DdfExecutionResult formattedResult = DdfInterpreter.Execute(formatted,
+                    new DdfExecutionOptions { Output = formattedOutput.Add });
+                Equal(true, formattedResult.Succeeded);
+                Equal(expectedReturn, Convert.ToString(formattedResult.ReturnValue,
+                    CultureInfo.InvariantCulture));
+                SequenceEqual(expectedOutput, formattedOutput);
+
+                string root = CreateTemporaryDirectory();
+                try
+                {
+                    string path = Path.Combine(root, "main.ddf");
+                    File.WriteAllText(path, source, new UTF8Encoding(false));
+                    DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                        "DDF candidate " + id, package, "main.ddf");
+                    var build = new DdfBuildService();
+                    DdfBuildResult first = build.Validate(root, project, package);
+                    DdfBuildResult second = build.Validate(root, project, package);
+                    Equal(true, first.Success);
+                    Equal(DdfVmBuildBackend.BackendId, first.Artifact.Backend);
+                    Equal(first.Artifact.Fingerprint, second.Artifact.Fingerprint);
+                }
+                finally
+                {
+                    if (Directory.Exists(root)) Directory.Delete(root, true);
+                }
+
+                var documents = new OpenDocumentCollection();
+                IDdfEditorDocument document = documents.CreateVirtual(id + ".ddf", source);
+                using var debugger = new DdfEditorDebugService(documents,
+                    new DdfLanguagePackageSession());
+                using var pauseReached = new ManualResetEventSlim(false);
+                int returnLine = source.Take(returnOffset).Count(character => character == '\n') + 1;
+                debugger.SetBreakpoints(new[] { new DdfEditorBreakpoint(document.Id, returnLine) });
+                debugger.Paused += (sender, args) => pauseReached.Set();
+                Task<DdfEditorExecutionCompletion> execution = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(entryDocumentId: document.Id));
+                Equal(true, pauseReached.Wait(TimeSpan.FromSeconds(5)));
+                Equal(DdfEditorDebugState.Paused, debugger.State);
+                Equal(document.Id, debugger.CurrentLocation.DocumentId);
+                Equal(returnLine, debugger.CurrentLocation.Line);
+                Equal(true, debugger.Continue());
+                DdfEditorExecutionCompletion completion = execution.GetAwaiter().GetResult();
+                Equal(true, completion.Succeeded);
+                Equal(expectedReturn, Convert.ToString(completion.ExecutionResult.ReturnValue,
+                    CultureInfo.InvariantCulture));
+            }
+
+            foreach (JsonNode node in manifest["invalid"].AsArray())
+            {
+                JsonObject testCase = node.AsObject();
+                string source = ReadCorpusSource(corpus, "invalid", testCase);
+                string stage = testCase["stage"].GetValue<string>();
+                using var analysis = new DdfEditorAnalysisService();
+                DdfEditorAnalysisSnapshot snapshot = analysis.Analyze(
+                    new DdfEditorAnalysisRequest(source, source.Length, 1, package, 1,
+                        computeCompletions: false));
+                if (stage == "runtime")
+                    Equal(0, snapshot.Diagnostics.Count);
+                else
+                    Equal(true, testCase["diagnostics"].AsArray()
+                        .Select(item => item.GetValue<string>())
+                        .All(code => snapshot.Diagnostics.Any(diagnostic => diagnostic.Code == code)));
+            }
+
+            foreach (JsonNode node in manifest["incomplete"].AsArray())
+            {
+                JsonObject testCase = node.AsObject();
+                string source = ReadCorpusSource(corpus, "incomplete", testCase);
+                using var analysis = new DdfEditorAnalysisService();
+                DdfEditorAnalysisSnapshot snapshot = analysis.Analyze(
+                    new DdfEditorAnalysisRequest(source, source.Length, 1, package, 1,
+                        includeAllCompletions: true));
+                Equal(true, snapshot.Diagnostics.Count > 0);
+                Equal(true, snapshot.CompletionsComputed);
+                string formatted = DdfFormatter.Format(source, package.Language).Text;
+                DdfParseResult recovered = DdfParser.Parse(formatted, package.Language);
+                Equal(true, recovered.Root.Start >= 0 && recovered.Root.End <= formatted.Length);
+            }
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()
