@@ -3,6 +3,9 @@
 Stato: normativa per il modello interno al progetto e per la risoluzione locale
 delle dipendenze sorgente.
 
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
+
 ## 1. Modulo e progetto
 
 Un modulo DDF è l'unità descritta da un solo `ddf-project.json` validato e
@@ -101,8 +104,8 @@ dichiarazioni private non vengono offerte né considerate risolte.
 
 `@@'Nome'` non è e non diventerà un include testuale né un import di sorgenti.
 Resta una direttiva legacy di richiesta libreria/capacità, senza effetto sulla
-risoluzione dei nomi del modulo, ed è deprecata in attesa della libreria standard
-formale. Le dipendenze fra moduli appartengono al manifesto. Se in futuro sarà
+risoluzione dei nomi del modulo, ed è deprecata. La libreria standard formale non
+richiede direttive. Le dipendenze fra moduli appartengono al manifesto. Se in futuro sarà
 utile una sintassi `use`, selezionerà API già risolte senza copiare testo o
 dedurre namespace dai percorsi.
 

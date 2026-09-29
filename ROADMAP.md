@@ -716,7 +716,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.4 — Specifica verificabile e migrazione
 
-- [ ] Pubblicare una specifica DDF autonoma con sezioni normative ed esempi non normativi.
+- [x] Pubblicare una specifica DDF autonoma con sezioni normative ed esempi non normativi: `DDF_LANGUAGE_SPEC.md` consolida lessico, grammatica, tipi, operatori, controllo di flusso, moduli, runtime, libreria standard e confini host/Roslyn senza dipendere dalle bozze storiche (`0.12.4`, DDF-0021, 2026-09-29).
 - [ ] Creare corpus completi di programmi validi, non validi, incompleti e multi-file.
 - [ ] Rendere eseguibili gli esempi normativi tramite i test dichiarativi del pacchetto.
 - [ ] Definire versionamento del linguaggio, compatibilità, deprecazioni e migrazioni automatiche possibili.

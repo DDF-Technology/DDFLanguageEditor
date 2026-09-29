@@ -4,6 +4,10 @@ Questa guida raccoglie le incompatibilità intenzionali introdotte durante la
 definizione del linguaggio. Conservare una copia o un commit del sorgente prima
 di applicare sostituzioni estese.
 
+Il contratto completo di destinazione è `DDF_LANGUAGE_SPEC.md`; questa guida
+descrive soltanto le trasformazioni dai sorgenti beta e non ridefinisce la
+semantica.
+
 ## Operatori — pacchetto 0.12.1
 
 | Forma beta | Forma 0.12 | Nota |

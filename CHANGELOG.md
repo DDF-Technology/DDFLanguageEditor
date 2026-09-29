@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.12.3 - in sviluppo
+## 0.12.4 - in sviluppo
+
+- Pubblicata `DDF_LANGUAGE_SPEC.md`, prima specifica DDF autonoma e normativa. Il documento consolida in un unico contratto lessico, grammatica completa, tipi e mapping CLR, operatori, controllo di flusso, funzioni, moduli, inizializzazione, runtime, libreria standard, confini host/embedded/Roslyn e criteri di versionamento; esempi e matrice manutentiva sono separati come non normativi. DDF-0021 stabilisce che i documenti di area restano approfondimenti e non fonti semantiche concorrenti.
+
+## 0.12.3 - 2026-09-29
 
 - Formalizzato il modello multi-file come modulo esplicito: `ddf-project.json` schema `1.1` richiede identità, versione ed esportazioni, incluse nella ricevuta e nel fingerprint. Il build valida export inesistenti (`DDFB012`), auto-dipendenze e metadati; file e cartelle non creano namespace e le globali mantengono l'ordine deterministico già verificato. `DDF_MODULE_SYSTEM_SPEC.md` e DDF-0016 stabiliscono inoltre che `@@'...'` è una direttiva legacy deprecata e non un include/import.
 - Implementato il primo resolver sorgente trans-modulo: dipendenze esatte vengono caricate ricorsivamente dallo store locale `.ddf/modules/<id>/<version>`, ordinate prima dei consumatori e registrate con export e hash nella ricevuta. Il type checker vede soltanto gli export diretti e segnala funzioni/valori sconosciuti; moduli mancanti o incompatibili, conflitti di versione e cicli fermano il build. Lo store non viene incluso nei glob né nell'indice workspace. Un workspace campione e due nuove regressioni portano la suite Core a 214 test.

@@ -2,6 +2,9 @@
 
 Stato: contratto normativo della milestone `0.12.2`.
 
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
+
 Questo documento definisce il significato dei tipi e delle operazioni del
 profilo DDF canonico. I profili sintattici equivalenti possono cambiare la
 grafia, ma non tipi, conversioni, risultati, errori o ordine di valutazione.

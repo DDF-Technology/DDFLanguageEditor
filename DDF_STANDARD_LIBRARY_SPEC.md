@@ -1,5 +1,8 @@
 # Specifica della libreria standard minima DDF 0.12.3
 
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
+
 ## 1. Scopo e identità
 
 La libreria standard minima è il catalogo `ddf.standard@0.12.3`. Fa parte del

@@ -301,3 +301,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   del filesystem e può offrire una UI in sola lettura. La capability autorizza
   esclusivamente lo store sorgente: non concede esecuzione, compilazione,
   reflection, caricamento assembly o accesso alle API dell'applicazione.
+
+## DDF-0021 — Una specifica autonoma come autorità normativa
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** `DDF_LANGUAGE_SPEC.md` consolida in un unico documento
+  autosufficiente il contratto DDF `0.12.3`. Ogni sezione è normativa salvo
+  marcatura esplicita; esempi e matrice delle fonti sono non normativi. I
+  documenti lessicale, sintattico, operatori, tipi, moduli e libreria standard
+  restano approfondimenti, non autorità semantiche concorrenti.
+- **Alternative rifiutate:** richiedere al lettore di ricostruire il linguaggio
+  da molti documenti; considerare il comportamento corrente del codice come
+  specifica; rendere normativi esempi informali; mantenere ambiguità storiche
+  come `dict` o array multidimensionali soltanto perché recuperabili dal parser.
+- **Conseguenze:** ogni cambiamento del linguaggio deve aggiornare prima o
+  insieme la specifica autonoma, il pacchetto eseguibile e i test. Una
+  divergenza blocca il rilascio; gli strumenti possono continuare a recuperare
+  forme incomplete senza promuoverle a sintassi valida.

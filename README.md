@@ -16,6 +16,10 @@ Le decisioni di architettura e gli sviluppi pianificati sono raccolti in
 didattica opzionale, flowchart, backend .NET + Roslyn e assistenza IA locale/cloud.
 Questa direzione futura è distinta dalle funzionalità già disponibili elencate sotto.
 
+La definizione normativa e autonoma del linguaggio corrente è
+[DDF_LANGUAGE_SPEC.md](DDF_LANGUAGE_SPEC.md). Le specifiche di area e i file del
+pacchetto ne costituiscono approfondimenti e rappresentazioni eseguibili.
+
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
 - catalogo centralizzato ed estensibile di parole chiave e operatori;

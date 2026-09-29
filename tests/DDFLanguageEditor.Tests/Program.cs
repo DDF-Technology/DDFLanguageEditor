@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DDFLanguageEditor.Core;
@@ -117,6 +118,7 @@ namespace DDFLanguageEditor.Tests
             Run("executes package operators through syntax-independent VM operations", ExecutesPackageOperatorsThroughVmOperations);
             Run("loads and executes package-defined standard functions", LoadsAndExecutesPackageDefinedStandardFunctions);
             Run("enforces the versioned minimum standard library contract", EnforcesMinimumStandardLibraryContract);
+            Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
@@ -3342,6 +3344,93 @@ namespace DDFLanguageEditor.Tests
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void KeepsAutonomousSpecificationAligned()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            string specification = File.ReadAllText(
+                Path.Combine(projectRoot, "DDF_LANGUAGE_SPEC.md"), Encoding.UTF8);
+            const string startMarker = "<!-- ddf-canonical-grammar:start -->";
+            const string endMarker = "<!-- ddf-canonical-grammar:end -->";
+            int start = specification.IndexOf(startMarker, StringComparison.Ordinal);
+            int end = specification.IndexOf(endMarker, StringComparison.Ordinal);
+            if (start < 0 || end <= start)
+                throw new InvalidOperationException("Blocco grammaticale canonico assente dalla specifica autonoma.");
+            string block = specification.Substring(start + startMarker.Length,
+                end - start - startMarker.Length);
+            int fenceStart = block.IndexOf("```ebnf", StringComparison.Ordinal);
+            int grammarStart = block.IndexOf('\n', fenceStart) + 1;
+            int fenceEnd = block.IndexOf("```", grammarStart, StringComparison.Ordinal);
+            if (fenceStart < 0 || grammarStart <= 0 || fenceEnd < grammarStart)
+                throw new InvalidOperationException("Fence EBNF non valida nella specifica autonoma.");
+            string documentedGrammar = block.Substring(grammarStart, fenceEnd - grammarStart);
+            string executableGrammar = File.ReadAllText(
+                Path.Combine(projectRoot, "language-packages", "ddf", "grammar.ebnf"), Encoding.UTF8);
+            Equal(NormalizeSpecificationWhitespace(executableGrammar),
+                NormalizeSpecificationWhitespace(documentedGrammar));
+
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "lexicon.json"), Encoding.UTF8)).AsObject();
+            JsonObject types = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "types.json"), Encoding.UTF8)).AsObject();
+            JsonObject standard = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "standard-library.json"), Encoding.UTF8)).AsObject();
+            IEnumerable<string> terms = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .Concat(lexicon["booleanLiterals"].AsArray().Select(item => item.GetValue<string>()))
+                .Concat(lexicon["operators"].AsArray()
+                    .Select(item => item.AsObject()["text"].GetValue<string>()))
+                .Concat(types["primitives"].AsArray()
+                    .Select(item => item.AsObject()["name"].GetValue<string>()))
+                .Concat(standard["functions"].AsArray()
+                    .Select(item => item.AsObject()["name"].GetValue<string>()))
+                .Distinct(StringComparer.Ordinal);
+            string[] missing = terms.Where(term =>
+                specification.IndexOf("`" + term + "`", StringComparison.Ordinal) < 0 &&
+                specification.IndexOf("`" + term + "(", StringComparison.Ordinal) < 0).ToArray();
+            if (missing.Length > 0)
+                throw new InvalidOperationException("Termini canonici assenti dalla specifica: " +
+                    string.Join(", ", missing));
+            if (!specification.Contains("Stato: **normativa**", StringComparison.Ordinal) ||
+                !specification.Contains("Appendice A — Esempio completo non normativo", StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "La specifica non distingue esplicitamente contratto normativo ed esempi.");
+
+            string example = ExtractSpecificationFence(specification,
+                "<!-- ddf-complete-example:start -->",
+                "<!-- ddf-complete-example:end -->", "ddf");
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfParseResult parse = DdfParser.Parse(example, package.Language);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(example, parse.Root, null,
+                package.Language.Types, package.Language.StandardLibrary, null,
+                package.Language.Runtime).Diagnostics.Count);
+            DdfExecutionResult execution = DdfInterpreter.Execute(example);
+            Equal(true, execution.Succeeded);
+            Equal(4, execution.ReturnValue);
+        }
+
+        private static string NormalizeSpecificationWhitespace(string value) =>
+            Regex.Replace(value ?? string.Empty, "\\s+", " ").Trim();
+
+        private static string ExtractSpecificationFence(string specification,
+            string startMarker, string endMarker, string language)
+        {
+            int start = specification.IndexOf(startMarker, StringComparison.Ordinal);
+            int end = specification.IndexOf(endMarker, StringComparison.Ordinal);
+            if (start < 0 || end <= start)
+                throw new InvalidOperationException("Blocco marcato assente dalla specifica autonoma.");
+            string block = specification.Substring(start + startMarker.Length,
+                end - start - startMarker.Length);
+            string fence = "```" + language;
+            int fenceStart = block.IndexOf(fence, StringComparison.Ordinal);
+            int contentStart = block.IndexOf('\n', fenceStart) + 1;
+            int fenceEnd = block.IndexOf("```", contentStart, StringComparison.Ordinal);
+            if (fenceStart < 0 || contentStart <= 0 || fenceEnd < contentStart)
+                throw new InvalidOperationException("Fence " + language + " non valida nella specifica autonoma.");
+            return block.Substring(contentStart, fenceEnd - contentStart).Trim();
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

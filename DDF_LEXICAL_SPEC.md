@@ -1,8 +1,11 @@
 # Specifica lessicale DDF 0.12
 
-Stato: normativa per il nucleo lessicale approvato nella `0.12.1`. Direttive e
-operatori rimangono candidati finché non vengono chiusi i successivi incrementi
-della stessa milestone.
+Stato: specifica di area del nucleo lessicale approvato nella `0.12.1` e
+consolidato nel contratto `0.12.3`. Operatori e significato della direttiva sono
+stati chiusi rispettivamente nelle milestone `0.12.1` e `0.12.3`.
+
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
 
 ## Testo e confronto
 
@@ -78,8 +81,9 @@ Un commento a blocchi non terminato produce `DDF002`.
 ## Direttiva transitoria
 
 `@@'nome'` resta riconosciuta, su una sola riga, per compatibilità con i progetti
-beta. Il suo significato definitivo sarà deciso nella `0.12.3`; non deve essere
-usata come inclusione testuale. Una direttiva non terminata produce `DDF003`.
+beta. È una richiesta legacy deprecata di libreria o capacità: non include testo,
+non importa moduli e non concede autorizzazioni. Una direttiva non terminata
+produce `DDF003`.
 
 ## Diagnostiche lessicali
 

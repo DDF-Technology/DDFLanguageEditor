@@ -3,8 +3,9 @@
 Stato: inventario evolutivo della beta, aggiornato al contratto DDF `0.12.3`.
 
 Questo inventario separa il comportamento realmente disponibile dalle scelte
-ancora aperte. Le fonti eseguibili sono i file in `language-packages/ddf`; la
-vecchia `DDF - Program Language Spec.txt` è soltanto una bozza storica.
+ancora aperte. `DDF_LANGUAGE_SPEC.md` è la specifica normativa autonoma; le
+fonti eseguibili sono i file in `language-packages/ddf`. La vecchia
+`DDF - Program Language Spec.txt` è soltanto una bozza storica.
 
 ## Legenda
 

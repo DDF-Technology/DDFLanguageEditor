@@ -2,9 +2,12 @@
 
 Stato: contratto normativo del pacchetto DDF `0.12.1`.
 
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
+
 Questa specifica definisce grafia, arità, precedenza e associatività degli
-operatori del nucleo. La semantica completa dei tipi, delle conversioni e degli
-errori numerici verrà chiusa nella `0.12.2`.
+operatori del nucleo. Tipi, conversioni ed errori numerici sono stati chiusi
+nella `0.12.2` e consolidati in `DDF_LANGUAGE_SPEC.md`.
 
 ## Tabella normativa
 

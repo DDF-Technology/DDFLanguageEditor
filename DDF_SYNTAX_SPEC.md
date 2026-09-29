@@ -2,6 +2,9 @@
 
 Stato: contratto normativo del nucleo sintattico del pacchetto DDF `0.12.1`.
 
+Questa specifica di area è consolidata dalla specifica autonoma
+`DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
+
 La fonte eseguibile è `language-packages/ddf/grammar.ebnf`. Questo documento ne
 spiega le scelte senza sostituirla. Lessico e operatori sono definiti in
 `DDF_LEXICAL_SPEC.md` e `DDF_OPERATOR_SPEC.md`.
@@ -15,26 +18,24 @@ Un file contiene, in quest'ordine:
 
 Le istruzioni eseguibili non sono ammesse direttamente al livello principale.
 Una variabile globale usa la stessa sintassi di una variabile locale; il suo
-ordine di inizializzazione appartiene alla semantica della `0.12.2` e al modello
-dei moduli della `0.12.3`.
+ordine di inizializzazione è definito dal modello dei moduli della `0.12.3`.
 
 La grafia `@@'Nome'` resta la sola direttiva riconosciuta nella linea 0.12.1,
-ma il significato di import, dipendenza o capacità verrà deciso nella `0.12.3`.
-Non è un preprocessore e non esegue sostituzioni testuali.
+ma dalla `0.12.3` è soltanto una richiesta legacy deprecata di libreria o
+capacità. Non è un preprocessore, non importa moduli e non concede permessi.
 
 ## Parole riservate
 
 | Gruppo | Parole |
 | --- | --- |
-| Tipi | `int`, `float`, `char`, `bool`, `void`, `string`, `dict` |
+| Tipi | `int`, `float`, `char`, `bool`, `void`, `string` |
 | Dichiarazioni | `struct`, `out` |
 | Controllo | `if`, `else`, `while`, `do`, `for` |
 | Uscita dal flusso | `ret`, `brk`, `end` |
 | Letterali riservati | `true`, `false` |
 
-`dict` è riservato per evitare incompatibilità, ma la sua forma composta e la
-semantica restano da approvare nella `0.12.2`. Non esistono alias con
-maiuscole o forme estese delle keyword nel profilo DDF canonico.
+`dict` non appartiene al nucleo. Non esistono alias con maiuscole o forme estese
+delle keyword nel profilo DDF canonico.
 
 ## Delimitatori
 
@@ -51,9 +52,9 @@ int[10] values;
 Point current;
 ```
 
-La forma generale è `tipo nome [<< espressione];`. I suffissi array fanno parte
-del tipo e possono essere concatenati. Dimensioni obbligatorie, inizializzazione
-e durata dei valori sono decisioni semantiche della `0.12.2`.
+La forma generale è `tipo nome [<< espressione];`. Un solo suffisso array
+`[dimensione]` può far parte del tipo; la dimensione è obbligatoria. Il parser
+può recuperare suffissi incompleti o concatenati, ma il type checker li rifiuta.
 
 Una struttura contiene soltanto dichiarazioni di campo:
 
@@ -80,8 +81,9 @@ Nome, parametri tipizzati, marcatore `out`, tipo restituito e blocco sono tutti
 obbligatori. `ret;` e `ret espressione;` sono entrambe forme sintattiche; la
 compatibilità con il tipo restituito viene verificata semanticamente.
 
-`main` non è una keyword: è il nome del punto di ingresso scelto dal runtime.
-Unicità e firma valida appartengono al contratto di build.
+`main` non è una keyword: è il nome predefinito del punto di ingresso scelto dal
+manifesto. La funzione selezionata deve essere unica e l'avvio automatico non
+fornisce argomenti.
 
 ## Blocchi e controllo di flusso
 
