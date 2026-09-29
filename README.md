@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.12.2 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.12.3 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 
@@ -22,7 +22,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - pacchetto DDF esterno versionato, selezionabile a runtime da cartella o archivio `.ddflang`, con scelta persistente, validazione atomica e fallback incorporato;
 - requisiti opzionali per plug-in nativi identificati esattamente e soggetti ad autorizzazione separata per capacità, senza caricamento implicito di codice host;
 - VM IR indipendente dalla sintassi concreta, con operatori tradotti in operazioni controllate e libreria standard dichiarata dal pacchetto;
-- manifest `ddf-project.json` separato dal pacchetto, con sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
+- manifest `ddf-project.json` separato dal pacchetto, con identità/versione/export del modulo, sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
 - comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
 - catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;
@@ -326,6 +326,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `INTERMEDIATE_REPRESENTATION.md`: pipeline, modello e contratto della IR comune usata dal runtime;
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
+- `DDF_MODULE_SYSTEM_SPEC.md`: identità, visibilità, export, inizializzazione e dipendenze dei moduli;
 - `EDITOR_SDK.md`: primo contratto pubblico della superficie incorporabile, esempio d'uso e limiti correnti;
 - `DDF_LANGUAGE_DESIGN.md`: obiettivi, principi e confini progettuali del linguaggio;
 - `DDF_CURRENT_LANGUAGE_INVENTORY.md`: fotografia verificabile della sintassi e semantica beta, con decisioni ancora aperte;

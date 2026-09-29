@@ -47,6 +47,13 @@ namespace DDFLanguageEditor.Core
         public string Version { get; set; }
     }
 
+    public sealed class DdfProjectModule
+    {
+        public string Id { get; set; }
+        public string Version { get; set; } = "0.0.0";
+        public List<string> Exports { get; set; } = new List<string>();
+    }
+
     public sealed class DdfProjectOutput
     {
         public string Directory { get; set; } = ".ddf-build";
@@ -62,13 +69,14 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfProjectManifest
     {
         public const string FileName = "ddf-project.json";
-        public const string SchemaVersionValue = "1.0";
+        public const string SchemaVersionValue = "1.1";
 
         [JsonPropertyName("$schema")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Schema { get; set; }
         public string SchemaVersion { get; set; } = SchemaVersionValue;
         public string Name { get; set; }
+        public DdfProjectModule Module { get; set; } = new DdfProjectModule();
         public string LanguageId { get; set; }
         public string LanguagePackageVersion { get; set; }
         public List<string> Sources { get; set; } = new List<string>();
@@ -86,6 +94,11 @@ namespace DDFLanguageEditor.Core
             return new DdfProjectManifest
             {
                 Name = string.IsNullOrWhiteSpace(name) ? "DDF project" : name,
+                Module = new DdfProjectModule
+                {
+                    Id = CreateImplicitModuleId(name),
+                    Version = "0.0.0"
+                },
                 LanguageId = package.Id,
                 LanguagePackageVersion = package.PackageVersion,
                 Sources = package.FileExtensions.Select(extension => "**/*" + extension).ToList(),
@@ -93,6 +106,14 @@ namespace DDFLanguageEditor.Core
                 EntryPoint = package.Language.Runtime.EntryPoint,
                 Backend = package.Language.Build.DefaultBackend
             };
+        }
+
+        private static string CreateImplicitModuleId(string name)
+        {
+            string value = Regex.Replace((name ?? "project").Trim().ToLowerInvariant(),
+                "[^a-z0-9]+", "-").Trim('-');
+            if (value.Length == 0 || value[0] < 'a' || value[0] > 'z') value = "project-" + value;
+            return "local." + value.TrimEnd('-');
         }
     }
 
@@ -150,6 +171,17 @@ namespace DDFLanguageEditor.Core
             if (manifest == null) return issues.AsReadOnly();
             Require(manifest.SchemaVersion == DdfProjectManifest.SchemaVersionValue, "DDFP004", "schemaVersion progetto non supportata.");
             Require(!string.IsNullOrWhiteSpace(manifest.Name), "DDFP005", "Nome progetto richiesto.");
+            Require(manifest.Module != null && ValidId(manifest.Module.Id) &&
+                    Version.TryParse(manifest.Module.Version, out _),
+                "DDFP015", "Identità o versione del modulo non valida.");
+            if (manifest.Module != null)
+            {
+                manifest.Module.Exports = manifest.Module.Exports ?? new List<string>();
+                Require(manifest.Module.Exports.All(ValidName) &&
+                        manifest.Module.Exports.Distinct(StringComparer.Ordinal).Count() ==
+                        manifest.Module.Exports.Count,
+                    "DDFP016", "Esportazioni del modulo duplicate o non valide.");
+            }
             Require(ValidId(manifest.LanguageId), "DDFP006", "ID del linguaggio non valido.");
             Require(Version.TryParse(manifest.LanguagePackageVersion, out _), "DDFP007", "Versione esatta del pacchetto linguaggio richiesta.");
             Require(manifest.Sources != null && manifest.Sources.Count > 0 &&
@@ -163,6 +195,9 @@ namespace DDFLanguageEditor.Core
             Require(manifest.Dependencies.All(item => item != null && ValidId(item.Id) && Version.TryParse(item.Version, out _)) &&
                     manifest.Dependencies.Select(item => item.Id).Distinct(StringComparer.Ordinal).Count() == manifest.Dependencies.Count,
                 "DDFP012", "Dipendenze duplicate o non valide.");
+            Require(manifest.Module == null || manifest.Dependencies.All(item => item == null ||
+                    !string.Equals(item.Id, manifest.Module.Id, StringComparison.Ordinal)),
+                "DDFP017", "Un modulo non può dipendere da se stesso.");
             manifest.Output = manifest.Output ?? new DdfProjectOutput();
             Require(SafeRelativePath(manifest.Output.Directory) && SafeFileName(manifest.Output.Artifact),
                 "DDFP013", "Percorso di output non sicuro.");
@@ -234,14 +269,18 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfBuildArtifact
     {
         public const string ReceiptFormat = "ddf-build-receipt-1.0";
-        internal DdfBuildArtifact(string projectName, string languageId, string languagePackageVersion,
+        internal DdfBuildArtifact(string projectName, string moduleId, string moduleVersion,
+            IReadOnlyList<string> exports, string languageId, string languagePackageVersion,
             string backend, string entrySource, string entryPoint, string fingerprint,
             IReadOnlyList<DdfBuildArtifactSource> sources, IReadOnlyList<DdfProjectDependency> dependencies,
             DdfIrProgram entryProgram, IReadOnlyList<DdfIrModule> runtimeModules,
             int maxInstructions, bool useUnsavedBuffers)
-        { ProjectName = projectName; LanguageId = languageId; LanguagePackageVersion = languagePackageVersion; Backend = backend; EntrySource = entrySource; EntryPoint = entryPoint; Fingerprint = fingerprint; Sources = sources; Dependencies = dependencies; EntryProgram = entryProgram; RuntimeModules = runtimeModules; MaxInstructions = maxInstructions; UseUnsavedBuffers = useUnsavedBuffers; }
+        { ProjectName = projectName; ModuleId = moduleId; ModuleVersion = moduleVersion; Exports = exports; LanguageId = languageId; LanguagePackageVersion = languagePackageVersion; Backend = backend; EntrySource = entrySource; EntryPoint = entryPoint; Fingerprint = fingerprint; Sources = sources; Dependencies = dependencies; EntryProgram = entryProgram; RuntimeModules = runtimeModules; MaxInstructions = maxInstructions; UseUnsavedBuffers = useUnsavedBuffers; }
         public string Format => ReceiptFormat;
         public string ProjectName { get; }
+        public string ModuleId { get; }
+        public string ModuleVersion { get; }
+        public IReadOnlyList<string> Exports { get; }
         public string LanguageId { get; }
         public string LanguagePackageVersion { get; }
         public string Backend { get; }
@@ -330,7 +369,7 @@ namespace DDFLanguageEditor.Core
                 issues.Add(DdfBuildIssue.Configuration("DDFB001", "Sorgente o funzione di ingresso non trovata."));
                 return new DdfBuildResult(null, issues);
             }
-            var duplicateDeclarations = programs.SelectMany(pair => pair.Value.Members.Select(member => new
+            var declarations = programs.SelectMany(pair => pair.Value.Members.Select(member => new
                 {
                     Path = pair.Key,
                     Kind = member is DdfIrFunction ? "funzione" : member is DdfIrStructure ? "struttura" :
@@ -339,13 +378,19 @@ namespace DDFLanguageEditor.Core
                         member is DdfIrGlobal globalMember && globalMember.Statement is DdfIrVariableDeclaration variable ? variable.Name : null
                 }))
                 .Where(item => item.Kind != null && !string.IsNullOrEmpty(item.Name))
-                .GroupBy(item => item.Name, StringComparer.Ordinal)
+                .ToList();
+            var duplicateDeclarations = declarations.GroupBy(item => item.Name, StringComparer.Ordinal)
                 .Where(group => group.Count() > 1)
                 .ToList();
             foreach (var duplicate in duplicateDeclarations)
                 issues.Add(DdfBuildIssue.Configuration("DDFB010",
                     "Dichiarazione runtime duplicata '" + duplicate.Key + "': " +
                     string.Join(", ", duplicate.Select(item => item.Path)) + "."));
+            foreach (string export in manifest.Module.Exports)
+                if (!declarations.Any(item => item.Name == export))
+                    issues.Add(DdfBuildIssue.Configuration("DDFB012",
+                        "L'esportazione '" + export + "' non corrisponde a una dichiarazione del modulo '" +
+                        manifest.Module.Id + "'."));
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfBuildResult(null, issues);
 
@@ -377,7 +422,9 @@ namespace DDFLanguageEditor.Core
                 .Where(item => programs.ContainsKey(item.RelativePath))
                 .Select(item => new DdfIrModule(item.Path, item.Source, programs[item.RelativePath]))
                 .ToList().AsReadOnly();
-            var artifact = new DdfBuildArtifact(manifest.Name, package.Id, package.PackageVersion, Id,
+            var artifact = new DdfBuildArtifact(manifest.Name, manifest.Module.Id,
+                manifest.Module.Version, manifest.Module.Exports.OrderBy(item => item, StringComparer.Ordinal)
+                    .ToList().AsReadOnly(), package.Id, package.PackageVersion, Id,
                 entry.RelativePath, manifest.EntryPoint, fingerprint, artifactSources,
                 manifest.Dependencies.OrderBy(item => item.Id, StringComparer.Ordinal)
                     .Select(item => new DdfProjectDependency { Id = item.Id, Version = item.Version }).ToList().AsReadOnly(),
@@ -400,6 +447,9 @@ namespace DDFLanguageEditor.Core
         {
             var value = new StringBuilder();
             value.Append(DdfBuildArtifact.ReceiptFormat).Append('\n').Append(manifest.Name).Append('\n')
+                .Append(manifest.Module.Id).Append('@').Append(manifest.Module.Version).Append('\n')
+                .Append(string.Join(",", manifest.Module.Exports.OrderBy(item => item,
+                    StringComparer.Ordinal))).Append('\n')
                 .Append(package.Id).Append('@').Append(package.PackageVersion).Append('\n')
                 .Append(manifest.Backend).Append('\n').Append(manifest.EntrySource).Append('\n')
                 .Append(manifest.EntryPoint).Append('\n').Append(maxInstructions).Append('\n')

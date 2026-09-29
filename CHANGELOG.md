@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.12.2 - in sviluppo
+## 0.12.3 - in sviluppo
+
+- Formalizzato il modello multi-file come modulo esplicito: `ddf-project.json` schema `1.1` richiede identità, versione ed esportazioni, incluse nella ricevuta e nel fingerprint. Il build valida export inesistenti (`DDFB012`), auto-dipendenze e metadati; file e cartelle non creano namespace e le globali mantengono l'ordine deterministico già verificato. `DDF_MODULE_SYSTEM_SPEC.md` e DDF-0016 stabiliscono inoltre che `@@'...'` è una direttiva legacy deprecata e non un include/import; la risoluzione fra moduli resta il prossimo blocco della milestone.
+
+## 0.12.2 - 2026-09-29
 
 - Pubblicata la specifica normativa del sistema dei tipi: primitivi espliciti, array monodimensionali e strutture non nulle, unica promozione implicita `int -> float`, nessuna truthiness o overload, shadowing vietato, aritmetica checked e firme con ritorno completo. `dict` viene escluso dal nucleo finché non avrà una semantica parametrica. Ogni tipo eseguibile richiede ora un mapping CLR/C# versionato accettabile da Roslyn (`float` DDF è `System.Double`; le strutture diventano classi CLR generate), senza esporre automaticamente API .NET. Un audit separa tredici gap dell'implementazione beta dal contratto da raggiungere e le decisioni DDF-0009–DDF-0013 ne registrano le motivazioni.
 - Completato l'audit trasversale Roslyn: la soluzione .NET 10 compila in Release senza warning e la suite Core supera 209 test, mentre la compilazione dei sorgenti DDF resta correttamente non dichiarata finché non esistono IR bound, mapping CLR eseguibili, runtime ABI, name mangling, riferimenti chiusi, emit/PDB e corpus differenziale. Vietati anche i cicli di contenimento fra strutture non-null. `ROSLYN_COMPATIBILITY_AUDIT.md` definisce dieci gate e DDF-0014 stabilisce che Roslyn emette la semantica già risolta da DDF, senza reinterpretarla.

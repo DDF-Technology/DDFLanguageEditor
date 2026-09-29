@@ -3336,6 +3336,9 @@ namespace DDFLanguageEditor.Tests
             {
                 DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
                 DdfProjectManifest manifest = DdfProjectManifest.CreateImplicit("Manifest test", package, "main.ddf");
+                manifest.Module.Id = "example.application";
+                manifest.Module.Version = "1.2.3";
+                manifest.Module.Exports.Add("main");
                 manifest.Dependencies.Add(new DdfProjectDependency { Id = "example.math", Version = "1.2.0" });
                 File.WriteAllText(Path.Combine(root, DdfProjectManifest.FileName),
                     JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
@@ -3343,6 +3346,9 @@ namespace DDFLanguageEditor.Tests
                 DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
                 Equal(true, loaded.Success);
                 Equal("Manifest test", loaded.Manifest.Name);
+                Equal("example.application", loaded.Manifest.Module.Id);
+                Equal("1.2.3", loaded.Manifest.Module.Version);
+                SequenceEqual(new[] { "main" }, loaded.Manifest.Module.Exports);
                 Equal(package.Id, loaded.Manifest.LanguageId);
                 Equal(package.PackageVersion, loaded.Manifest.LanguagePackageVersion);
                 Equal("main.ddf", loaded.Manifest.EntrySource);
@@ -3367,11 +3373,17 @@ namespace DDFLanguageEditor.Tests
                 const string bufferSource = "main() out int { ret 2; }";
                 File.WriteAllText(path, diskSource, new UTF8Encoding(false));
                 DdfProjectManifest manifest = DdfProjectManifest.CreateImplicit("Reproducible", package, "main.ddf");
+                manifest.Module.Id = "example.reproducible";
+                manifest.Module.Version = "2.1.0";
+                manifest.Module.Exports.Add("main");
                 var buffers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [path] = bufferSource };
                 var service = new DdfBuildService();
 
                 DdfBuildResult validation = service.Validate(root, manifest, package, buffers);
                 Equal(true, validation.Success);
+                Equal("example.reproducible", validation.Artifact.ModuleId);
+                Equal("2.1.0", validation.Artifact.ModuleVersion);
+                SequenceEqual(new[] { "main" }, validation.Artifact.Exports);
                 Equal(false, Directory.Exists(Path.Combine(root, manifest.Output.Directory)));
                 Equal(true, validation.Artifact.Sources.Single().FromUnsavedBuffer);
                 DdfExecutionResult execution = DdfVirtualMachine.Execute(bufferSource, validation.Artifact.EntryProgram,
@@ -3385,6 +3397,11 @@ namespace DDFLanguageEditor.Tests
                 Equal(first.Artifact.Fingerprint, second.Artifact.Fingerprint);
                 Equal(firstReceipt, File.ReadAllText(second.ArtifactPath, Encoding.UTF8));
                 Equal(diskSource, File.ReadAllText(path, Encoding.UTF8));
+
+                manifest.Module.Version = "2.1.1";
+                DdfBuildResult changedModule = service.Validate(root, manifest, package, buffers);
+                Equal(false, first.Artifact.Fingerprint == changedModule.Artifact.Fingerprint);
+                manifest.Module.Version = "2.1.0";
 
                 manifest.Options.UseUnsavedBuffers = false;
                 DdfBuildResult diskBuild = service.Validate(root, manifest, package, buffers);
@@ -3443,6 +3460,35 @@ namespace DDFLanguageEditor.Tests
                 File.Delete(earlyGlobal);
                 File.Delete(lateGlobal);
 
+                DdfProjectManifest missingExport = DdfProjectManifest.CreateImplicit("Missing export", package, "main.ddf");
+                missingExport.Module.Exports.Add("notDeclared");
+                DdfBuildResult missingExportResult = new DdfBuildService().Validate(root, missingExport, package);
+                Equal(false, missingExportResult.Success);
+                Equal(true, missingExportResult.Issues.Any(item => item.Code == "DDFB012"));
+
+                DdfProjectManifest invalidModule = DdfProjectManifest.CreateImplicit("Invalid module", package, "main.ddf");
+                invalidModule.Module.Exports.Add("main");
+                invalidModule.Module.Exports.Add("main");
+                invalidModule.Dependencies.Add(new DdfProjectDependency
+                {
+                    Id = invalidModule.Module.Id,
+                    Version = invalidModule.Module.Version
+                });
+                File.WriteAllText(Path.Combine(root, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(invalidModule), new UTF8Encoding(false));
+                DdfProjectManifestLoadResult invalidModuleLoad = DdfProjectManifestLoader.Load(root);
+                Equal(false, invalidModuleLoad.Success);
+                Equal(true, invalidModuleLoad.Issues.Any(item => item.Code == "DDFP016"));
+                Equal(true, invalidModuleLoad.Issues.Any(item => item.Code == "DDFP017"));
+
+                invalidModule.Module = null;
+                invalidModule.Dependencies.Clear();
+                File.WriteAllText(Path.Combine(root, DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(invalidModule), new UTF8Encoding(false));
+                DdfProjectManifestLoadResult missingModuleLoad = DdfProjectManifestLoader.Load(root);
+                Equal(false, missingModuleLoad.Success);
+                Equal(true, missingModuleLoad.Issues.Any(item => item.Code == "DDFP015"));
+
                 DdfProjectManifest unsafeManifest = DdfProjectManifest.CreateImplicit("Unsafe", package, "main.ddf");
                 unsafeManifest.Output.Directory = "../outside";
                 File.WriteAllText(Path.Combine(root, DdfProjectManifest.FileName),
@@ -3465,6 +3511,8 @@ namespace DDFLanguageEditor.Tests
             DdfBuildResult result = new DdfBuildService().Validate(root, loaded.Manifest,
                 DdfLanguagePackageLoader.LoadEmbeddedDefault().Package);
             Equal(true, result.Success);
+            Equal("ddf.sample.project", result.Artifact.ModuleId);
+            Equal("0.1.0", result.Artifact.ModuleVersion);
             Equal("main.ddf", result.Artifact.EntrySource);
             Equal(2, result.Artifact.Sources.Count);
             Equal(false, Directory.Exists(Path.Combine(root, ".ddf-build")));
@@ -3486,6 +3534,8 @@ namespace DDFLanguageEditor.Tests
                 throw new InvalidOperationException(string.Join(" | ", result.Issues.Select(
                     issue => issue.Code + ": " + issue.Message)));
             Equal(true, result.Success);
+            Equal("ddf.sample.flowchart", result.Artifact.ModuleId);
+            Equal("0.1.0", result.Artifact.ModuleVersion);
             Equal("main.ddf", result.Artifact.EntrySource);
             Equal(5, result.Artifact.Sources.Count);
             var output = new List<string>();

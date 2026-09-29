@@ -700,9 +700,11 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 ### 0.12.3 — Moduli e libreria standard
 
-- [ ] Consolidare il modello multi-file sperimentato nella `0.11.0` in una semantica formale dei moduli.
-- [ ] Decidere la forma definitiva di import/include al posto dell'uso provvisorio di `@@'...'`, se necessario.
+- [x] Consolidare il modello multi-file sperimentato nella `0.11.0` in una semantica formale dei moduli (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
+- [x] Decidere la forma definitiva di import/include: nessun include testuale; `@@'...'` è una direttiva legacy deprecata e le dipendenze appartengono al manifesto (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0016, 2026-09-29).
 - [ ] Definire esportazioni, globali, ordine di inizializzazione, dipendenze cicliche e risoluzione dei nomi.
+  - [x] Rendere espliciti identità, versione ed export del modulo; validare API pubblica, ordine globale deterministico e auto-dipendenza (`ddf-project.json` schema `1.1`, 2026-09-29).
+  - [ ] Implementare il resolver di dipendenze trans-modulo, la visibilità dei soli export e il rifiuto dei cicli fra moduli.
 - [ ] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor.
 - [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
 

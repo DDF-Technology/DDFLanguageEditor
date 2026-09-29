@@ -214,3 +214,20 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   da Core/WinForms. Convalida e preparazione IR restano condivise, mentre il
   servizio compilatore non è esposto da `DdfEditorView` o
   `DdfEmbeddedEditorControl`; un test architetturale protegge il confine.
+
+## DDF-0016 — Moduli espliciti senza include testuale
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** un modulo è il manifesto progetto con identità e versione
+  stabili più il suo insieme ordinato di sorgenti. I file condividono uno spazio
+  dei nomi piatto e case-sensitive; cartelle e file non creano namespace.
+  `exports` dichiara l'API futura verso altri moduli. `@@'...'` resta soltanto
+  una direttiva legacy deprecata di libreria/capacità e non è un include o un
+  import. Le dipendenze fra moduli sono dichiarate nel manifesto.
+- **Alternative rifiutate:** concatenazione testuale di sorgenti; visibilità
+  derivata dalla struttura delle cartelle; rendere ogni file un modulo implicito;
+  usare `@@` contemporaneamente per librerie, file e package.
+- **Conseguenze:** il build valida identità, versione ed esportazioni e le lega
+  al fingerprint. Il futuro resolver dovrà consumare soltanto API esportate,
+  rifiutare cicli e produrre la stessa IR bound per VM e Roslyn.

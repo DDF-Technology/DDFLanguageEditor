@@ -1,7 +1,12 @@
 {
   "$schema": "../../ddf-project.schema.json",
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "DDF sample project",
+  "module": {
+    "id": "ddf.sample.project",
+    "version": "0.1.0",
+    "exports": []
+  },
   "languageId": "ddf",
   "languagePackageVersion": "0.12.2.1",
   "sources": [ "**/*.ddf" ],

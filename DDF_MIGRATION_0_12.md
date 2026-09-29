@@ -56,3 +56,21 @@ pacchetto è usato dalla VM. Copiare la sezione dal pacchetto DDF `0.12.2.1` è
 corretto soltanto per profili sintattici che conservano esattamente la stessa
 semantica dei tipi.
 
+## Manifesti progetto — schema 1.1 / DDF 0.12.3
+
+Ogni `ddf-project.json` schema `1.0` deve passare a `1.1` e aggiungere
+l'identità esplicita del modulo:
+
+```json
+"module": {
+  "id": "azienda.prodotto.modulo",
+  "version": "1.0.0",
+  "exports": []
+}
+```
+
+Inserire in `exports` soltanto funzioni, strutture o globali top-level realmente
+dichiarate. Un elenco vuoto conserva un progetto applicativo senza API pubblica.
+Le cartelle non diventano namespace. Le dipendenze restano dichiarate nel
+manifesto e `@@'...'` non deve essere usato per includere file o moduli.
+

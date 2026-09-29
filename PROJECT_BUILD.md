@@ -13,8 +13,13 @@ manifest is:
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "name": "example",
+  "module": {
+    "id": "example.application",
+    "version": "1.0.0",
+    "exports": [ "main" ]
+  },
   "languageId": "ddf",
   "languagePackageVersion": "0.12.2.1",
   "sources": [ "**/*.ddf" ],
@@ -42,10 +47,12 @@ manifest is:
 - **Avvia senza debug** executes the entry program from that in-memory artifact.
 - **Avvia debug** (`F5`) executes the same artifact with breakpoint support.
 
-All sources selected by `sources` form one runtime program. Functions,
-structures and globals are visible across those files, and open unsaved buffers
-participate when `useUnsavedBuffers` is enabled. `@@'...'` remains a standard
-library/capability directive; it does not include another source file.
+All sources selected by `sources` form one module and one runtime program.
+Functions, structures and globals are visible across those files in a flat,
+case-sensitive namespace; file and folder names never create namespaces. Open
+unsaved buffers participate when `useUnsavedBuffers` is enabled. `exports`
+declares the future public API and every listed name must exist. `@@'...'` is a
+deprecated library/capability hint; it never includes another source or module.
 
 Errors appear in Output with their document, line and column; double-clicking a
 row opens the correct file and selects its source span. When
@@ -67,9 +74,11 @@ frames retain their source document. Duplicate runtime declarations produce
 `DDFB010`. Global initialization follows deterministic source/declaration order;
 forward or cyclic global dependencies produce `DDFB011`.
 
-Dependencies are pinned reproducibly in the receipt, but package resolution and
-distribution come later. Formal namespaces, exports and the definitive module
-syntax remain part of the DDF language-definition milestone.
+Module identity, version and sorted exports are pinned reproducibly in the
+receipt and fingerprint. Dependencies are also pinned, but cross-module package
+resolution is not implemented yet and therefore cannot satisfy a source symbol.
+See [the module-system specification](DDF_MODULE_SYSTEM_SPEC.md) for visibility,
+initialization, dependency and directive rules.
 
 ## Planned .NET backend
 
