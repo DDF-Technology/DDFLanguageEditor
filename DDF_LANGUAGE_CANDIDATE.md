@@ -48,13 +48,24 @@ sul comportamento storico del parser o della VM.
 
 ## Registro dei problemi del candidato
 
-| ID | Area | Gravità | Classificazione | Stato | Evidenza |
+Il registro autorevole è `ddf-language-candidate-issues.json`, vincolato da
+`ddf-language-candidate-issues.schema.json`. La tabella seguente è una sintesi
+leggibile e non sostituisce il registro.
+
+| ID | Area | Gravità | Classificazione | Stato | Impatto normativo |
 | --- | --- | --- | --- | --- | --- |
-| — | — | — | — | Nessun problema classificato all'apertura | — |
+| CAND-0001 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
+| CAND-0002 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
 
 Ogni nuova voce deve indicare un caso riproducibile del corpus o una procedura
 manuale. La chiusura richiede il riferimento a test, decisione o documento che
-dimostra l'esito.
+dimostra l'esito. Il registro iniziale contiene due osservazioni emerse mentre si
+costruivano i gate: entrambe riguardavano assunzioni errate dei test, sono state
+risolte senza modificare il DDF e non costituiscono difetti del prodotto.
+
+Una voce con `changesContract: true` è invalida se non specifica un ID decisione
+`DDF-nnnn` e la nuova `targetLanguageVersion`. Il test del registro verifica
+questa regola, i valori ammessi, gli ID univoci e la coerenza dei contatori.
 
 ## Gate del ciclo
 

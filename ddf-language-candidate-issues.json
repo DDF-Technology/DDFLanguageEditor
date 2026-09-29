@@ -1,0 +1,44 @@
+{
+  "$schema": "./ddf-language-candidate-issues.schema.json",
+  "schemaVersion": "1.0",
+  "candidateId": "ddf-0.12-candidate-cycle-1",
+  "reviewedAt": "2026-09-29",
+  "summary": {
+    "observations": 2,
+    "open": 0,
+    "blocking": 0,
+    "normativeChanges": 0
+  },
+  "issues": [
+    {
+      "id": "CAND-0001",
+      "title": "Impronta semantics.json trascritta in modo errato nella prima baseline",
+      "area": "test-infrastructure",
+      "severity": "note",
+      "classification": "test-infrastructure",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [ "Il test keeps the DDF candidate baseline frozen ha rifiutato la prima impronta." ],
+      "resolution": "Corretta la trascrizione prima del commit 1375326; nessun artefatto normativo è stato modificato."
+    },
+    {
+      "id": "CAND-0002",
+      "title": "Il primo gate interrogava IntelliSense fuori dal corpo e puntava un ret irraggiungibile",
+      "area": "test-infrastructure",
+      "severity": "note",
+      "classification": "test-infrastructure",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [ "Il corpus defaults-and-conversions contiene intenzionalmente un ret finale non raggiungibile." ],
+      "resolution": "Il gate ab59e59 interroga IntelliSense prima del primo ret del main e pone il breakpoint sullo stesso statement raggiungibile."
+    }
+  ]
+}

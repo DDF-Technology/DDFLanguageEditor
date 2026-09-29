@@ -122,6 +122,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
+            Run("keeps candidate issues classified without implicit language changes", KeepsCandidateIssuesClassified);
             Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
@@ -3666,6 +3667,68 @@ namespace DDFLanguageEditor.Tests
                 DdfParseResult recovered = DdfParser.Parse(formatted, package.Language);
                 Equal(true, recovered.Root.Start >= 0 && recovered.Root.End <= formatted.Length);
             }
+        }
+
+        private static void KeepsCandidateIssuesClassified()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject baseline = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-baseline.json"), Encoding.UTF8)).AsObject();
+            JsonObject register = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-issues.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", register["schemaVersion"].GetValue<string>());
+            Equal(baseline["candidateId"].GetValue<string>(), register["candidateId"].GetValue<string>());
+            Equal(true, DateOnly.TryParseExact(register["reviewedAt"].GetValue<string>(),
+                "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _));
+
+            JsonArray issues = register["issues"].AsArray();
+            string[] ids = issues.Select(item => item.AsObject()["id"].GetValue<string>()).ToArray();
+            Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
+            Equal(true, ids.All(id => Regex.IsMatch(id, "^CAND-[0-9]{4}$")));
+
+            string[] areas = { "specification", "package", "analysis", "intellisense", "formatter",
+                "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability" };
+            string[] severities = { "note", "minor", "major", "blocking" };
+            string[] classifications = { "test-infrastructure", "implementation-conformance",
+                "editorial", "compatible-addition", "breaking-contract" };
+            string[] statuses = { "open", "accepted", "resolved", "deferred", "rejected" };
+            foreach (JsonNode node in issues)
+            {
+                JsonObject issue = node.AsObject();
+                Equal(true, !string.IsNullOrWhiteSpace(issue["title"].GetValue<string>()));
+                Equal(true, areas.Contains(issue["area"].GetValue<string>(), StringComparer.Ordinal));
+                Equal(true, severities.Contains(issue["severity"].GetValue<string>(), StringComparer.Ordinal));
+                Equal(true, classifications.Contains(issue["classification"].GetValue<string>(), StringComparer.Ordinal));
+                Equal(true, statuses.Contains(issue["status"].GetValue<string>(), StringComparer.Ordinal));
+                Equal(true, issue["evidence"].AsArray().Count > 0);
+                Equal(true, !string.IsNullOrWhiteSpace(issue["resolution"].GetValue<string>()));
+
+                JsonObject impact = issue["normativeImpact"].AsObject();
+                bool changesContract = impact["changesContract"].GetValue<bool>();
+                if (changesContract)
+                {
+                    Equal(true, Regex.IsMatch(impact["decisionId"].GetValue<string>(), "^DDF-[0-9]{4}$"));
+                    Equal(true, Regex.IsMatch(impact["targetLanguageVersion"].GetValue<string>(),
+                        "^[0-9]+\\.[0-9]+$"));
+                }
+                else
+                {
+                    Equal(null, impact["decisionId"]?.GetValue<string>());
+                    Equal(null, impact["targetLanguageVersion"]?.GetValue<string>());
+                }
+            }
+
+            JsonObject summary = register["summary"].AsObject();
+            Equal(issues.Count, summary["observations"].GetValue<int>());
+            Equal(issues.Count(item => item.AsObject()["status"].GetValue<string>() == "open"),
+                summary["open"].GetValue<int>());
+            Equal(issues.Count(item => item.AsObject()["severity"].GetValue<string>() == "blocking" &&
+                item.AsObject()["status"].GetValue<string>() == "open"),
+                summary["blocking"].GetValue<int>());
+            Equal(issues.Count(item => item.AsObject()["normativeImpact"].AsObject()
+                ["changesContract"].GetValue<bool>()), summary["normativeChanges"].GetValue<int>());
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

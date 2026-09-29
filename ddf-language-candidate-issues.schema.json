@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/language-candidate-issues-1.0.json",
+  "title": "DDF language candidate issue register 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "candidateId", "reviewedAt", "summary", "issues" ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0" },
+    "candidateId": { "type": "string", "pattern": "^[a-z0-9.-]+$" },
+    "reviewedAt": { "type": "string", "format": "date" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "observations", "open", "blocking", "normativeChanges" ],
+      "properties": {
+        "observations": { "type": "integer", "minimum": 0 },
+        "open": { "type": "integer", "minimum": 0 },
+        "blocking": { "type": "integer", "minimum": 0 },
+        "normativeChanges": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "id", "title", "area", "severity", "classification", "status", "normativeImpact", "evidence", "resolution" ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^CAND-[0-9]{4}$" },
+          "title": { "type": "string", "minLength": 1 },
+          "area": {
+            "enum": [ "specification", "package", "analysis", "intellisense", "formatter", "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability" ]
+          },
+          "severity": { "enum": [ "note", "minor", "major", "blocking" ] },
+          "classification": { "enum": [ "test-infrastructure", "implementation-conformance", "editorial", "compatible-addition", "breaking-contract" ] },
+          "status": { "enum": [ "open", "accepted", "resolved", "deferred", "rejected" ] },
+          "normativeImpact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "changesContract", "decisionId", "targetLanguageVersion" ],
+            "properties": {
+              "changesContract": { "type": "boolean" },
+              "decisionId": { "type": [ "string", "null" ], "pattern": "^DDF-[0-9]{4}$" },
+              "targetLanguageVersion": { "type": [ "string", "null" ], "pattern": "^[0-9]+\\.[0-9]+$" }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "changesContract": { "const": true } } },
+                "then": {
+                  "properties": {
+                    "decisionId": { "type": "string" },
+                    "targetLanguageVersion": { "type": "string" }
+                  }
+                }
+              }
+            ]
+          },
+          "evidence": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "resolution": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

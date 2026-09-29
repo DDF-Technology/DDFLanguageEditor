@@ -727,7 +727,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 
 - [x] Congelare temporaneamente grammatica e semantica per un ciclo completo di utilizzo reale: `DDF_LANGUAGE_CANDIDATE.md` definisce perimetro, regola di modifica, registro problemi e gate; `ddf-language-candidate-baseline.json` rende verificabili con SHA-256 normalizzati i 17 artefatti normativi (`0.12.5`, 2026-09-29).
 - [x] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e Build sul corpus normativo: il gate trasversale copre 6 programmi validi, 8 non validi, 4 incompleti e 3 workspace; sui validi prova snapshot IDE e completamento, formattazione idempotente con equivalenza runtime, pausa/ripresa del debugger e fingerprint Build riproducibile (`0.12.5`, 2026-09-29).
-- [ ] Raccogliere e classificare i problemi senza modificare implicitamente la specifica.
+- [x] Raccogliere e classificare i problemi senza modificare implicitamente la specifica: registro JSON con schema, ID univoci, area, gravità, classificazione, stato, evidenza e impatto normativo; le due osservazioni iniziali erano difetti del gate, risolti senza modifiche DDF. Una modifica del contratto è rifiutata se priva di decisione e versione obiettivo (`0.12.5`, 2026-09-29).
 - [ ] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio.
 - [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.
 
