@@ -91,6 +91,12 @@ sole dipendenze dirette. Anche inizializzazione, Watch e snapshot del debugger
 usano lo stesso contesto qualificato. Se due dipendenze esportano lo stesso nome,
 il type checker rifiuta l'ambiguità invece di scegliere in base all'ordine.
 
+L'analisi interattiva applica lo stesso confine: l'indice moduli dell'editor
+carica dal manifesto soltanto le dipendenze dirette e ne pubblica gli export a
+diagnostica, type checker, completamento, Signature Help e navigazione. I
+sorgenti installati restano fuori dall'indice dei file del workspace e le
+dichiarazioni private non vengono offerte né considerate risolte.
+
 ## 6. Direttive e librerie esterne
 
 `@@'Nome'` non è e non diventerà un include testuale né un import di sorgenti.

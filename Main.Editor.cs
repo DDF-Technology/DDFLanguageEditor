@@ -337,7 +337,7 @@ namespace DDF___Program_Language_Editor
                 document?.FilePath,
                 false,
                 externalRoots,
-                null,
+                getWorkspaceExternalSymbols(),
                 null,
                 false,
                 precomputedLexResult,

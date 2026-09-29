@@ -124,6 +124,7 @@ namespace DDFLanguageEditor.Tests
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
             Run("validates the shipped versioned module workspace", ValidatesShippedModuleWorkspace);
+            Run("exposes direct module exports to live editor analysis", ExposesModuleExportsToEditorAnalysis);
             Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
             Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
@@ -3681,6 +3682,36 @@ namespace DDFLanguageEditor.Tests
                 package.Language, new DdfExecutionOptions { EntryPoint = result.Artifact.EntryPoint });
             Equal(true, execution.Succeeded);
             Equal(42, execution.ReturnValue);
+        }
+
+        private static void ExposesModuleExportsToEditorAnalysis()
+        {
+            string root = Path.Combine(Environment.CurrentDirectory, "samples", "module-workspace");
+            string path = Path.Combine(root, "main.ddf");
+            string source = File.ReadAllText(path, Encoding.UTF8);
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfModuleEditorIndex modules = DdfModuleEditorIndex.Load(root, package);
+
+            Equal(false, modules.Issues.Any(issue => issue.Severity == DdfDiagnosticSeverity.Error));
+            SequenceEqual(new[] { "add", "scale" }, modules.Documents
+                .SelectMany(document => document.Symbols).Select(symbol => symbol.Name)
+                .OrderBy(name => name, StringComparer.Ordinal));
+            Equal(0, modules.FindDefinitions("hiddenOffset").Count);
+            Equal(0, modules.FindDefinitions("Box").Count);
+
+            using (var service = new DdfEditorAnalysisService())
+            {
+                var request = new DdfEditorAnalysisRequest(source,
+                    source.IndexOf("add", StringComparison.Ordinal), 1, package, 1,
+                    "main", path, true, modules.GetExternalRoots(path),
+                    modules.GetExternalSymbols(path), modules.GetCompletionItems(path));
+                DdfEditorAnalysisSnapshot snapshot = service.Analyze(request);
+                Equal(false, snapshot.Diagnostics.Any(diagnostic =>
+                    diagnostic.Code == "DDF201" || diagnostic.Code == "DDF312"));
+                Equal(true, snapshot.Completions.Items.Any(item => item.DisplayText == "add"));
+                Equal(true, snapshot.Completions.Items.Any(item => item.DisplayText == "scale"));
+                Equal(false, snapshot.Completions.Items.Any(item => item.DisplayText == "hiddenOffset"));
+            }
         }
 
         private static void ManagesVersionedModulePackagesSafely()

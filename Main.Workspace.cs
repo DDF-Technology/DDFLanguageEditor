@@ -13,6 +13,7 @@ namespace DDF___Program_Language_Editor
     public partial class MainForm
     {
         private DdfWorkspaceIndex workspaceIndex;
+        private DdfModuleEditorIndex workspaceModuleIndex = DdfModuleEditorIndex.Empty;
         private TabControl navigationTabs;
         private TabPage workspaceTabPage;
         private TreeView treeViewWorkspace;
@@ -23,6 +24,7 @@ namespace DDF___Program_Language_Editor
         private long workspaceLoadAppliedVersion;
         private long workspaceLoadAppliedLanguageRevision;
         private Func<string, CancellationToken, DdfWorkspaceIndex> loadWorkspaceIndex;
+        private Func<string, DdfLanguagePackage, CancellationToken, DdfModuleEditorIndex> loadWorkspaceModules;
 
         private void initializeWorkspace()
         {
@@ -96,6 +98,8 @@ namespace DDF___Program_Language_Editor
             fileMenuItem.DropDownItems.Insert(closeWorkspaceIndex + 1, recentWorkspacesMenuItem);
             loadWorkspaceIndex = (rootPath, cancellationToken) => DdfWorkspaceIndex.Load(
                 rootPath, cancellationToken, editorLanguageSession.ActivePackage.FileExtensions);
+            loadWorkspaceModules = (rootPath, package, cancellationToken) =>
+                DdfModuleEditorIndex.Load(rootPath, package, cancellationToken);
             initializeWorkspaceDropTargets();
         }
 
@@ -118,6 +122,7 @@ namespace DDF___Program_Language_Editor
             closeModulePackageManager();
             switchWatchProject(null);
             workspaceIndex = null;
+            workspaceModuleIndex = DdfModuleEditorIndex.Empty;
             treeViewWorkspace.Nodes.Clear();
             labelWorkspace.Text = "WORKSPACE — nessuna cartella";
             closeWorkspaceMenuItem.Enabled = false;
@@ -146,6 +151,7 @@ namespace DDF___Program_Language_Editor
             closeModulePackageManager();
             long version = ++workspaceLoadRequestVersion;
             long languageRevision = editorLanguageSession.Revision;
+            DdfLanguagePackage languagePackage = editorLanguageSession.ActivePackage;
             workspaceLoadCancellation?.Cancel();
             var cancellation = new CancellationTokenSource();
             workspaceLoadCancellation = cancellation;
@@ -159,6 +165,7 @@ namespace DDF___Program_Language_Editor
 
             try
             {
+                DdfModuleEditorIndex loadedModules = DdfModuleEditorIndex.Empty;
                 DdfWorkspaceIndex loaded = await Task.Run(() =>
                 {
                     DdfWorkspaceIndex index = loadWorkspaceIndex(rootPath, cancellation.Token);
@@ -168,11 +175,13 @@ namespace DDF___Program_Language_Editor
                         if (index.ContainsPath(buffer.Path)) index = index.WithDocument(buffer.Path, buffer.Source);
                     }
                     cancellation.Token.ThrowIfCancellationRequested();
+                    loadedModules = loadWorkspaceModules(rootPath, languagePackage, cancellation.Token);
+                    cancellation.Token.ThrowIfCancellationRequested();
                     return index;
                 }, cancellation.Token);
                 if (cancellation.IsCancellationRequested || version != workspaceLoadRequestVersion ||
                     languageRevision != editorLanguageSession.Revision) return;
-                postEditorCallback(() => applyLoadedWorkspace(version, languageRevision, loaded));
+                postEditorCallback(() => applyLoadedWorkspace(version, languageRevision, loaded, loadedModules));
             }
             catch (OperationCanceledException)
             {
@@ -190,7 +199,8 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private void applyLoadedWorkspace(long version, long languageRevision, DdfWorkspaceIndex loaded)
+        private void applyLoadedWorkspace(long version, long languageRevision, DdfWorkspaceIndex loaded,
+            DdfModuleEditorIndex loadedModules)
         {
             if (version != workspaceLoadRequestVersion || languageRevision != editorLanguageSession.Revision ||
                 loaded == null || IsDisposed || Disposing) return;
@@ -201,6 +211,7 @@ namespace DDF___Program_Language_Editor
             }
             switchWatchProject(loaded.RootPath);
             workspaceIndex = loaded;
+            workspaceModuleIndex = loadedModules ?? DdfModuleEditorIndex.Empty;
             workspaceLoadAppliedVersion = version;
             workspaceLoadAppliedLanguageRevision = languageRevision;
             populateWorkspaceTree();
@@ -307,6 +318,7 @@ namespace DDF___Program_Language_Editor
                                      symbol.Kind == DdfSymbolKind.Function ||
                                      symbol.Kind == DdfSymbolKind.Variable)
                     .Select(symbol => DdfCompletionService.CreateSymbolItem(symbol, document.RelativePath)))
+                .Concat(workspaceModuleIndex.GetCompletionItems(documentSession.CurrentPath))
                 .ToList()
                 .AsReadOnly();
         }
@@ -315,7 +327,18 @@ namespace DDF___Program_Language_Editor
         {
             return workspaceIndex == null
                 ? null
-                : workspaceIndex.GetExternalRoots(documentSession.CurrentPath);
+                : workspaceIndex.GetExternalRoots(documentSession.CurrentPath)
+                    .Concat(workspaceModuleIndex.GetExternalRoots(documentSession.CurrentPath))
+                    .ToList().AsReadOnly();
+        }
+
+        private IReadOnlyList<DdfDocumentSymbol> getWorkspaceExternalSymbols()
+        {
+            return workspaceIndex == null
+                ? null
+                : workspaceIndex.GetExternalSymbols(documentSession.CurrentPath)
+                    .Concat(workspaceModuleIndex.GetExternalSymbols(documentSession.CurrentPath))
+                    .ToList().AsReadOnly();
         }
 
         private string getCurrentDocumentOrigin()
@@ -334,7 +357,8 @@ namespace DDF___Program_Language_Editor
         {
             if (workspaceIndex == null || diagnostic.Code != "DDF201" || diagnostic.Start + diagnostic.Length > source.Length) return false;
             string name = source.Substring(diagnostic.Start, diagnostic.Length);
-            return workspaceIndex.FindDefinitions(name).Count > 0;
+            return workspaceIndex.FindDefinitions(name).Count > 0 ||
+                   workspaceModuleIndex.FindDefinitions(name).Count > 0;
         }
 
         private DdfWorkspaceSymbol getWorkspaceSymbolAtCaret(int position)
@@ -344,7 +368,8 @@ namespace DDF___Program_Language_Editor
                 item.Kind == DdfTokenKind.Identifier && position >= item.Start && position <= item.End);
             if (token == null) return null;
             string name = richTextBoxMainEditor.Text.Substring(token.Start, token.Length);
-            IReadOnlyList<DdfWorkspaceSymbol> definitions = workspaceIndex.FindDefinitions(name);
+            IReadOnlyList<DdfWorkspaceSymbol> definitions = workspaceIndex.FindDefinitions(name)
+                .Concat(workspaceModuleIndex.FindDefinitions(name)).ToList().AsReadOnly();
             return definitions.FirstOrDefault(definition =>
                        string.Equals(definition.Document.Path, documentSession.CurrentPath, StringComparison.OrdinalIgnoreCase))
                    ?? definitions.FirstOrDefault();

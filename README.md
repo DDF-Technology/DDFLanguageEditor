@@ -26,6 +26,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
 - resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, simboli privati qualificati, rilevamento cicli e ricevuta riproducibile;
+- analisi live dei moduli coerente con la build: diagnostica, tipi, completamento, Signature Help e navigazione vedono soltanto gli export delle dipendenze dirette, senza mostrare lo store tra i file del workspace;
 - pacchetti modulo sorgente deterministici `.ddfmod` e gestore Core con installazione atomica, versioni affiancate, sostituzione esplicita, rimozione esatta e protezioni da path traversal;
 - menu standalone **Moduli > Gestisci moduli progetto** con anteprima di identità, versione, linguaggio, export e dipendenze, creazione del pacchetto del workspace, installazione, convalida e rimozione; la shell embedded non espone accessi allo store per impostazione predefinita;
 - catalogo host per istanza con tipi, oggetti, funzioni, firme, documentazione e permessi condivisi da IntelliSense, type checker, build e runtime; accesso sola lettura/lettura-scrittura, durata snapshot/live e conversioni bidirezionali sono espliciti e non usano reflection automatica;

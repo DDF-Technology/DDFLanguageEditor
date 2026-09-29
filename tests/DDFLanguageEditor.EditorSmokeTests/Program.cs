@@ -2985,6 +2985,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Il workspace per il gestore moduli non viene aperto.");
                     PumpUntil(() => GetPrivateField<object>(form, "workspaceIndex") != null, 4000,
                         "Il workspace per il gestore moduli non completa il caricamento.");
+                    PumpUntil(() => GetPrivateField<DdfModuleEditorIndex>(form, "workspaceModuleIndex")
+                            .Documents.Count == 1, 4000,
+                        "Gli export del modulo installato non entrano nell'indice live dell'editor.");
+                    string mainPath = Path.Combine(projectRoot, "main.ddf");
+                    Require((bool)InvokePrivate(form, "openDocument", mainPath),
+                        "Il sorgente del workspace modulare non viene aperto.");
+                    PumpUntil(() => string.Equals(GetPrivateValue<string>(form, "lastAnalyzedText"),
+                            File.ReadAllText(mainPath, Encoding.UTF8), StringComparison.Ordinal), 4000,
+                        "L'analisi live del workspace modulare non termina.");
+                    IReadOnlyList<DdfDiagnostic> moduleDiagnostics =
+                        GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form, "activeDiagnostics");
+                    Require(!moduleDiagnostics.Any(diagnostic =>
+                            diagnostic.Code == "DDF201" || diagnostic.Code == "DDF312"),
+                        "L'editor segnala come sconosciuto un export di un modulo installato.");
                     Require(FindToolbarButton(form, "toolbarModuleManagerButton").Text !=
                             FindToolbarButton(form, "toolbarLanguageManagerButton").Text,
                         "Gestore moduli e gestore linguaggi usano la stessa icona.");
