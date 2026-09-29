@@ -595,7 +595,7 @@ Questa tabella aiuta i manutentori; non trasferisce norme fuori dal documento.
 | operazioni VM | `language-packages/ddf/runtime.json` |
 | libreria standard | `language-packages/ddf/standard-library.json` |
 | progetto e moduli | `ddf-project.schema.json`, suite Core |
-| esempi e regressioni | `samples/language-corpus/corpus.json`, `language-corpus.schema.json`, suite Core |
+| esempi e regressioni | `samples/language-corpus/corpus.json`, casi `corpus:*` in `language-packages/ddf/tests.json`, suite Core |
 
 In caso di divergenza, il rilascio è bloccato finché documento, pacchetto e test
 non vengono riallineati mediante una decisione di linguaggio versionata.

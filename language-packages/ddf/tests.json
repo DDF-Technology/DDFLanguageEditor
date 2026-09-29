@@ -13,7 +13,43 @@
       ],
       "expectedDiagnosticCodes": [],
       "expectedReturn": "2"
+    },
+    {
+      "name": "corpus:defaults-and-conversions",
+      "source": "main() out float\n{\n    int whole;\n    float promoted << whole + 4;\n    bool disabled;\n    string empty;\n    if(!disabled && empty == \"\")\n    {\n        ret promoted;\n    }\n    ret 0;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "4"
+    },
+    {
+      "name": "corpus:operators",
+      "source": "main() out int\n{\n    int value << 2 + 3 * 4;\n    value++;\n    if(value == 15 && !(value < 10))\n    {\n        value << value + 2 ^ 2;\n    }\n    ret value;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "19"
+    },
+    {
+      "name": "corpus:control-flow",
+      "source": "main() out int\n{\n    int value << 0;\n    for(int index; index < 4; index++)\n    {\n        value++;\n    }\n    while(value < 6)\n    {\n        value++;\n    }\n    do\n    {\n        value++;\n        if(value == 8)\n        {\n            brk;\n        }\n    } while(value < 10);\n    ret value;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "8"
+    },
+    {
+      "name": "corpus:structures-and-arrays",
+      "source": "struct Box\n{\n    int value;\n}\n\nset(Box box, int value) out int\n{\n    box.value << value;\n    ret box.value;\n}\n\nmain() out int\n{\n    Box original;\n    Box alias << original;\n    int[2] values;\n    values[0] << set(alias, 9);\n    values[1] << original.value;\n    ret values[0] + values[1];\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "18"
+    },
+    {
+      "name": "corpus:functions-and-globals",
+      "source": "int base << 20;\n\nadd(int left, int right) out int\n{\n    ret left + right;\n}\n\nmain() out int\n{\n    ret add(base, 22);\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
+    },
+    {
+      "name": "corpus:standard-library-and-output",
+      "source": "main() out int\n{\n    string text << \"DDF\";\n    int value << toInt(\"5\");\n    print(text);\n    value >> Console;\n    ret value;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "5"
     }
   ],
-  "description": "Corpus normativo minimo eseguito automaticamente prima di attivare il pacchetto DDF."
+  "description": "Esempi normativi DDF eseguiti automaticamente prima di attivare il pacchetto; i casi corpus:* sono sincronizzati con samples/language-corpus."
 }

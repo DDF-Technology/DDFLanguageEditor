@@ -10,3 +10,6 @@ comportamento DDF 0.12. Le quattro directory hanno significato normativo:
 
 Ogni `.ddf` deve essere elencato nel manifesto. Il test Core rifiuta file orfani,
 ID duplicati, categorie sovrapposte e risultati diversi dal contratto.
+I casi validi sono inoltre incorporati con nome `corpus:<id>` nel `tests.json`
+del pacchetto canonico: il loader li esegue prima dell'attivazione e la suite
+verifica che sorgente e valore restituito rimangano sincronizzati al manifesto.

@@ -3222,6 +3222,7 @@ namespace DDFLanguageEditor.Tests
             try
             {
                 DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                KeepOnlyMinimalDeclarativePackageTest(root);
                 string lexiconPath = Path.Combine(root, "lexicon.json");
                 JsonObject lexicon = JsonNode.Parse(File.ReadAllText(lexiconPath, Encoding.UTF8)).AsObject();
                 JsonObject assignment = lexicon["operators"].AsArray().Select(item => item.AsObject())
@@ -3269,6 +3270,7 @@ namespace DDFLanguageEditor.Tests
             try
             {
                 DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                KeepOnlyMinimalDeclarativePackageTest(root);
                 string libraryPath = Path.Combine(root, "standard-library.json");
                 JsonObject library = JsonNode.Parse(File.ReadAllText(libraryPath, Encoding.UTF8)).AsObject();
                 JsonObject print = library["functions"].AsArray().Select(item => item.AsObject())
@@ -4141,6 +4143,7 @@ namespace DDFLanguageEditor.Tests
             try
             {
                 DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                KeepOnlyMinimalDeclarativePackageTest(root);
                 string lexiconPath = Path.Combine(root, "lexicon.json");
                 JsonObject document = JsonNode.Parse(File.ReadAllText(lexiconPath, Encoding.UTF8)).AsObject();
                 JsonObject lexical = document["lexical"].AsObject();
@@ -4218,6 +4221,7 @@ namespace DDFLanguageEditor.Tests
             try
             {
                 DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                KeepOnlyMinimalDeclarativePackageTest(root);
                 string manifestPath = Path.Combine(root, "manifest.json");
                 JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath, Encoding.UTF8)).AsObject();
                 manifest["id"] = "nova-demo";
@@ -5175,6 +5179,30 @@ namespace DDFLanguageEditor.Tests
                 multiFile.Select(item => item.AsObject()["directory"].GetValue<string>())
                     .OrderBy(name => name, StringComparer.Ordinal));
 
+            JsonArray packageCases = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "LanguageProfiles", "ddf", "tests.json"),
+                Encoding.UTF8)).AsObject()["cases"].AsArray();
+            Dictionary<string, JsonObject> declarativeCorpus = packageCases
+                .Select(item => item.AsObject())
+                .Where(item => item["name"].GetValue<string>().StartsWith("corpus:", StringComparison.Ordinal))
+                .ToDictionary(item => item["name"].GetValue<string>().Substring("corpus:".Length),
+                    StringComparer.Ordinal);
+            Equal(valid.Count, declarativeCorpus.Count);
+            foreach (JsonNode node in valid)
+            {
+                JsonObject testCase = node.AsObject();
+                string id = testCase["id"].GetValue<string>();
+                Equal(true, declarativeCorpus.TryGetValue(id, out JsonObject declared));
+                Equal(NormalizeCorpusSource(ReadCorpusSource(corpus, "valid", testCase)),
+                    NormalizeCorpusSource(declared["source"].GetValue<string>()));
+                Equal(testCase["returnValue"].GetValue<string>(),
+                    declared["expectedReturn"].GetValue<string>());
+                Equal(0, declared["expectedDiagnosticCodes"].AsArray().Count);
+            }
+            DdfLanguagePackageLoadResult packageLoad = DdfLanguagePackageLoader.LoadEmbeddedDefault();
+            Equal(true, packageLoad.Success);
+            DdfLanguagePackage package = packageLoad.Package;
+
             foreach (JsonNode node in valid)
             {
                 JsonObject testCase = node.AsObject();
@@ -5236,7 +5264,6 @@ namespace DDFLanguageEditor.Tests
                 Equal(true, lowered.Diagnostics.Count > 0 || lowered.Program != null);
             }
 
-            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
             foreach (JsonNode node in multiFile)
             {
                 JsonObject testCase = node.AsObject();
@@ -5285,6 +5312,20 @@ namespace DDFLanguageEditor.Tests
 
         private static string ReadCorpusSource(string corpus, string category, JsonObject testCase) =>
             File.ReadAllText(Path.Combine(corpus, category, testCase["file"].GetValue<string>()), Encoding.UTF8);
+
+        private static string NormalizeCorpusSource(string source) =>
+            (source ?? string.Empty).Replace("\r\n", "\n").TrimEnd();
+
+        private static void KeepOnlyMinimalDeclarativePackageTest(string packageRoot)
+        {
+            string path = Path.Combine(packageRoot, "tests.json");
+            JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+            JsonNode minimal = document["cases"].AsArray()[0].DeepClone();
+            document["cases"] = new JsonArray(minimal);
+            File.WriteAllText(path,
+                document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                new UTF8Encoding(false));
+        }
 
         private static void EnforcesDdf012RuntimeNumericContract()
         {

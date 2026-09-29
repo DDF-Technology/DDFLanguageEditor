@@ -21,7 +21,9 @@ La definizione normativa e autonoma del linguaggio corrente è
 pacchetto ne costituiscono approfondimenti e rappresentazioni eseguibili.
 Il contratto di regressione associato è in `samples/language-corpus`: il manifesto
 versionato dichiara risultati e diagnostiche attesi per sorgenti completi,
-incompleti e progetti multi-file.
+incompleti e progetti multi-file. I programmi validi sono duplicati in forma
+auto-contenuta come casi `corpus:*` del `tests.json` canonico: vengono eseguiti
+prima dell'attivazione del pacchetto e una regressione ne impedisce la divergenza.
 
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
