@@ -360,3 +360,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   congelati indipendentemente dai terminatori di riga. Correzioni UI e di
   conformità restano possibili, ma un cambiamento del linguaggio riavvia i gate
   interessati e può richiedere una nuova versione DDF.
+
+## DDF-0024 — Controllo esplicito delle incompatibilità del candidato
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** durante il ciclo candidato nessuna modifica incompatibile può
+  essere accettata come semplice correzione. Deve essere registrata come problema
+  `breaking-contract`, dichiarare impatto normativo, riferirsi a una decisione
+  accettata che citi problema e versione obiettivo e scegliere una versione DDF
+  maggiore di quella congelata. La policy macchina e i test negativi costituiscono
+  un gate aggiuntivo rispetto alle impronte della baseline.
+- **Alternative rifiutate:** aggiornare soltanto l'impronta; riutilizzare la
+  versione `0.12`; affidarsi al messaggio di commit; accettare una decisione che
+  non cita il problema; modificare prima il pacchetto e documentare dopo.
+- **Conseguenze:** un cambiamento breaking riapre il ciclo sotto una nuova versione
+  e richiede riallineamento di specifica, pacchetto, corpus, migrazione e baseline.
+  Le correzioni di conformità che non cambiano il contratto restano ammesse e
+  devono comunque essere classificate nel registro del candidato.

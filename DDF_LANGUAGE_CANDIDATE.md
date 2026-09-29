@@ -67,6 +67,13 @@ Una voce con `changesContract: true` è invalida se non specifica un ID decision
 `DDF-nnnn` e la nuova `targetLanguageVersion`. Il test del registro verifica
 questa regola, i valori ammessi, gli ID univoci e la coerenza dei contatori.
 
+La policy `ddf-language-candidate-change-control.json` irrigidisce il caso
+incompatibile: una voce `breaking-contract` deve dichiarare l'impatto normativo,
+la versione obiettivo deve essere maggiore della `0.12` e la decisione accettata
+deve esistere in `DDF_LANGUAGE_DECISIONS.md` e citare sia l'ID `CAND-nnnn` sia la
+versione. I test negativi verificano separatamente omissione dell'impatto,
+decisione mancante o inesistente, versione invariata e decisione non collegata.
+
 ## Gate del ciclo
 
 | Gate | Stato iniziale | Evidenza richiesta |

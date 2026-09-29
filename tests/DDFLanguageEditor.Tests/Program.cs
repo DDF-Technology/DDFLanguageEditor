@@ -123,6 +123,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
             Run("keeps candidate issues classified without implicit language changes", KeepsCandidateIssuesClassified);
+            Run("rejects ungoverned incompatible DDF candidate changes", RejectsUngovernedCandidateChanges);
             Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
@@ -3729,6 +3730,120 @@ namespace DDFLanguageEditor.Tests
                 summary["blocking"].GetValue<int>());
             Equal(issues.Count(item => item.AsObject()["normativeImpact"].AsObject()
                 ["changesContract"].GetValue<bool>()), summary["normativeChanges"].GetValue<int>());
+        }
+
+        private static void RejectsUngovernedCandidateChanges()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject baseline = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-baseline.json"), Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-change-control.json"), Encoding.UTF8)).AsObject();
+            JsonObject register = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-issues.json"), Encoding.UTF8)).AsObject();
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+
+            Equal("1.0", policy["schemaVersion"].GetValue<string>());
+            Equal(baseline["candidateId"].GetValue<string>(), policy["candidateId"].GetValue<string>());
+            Equal(baseline["languageVersion"].GetValue<string>(),
+                policy["currentLanguageVersion"].GetValue<string>());
+            JsonObject rule = policy["incompatibleChange"].AsObject();
+            Equal("breaking-contract", rule["classification"].GetValue<string>());
+            Equal(true, rule["requiresNormativeImpact"].GetValue<bool>());
+            Equal(true, rule["requiresDecision"].GetValue<bool>());
+            Equal("DDF_LANGUAGE_DECISIONS.md", rule["decisionRegistry"].GetValue<string>());
+            Equal(true, rule["decisionMustReferenceIssue"].GetValue<bool>());
+            Equal(true, rule["requiresNewLanguageVersion"].GetValue<bool>());
+            Equal("greater-than-current-major-minor", rule["versionRule"].GetValue<string>());
+
+            string currentVersion = policy["currentLanguageVersion"].GetValue<string>();
+            foreach (JsonNode node in register["issues"].AsArray())
+                Equal(0, GetCandidateChangeControlErrors(node.AsObject(), currentVersion, decisions).Count);
+
+            JsonObject template = JsonNode.Parse("""
+                {
+                  "id": "CAND-9000",
+                  "title": "Synthetic incompatible change",
+                  "area": "specification",
+                  "severity": "major",
+                  "classification": "breaking-contract",
+                  "status": "accepted",
+                  "normativeImpact": {
+                    "changesContract": true,
+                    "decisionId": "DDF-0024",
+                    "targetLanguageVersion": "0.13"
+                  },
+                  "evidence": [ "synthetic" ],
+                  "resolution": "synthetic"
+                }
+                """).AsObject();
+
+            JsonObject hiddenImpact = template.DeepClone().AsObject();
+            hiddenImpact["normativeImpact"].AsObject()["changesContract"] = false;
+            Equal(true, GetCandidateChangeControlErrors(hiddenImpact, currentVersion, decisions)
+                .Contains("DDFCC001"));
+
+            JsonObject missingDecision = template.DeepClone().AsObject();
+            missingDecision["normativeImpact"].AsObject()["decisionId"] = null;
+            Equal(true, GetCandidateChangeControlErrors(missingDecision, currentVersion, decisions)
+                .Contains("DDFCC003"));
+
+            JsonObject unknownDecision = template.DeepClone().AsObject();
+            unknownDecision["normativeImpact"].AsObject()["decisionId"] = "DDF-9999";
+            Equal(true, GetCandidateChangeControlErrors(unknownDecision, currentVersion, decisions)
+                .Contains("DDFCC004"));
+
+            JsonObject unchangedVersion = template.DeepClone().AsObject();
+            unchangedVersion["normativeImpact"].AsObject()["targetLanguageVersion"] = currentVersion;
+            Equal(true, GetCandidateChangeControlErrors(unchangedVersion, currentVersion, decisions)
+                .Contains("DDFCC005"));
+
+            IReadOnlyList<string> unlinked = GetCandidateChangeControlErrors(template,
+                currentVersion, decisions);
+            Equal(true, unlinked.Contains("DDFCC006"));
+        }
+
+        private static IReadOnlyList<string> GetCandidateChangeControlErrors(JsonObject issue,
+            string currentVersion, string decisions)
+        {
+            var errors = new List<string>();
+            string classification = issue["classification"].GetValue<string>();
+            JsonObject impact = issue["normativeImpact"].AsObject();
+            bool changesContract = impact["changesContract"].GetValue<bool>();
+            if (classification == "breaking-contract" && !changesContract)
+                errors.Add("DDFCC001");
+            if (changesContract && classification != "breaking-contract" &&
+                classification != "compatible-addition")
+                errors.Add("DDFCC002");
+            if (!changesContract) return errors;
+
+            string decisionId = impact["decisionId"]?.GetValue<string>();
+            string targetVersion = impact["targetLanguageVersion"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(decisionId)) errors.Add("DDFCC003");
+            int decisionStart = string.IsNullOrWhiteSpace(decisionId) ? -1 :
+                decisions.IndexOf("## " + decisionId + " ", StringComparison.Ordinal);
+            if (!string.IsNullOrWhiteSpace(decisionId) && decisionStart < 0)
+                errors.Add("DDFCC004");
+
+            if (!Version.TryParse(currentVersion, out Version current) ||
+                !Version.TryParse(targetVersion, out Version target) || target <= current)
+                errors.Add("DDFCC005");
+
+            if (decisionStart >= 0)
+            {
+                int decisionEnd = decisions.IndexOf("\n## ", decisionStart + 3,
+                    StringComparison.Ordinal);
+                string section = decisionEnd < 0 ? decisions.Substring(decisionStart) :
+                    decisions.Substring(decisionStart, decisionEnd - decisionStart);
+                string issueId = issue["id"].GetValue<string>();
+                if (!section.Contains(issueId, StringComparison.Ordinal) ||
+                    string.IsNullOrWhiteSpace(targetVersion) ||
+                    !section.Contains(targetVersion, StringComparison.Ordinal))
+                    errors.Add("DDFCC006");
+            }
+            return errors;
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

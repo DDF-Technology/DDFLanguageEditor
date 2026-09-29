@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/language-candidate-change-control-1.0.json",
+  "title": "DDF language candidate change control 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "candidateId", "currentLanguageVersion", "incompatibleChange" ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0" },
+    "candidateId": { "type": "string", "pattern": "^[a-z0-9.-]+$" },
+    "currentLanguageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "incompatibleChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "classification", "requiresNormativeImpact", "requiresDecision", "decisionRegistry", "decisionMustReferenceIssue", "requiresNewLanguageVersion", "versionRule" ],
+      "properties": {
+        "classification": { "const": "breaking-contract" },
+        "requiresNormativeImpact": { "const": true },
+        "requiresDecision": { "const": true },
+        "decisionRegistry": { "const": "DDF_LANGUAGE_DECISIONS.md" },
+        "decisionMustReferenceIssue": { "const": true },
+        "requiresNewLanguageVersion": { "const": true },
+        "versionRule": { "const": "greater-than-current-major-minor" }
+      }
+    }
+  }
+}

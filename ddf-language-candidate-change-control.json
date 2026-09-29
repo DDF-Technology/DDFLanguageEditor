@@ -1,0 +1,15 @@
+{
+  "$schema": "./ddf-language-candidate-change-control.schema.json",
+  "schemaVersion": "1.0",
+  "candidateId": "ddf-0.12-candidate-cycle-1",
+  "currentLanguageVersion": "0.12",
+  "incompatibleChange": {
+    "classification": "breaking-contract",
+    "requiresNormativeImpact": true,
+    "requiresDecision": true,
+    "decisionRegistry": "DDF_LANGUAGE_DECISIONS.md",
+    "decisionMustReferenceIssue": true,
+    "requiresNewLanguageVersion": true,
+    "versionRule": "greater-than-current-major-minor"
+  }
+}
