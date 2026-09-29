@@ -3492,33 +3492,12 @@ namespace DDFLanguageEditor.Tests
             Equal(true, deprecations.Any(item => item.AsObject()["id"].GetValue<string>() ==
                 "legacy-library-directive" && !item.AsObject()["automaticMigration"].GetValue<bool>()));
 
-            string versioning = File.ReadAllText(Path.Combine(projectRoot,
-                "DDF_LANGUAGE_VERSIONING.md"), Encoding.UTF8);
+            string migrationGuide = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_MIGRATION_0_12.md"), Encoding.UTF8);
             foreach (string migrationId in migrationIds)
-                Equal(true, versioning.Contains(migrationId, StringComparison.Ordinal) ||
-                    ReadMigrationAliases(versioning).Contains(migrationId, StringComparer.Ordinal));
-        }
-
-        private static IEnumerable<string> ReadMigrationAliases(string versioning)
-        {
-            if (versioning.Contains("operatori beta di intervallo", StringComparison.Ordinal))
-                yield return "beta-range-operators";
-            if (versioning.Contains("operatori beta di intervallo e radice", StringComparison.Ordinal))
-                yield return "beta-root-operator";
-            if (versioning.Contains("`dict`", StringComparison.Ordinal))
-                yield return "removed-dict-type";
-            if (versioning.Contains("array multidimensionali", StringComparison.Ordinal))
-                yield return "multidimensional-arrays";
-            if (versioning.Contains("dichiarazioni in shadowing", StringComparison.Ordinal))
-                yield return "shadowed-declarations";
-            if (versioning.Contains("`!! -> !=`", StringComparison.Ordinal))
-                yield return "beta-not-equal";
-            if (versioning.Contains("`& -> &&`", StringComparison.Ordinal))
-                yield return "beta-logical-and";
-            if (versioning.Contains("`|&| -> ^^`", StringComparison.Ordinal))
-                yield return "beta-logical-xor";
-            if (versioning.Contains("`1.0 -> 1.1`", StringComparison.Ordinal))
-                yield return "project-manifest-1-0-to-1-1";
+                Equal(true, migrationGuide.Contains("`" + migrationId + "`", StringComparison.Ordinal));
+            Equal(true, migrationGuide.Contains("## Percorso consigliato", StringComparison.Ordinal));
+            Equal(true, migrationGuide.Contains("## Criteri di completamento", StringComparison.Ordinal));
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

@@ -348,7 +348,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_MODULE_PACKAGE_FORMAT.md`: archivio `.ddfmod`, store, installazione atomica e limiti di sicurezza;
 - `EDITOR_SDK.md`: primo contratto pubblico della superficie incorporabile, esempio d'uso e limiti correnti;
 - `DDF_LANGUAGE_DESIGN.md`: obiettivi, principi e confini progettuali del linguaggio;
-- `DDF_CURRENT_LANGUAGE_INVENTORY.md`: fotografia verificabile della sintassi e semantica beta, con decisioni ancora aperte;
+- `DDF_CURRENT_LANGUAGE_INVENTORY.md`: inventario storico della beta usato per ricostruire le differenze, non specifica corrente;
 - `DDF_LANGUAGE_DECISIONS.md`: registro versionato delle decisioni e delle alternative rifiutate;
 - `DDF_LANGUAGE_PROFILES.md`: profili DDF canonico, didattico italiano e familiare C con contratto di equivalenza;
 - `DDF_LANGUAGE_VERSIONING.md`: policy normativa per versioni, compatibilità, deprecazioni e migrazioni;
@@ -358,7 +358,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_TYPE_SYSTEM_SPEC.md`: contratto normativo di tipi, conversioni, valori, scope, chiamate ed errori DDF 0.12;
 - `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
-- `DDF_MIGRATION_0_12.md`: migrazione esplicita dei sorgenti beta alla sintassi 0.12;
+- `DDF_MIGRATION_0_12.md`: procedura completa e checklist per migrare sorgenti, progetti, moduli e pacchetti beta a DDF 0.12;
 - `DDF_STANDARD_LIBRARY_SPEC.md`: contratto normativo di firme, effetti, canali I/O, conversioni ed errori della libreria minima;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;

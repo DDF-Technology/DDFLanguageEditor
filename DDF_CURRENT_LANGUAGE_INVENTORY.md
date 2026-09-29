@@ -1,11 +1,13 @@
-# Inventario del linguaggio DDF corrente
+# Inventario storico della beta DDF
 
-Stato: inventario evolutivo della beta, aggiornato al contratto DDF `0.12.3`.
+Stato: **storico**, congelato come supporto alla migrazione verso il linguaggio
+DDF `0.12` e il pacchetto canonico `0.12.3`.
 
-Questo inventario separa il comportamento realmente disponibile dalle scelte
-ancora aperte. `DDF_LANGUAGE_SPEC.md` è la specifica normativa autonoma; le
-fonti eseguibili sono i file in `language-packages/ddf`. La vecchia
-`DDF - Program Language Spec.txt` è soltanto una bozza storica.
+Questo inventario conserva comportamenti e questioni della beta; le sezioni che
+parlano di gap, scelte aperte o semantica corrente non descrivono il rilascio
+attuale. `DDF_LANGUAGE_SPEC.md` è la specifica normativa autonoma e
+`DDF_MIGRATION_0_12.md` stabilisce la disposizione operativa delle forme qui
+elencate. La vecchia `DDF - Program Language Spec.txt` è una bozza storica.
 
 ## Legenda
 
