@@ -10,7 +10,7 @@ namespace DDF___Program_Language_Editor
     /// </summary>
     public static class DdfEditorSdkContract
     {
-        public const string CurrentVersion = "0.32";
+        public const string CurrentVersion = "0.33";
     }
 
     /// <summary>

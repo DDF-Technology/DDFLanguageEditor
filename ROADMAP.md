@@ -705,13 +705,13 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Definire esportazioni, globali, ordine di inizializzazione, dipendenze cicliche e risoluzione dei nomi (`DDF_MODULE_SYSTEM_SPEC.md`, 2026-09-29).
   - [x] Rendere espliciti identità, versione ed export del modulo; validare API pubblica, ordine globale deterministico e auto-dipendenza (`ddf-project.json` schema `1.1`, 2026-09-29).
   - [x] Implementare il resolver di dipendenze trans-modulo, la visibilità non transitiva dei soli export e il rifiuto dei cicli fra moduli; registrare l'intero grafo nella ricevuta riproducibile (`DDF_MODULE_SYSTEM_SPEC.md`, DDF-0017, 2026-09-29).
-- [ ] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor.
+- [x] Progettare namespace e packaging senza confonderli con cartelle o dettagli dell'editor (`0.12.3`, 2026-09-29).
   - [x] Riservare `.ddf/modules/<id>/<version>` come store locale sostituibile, escluso da glob e indice workspace e privo di significato semantico (`0.12.3`, 2026-09-29).
   - [x] Qualificare funzioni, strutture e globali nella VM tramite identità/versione del modulo, mantenendo visibili soltanto gli export diretti e permettendo nomi privati uguali (`0.12.3`, 2026-09-29).
   - [x] Definire `.ddfmod` come archivio sorgente deterministico e implementare il gestore Core con staging, rollback, versioni affiancate, sostituzione esplicita, rimozione esatta e difese da path traversal (`DDF_MODULE_PACKAGE_FORMAT.md`, DDF-0018, 2026-09-29).
   - [x] Integrare il gestore moduli nella UI standalone con anteprima non distruttiva di identità, versione, linguaggio, export e dipendenze, creazione, installazione/sostituzione, convalida e rimozione (`0.12.3`, 2026-09-29).
   - [x] Alimentare analisi live, diagnostica semantica/tipi, completamento, Signature Help e navigazione con i soli export delle dipendenze dirette, senza inserire lo store tra i file del workspace; aggiungere regressioni sui falsi `DDF201`/`DDF312` (`0.12.3`, 2026-09-29).
-  - [ ] Definire una capability host esplicita prima di rendere qualunque operazione sullo store disponibile nell'embedded; per impostazione predefinita menu e toolbar restano assenti.
+  - [x] Definire una capability host esplicita, revocabile e a privilegi minimi per lo store embedded: radice assoluta e permessi distinti di lettura/convalida, installazione, rimozione e creazione pacchetti; per impostazione predefinita menu e toolbar restano assenti (`0.12.3`, contratto host `0.33`, DDF-0020, 2026-09-29).
 - [x] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori: `ddf.standard@0.12.3` espone cinque funzioni con firme, effetti e diagnostiche dichiarati, schema `1.1`, adapter `v3` e confine esplicito da moduli/API host (`DDF_STANDARD_LIBRARY_SPEC.md`, DDF-0019, 2026-09-29).
 
 ### 0.12.4 — Specifica verificabile e migrazione

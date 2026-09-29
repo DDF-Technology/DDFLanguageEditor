@@ -71,11 +71,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertModuleMenu(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument, "--embedded-module-capability-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertEmbeddedModuleStoreCapability(visible);
+                    return 0;
+                }
                 if (!args.Any(argument => string.Equals(argument, "--skip-host-demo",
                         StringComparison.OrdinalIgnoreCase)))
                 {
                     AssertEmbeddableHostDemo(visible);
                     AssertDatabaseIntegrationDemo(visible);
+                    AssertEmbeddedModuleStoreCapability(visible);
                     AssertSdkInstanceIsolation();
                 }
                 RunEditorScenarios(visible);
@@ -1113,7 +1120,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             DdfEditorView shellSurface = FindControl<DdfEditorView>(form, "panelEditor");
             Require(shellSurface.ContractVersion == DdfEditorSdkContract.CurrentVersion &&
-                    shellSurface.ContractVersion == "0.32" &&
+                    shellSurface.ContractVersion == "0.33" &&
                     ReferenceEquals(shellSurface.DocumentService,
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments")) &&
                     shellSurface.SourceText == editor.Text &&
@@ -1594,7 +1601,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             shellSurface.SetSelection(0, 0);
             Require(shellSurface.PersistenceProvider == null,
                 "La shell associa implicitamente una persistenza SDK al profilo applicativo.");
-            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.32, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, build, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
+            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.33, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, build, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
         }
 
         private static IEnumerable<Tuple<PointF, PointF>> RouteSegments(IReadOnlyList<PointF> points)
@@ -2945,6 +2952,76 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             Console.WriteLine("PASS menu Help: pacchetto linguaggio attivo, About, autore, sito, licenza, versione beta e icona");
+        }
+
+        private static void AssertEmbeddedModuleStoreCapability(bool visible)
+        {
+            string projectRoot = Path.Combine(Path.GetTempPath(),
+                "ddf-embedded-module-capability-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(projectRoot);
+            try
+            {
+                bool rejectedRelativeRoot = false;
+                try
+                {
+                    _ = new DdfEmbeddedModuleStoreCapability("relative-project",
+                        DdfEmbeddedModuleStoreOperations.BrowseAndValidate);
+                }
+                catch (ArgumentException) { rejectedRelativeRoot = true; }
+                Require(rejectedRelativeRoot,
+                    "La capability accetta una radice progetto relativa.");
+
+                using (var host = new Form())
+                using (var embedded = new DdfEmbeddedEditorControl())
+                {
+                    host.ShowInTaskbar = visible;
+                    host.StartPosition = FormStartPosition.Manual;
+                    host.Location = visible ? new Point(100, 100) : new Point(-32000, -32000);
+                    host.Controls.Add(embedded);
+                    host.Show();
+                    PumpMessages(120);
+
+                    var shell = (Form)FindControl<Control>(embedded, "embeddedDdfEditorShell");
+                    ToolStripMenuItem modules = FindMenuItem(shell, "modulesMenuItem");
+                    ToolStripMenuItem manage = FindMenuItem(shell, "manageModulePackagesMenuItem");
+                    ToolStripButton toolbar = FindToolbarButton(shell, "toolbarModuleManagerButton");
+                    Require(!modules.Available && !manage.Available && !toolbar.Available &&
+                            embedded.ModuleStoreCapability == null,
+                        "La shell embedded espone lo store moduli senza una capability host.");
+
+                    var readOnlyCapability = new DdfEmbeddedModuleStoreCapability(projectRoot,
+                        DdfEmbeddedModuleStoreOperations.BrowseAndValidate);
+                    embedded.SetModuleStoreCapability(readOnlyCapability);
+                    PumpMessages(60);
+                    Require(modules.Available && manage.Available && toolbar.Available &&
+                            ReferenceEquals(embedded.ModuleStoreCapability, readOnlyCapability),
+                        "La capability esplicita non rende disponibile il gestore moduli embedded.");
+
+                    manage.PerformClick();
+                    PumpMessages(100);
+                    Form manager = Application.OpenForms.Cast<Form>().FirstOrDefault(openForm =>
+                        openForm.Name == "ModulePackageManagerForm");
+                    Require(manager != null &&
+                            FindControl<Button>(manager, "modulePackageValidateButton").Enabled &&
+                            !FindControl<Button>(manager, "modulePackageInstallArchiveButton").Enabled &&
+                            !FindControl<Button>(manager, "modulePackageInstallFolderButton").Enabled &&
+                            !FindControl<Button>(manager, "modulePackageCreateButton").Enabled &&
+                            !FindControl<Button>(manager, "modulePackageRemoveButton").Enabled,
+                        "Il gestore embedded non applica i privilegi minimi della capability.");
+
+                    embedded.RevokeModuleStoreCapability();
+                    PumpMessages(60);
+                    Require(manager.IsDisposed && !modules.Available && !manage.Available &&
+                            !toolbar.Available && embedded.ModuleStoreCapability == null,
+                        "La revoca non chiude il gestore o non nasconde i comandi embedded.");
+                    host.Close();
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(projectRoot)) Directory.Delete(projectRoot, true);
+            }
+            Console.WriteLine("PASS capability host revocabile per store moduli embedded e privilegi minimi");
         }
 
         private static void AssertModuleMenu(bool visible)

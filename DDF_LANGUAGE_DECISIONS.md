@@ -284,3 +284,20 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   `ddf-standard-library-v3`; metadati incoerenti vengono rifiutati atomicamente.
   Ogni futura funzione richiede binding sicuro, mapping Roslyn e test
   differenziali, mentre capacità esterne restano moduli o adattatori autorizzati.
+
+## DDF-0020 — Store moduli embedded deny-by-default
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** la shell embedded non accede allo store moduli finché l'host
+  non fornisce una capability per una radice progetto assoluta ed esistente.
+  Lettura/convalida è il privilegio minimo; installazione, rimozione e creazione
+  dei pacchetti sono autorizzazioni separate. La capability è per istanza, non
+  persistente e revocabile; la revoca chiude il gestore e rimuove i comandi.
+- **Alternative rifiutate:** ereditare automaticamente il workspace della shell;
+  mostrare sempre il gestore; un singolo flag onnipotente; persistere il consenso;
+  dedurre l'autorizzazione dal catalogo host o da una direttiva sorgente.
+- **Conseguenze:** il contratto SDK sale a `0.33`. L'host conserva il controllo
+  del filesystem e può offrire una UI in sola lettura. La capability autorizza
+  esclusivamente lo store sorgente: non concede esecuzione, compilazione,
+  reflection, caricamento assembly o accesso alle API dell'applicazione.

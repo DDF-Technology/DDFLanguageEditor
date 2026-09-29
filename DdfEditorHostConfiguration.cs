@@ -1,11 +1,56 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
 namespace DDF___Program_Language_Editor
 {
+    [Flags]
+    public enum DdfEmbeddedModuleStoreOperations
+    {
+        None = 0,
+        BrowseAndValidate = 1,
+        Install = 2,
+        Remove = 4,
+        CreatePackage = 8,
+        All = BrowseAndValidate | Install | Remove | CreatePackage
+    }
+
+    /// <summary>
+    /// Explicit, revocable authorization supplied by an embedding host for one
+    /// project-local module store. Without this capability the embedded shell
+    /// does not expose module-store commands.
+    /// </summary>
+    public sealed class DdfEmbeddedModuleStoreCapability
+    {
+        public DdfEmbeddedModuleStoreCapability(string projectRoot,
+            DdfEmbeddedModuleStoreOperations operations)
+        {
+            if (string.IsNullOrWhiteSpace(projectRoot) || !Path.IsPathRooted(projectRoot))
+                throw new ArgumentException("È richiesta una radice progetto assoluta.", nameof(projectRoot));
+            string fullPath = Path.GetFullPath(projectRoot);
+            if (!Directory.Exists(fullPath))
+                throw new DirectoryNotFoundException("La radice progetto autorizzata non esiste: " + fullPath);
+            if (operations == DdfEmbeddedModuleStoreOperations.None ||
+                (operations & ~DdfEmbeddedModuleStoreOperations.All) != 0 ||
+                (operations & DdfEmbeddedModuleStoreOperations.BrowseAndValidate) == 0)
+                throw new ArgumentOutOfRangeException(nameof(operations),
+                    "Ogni capability deve includere BrowseAndValidate e soltanto operazioni note.");
+            ProjectRoot = fullPath;
+            Operations = operations;
+        }
+
+        public string ProjectRoot { get; }
+        public DdfEmbeddedModuleStoreOperations Operations { get; }
+
+        public bool Allows(DdfEmbeddedModuleStoreOperations operation) =>
+            operation != DdfEmbeddedModuleStoreOperations.None &&
+            (operation & ~DdfEmbeddedModuleStoreOperations.All) == 0 &&
+            (Operations & operation) == operation;
+    }
+
     public sealed class DdfEditorHostOptions
     {
         public DdfEditorHostOptions(string fontFamily = EditorSettings.DefaultFontFamily,

@@ -14,10 +14,16 @@ namespace DDF___Program_Language_Editor
         private readonly ListView modulesList;
         private readonly TextBox detailsTextBox;
         private readonly TextBox resultTextBox;
+        private readonly DdfEmbeddedModuleStoreOperations allowedOperations;
 
-        public ModulePackageManagerForm(DdfModulePackageStore store)
+        public ModulePackageManagerForm(DdfModulePackageStore store,
+            DdfEmbeddedModuleStoreOperations allowedOperations = DdfEmbeddedModuleStoreOperations.All)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
+            if ((allowedOperations & ~DdfEmbeddedModuleStoreOperations.All) != 0 ||
+                (allowedOperations & DdfEmbeddedModuleStoreOperations.BrowseAndValidate) == 0)
+                throw new ArgumentOutOfRangeException(nameof(allowedOperations));
+            this.allowedOperations = allowedOperations;
             BackColor = AppTheme.Window;
             ClientSize = new Size(940, 570);
             Font = new Font("Segoe UI", 9F);
@@ -115,11 +121,16 @@ namespace DDF___Program_Language_Editor
             for (int column = 0; column < buttons.ColumnCount; column++)
                 buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / buttons.ColumnCount));
 
-            buttons.Controls.Add(Button("modulePackageInstallArchiveButton", "Installa .ddfmod...", InstallArchive), 0, 0);
-            buttons.Controls.Add(Button("modulePackageInstallFolderButton", "Installa cartella...", InstallFolder), 1, 0);
-            buttons.Controls.Add(Button("modulePackageCreateButton", "Crea .ddfmod...", CreatePackage), 2, 0);
-            buttons.Controls.Add(Button("modulePackageRemoveButton", "Rimuovi", RemoveSelected), 3, 0);
-            buttons.Controls.Add(Button("modulePackageValidateButton", "Convalida", ValidateSelected), 4, 0);
+            buttons.Controls.Add(Button("modulePackageInstallArchiveButton", "Installa .ddfmod...", InstallArchive,
+                Allows(DdfEmbeddedModuleStoreOperations.Install)), 0, 0);
+            buttons.Controls.Add(Button("modulePackageInstallFolderButton", "Installa cartella...", InstallFolder,
+                Allows(DdfEmbeddedModuleStoreOperations.Install)), 1, 0);
+            buttons.Controls.Add(Button("modulePackageCreateButton", "Crea .ddfmod...", CreatePackage,
+                Allows(DdfEmbeddedModuleStoreOperations.CreatePackage)), 2, 0);
+            buttons.Controls.Add(Button("modulePackageRemoveButton", "Rimuovi", RemoveSelected,
+                Allows(DdfEmbeddedModuleStoreOperations.Remove)), 3, 0);
+            buttons.Controls.Add(Button("modulePackageValidateButton", "Convalida", ValidateSelected,
+                Allows(DdfEmbeddedModuleStoreOperations.BrowseAndValidate)), 4, 0);
             buttons.Controls.Add(Button("modulePackageRefreshButton", "Aggiorna", (s, e) => RefreshModules()), 5, 0);
             var close = Button("modulePackageManagerCloseButton", "Chiudi", (s, e) => Close());
             close.DialogResult = DialogResult.Cancel;
@@ -138,7 +149,7 @@ namespace DDF___Program_Language_Editor
 
         public string ProjectRoot => store.ProjectRoot;
 
-        private static Button Button(string name, string text, EventHandler handler)
+        private static Button Button(string name, string text, EventHandler handler, bool enabled = true)
         {
             var button = new Button
             {
@@ -146,6 +157,7 @@ namespace DDF___Program_Language_Editor
                 Height = 32,
                 Margin = new Padding(3),
                 Name = name,
+                Enabled = enabled,
                 Text = text,
                 UseVisualStyleBackColor = false
             };
@@ -181,6 +193,7 @@ namespace DDF___Program_Language_Editor
 
         private void InstallArchive(object sender, EventArgs e)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.Install)) return;
             using var dialog = new OpenFileDialog
             {
                 CheckFileExists = true,
@@ -193,6 +206,7 @@ namespace DDF___Program_Language_Editor
 
         private void InstallFolder(object sender, EventArgs e)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.Install)) return;
             using var dialog = new FolderBrowserDialog
             {
                 Description = "Seleziona la cartella del modulo DDF",
@@ -203,6 +217,7 @@ namespace DDF___Program_Language_Editor
 
         private void PreviewAndInstall(string path)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.Install)) return;
             DdfModulePackageResult preview = store.Inspect(path);
             if (!preview.Success)
             {
@@ -227,6 +242,7 @@ namespace DDF___Program_Language_Editor
 
         private void CreatePackage(object sender, EventArgs e)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.CreatePackage)) return;
             DdfProjectManifestLoadResult manifest = DdfProjectManifestLoader.Load(store.ProjectRoot);
             if (!manifest.Success)
             {
@@ -253,6 +269,7 @@ namespace DDF___Program_Language_Editor
 
         private void RemoveSelected(object sender, EventArgs e)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.Remove)) return;
             DdfInstalledModule selected = Selected();
             if (selected == null) { resultTextBox.Text = "Selezionare un modulo installato."; return; }
             if (MessageBox.Show(this, "Rimuovere " + selected + " dallo store del progetto?",
@@ -271,6 +288,7 @@ namespace DDF___Program_Language_Editor
 
         private void ValidateSelected(object sender, EventArgs e)
         {
+            if (!EnsureAllowed(DdfEmbeddedModuleStoreOperations.BrowseAndValidate)) return;
             DdfInstalledModule selected = Selected();
             if (selected == null) { resultTextBox.Text = "Selezionare un modulo installato."; return; }
             DdfModulePackageResult preview = store.Inspect(selected.Path);
@@ -281,6 +299,16 @@ namespace DDF___Program_Language_Editor
 
         private DdfInstalledModule Selected() => modulesList.SelectedItems.Count == 1
             ? modulesList.SelectedItems[0].Tag as DdfInstalledModule : null;
+
+        private bool Allows(DdfEmbeddedModuleStoreOperations operation) =>
+            (allowedOperations & operation) == operation;
+
+        private bool EnsureAllowed(DdfEmbeddedModuleStoreOperations operation)
+        {
+            if (Allows(operation)) return true;
+            resultTextBox.Text = "Operazione non autorizzata dall'applicazione host.";
+            return false;
+        }
 
         private void ShowSelectedDetails()
         {

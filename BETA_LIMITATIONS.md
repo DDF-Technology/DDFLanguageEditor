@@ -85,6 +85,7 @@ This release is intended for interface and language-design evaluation only.
 - public embeddable WinForms control and versioned host contracts for documents, analysis, commands, persistence, projects, build, run and debug;
 - explicit host catalogs for objects, properties, operations, permissions and databases, without arbitrary script reflection;
 - sample hosts for minimal integration, multiple isolated editors and database-backed host effects;
+- deny-by-default embedded module-store access through a revocable host capability with separate browse, install, remove and package privileges;
 
 ## Not implemented
 

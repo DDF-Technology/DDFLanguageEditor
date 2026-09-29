@@ -3,7 +3,7 @@
 ## Stato
 
 La `0.11.2` introduce in modo incrementale il confine incorporabile dell'editor.
-Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.32"`.
+Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.33"`.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
 
@@ -41,7 +41,7 @@ I pacchetti locali si generano in modo ripetibile con:
 `IDdfEditorSurface`. La shell standalone usa la stessa classe come contenitore
 della propria superficie centrale e le associa l'editor del documento attivo.
 
-Il contratto `0.32` espone:
+Il contratto `0.33` espone:
 
 - testo sorgente tramite `SourceText`;
 - selezione normalizzata tramite `SetSelection`, `SelectionStart` e
@@ -69,6 +69,8 @@ Il contratto `0.32` espone:
   applicativi personalizzati.
 - riepiloghi degli effetti host e una politica transazionale opzionale con
   commit o rollback forniti dall'applicazione.
+- una capability revocabile e a privilegi minimi per l'eventuale store moduli
+  della shell embedded; senza autorizzazione i relativi comandi non sono visibili.
 - risultati host tipizzati e immutabili con valore iniziale/finale, accesso,
   durata e indicazione di scrittura.
 - procedure DDF richiamabili manualmente o da eventi host espliciti, con
@@ -114,6 +116,29 @@ string scriptId = editorHost.SetPrimaryDocument("ordine.ddf", source);
 editorHost.DocumentSaveRequested += SaveScriptInHostStorage;
 editorHost.ExecuteScript(debug: editorHost.HasBreakpoints);
 ```
+
+### Capability dello store moduli embedded
+
+Lo store `.ddf/modules` non è accessibile implicitamente dalla shell embedded.
+Se l'applicazione vuole offrire il Gestore moduli deve indicare una radice
+assoluta già esistente e concedere soltanto le operazioni necessarie:
+
+```csharp
+var moduleCapability = new DdfEmbeddedModuleStoreCapability(
+    projectRoot,
+    DdfEmbeddedModuleStoreOperations.BrowseAndValidate |
+    DdfEmbeddedModuleStoreOperations.Install);
+
+editorHost.SetModuleStoreCapability(moduleCapability);
+// In seguito, anche mentre il gestore è aperto:
+editorHost.RevokeModuleStoreCapability();
+```
+
+`BrowseAndValidate` è obbligatoria e abilita elenco, dettaglio e convalida.
+`Install`, `Remove` e `CreatePackage` sono privilegi indipendenti. La revoca
+chiude il gestore aperto e nasconde di nuovo menu e toolbar. La capability non
+autorizza esecuzione, compilazione, assembly .NET, reflection o API host e non
+viene persistita dall'editor: deve essere ricreata consapevolmente dall'host.
 
 Il controllo inoltra salvataggio, documenti virtuali, attivazione, esecuzione,
 invocazione di procedure, breakpoint e continuazione del debug. In modalità
@@ -1051,6 +1076,7 @@ dotnet run --project samples\DDFLanguageEditor.DatabaseDemo\DDFLanguageEditor.Da
 
 ## Prossimo confine
 
-Il prossimo incremento definirà conversioni, accesso in lettura/scrittura e
-durata dei riferimenti degli oggetti host, mantenendo l'esposizione esplicita e
-senza consentire reflection arbitraria dal sorgente.
+Il successivo incremento SDK accompagnerà la specifica verificabile e la
+migrazione della `0.12.4`. Qualunque futura capacità esterna conserverà lo stesso
+modello esplicito, per istanza e deny-by-default, senza reflection arbitraria dal
+sorgente.

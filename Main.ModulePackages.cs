@@ -9,17 +9,19 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem modulesMenuItem;
         private ToolStripMenuItem manageModulePackagesMenuItem;
         private ModulePackageManagerForm modulePackageManagerForm;
+        private DdfEmbeddedModuleStoreCapability embeddedModuleStoreCapability;
 
         private void initializeModulePackageCommands()
         {
-            if (embeddedHostMode) return;
             modulesMenuItem = new ToolStripMenuItem("&Moduli")
             {
-                Name = "modulesMenuItem"
+                Name = "modulesMenuItem",
+                Available = !embeddedHostMode
             };
             manageModulePackagesMenuItem = new ToolStripMenuItem("Gestisci moduli progetto...")
             {
-                Name = "manageModulePackagesMenuItem"
+                Name = "manageModulePackagesMenuItem",
+                Available = !embeddedHostMode
             };
             manageModulePackagesMenuItem.Click += manageModulePackagesMenuItem_Click;
             modulesMenuItem.DropDownItems.Add(manageModulePackagesMenuItem);
@@ -28,12 +30,30 @@ namespace DDF___Program_Language_Editor
 
             toolbarModuleManagerButton = createToolbarButton("toolbarModuleManagerButton", "\uE8D5",
                 "Gestisci moduli del progetto", manageModulePackagesMenuItem_Click);
+            toolbarModuleManagerButton.Available = !embeddedHostMode;
             toolStripMain.Items.Add(toolbarModuleManagerButton);
+        }
+
+        internal void SetEmbeddedModuleStoreCapability(DdfEmbeddedModuleStoreCapability capability)
+        {
+            if (!embeddedHostMode)
+                throw new InvalidOperationException(
+                    "Le capability dello store moduli appartengono soltanto alla shell embedded.");
+            if (ReferenceEquals(embeddedModuleStoreCapability, capability)) return;
+            closeModulePackageManager();
+            embeddedModuleStoreCapability = capability;
+            bool available = capability != null && capability.Allows(
+                DdfEmbeddedModuleStoreOperations.BrowseAndValidate);
+            if (modulesMenuItem != null) modulesMenuItem.Available = available;
+            if (manageModulePackagesMenuItem != null) manageModulePackagesMenuItem.Available = available;
+            if (toolbarModuleManagerButton != null) toolbarModuleManagerButton.Available = available;
         }
 
         private void manageModulePackagesMenuItem_Click(object sender, EventArgs e)
         {
-            string root = workspaceIndex?.RootPath;
+            string root = embeddedHostMode
+                ? embeddedModuleStoreCapability?.ProjectRoot
+                : workspaceIndex?.RootPath;
             if (string.IsNullOrWhiteSpace(root))
             {
                 MessageBox.Show(this, "Aprire prima una cartella progetto. I moduli vengono installati nello store del progetto attivo.",
@@ -47,7 +67,11 @@ namespace DDF___Program_Language_Editor
                 return;
             }
             closeModulePackageManager();
-            modulePackageManagerForm = new ModulePackageManagerForm(new DdfModulePackageStore(root));
+            DdfEmbeddedModuleStoreOperations operations = embeddedHostMode
+                ? embeddedModuleStoreCapability.Operations
+                : DdfEmbeddedModuleStoreOperations.All;
+            modulePackageManagerForm = new ModulePackageManagerForm(
+                new DdfModulePackageStore(root), operations);
             modulePackageManagerForm.FormClosed += (closedSender, closedArgs) => modulePackageManagerForm = null;
             modulePackageManagerForm.Show(this);
         }

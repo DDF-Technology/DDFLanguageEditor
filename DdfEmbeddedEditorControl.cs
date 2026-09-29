@@ -61,6 +61,10 @@ namespace DDF___Program_Language_Editor
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public DdfExecutionResult LastExecutionResult => shell.LastEmbeddedExecutionResult;
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public DdfEmbeddedModuleStoreCapability ModuleStoreCapability { get; private set; }
+
         public event EventHandler ExecutionPreparing
         {
             add => shell.EmbeddedExecutionPreparing += value;
@@ -108,6 +112,14 @@ namespace DDF___Program_Language_Editor
             shell.ToggleEmbeddedBreakpoint(oneBasedLine);
 
         public bool ContinueDebug() => shell.ContinueEmbeddedDebug();
+
+        public void SetModuleStoreCapability(DdfEmbeddedModuleStoreCapability capability)
+        {
+            shell.SetEmbeddedModuleStoreCapability(capability);
+            ModuleStoreCapability = capability;
+        }
+
+        public void RevokeModuleStoreCapability() => SetModuleStoreCapability(null);
 
         protected override void Dispose(bool disposing)
         {

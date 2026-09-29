@@ -118,6 +118,15 @@ standalone potrà compilare l'IR bound tramite Roslyn; l'embedded continuerà a
 eseguire script interpretati e capacità autorizzate dall'host, come stabilito da
 DDF-0015.
 
+Lo standalone governa direttamente lo store del workspace. Nell'embedded lo
+store è invece deny-by-default: menu e toolbar restano nascosti finché l'host
+non fornisce una `DdfEmbeddedModuleStoreCapability` per una radice assoluta ed
+esistente. `BrowseAndValidate` è il privilegio minimo; installazione, rimozione
+e creazione di `.ddfmod` richiedono flag separati. La capability è per istanza,
+non viene persistita ed è revocabile; la revoca chiude il gestore aperto. Essa
+autorizza soltanto operazioni sullo store sorgente e non concede esecuzione,
+compilazione, reflection, assembly o accesso alle API dell'host.
+
 ## 8. Distribuzione e installazione
 
 Un modulo sorgente può essere distribuito come archivio `.ddfmod` secondo
