@@ -1,26 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.ddf.technology/schemas/ddflang/standard-library-1.0.json",
-  "title": "DDF language package standard library 1.0",
+  "$id": "https://www.ddf.technology/schemas/ddflang/standard-library-1.1.json",
+  "title": "DDF language package standard library 1.1",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "schemaVersion", "adapter", "functions" ],
+  "required": [ "schemaVersion", "adapter", "id", "version", "functions" ],
   "properties": {
-    "schemaVersion": { "const": "1.0" },
-    "adapter": { "const": "ddf-standard-library-v2" },
+    "schemaVersion": { "const": "1.1" },
+    "adapter": { "const": "ddf-standard-library-v3" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "dependsOn": { "type": "array", "items": { "type": "string" } },
     "description": { "type": "string" },
     "functions": {
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": [ "name", "returnType", "parameterTypes", "documentation", "binding" ],
+        "required": [ "name", "returnType", "parameterTypes", "documentation", "binding", "effect", "errorCodes" ],
         "properties": {
           "name": { "$ref": "#/$defs/name" },
           "returnType": { "$ref": "#/$defs/name" },
           "parameterTypes": { "type": "array", "items": { "$ref": "#/$defs/name" } },
           "documentation": { "type": "string" },
-          "binding": { "enum": [ "host.output", "host.input", "core.string-length", "core.to-int", "core.to-float" ] }
+          "binding": { "enum": [ "host.output", "host.input", "core.string-length", "core.to-int", "core.to-float" ] },
+          "effect": { "enum": [ "pure", "input", "output" ] },
+          "errorCodes": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+          }
         }
       }
     }

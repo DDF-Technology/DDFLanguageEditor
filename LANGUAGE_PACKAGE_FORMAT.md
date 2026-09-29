@@ -138,12 +138,15 @@ dei token unari, binari e postfix in ID stabili. Il lowerer risolve questa mappa
 la VM non confronta mai la grafia concreta degli operatori. Operazioni mancanti,
 duplicate o non supportate causano il rifiuto atomico `DDFL12x`.
 
-`standard-library.json` dichiara nomi, tipi dei parametri, tipo restituito,
-documentazione e binding di ogni funzione standard. I binding ammessi sono un
+`standard-library.json` schema `1.1` assegna identità e versione alla libreria e
+dichiara nomi, tipi dei parametri, tipo restituito, documentazione, binding,
+effetto (`pure`, `input`, `output`) ed errori di ogni funzione standard. I binding ammessi sono un
 catalogo host chiuso (`host.output`, `host.input`, conversioni e lunghezza
 incorporate): non sono nomi di metodi e non attivano reflection. Tipi o binding
-non disponibili producono diagnostiche `DDFL13x`. Gli schemi completi sono
-`language-runtime.schema.json` e `language-standard-library.schema.json`.
+non disponibili o metadati incoerenti producono diagnostiche `DDFL13x`. Il
+contratto minimo è descritto in `DDF_STANDARD_LIBRARY_SPEC.md`; gli schemi
+completi sono `language-runtime.schema.json` e
+`language-standard-library.schema.json`.
 
 `build.json` usa l'adapter `ddf-build-v2` e dichiara backend consentiti e formato
 dell'artefatto. Il backend iniziale `ddf-vm-ir-v1` implementa il contratto

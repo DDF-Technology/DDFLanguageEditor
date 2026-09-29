@@ -712,7 +712,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
   - [x] Integrare il gestore moduli nella UI standalone con anteprima non distruttiva di identità, versione, linguaggio, export e dipendenze, creazione, installazione/sostituzione, convalida e rimozione (`0.12.3`, 2026-09-29).
   - [x] Alimentare analisi live, diagnostica semantica/tipi, completamento, Signature Help e navigazione con i soli export delle dipendenze dirette, senza inserire lo store tra i file del workspace; aggiungere regressioni sui falsi `DDF201`/`DDF312` (`0.12.3`, 2026-09-29).
   - [ ] Definire una capability host esplicita prima di rendere qualunque operazione sullo store disponibile nell'embedded; per impostazione predefinita menu e toolbar restano assenti.
-- [ ] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori.
+- [x] Definire la libreria standard minima, le sue convenzioni e il comportamento degli errori: `ddf.standard@0.12.3` espone cinque funzioni con firme, effetti e diagnostiche dichiarati, schema `1.1`, adapter `v3` e confine esplicito da moduli/API host (`DDF_STANDARD_LIBRARY_SPEC.md`, DDF-0019, 2026-09-29).
 
 ### 0.12.4 — Specifica verificabile e migrazione
 

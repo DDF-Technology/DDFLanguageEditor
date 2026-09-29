@@ -4,6 +4,13 @@ using System.Linq;
 
 namespace DDFLanguageEditor.Core
 {
+    public enum DdfStandardFunctionEffect
+    {
+        Pure,
+        Input,
+        Output
+    }
+
     public sealed class DdfStandardFunction
     {
         public DdfStandardFunction(string name, string returnType, string documentation, params string[] parameterTypes)
@@ -13,6 +20,15 @@ namespace DDFLanguageEditor.Core
 
         public DdfStandardFunction(string name, string returnType, string documentation, string bindingId,
             IEnumerable<string> parameterTypes)
+            : this(name, returnType, documentation, bindingId, parameterTypes,
+                DdfHostFunctionBindings.GetEffect(bindingId),
+                DdfHostFunctionBindings.GetErrorCodes(bindingId))
+        {
+        }
+
+        public DdfStandardFunction(string name, string returnType, string documentation, string bindingId,
+            IEnumerable<string> parameterTypes, DdfStandardFunctionEffect effect,
+            IEnumerable<string> errorCodes)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Function name is required.", nameof(name));
             if (string.IsNullOrWhiteSpace(returnType)) throw new ArgumentException("Return type is required.", nameof(returnType));
@@ -23,6 +39,16 @@ namespace DDFLanguageEditor.Core
             Documentation = documentation ?? string.Empty;
             BindingId = bindingId;
             ParameterTypes = Array.AsReadOnly((parameterTypes ?? Array.Empty<string>()).ToArray());
+            if (!Enum.IsDefined(effect)) throw new ArgumentOutOfRangeException(nameof(effect));
+            string[] errors = (errorCodes ?? Array.Empty<string>()).ToArray();
+            if (errors.Distinct(StringComparer.Ordinal).Count() != errors.Length ||
+                errors.Any(code => code == null || code.Length != 6 ||
+                    !code.StartsWith("DDF", StringComparison.Ordinal) ||
+                    code.Skip(3).Any(character => character < '0' || character > '9')))
+                throw new ArgumentException("I codici di errore standard devono essere univoci e nel formato DDFnnn.",
+                    nameof(errorCodes));
+            Effect = effect;
+            ErrorCodes = Array.AsReadOnly(errors);
         }
 
         public string Name { get; }
@@ -30,6 +56,8 @@ namespace DDFLanguageEditor.Core
         public string Documentation { get; }
         public string BindingId { get; }
         public IReadOnlyList<string> ParameterTypes { get; }
+        public DdfStandardFunctionEffect Effect { get; }
+        public IReadOnlyList<string> ErrorCodes { get; }
         public string Signature => Name + "(" + string.Join(", ", ParameterTypes) + ") out " + ReturnType;
 
         private static string LegacyBinding(string name)
@@ -55,6 +83,24 @@ namespace DDFLanguageEditor.Core
         { Output, Input, StringLength, ToInt, ToFloat }, StringComparer.Ordinal);
 
         public static bool IsSupported(string id) => !string.IsNullOrWhiteSpace(id) && supported.Contains(id);
+
+        public static DdfStandardFunctionEffect GetEffect(string id)
+        {
+            if (id == Input) return DdfStandardFunctionEffect.Input;
+            if (id == Output) return DdfStandardFunctionEffect.Output;
+            if (id == StringLength || id == ToInt || id == ToFloat)
+                return DdfStandardFunctionEffect.Pure;
+            throw new DdfEngineCapabilityException("Binding di funzione standard non supportato: " + id + ".");
+        }
+
+        public static IReadOnlyList<string> GetErrorCodes(string id)
+        {
+            if (!IsSupported(id))
+                throw new DdfEngineCapabilityException("Binding di funzione standard non supportato: " + id + ".");
+            return id == Input || id == ToInt || id == ToFloat
+                ? Array.AsReadOnly(new[] { "DDF408" })
+                : Array.Empty<string>();
+        }
     }
 
     public static class DdfRuntimeCatalog

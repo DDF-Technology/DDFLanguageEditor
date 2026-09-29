@@ -167,24 +167,42 @@ namespace DDFLanguageEditor.Core
         private readonly IReadOnlyDictionary<string, DdfStandardFunction> functionsByName;
 
         public DdfStandardLibraryDefinition(IEnumerable<DdfStandardFunction> functions)
+            : this("ddf.standard", "0.12.3", functions)
         {
+        }
+
+        public DdfStandardLibraryDefinition(string id, string version,
+            IEnumerable<DdfStandardFunction> functions)
+        {
+            if (string.IsNullOrWhiteSpace(id) || id[0] < 'a' || id[0] > 'z' ||
+                id.Any(character => !(character >= 'a' && character <= 'z') &&
+                                    !(character >= '0' && character <= '9') &&
+                                    character != '.' && character != '-'))
+                throw new ArgumentException("Identità libreria non valida.", nameof(id));
+            if (!System.Version.TryParse(version, out _) || version.Split('.').Length != 3)
+                throw new ArgumentException("Versione libreria non valida.", nameof(version));
             var list = (functions ?? throw new ArgumentNullException(nameof(functions))).ToList();
             if (list.Count != list.Select(item => item.Name).Distinct(StringComparer.Ordinal).Count())
                 throw new ArgumentException("Le funzioni standard devono avere nomi univoci.", nameof(functions));
             this.functions = list.AsReadOnly();
             functionsByName = list.ToDictionary(item => item.Name, StringComparer.Ordinal);
+            Id = id;
+            Version = version;
         }
 
+        public string Id { get; }
+        public string Version { get; }
         public IReadOnlyList<DdfStandardFunction> Functions => functions;
         public bool TryGetFunction(string name, out DdfStandardFunction function) => functionsByName.TryGetValue(name, out function);
 
-        public static DdfStandardLibraryDefinition CreateDdfCompatibleDefault() => new DdfStandardLibraryDefinition(new[]
+        public static DdfStandardLibraryDefinition CreateDdfCompatibleDefault() => new DdfStandardLibraryDefinition(
+            "ddf.standard", "0.12.3", new[]
         {
-            new DdfStandardFunction("print", "void", "Scrive una stringa nella palette Output.", DdfHostFunctionBindings.Output, new[] { "string" }),
-            new DdfStandardFunction("readLine", "string", "Legge una riga di testo dalla finestra di input.", DdfHostFunctionBindings.Input, Array.Empty<string>()),
-            new DdfStandardFunction("length", "int", "Restituisce il numero di caratteri di una stringa.", DdfHostFunctionBindings.StringLength, new[] { "string" }),
-            new DdfStandardFunction("toInt", "int", "Converte una stringa in un valore intero.", DdfHostFunctionBindings.ToInt, new[] { "string" }),
-            new DdfStandardFunction("toFloat", "float", "Converte una stringa in un valore decimale.", DdfHostFunctionBindings.ToFloat, new[] { "string" })
+            new DdfStandardFunction("print", "void", "Scrive una stringa sul canale Output; senza un canale configurato il valore viene ignorato.", DdfHostFunctionBindings.Output, new[] { "string" }),
+            new DdfStandardFunction("readLine", "string", "Legge una riga dal canale Input; segnala DDF408 se il canale non è disponibile.", DdfHostFunctionBindings.Input, Array.Empty<string>()),
+            new DdfStandardFunction("length", "int", "Restituisce la lunghezza UTF-16 di una stringa.", DdfHostFunctionBindings.StringLength, new[] { "string" }),
+            new DdfStandardFunction("toInt", "int", "Converte una stringa in Int32 usando il formato invariant; segnala DDF408 se il valore non è valido o è fuori intervallo.", DdfHostFunctionBindings.ToInt, new[] { "string" }),
+            new DdfStandardFunction("toFloat", "float", "Converte una stringa in Double finito usando il formato invariant; segnala DDF408 se il valore non è valido o non è finito.", DdfHostFunctionBindings.ToFloat, new[] { "string" })
         });
     }
 }

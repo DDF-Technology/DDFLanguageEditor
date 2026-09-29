@@ -514,21 +514,21 @@ namespace DDFLanguageEditor.Core
                     }
                     if (function.BindingId == DdfHostFunctionBindings.Input)
                     {
-                        if (options.Input == null) Fail("DDF408", "Input standard non disponibile.", node);
+                        if (options.Input == null) Fail(StandardError(function), "Input standard non disponibile.", node);
                         return options.Input() ?? string.Empty;
                     }
                     if (function.BindingId == DdfHostFunctionBindings.StringLength) return ((string)arguments[0]).Length;
                     if (function.BindingId == DdfHostFunctionBindings.ToInt)
                     {
                         if (int.TryParse(arguments[0] as string, NumberStyles.Integer, CultureInfo.InvariantCulture, out int integer)) return integer;
-                        Fail("DDF408", "Impossibile convertire il testo in int.", node);
+                        Fail(StandardError(function), "Impossibile convertire il testo in int.", node);
                     }
                     if (function.BindingId == DdfHostFunctionBindings.ToFloat)
                     {
                         if (double.TryParse(arguments[0] as string, NumberStyles.Float,
                             CultureInfo.InvariantCulture, out double floating) &&
                             !double.IsNaN(floating) && !double.IsInfinity(floating)) return floating;
-                        Fail("DDF408", "Impossibile convertire il testo in float.", node);
+                        Fail(StandardError(function), "Impossibile convertire il testo in float.", node);
                     }
                     Fail("DDFE002", "Funzione standard non implementata: '" + function.Name + "'.", node,
                         DdfDiagnosticDomain.EngineCapability);
@@ -536,6 +536,9 @@ namespace DDFLanguageEditor.Core
                 }
                 finally { callStack.RemoveAt(callStack.Count - 1); }
             }
+
+            private static string StandardError(DdfStandardFunction function) =>
+                function.ErrorCodes.FirstOrDefault() ?? "DDF408";
 
             private object InvokeHost(DdfHostFunctionDefinition function,
                 IReadOnlyList<object> arguments, DdfIrNode node)

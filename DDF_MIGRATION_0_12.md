@@ -80,3 +80,16 @@ proprio `ddf-project.json`; ID e versione devono coincidere esattamente con la
 dipendenza dichiarata. Copiare semplicemente un `.ddf` accanto al chiamante lo
 rende parte del modulo applicativo, non una libreria separata.
 
+## Libreria standard — pacchetto 0.12.3
+
+I pacchetti personalizzati devono portare `standard-library.json` allo schema
+`1.1` e all'adapter `ddf-standard-library-v3`, dichiarando `id`, `version` e,
+per ogni funzione, `effect` ed `errorCodes`. I profili sintattici equivalenti
+possono copiare il catalogo `ddf.standard@0.12.3`; pacchetti con binding o
+semantica diversi richiedono invece un adapter motore supportato.
+
+`length` conta unità UTF-16, `toInt` produce `System.Int32`, `toFloat` produce
+`System.Double` finito e conversioni/input non disponibili usano `DDF408`.
+L'aggiornamento non espone API .NET e non trasforma la libreria standard in un
+modulo o in una capability host.
+

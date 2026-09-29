@@ -1,6 +1,6 @@
 # Inventario del linguaggio DDF corrente
 
-Stato: inventario evolutivo della beta, aggiornato al contratto DDF `0.12.2`.
+Stato: inventario evolutivo della beta, aggiornato al contratto DDF `0.12.3`.
 
 Questo inventario separa il comportamento realmente disponibile dalle scelte
 ancora aperte. Le fonti eseguibili sono i file in `language-packages/ddf`; la

@@ -62,7 +62,7 @@ This release is intended for interface and language-design evaluation only.
 - Validate/Build/Run/Debug/Stop commands, cooperative cancellation, instruction limit and navigable Output palette;
 - deterministic JSON build receipts and optional unsaved named buffers without implicit source writes;
 - navigable runtime diagnostics and DDF call stacks in the Output palette;
-- minimal standard library with `print`, `readLine`, `length`, `toInt` and `toFloat`;
+- versioned minimum standard library `ddf.standard@0.12.3` with `print`, `readLine`, `length`, `toInt` and `toFloat`, including declared effects and runtime errors;
 - native input dialog and a toolbar for the primary editor commands;
 - unified light application chrome with a dark code editor, folded view and gutter;
 - vertically resizable bottom palette and horizontally resizable right palette;
@@ -91,7 +91,7 @@ This release is intended for interface and language-design evaluation only.
 - automatic three-way merging, operating-system file locking or multi-instance recovery coordination;
 - cross-file local/member resolution, overload resolution, generics or user-defined conversions;
 - serialized executable bytecode, native runtime or a production-stable debugger contract;
-- complete standard library or non-interactive input streams;
+- broader standard-library modules (math, collections, filesystem, network) or non-interactive input streams;
 - dependency resolution/distribution, configuration matrices or compiled backend implementations;
 - native plug-in loading, isolation, registry and consent UI;
 - visual package-authoring editor, online registry/download, package uninstall and user installation of additional build backends;

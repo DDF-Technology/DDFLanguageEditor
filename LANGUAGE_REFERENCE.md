@@ -115,7 +115,7 @@ considerata un operatore perché sarebbe indistinguibile da un identificatore.
 - ogni esecuzione può essere cancellata e si arresta dopo 100.000 istruzioni;
 - gli errori runtime usano i codici `DDF401`–`DDF408` con riga e colonna.
 
-Funzioni standard iniziali:
+Funzioni della libreria standard minima normativa `ddf.standard@0.12.3`:
 
 ```text
 print(string) out void
@@ -125,8 +125,10 @@ toInt(string) out int
 toFloat(string) out float
 ```
 
-`readLine` apre un dialogo di input nell'editor. `toInt` e `toFloat` usano una
-notazione numerica invariabile e producono `DDF408` quando il testo non è valido.
+`readLine` usa il canale di input fornito dall'ambiente di esecuzione. `toInt` e
+`toFloat` usano una notazione numerica invariabile e producono `DDF408` quando il
+testo non è valido; `length` conta unità UTF-16. Firme, effetti e diagnostiche
+sono specificati in `DDF_STANDARD_LIBRARY_SPEC.md`.
 
 La palette Output distingue il valore restituito da `main` dal numero di
 "passi runtime" usato internamente per applicare il limite anti-loop. Un passo
@@ -139,7 +141,6 @@ runtime corrisponde alla valutazione di un nodo AST, non a una riga DDF.
 - semantica di `dict`, librerie, overload e conversioni definite dall'utente;
 - funzioni standard definitive per intervalli e radici, rimosse dal nucleo
   degli operatori perché le vecchie grafie erano ambigue;
-- input interattivo e libreria standard definitiva.
 
 Ogni decisione futura su questi punti dovrà aggiornare questo documento, i test
 e il registro decisioni in `ROADMAP.md`.

@@ -21,7 +21,7 @@ manifest is:
     "exports": [ "main" ]
   },
   "languageId": "ddf",
-  "languagePackageVersion": "0.12.2.1",
+  "languagePackageVersion": "0.12.3",
   "sources": [ "**/*.ddf" ],
   "entrySource": "main.ddf",
   "entryPoint": "main",

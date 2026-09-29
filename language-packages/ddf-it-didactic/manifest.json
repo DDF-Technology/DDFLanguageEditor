@@ -3,7 +3,7 @@
   "engineApi": "1.0",
   "id": "ddf-it-didactic",
   "name": "DDF didattico italiano",
-  "packageVersion": "0.12.2.1",
+  "packageVersion": "0.12.3",
   "languageVersion": "0.12",
   "fileExtensions": [ ".ddfit", ".ddf" ],
   "nativeExtensions": [],

@@ -78,6 +78,7 @@ namespace DDFLanguageEditor.Core
     {
         public const string SupportedSchemaVersion = "1.0";
         public const string SupportedTypesSchemaVersion = "1.1";
+        public const string SupportedStandardLibrarySchemaVersion = "1.1";
         public const string SupportedEngineApi = "1.0";
         private static readonly string[] RequiredSections =
         {
@@ -91,7 +92,7 @@ namespace DDFLanguageEditor.Core
                 ["types"] = "ddf-types-v1", ["semantics"] = "ddf-semantics-v1",
                 ["formatting"] = "ddf-formatter-v1", ["intellisense"] = "ddf-intellisense-v1",
                 ["runtime"] = "ddf-runtime-v2", ["build"] = "ddf-build-v2",
-                ["standardLibrary"] = "ddf-standard-library-v2", ["tests"] = "ddf-tests-v1"
+                ["standardLibrary"] = "ddf-standard-library-v3", ["tests"] = "ddf-tests-v1"
             };
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -369,7 +370,10 @@ namespace DDFLanguageEditor.Core
             IReadOnlyDictionary<string, string> sectionFiles, ICollection<DdfLanguagePackageDiagnostic> diagnostics)
         {
             string supportedSchemaVersion = name == "types"
-                ? SupportedTypesSchemaVersion : SupportedSchemaVersion;
+                ? SupportedTypesSchemaVersion
+                : name == "standardLibrary"
+                    ? SupportedStandardLibrarySchemaVersion
+                    : SupportedSchemaVersion;
             require(section.SchemaVersion == supportedSchemaVersion, diagnostics, "DDFL030",
                 "Versione sezione non supportata.", file, "$.schemaVersion", DdfDiagnosticDomain.EngineCapability);
             require(SupportedAdapters[name] == section.Adapter, diagnostics, "DDFL031",
@@ -768,6 +772,12 @@ namespace DDFLanguageEditor.Core
             if (value == null) return null;
             try
             {
+                require(!string.IsNullOrWhiteSpace(value.Id) &&
+                        Regex.IsMatch(value.Id, "^[a-z][a-z0-9.-]*$"), diagnostics, "DDFL133",
+                    "Identità della libreria standard non valida.", file, "$.id");
+                require(Version.TryParse(value.Version, out _) &&
+                        value.Version.Split('.').Length == 3, diagnostics, "DDFL133",
+                    "Versione della libreria standard non valida.", file, "$.version");
                 value.Functions = value.Functions ?? new List<StandardFunctionDto>();
                 validateUnique(value.Functions.Select(item => item?.Name), "funzione standard", file,
                     "$.functions", diagnostics);
@@ -785,11 +795,37 @@ namespace DDFLanguageEditor.Core
                             DdfLanguagePackageDiagnosticSeverity.Error, DdfDiagnosticDomain.EngineCapability));
                         continue;
                     }
+                    if (!Enum.TryParse(function.Effect, true,
+                            out DdfStandardFunctionEffect effect) || !Enum.IsDefined(effect))
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL133",
+                            "Effetto non valido per la funzione standard '" + function.Name + "'.",
+                            file, "$.functions"));
+                        continue;
+                    }
+                    function.ErrorCodes = function.ErrorCodes ?? new List<string>();
+                    bool validErrors = function.ErrorCodes.Distinct(StringComparer.Ordinal).Count() ==
+                                       function.ErrorCodes.Count && function.ErrorCodes.All(code =>
+                                           !string.IsNullOrWhiteSpace(code) && Regex.IsMatch(code, "^DDF[0-9]{3}$"));
+                    DdfStandardFunctionEffect expectedEffect =
+                        DdfHostFunctionBindings.GetEffect(function.Binding);
+                    IReadOnlyList<string> expectedErrors =
+                        DdfHostFunctionBindings.GetErrorCodes(function.Binding);
+                    if (!validErrors || effect != expectedEffect ||
+                        !function.ErrorCodes.OrderBy(code => code, StringComparer.Ordinal).SequenceEqual(
+                            expectedErrors.OrderBy(code => code, StringComparer.Ordinal), StringComparer.Ordinal))
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL134",
+                            "Effetto o diagnostiche non coerenti con il binding della funzione standard '" +
+                            function.Name + "'.", file, "$.functions"));
+                        continue;
+                    }
                     functions.Add(new DdfStandardFunction(function.Name, function.ReturnType,
-                        function.Documentation, function.Binding, function.ParameterTypes));
+                        function.Documentation, function.Binding, function.ParameterTypes,
+                        effect, function.ErrorCodes));
                 }
                 if (hasErrors(diagnostics)) return null;
-                return new DdfStandardLibraryDefinition(functions);
+                return new DdfStandardLibraryDefinition(value.Id, value.Version, functions);
             }
             catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
             {
@@ -1100,8 +1136,8 @@ namespace DDFLanguageEditor.Core
         private sealed class RuntimeDto : SectionDto { public string InstructionSet { get; set; } public string EntryPoint { get; set; } public int DefaultInstructionLimit { get; set; } public string OutputTarget { get; set; } public List<string> VmOperations { get; set; } public RuntimeExpressionOperationsDto ExpressionOperations { get; set; } }
         private sealed class RuntimeExpressionOperationsDto { public List<RuntimeOperationDto> Unary { get; set; } public List<RuntimeOperationDto> Binary { get; set; } public List<RuntimeOperationDto> Postfix { get; set; } }
         private sealed class RuntimeOperationDto { public string Token { get; set; } public string Operation { get; set; } }
-        private sealed class StandardLibraryDto : SectionDto { public List<StandardFunctionDto> Functions { get; set; } }
-        private sealed class StandardFunctionDto { public string Name { get; set; } public string ReturnType { get; set; } public List<string> ParameterTypes { get; set; } public string Documentation { get; set; } public string Binding { get; set; } }
+        private sealed class StandardLibraryDto : SectionDto { public string Id { get; set; } public string Version { get; set; } public List<StandardFunctionDto> Functions { get; set; } }
+        private sealed class StandardFunctionDto { public string Name { get; set; } public string ReturnType { get; set; } public List<string> ParameterTypes { get; set; } public string Documentation { get; set; } public string Binding { get; set; } public string Effect { get; set; } public List<string> ErrorCodes { get; set; } }
         private sealed class BuildDto : SectionDto { public string DefaultBackend { get; set; } public string ArtifactFormat { get; set; } public List<string> Backends { get; set; } }
         private sealed class TestsDto : SectionDto { public List<PackageTestCaseDto> Cases { get; set; } }
         private sealed class PackageTestCaseDto { public string Name { get; set; } public string Source { get; set; } public List<string> ExpectedTokenKinds { get; set; } public List<string> ExpectedDiagnosticCodes { get; set; } public string ExpectedFormatted { get; set; } public string ExpectedReturn { get; set; } }

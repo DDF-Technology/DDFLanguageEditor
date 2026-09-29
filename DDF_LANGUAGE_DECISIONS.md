@@ -266,3 +266,21 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   ma non ancora firmati né provenienti da un registry. La validazione semantica
   completa resta nella pipeline di build del consumatore; la UI del gestore può
   essere aggiunta senza cambiare formato o resolver.
+
+## DDF-0019 — Libreria standard minima, versionata e priva di capacità implicite
+
+- **Stato:** Accettata
+- **Data:** 2026-09-29
+- **Decisione:** il nucleo standard è `ddf.standard@0.12.3` e contiene soltanto
+  `print`, `readLine`, `length`, `toInt` e `toFloat`. Ogni funzione dichiara
+  firma, documentazione, binding chiuso, effetto ed errori; IDE, type checker e
+  VM consumano lo stesso catalogo. I canali Input/Output non concedono accesso
+  al catalogo host e `length` conserva la semantica UTF-16 di `System.String`.
+- **Alternative rifiutate:** esporre automaticamente API .NET; trattare la
+  libreria come modulo installabile; lasciare effetti ed errori impliciti nel
+  codice VM; aggiungere subito filesystem, rete, database, collezioni o
+  matematica avanzata; usare `@@` come autorizzazione.
+- **Conseguenze:** lo schema standard-library sale a `1.1` e l'adapter a
+  `ddf-standard-library-v3`; metadati incoerenti vengono rifiutati atomicamente.
+  Ogni futura funzione richiede binding sicuro, mapping Roslyn e test
+  differenziali, mentre capacità esterne restano moduli o adattatori autorizzati.

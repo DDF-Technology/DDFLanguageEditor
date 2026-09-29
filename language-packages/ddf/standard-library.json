@@ -1,13 +1,15 @@
 {
-  "schemaVersion": "1.0",
-  "adapter": "ddf-standard-library-v2",
+  "schemaVersion": "1.1",
+  "adapter": "ddf-standard-library-v3",
+  "id": "ddf.standard",
+  "version": "0.12.3",
   "dependsOn": [ "types", "runtime" ],
   "functions": [
-    { "name": "print", "returnType": "void", "parameterTypes": [ "string" ], "documentation": "Scrive una stringa nella palette Output.", "binding": "host.output" },
-    { "name": "readLine", "returnType": "string", "parameterTypes": [], "documentation": "Legge una riga di testo dalla finestra di input.", "binding": "host.input" },
-    { "name": "length", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Restituisce il numero di caratteri di una stringa.", "binding": "core.string-length" },
-    { "name": "toInt", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Converte una stringa in un valore intero.", "binding": "core.to-int" },
-    { "name": "toFloat", "returnType": "float", "parameterTypes": [ "string" ], "documentation": "Converte una stringa in un valore decimale.", "binding": "core.to-float" }
+    { "name": "print", "returnType": "void", "parameterTypes": [ "string" ], "documentation": "Scrive una stringa nel canale Output standard.", "binding": "host.output", "effect": "output", "errorCodes": [] },
+    { "name": "readLine", "returnType": "string", "parameterTypes": [], "documentation": "Legge una riga dal canale Input standard; produce DDF408 se il canale non è disponibile.", "binding": "host.input", "effect": "input", "errorCodes": [ "DDF408" ] },
+    { "name": "length", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Restituisce il numero di unità UTF-16 (caratteri codificati) di una stringa.", "binding": "core.string-length", "effect": "pure", "errorCodes": [] },
+    { "name": "toInt", "returnType": "int", "parameterTypes": [ "string" ], "documentation": "Converte testo decimale invariant in System.Int32; produce DDF408 se non valido o fuori intervallo.", "binding": "core.to-int", "effect": "pure", "errorCodes": [ "DDF408" ] },
+    { "name": "toFloat", "returnType": "float", "parameterTypes": [ "string" ], "documentation": "Converte testo floating invariant in System.Double finito; produce DDF408 se non valido o non finito.", "binding": "core.to-float", "effect": "pure", "errorCodes": [ "DDF408" ] }
   ],
   "description": "Firme e binding sicuri della libreria standard DDF."
 }

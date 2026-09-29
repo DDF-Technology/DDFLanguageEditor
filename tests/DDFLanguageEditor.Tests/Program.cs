@@ -116,6 +116,7 @@ namespace DDFLanguageEditor.Tests
             Run("debugs host buffers with document breakpoints", DebugsHostBuffersWithDocumentBreakpoints);
             Run("executes package operators through syntax-independent VM operations", ExecutesPackageOperatorsThroughVmOperations);
             Run("loads and executes package-defined standard functions", LoadsAndExecutesPackageDefinedStandardFunctions);
+            Run("enforces the versioned minimum standard library contract", EnforcesMinimumStandardLibraryContract);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
@@ -1146,7 +1147,7 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.12.2.1", result.Package.PackageVersion);
+            Equal("0.12.3", result.Package.PackageVersion);
             Equal("0.12", result.Package.LanguageVersion);
             Equal(16, result.Package.Language.Keywords.Count);
             Equal(19, result.Package.Language.Operators.Count);
@@ -3293,6 +3294,49 @@ namespace DDFLanguageEditor.Tests
                     new DdfExecutionOptions { Output = output.Add });
                 Equal(true, result.Succeeded);
                 Equal("ready", output.Single());
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void EnforcesMinimumStandardLibraryContract()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfStandardLibraryDefinition library = package.Language.StandardLibrary;
+            Equal("ddf.standard", library.Id);
+            Equal("0.12.3", library.Version);
+            SequenceEqual(new[] { "length", "print", "readLine", "toFloat", "toInt" },
+                library.Functions.Select(function => function.Name).OrderBy(name => name, StringComparer.Ordinal));
+            Equal(DdfStandardFunctionEffect.Output, library.Functions.Single(item => item.Name == "print").Effect);
+            Equal(DdfStandardFunctionEffect.Input, library.Functions.Single(item => item.Name == "readLine").Effect);
+            Equal(DdfStandardFunctionEffect.Pure, library.Functions.Single(item => item.Name == "length").Effect);
+            SequenceEqual(new[] { "DDF408" }, library.Functions.Single(item => item.Name == "toInt").ErrorCodes);
+            Equal(0, library.Functions.Single(item => item.Name == "length").ErrorCodes.Count);
+
+            DdfExecutionResult utf16 = DdfInterpreter.Execute(
+                "main() out int { ret length(\"😀\"); }");
+            Equal(true, utf16.Succeeded);
+            Equal(2, utf16.ReturnValue);
+            DdfExecutionResult unavailableInput = DdfInterpreter.Execute(
+                "main() out string { ret readLine(); }");
+            Equal(false, unavailableInput.Succeeded);
+            Equal("DDF408", unavailableInput.Diagnostics.Single().Code);
+
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string path = Path.Combine(root, "standard-library.json");
+                JsonObject document = JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8)).AsObject();
+                document["functions"].AsArray()[0].AsObject()["effect"] = "pure";
+                File.WriteAllText(path,
+                    document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+                DdfLanguagePackageLoadResult invalid = DdfLanguagePackageLoader.Load(root);
+                Equal(false, invalid.Success);
+                Equal(true, invalid.Diagnostics.Any(item => item.Code == "DDFL134"));
             }
             finally
             {

@@ -76,7 +76,7 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`, Entra nella funzione con `F11`, Passo successivo con `F10` ed Esci dalla funzione con `Shift+F11`;
-- libreria standard iniziale: `print`, `readLine`, `length`, `toInt` e `toFloat`;
+- libreria standard minima versionata `ddf.standard@0.12.3`: `print`, `readLine`, `length`, `toInt` e `toFloat`, con effetti ed errori dichiarati nello stesso catalogo usato da IDE, type checker e VM;
 - sette barre mobili con 53 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, moduli, build e debug;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
@@ -345,6 +345,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: migrazione esplicita dei sorgenti beta alla sintassi 0.12;
+- `DDF_STANDARD_LIBRARY_SPEC.md`: contratto normativo di firme, effetti, canali I/O, conversioni ed errori della libreria minima;
 - `language-lexicon.schema.json`: schema JSON delle regole lessicali dichiarative;
 - `language-grammar.schema.json`: schema JSON della grammatica EBNF, dei nodi e dei metadati IDE;
 - `language-intellisense.schema.json`: schema JSON di completamento, simboli, Signature Help e snippet;
@@ -352,7 +353,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `language-types.schema.json`: schema JSON di primitivi, conversioni, compatibilità, mutabilità, scope e firme;
 - `language-semantics.schema.json`: schema JSON dei collegamenti a operazioni semantiche sicure e versionate;
 - `language-runtime.schema.json`: schema JSON della VM, dei limiti e dei mapping fra token e operazioni;
-- `language-standard-library.schema.json`: schema JSON di firme, documentazione e binding host controllati;
+- `language-standard-library.schema.json`: schema JSON di identità, versione, firme, effetti, errori e binding controllati;
 - `language-build.schema.json`: schema dei backend e del formato artefatto supportati dal pacchetto;
 - `ddf-project.schema.json`: schema del manifest indipendente del workspace;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
