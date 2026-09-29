@@ -19,6 +19,9 @@ Questa direzione futura è distinta dalle funzionalità già disponibili elencat
 La definizione normativa e autonoma del linguaggio corrente è
 [DDF_LANGUAGE_SPEC.md](DDF_LANGUAGE_SPEC.md). Le specifiche di area e i file del
 pacchetto ne costituiscono approfondimenti e rappresentazioni eseguibili.
+Il contratto di regressione associato è in `samples/language-corpus`: il manifesto
+versionato dichiara risultati e diagnostiche attesi per sorgenti completi,
+incompleti e progetti multi-file.
 
 - lexer DDF formale ed evidenziazione alimentata dai token;
 - parser con AST tipizzato, precedenze e recupero dagli errori;
@@ -320,6 +323,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/formatter-smoke-test.ddf`: controllo manuale di formattazione, idempotenza e Undo;
 - `samples/lexer/`: corpus lessicale valido e non valido;
 - `samples/parser/`: corpus sintattico valido e non valido;
+- `samples/language-corpus/`: corpus normativo completo con manifesto, oracoli runtime, diagnostiche per fase e progetti multi-file;
 - `samples/project/`: workspace con `ddf-project.json` pronto per Convalida, Build, Run e Debug;
 - `samples/flowchart-workspace/`: workspace multi-file per provare navigazione tra funzioni, gruppi comprimibili, Flowchart e debug attraversando tutti i principali costrutti di controllo;
 - `samples/module-workspace/`: applicazione con una libreria DDF versionata installata nello store locale e API limitata agli export;

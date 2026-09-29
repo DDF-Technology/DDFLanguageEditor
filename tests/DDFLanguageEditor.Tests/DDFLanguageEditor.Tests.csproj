@@ -28,5 +28,6 @@
     <None Include="..\..\samples\language-profiles\**\*.*" Link="ProfileCorpus\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\type-system\**\*.ddf" Link="Corpus\Types\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\type-system\corpus.json" Link="Corpus\Types\corpus.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\language-corpus\**\*.*" Link="Corpus\Language\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

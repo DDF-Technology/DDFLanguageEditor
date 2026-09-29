@@ -179,6 +179,7 @@ namespace DDFLanguageEditor.Tests
             Run("reports missing returns and invalid assignment targets", ReportsMissingReturnsAndInvalidAssignmentTargets);
             Run("enforces the DDF 0.12 compound type and scope rules", EnforcesDdf012CompoundTypeAndScopeRules);
             Run("validates the normative DDF type corpus", ValidatesNormativeDdfTypeCorpus);
+            Run("validates the complete normative DDF language corpus", ValidatesCompleteNormativeDdfLanguageCorpus);
             Run("enforces the DDF 0.12 runtime numeric contract", EnforcesDdf012RuntimeNumericContract);
             Run("type-checks the editor smoke sample", TypeChecksEditorSmokeSample);
             Run("executes functions control flow and output", ExecutesFunctionsControlFlowAndOutput);
@@ -5146,6 +5147,144 @@ namespace DDFLanguageEditor.Tests
                 }
             }
         }
+
+        private static void ValidatesCompleteNormativeDdfLanguageCorpus()
+        {
+            string corpus = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Corpus", "Language");
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(
+                Path.Combine(corpus, "corpus.json"), Encoding.UTF8)).AsObject();
+            Equal("1.0", manifest["schemaVersion"].GetValue<string>());
+            Equal("ddf", manifest["languageId"].GetValue<string>());
+            Equal("0.12", manifest["languageVersion"].GetValue<string>());
+            Equal("0.12.3", manifest["languagePackageVersion"].GetValue<string>());
+            Equal(DdfVmBuildBackend.BackendId, manifest["oracleBackend"].GetValue<string>());
+            Equal("dotnet-roslyn-v1", manifest["futureBackend"].GetValue<string>());
+
+            JsonArray valid = manifest["valid"].AsArray();
+            JsonArray invalid = manifest["invalid"].AsArray();
+            JsonArray incomplete = manifest["incomplete"].AsArray();
+            JsonArray multiFile = manifest["multiFile"].AsArray();
+            string[] ids = valid.Concat(invalid).Concat(incomplete).Concat(multiFile)
+                .Select(item => item.AsObject()["id"].GetValue<string>()).ToArray();
+            Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
+            AssertCorpusDirectoryCoverage(corpus, "valid", valid);
+            AssertCorpusDirectoryCoverage(corpus, "invalid", invalid);
+            AssertCorpusDirectoryCoverage(corpus, "incomplete", incomplete);
+            SequenceEqual(Directory.GetDirectories(Path.Combine(corpus, "multi-file"))
+                    .Select(Path.GetFileName).OrderBy(name => name, StringComparer.Ordinal),
+                multiFile.Select(item => item.AsObject()["directory"].GetValue<string>())
+                    .OrderBy(name => name, StringComparer.Ordinal));
+
+            foreach (JsonNode node in valid)
+            {
+                JsonObject testCase = node.AsObject();
+                string source = ReadCorpusSource(corpus, "valid", testCase);
+                DdfParseResult parse = DdfParser.Parse(source);
+                Equal(0, parse.ValidationDiagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+                var output = new List<string>();
+                DdfExecutionResult result = DdfInterpreter.Execute(source,
+                    new DdfExecutionOptions { Output = output.Add });
+                Equal(true, result.Succeeded);
+                Equal(testCase["returnClrType"].GetValue<string>(), result.ReturnValue?.GetType().FullName);
+                Equal(testCase["returnValue"].GetValue<string>(),
+                    Convert.ToString(result.ReturnValue, CultureInfo.InvariantCulture));
+                SequenceEqual(testCase["output"].AsArray().Select(item => item.GetValue<string>()), output);
+            }
+
+            foreach (JsonNode node in invalid)
+            {
+                JsonObject testCase = node.AsObject();
+                string source = ReadCorpusSource(corpus, "invalid", testCase);
+                string stage = testCase["stage"].GetValue<string>();
+                DdfParseResult parse = DdfParser.Parse(source);
+                IEnumerable<string> actual;
+                if (stage == "lexical") actual = parse.LexicalDiagnostics.Select(item => item.Code);
+                else if (stage == "syntax")
+                {
+                    Equal(0, parse.LexicalDiagnostics.Count);
+                    actual = parse.SyntaxDiagnostics.Select(item => item.Code);
+                }
+                else
+                {
+                    Equal(0, parse.ValidationDiagnostics.Count);
+                    DdfTypeCheckResult types = DdfTypeChecker.Check(source, parse.Root);
+                    if (stage == "semantic") actual = types.Diagnostics.Select(item => item.Code);
+                    else
+                    {
+                        Equal(0, types.Diagnostics.Count);
+                        DdfExecutionResult result = DdfInterpreter.Execute(source);
+                        Equal(false, result.Succeeded);
+                        actual = result.Diagnostics.Select(item => item.Code);
+                    }
+                }
+                SequenceEqual(testCase["diagnostics"].AsArray().Select(item => item.GetValue<string>())
+                        .Distinct(StringComparer.Ordinal).OrderBy(code => code, StringComparer.Ordinal),
+                    actual.Distinct(StringComparer.Ordinal).OrderBy(code => code, StringComparer.Ordinal));
+            }
+
+            foreach (JsonNode node in incomplete)
+            {
+                JsonObject testCase = node.AsObject();
+                string source = ReadCorpusSource(corpus, "incomplete", testCase);
+                DdfParseResult parse = DdfParser.Parse(source);
+                Equal(true, parse.ValidationDiagnostics.Count >= testCase["minimumDiagnostics"].GetValue<int>());
+                Equal(0, parse.Root.Start);
+                Equal(true, parse.Root.End >= 0 && parse.Root.End <= source.Length);
+                Equal(true, parse.Root.Members.All(member => member.Start >= 0 && member.End <= source.Length));
+                DdfIrBuildResult lowered = DdfIrLowerer.Lower(source, parse);
+                Equal(true, lowered.Diagnostics.Count > 0 || lowered.Program != null);
+            }
+
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            foreach (JsonNode node in multiFile)
+            {
+                JsonObject testCase = node.AsObject();
+                string root = Path.Combine(corpus, "multi-file", testCase["directory"].GetValue<string>());
+                Equal(true, File.Exists(Path.Combine(root, testCase["manifest"].GetValue<string>())));
+                DdfProjectManifestLoadResult load = DdfProjectManifestLoader.Load(root);
+                Equal(true, load.Success);
+                DdfBuildResult build = new DdfBuildService().Validate(root, load.Manifest, package);
+                if (testCase["status"].GetValue<string>() == "diagnostic")
+                {
+                    Equal(false, build.Success);
+                    SequenceEqual(testCase["diagnostics"].AsArray().Select(item => item.GetValue<string>())
+                            .OrderBy(code => code, StringComparer.Ordinal),
+                        build.Issues.Where(item => item.Severity == DdfDiagnosticSeverity.Error)
+                            .Select(item => item.Code).Distinct(StringComparer.Ordinal)
+                            .OrderBy(code => code, StringComparer.Ordinal));
+                    continue;
+                }
+
+                Equal(true, build.Success);
+                var output = new List<string>();
+                DdfExecutionResult result = DdfInterpreter.Execute(build.Artifact.RuntimeModules,
+                    package.Language, new DdfExecutionOptions
+                    {
+                        EntryPoint = build.Artifact.EntryPoint,
+                        MaxInstructions = build.Artifact.MaxInstructions,
+                        Output = output.Add
+                    });
+                Equal(true, result.Succeeded);
+                Equal(testCase["returnClrType"].GetValue<string>(), result.ReturnValue?.GetType().FullName);
+                Equal(testCase["returnValue"].GetValue<string>(),
+                    Convert.ToString(result.ReturnValue, CultureInfo.InvariantCulture));
+                SequenceEqual(testCase["output"].AsArray().Select(item => item.GetValue<string>()), output);
+            }
+        }
+
+        private static void AssertCorpusDirectoryCoverage(string corpus, string category, JsonArray cases)
+        {
+            string directory = Path.Combine(corpus, category);
+            string[] declared = cases.Select(item => item.AsObject()["file"].GetValue<string>())
+                .OrderBy(name => name, StringComparer.Ordinal).ToArray();
+            Equal(declared.Length, declared.Distinct(StringComparer.Ordinal).Count());
+            SequenceEqual(Directory.GetFiles(directory, "*.ddf").Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal), declared);
+        }
+
+        private static string ReadCorpusSource(string corpus, string category, JsonObject testCase) =>
+            File.ReadAllText(Path.Combine(corpus, category, testCase["file"].GetValue<string>()), Encoding.UTF8);
 
         private static void EnforcesDdf012RuntimeNumericContract()
         {

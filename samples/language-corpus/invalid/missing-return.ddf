@@ -1,0 +1,12 @@
+choose(bool enabled) out int
+{
+    if(enabled)
+    {
+        ret 1;
+    }
+}
+
+main() out int
+{
+    ret choose(true);
+}

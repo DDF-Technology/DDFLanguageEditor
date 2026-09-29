@@ -1,0 +1,10 @@
+main() out int
+{
+    int value << 2 + 3 * 4;
+    value++;
+    if(value == 15 && !(value < 10))
+    {
+        value << value + 2 ^ 2;
+    }
+    ret value;
+}

@@ -1,0 +1,12 @@
+main() out float
+{
+    int whole;
+    float promoted << whole + 4;
+    bool disabled;
+    string empty;
+    if(!disabled && empty == "")
+    {
+        ret promoted;
+    }
+    ret 0;
+}

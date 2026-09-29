@@ -1,0 +1,21 @@
+main() out int
+{
+    int value << 0;
+    for(int index; index < 4; index++)
+    {
+        value++;
+    }
+    while(value < 6)
+    {
+        value++;
+    }
+    do
+    {
+        value++;
+        if(value == 8)
+        {
+            brk;
+        }
+    } while(value < 10);
+    ret value;
+}

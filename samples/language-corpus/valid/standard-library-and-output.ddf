@@ -1,0 +1,8 @@
+main() out int
+{
+    string text << "DDF";
+    int value << toInt("5");
+    print(text);
+    value >> Console;
+    ret value;
+}

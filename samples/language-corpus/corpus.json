@@ -1,0 +1,38 @@
+{
+  "$schema": "../../language-corpus.schema.json",
+  "schemaVersion": "1.0",
+  "languageId": "ddf",
+  "languageVersion": "0.12",
+  "languagePackageVersion": "0.12.3",
+  "oracleBackend": "ddf-vm-ir-v1",
+  "futureBackend": "dotnet-roslyn-v1",
+  "valid": [
+    { "id": "defaults-and-conversions", "file": "defaults-and-conversions.ddf", "returnClrType": "System.Double", "returnValue": "4", "output": [] },
+    { "id": "operators", "file": "operators.ddf", "returnClrType": "System.Int32", "returnValue": "19", "output": [] },
+    { "id": "control-flow", "file": "control-flow.ddf", "returnClrType": "System.Int32", "returnValue": "8", "output": [] },
+    { "id": "structures-and-arrays", "file": "structures-and-arrays.ddf", "returnClrType": "System.Int32", "returnValue": "18", "output": [] },
+    { "id": "functions-and-globals", "file": "functions-and-globals.ddf", "returnClrType": "System.Int32", "returnValue": "42", "output": [] },
+    { "id": "standard-library-and-output", "file": "standard-library-and-output.ddf", "returnClrType": "System.Int32", "returnValue": "5", "output": [ "DDF", "5" ] }
+  ],
+  "invalid": [
+    { "id": "invalid-character", "file": "invalid-character.ddf", "stage": "lexical", "diagnostics": [ "DDF004" ] },
+    { "id": "unterminated-string", "file": "unterminated-string.ddf", "stage": "lexical", "diagnostics": [ "DDF001" ] },
+    { "id": "missing-semicolon", "file": "missing-semicolon.ddf", "stage": "syntax", "diagnostics": [ "DDF102" ] },
+    { "id": "truthiness", "file": "truthiness.ddf", "stage": "semantic", "diagnostics": [ "DDF306" ] },
+    { "id": "unknown-function", "file": "unknown-function.ddf", "stage": "semantic", "diagnostics": [ "DDF312" ] },
+    { "id": "missing-return", "file": "missing-return.ddf", "stage": "semantic", "diagnostics": [ "DDF307" ] },
+    { "id": "division-by-zero", "file": "division-by-zero.ddf", "stage": "runtime", "diagnostics": [ "DDF404" ] },
+    { "id": "array-bounds", "file": "array-bounds.ddf", "stage": "runtime", "diagnostics": [ "DDF405" ] }
+  ],
+  "incomplete": [
+    { "id": "incomplete-function-body", "file": "function-body.ddf", "minimumDiagnostics": 1 },
+    { "id": "incomplete-control-flow", "file": "control-flow.ddf", "minimumDiagnostics": 1 },
+    { "id": "incomplete-expression", "file": "expression.ddf", "minimumDiagnostics": 1 },
+    { "id": "incomplete-string", "file": "string.ddf", "minimumDiagnostics": 1 }
+  ],
+  "multiFile": [
+    { "id": "flat-workspace", "directory": "flat-workspace", "manifest": "ddf-project.json", "status": "success", "returnClrType": "System.Int32", "returnValue": "42", "output": [] },
+    { "id": "module-workspace", "directory": "module-workspace", "manifest": "ddf-project.json", "status": "success", "returnClrType": "System.Int32", "returnValue": "42", "output": [] },
+    { "id": "duplicate-entry", "directory": "duplicate-entry", "manifest": "ddf-project.json", "status": "diagnostic", "diagnostics": [ "DDF311" ] }
+  ]
+}

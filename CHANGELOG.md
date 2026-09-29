@@ -3,6 +3,7 @@
 ## 0.12.4 - in sviluppo
 
 - Pubblicata `DDF_LANGUAGE_SPEC.md`, prima specifica DDF autonoma e normativa. Il documento consolida in un unico contratto lessico, grammatica completa, tipi e mapping CLR, operatori, controllo di flusso, funzioni, moduli, inizializzazione, runtime, libreria standard, confini host/embedded/Roslyn e criteri di versionamento; esempi e matrice manutentiva sono separati come non normativi. DDF-0021 stabilisce che i documenti di area restano approfondimenti e non fonti semantiche concorrenti.
+- Creato `samples/language-corpus`, corpus normativo versionato e vincolato da schema: sei programmi validi con oracoli CLR/output, otto errori lessicali, sintattici, semantici e runtime, quattro sorgenti incompleti e tre progetti multi-file coprono workspace piatto, modulo versionato e collisione. Il test Core verifica copertura completa dei file, ID univoci, recupero entro gli span, build, risoluzione moduli ed esecuzione; la suite sale a 219 test.
 
 ## 0.12.3 - 2026-09-29
 

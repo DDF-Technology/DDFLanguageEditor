@@ -1,0 +1,4 @@
+main() out int
+{
+    int value << 1;
+    ret value;

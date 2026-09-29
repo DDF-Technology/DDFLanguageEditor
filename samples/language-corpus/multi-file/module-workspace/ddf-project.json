@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Normative module workspace",
+  "module": { "id": "ddf.corpus.module-app", "version": "1.0.0", "exports": [ "main" ] },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.3",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [ { "id": "ddf.corpus.math", "version": "1.0.0" } ],
+  "backend": "ddf-vm-ir-v1",
+  "output": { "directory": ".ddf-build", "artifact": "module.ddfbuild.json" },
+  "options": { "useUnsavedBuffers": false, "maxInstructions": 100000 }
+}

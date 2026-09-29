@@ -1,0 +1,11 @@
+int base << 20;
+
+add(int left, int right) out int
+{
+    ret left + right;
+}
+
+main() out int
+{
+    ret add(base, 22);
+}

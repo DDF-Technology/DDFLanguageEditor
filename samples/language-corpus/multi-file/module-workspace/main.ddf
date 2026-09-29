@@ -1,0 +1,4 @@
+main() out int
+{
+    ret add(20, 22);
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Normative flat workspace",
+  "module": { "id": "ddf.corpus.flat", "version": "1.0.0", "exports": [ "main" ] },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.3",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": { "directory": ".ddf-build", "artifact": "flat.ddfbuild.json" },
+  "options": { "useUnsavedBuffers": false, "maxInstructions": 100000 }
+}

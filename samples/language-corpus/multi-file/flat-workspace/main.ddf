@@ -1,0 +1,7 @@
+main() out int
+{
+    Pair pair;
+    pair.left << 19;
+    pair.right << 23;
+    ret add(pair.left, pair.right);
+}

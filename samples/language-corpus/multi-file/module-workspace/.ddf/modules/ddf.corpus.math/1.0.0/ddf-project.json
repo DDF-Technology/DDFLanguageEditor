@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.1",
+  "name": "Normative math module",
+  "module": { "id": "ddf.corpus.math", "version": "1.0.0", "exports": [ "add" ] },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.3",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": null,
+  "entryPoint": "unused",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": { "directory": ".ddf-build", "artifact": "math.ddfbuild.json" },
+  "options": { "useUnsavedBuffers": false, "maxInstructions": 100000 }
+}

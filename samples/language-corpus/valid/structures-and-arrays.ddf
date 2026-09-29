@@ -1,0 +1,20 @@
+struct Box
+{
+    int value;
+}
+
+set(Box box, int value) out int
+{
+    box.value << value;
+    ret box.value;
+}
+
+main() out int
+{
+    Box original;
+    Box alias << original;
+    int[2] values;
+    values[0] << set(alias, 9);
+    values[1] << original.value;
+    ret values[0] + values[1];
+}
