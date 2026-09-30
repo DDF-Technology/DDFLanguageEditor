@@ -37,6 +37,30 @@ contratto DDF.
   verificando conversione delle sole schede aperte e Undo senza salvataggi
   impliciti.
 
+## Stress del debugger su workspace grande
+
+1. Aprire `samples/debug-large-workspace`, composto da 41 sorgenti e da una
+   catena di chiamate `main()` -> `stage01()` -> ... -> `stage40()`.
+2. Seguire il percorso descritto nel relativo `README.md`, inclusi breakpoint
+   intermedi e profondi, F11/F10/Shift+F11, cambio automatico di scheda, Call
+   Stack e Watch su scalari, indice e celle dell'array.
+3. Continuare fino al risultato deterministico `3344`; l'interfaccia deve
+   restare reattiva e non deve fermarsi su breakpoint appartenenti a codice non
+   raggiunto.
+4. Chiudere e riaprire il workspace e verificare la persistenza dei breakpoint
+   anche con molte sorgenti indicizzate.
+
+## Playground linguaggio
+
+1. Aprire **Playground linguaggio** dalla barra o da **Help > Linguaggio**.
+2. Sul sorgente iniziale verificare che Token, Albero, Diagnostiche e
+   Formattazione siano popolati e che le diagnostiche indichino nessun problema.
+3. Eliminare temporaneamente il `;` da `ret 0;`: Token e Albero devono
+   aggiornarsi, Diagnostiche deve localizzare l'errore e Formattazione deve
+   mostrare l'anteprima senza modificare alcuna scheda dell'editor.
+4. Ripristinare il terminatore, premere **Aggiorna** e verificare la scomparsa
+   della diagnostica; infine chiudere con il pulsante **Chiudi**.
+
 ## Esito
 
 Annotare per ogni anomalia:

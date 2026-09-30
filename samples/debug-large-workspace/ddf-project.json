@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ddf-project.schema.json",
+  "schemaVersion": "1.1",
+  "name": "DDF large debugger stress workspace",
+  "module": {
+    "id": "ddf.sample.debug.large",
+    "version": "0.1.0",
+    "exports": []
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.3",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "debug-large-workspace.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": true,
+    "maxInstructions": 500000
+  }
+}

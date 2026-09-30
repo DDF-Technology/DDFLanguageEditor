@@ -1,0 +1,12 @@
+stage14(int value) out int
+{
+    int local << value + 14;
+    int checkpoint << local;
+
+    if(checkpoint < 0)
+    {
+        ret 0;
+    }
+
+    ret stage15(checkpoint);
+}

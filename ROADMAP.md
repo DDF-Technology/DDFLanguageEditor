@@ -89,11 +89,62 @@ milestone successive conservano ordine e ambito.
 | `0.11.1` | Flowchart dinamica del codice e collegamento al debugger | Completata |
 | `0.11.2` | Editor incorporabile e primo SDK per applicazioni host | Completata |
 | `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | In corso (`0.12.0`–`0.12.4` completate; `0.12.5` avviata) |
-| `0.13.x` | Compilatore, linker, loader e CLI | Pianificata |
+| `0.13.x` | Compilatore, linker, loader, CLI ed evoluzione applicativa controllata del DDF | Pianificata |
 | `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Pianificata |
 | `0.15.x` | Extension SDK e host sicuro per plug-in eseguibili | Pianificata |
 | `0.16.x` | Assistente IA opzionale con fornitori locali e cloud | Pianificata |
-| `Dopo 0.16` | Backend aggiuntivi, distribuzione estesa e preparazione della 1.0 | Differita |
+| `Dopo 0.16` | Stabilizzazione dell'ecosistema e preparazione della 1.0 | Differita |
+| `Dopo 1.0` | Ecosistema maturo, CIL diretto, bytecode DDF e portabilità SDK | Differita |
+
+## Guardrail architetturali e di prodotto
+
+Questi vincoli sono trasversali e prevalgono sulla convenienza del singolo
+incremento. Una deroga richiede una decisione registrata, motivazione, impatto,
+migrazione e test; non può essere introdotta incidentalmente durante una feature.
+
+1. **Stabilità della sintassi.** Ogni nuova keyword o forma sintattica richiede
+   un problema concreto non risolvibile con libreria, funzione, modulo o
+   metadato; proposta semantica completa, alternative rifiutate, migrazione dei
+   sorgenti, aggiornamento dei profili e corpus precedono l'implementazione. Le
+   finestre di candidate/release vietano ampliamenti non correttivi.
+2. **Separazione delle librerie.** `ddf.standard` contiene soltanto contratti
+   portabili e indispensabili. Le librerie ufficiali applicative sono moduli
+   versionati separati; wrapper .NET, COM/native e API host dichiarano
+   esplicitamente backend, piattaforma e capability e non possono essere
+   presentati come libreria standard DDF.
+3. **IR indipendente dai backend.** Core, AST, simboli e IR non referenziano
+   Roslyn, sintassi C#, `ITypeSymbol`, eccezioni CLR o nomi temporanei del
+   generatore. Un test architetturale blocca dipendenze dai backend verso il
+   Core; soltanto gli adapter esterni traducono la IR bound nel target.
+4. **SDK additivo e versionato.** Le nuove funzioni usano capability, nuove
+   interfacce opzionali e snapshot immutabili; non aggiungono membri obbligatori
+   alle interfacce implementate dagli host senza un bump e un percorso di
+   migrazione. Compatibilità binaria, sorgente e dei dati persistiti vengono
+   testate separatamente.
+5. **Portabilità dimostrata, non dichiarata.** Manifest e lockfile classificano
+   transitivamente ogni dipendenza come `Portable`, `DotNet`, specifica di un
+   sistema, `Native`, `COM` o `HostProvided`. Una build `portable` fallisce se
+   usa componenti non portabili; nessun fallback silenzioso è ammesso.
+6. **Bytecode guidato dai casi reali.** Il formato bytecode viene progettato
+   soltanto dopo stabilità di linguaggio, ABI, moduli, errori, collezioni,
+   asincronia e librerie e dopo applicazioni reali rappresentative. Fino ad
+   allora IR e artefatti interni non promettono compatibilità binaria pubblica.
+7. **OOP soltanto per necessità.** Classi, ereditarietà, virtual dispatch e
+   interfacce del linguaggio non vengono introdotte per familiarità. Una
+   proposta deve dimostrare un caso d'uso non risolvibile in modo leggibile con
+   strutture, moduli, funzioni, enum, collezioni e cataloghi host.
+8. **Un'unica semantica verificabile.** VM, Roslyn, futuro CIL diretto e futura
+   VM bytecode consumano la stessa IR bound e superano lo stesso corpus
+   differenziale. Una divergenza di valore, output, errore, effetto, cleanup o
+   debug blocca la release del backend interessato.
+9. **Budget prestazionali non opportunistici.** Target, carichi e modalità di
+   misura vengono fissati prima della feature. Un budget può cambiare soltanto
+   con dati Release ripetibili e decisione registrata, mai mentre serve a
+   nascondere una regressione aperta.
+10. **Qualità prima della quantità delle librerie.** Una libreria ufficiale
+    richiede API e portabilità documentate, esempi, versionamento, errori ed
+    effetti dichiarati, licenza, test VM/backend, criteri di deprecazione e un
+    responsabile manutentivo. Il numero dei pacchetti non è un gate di maturità.
 
 ## 0.1.1 — Stabilizzazione
 
@@ -729,11 +780,11 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Verificare editor, IntelliSense, formatter, diagnostica, debugger, runtime e Build sul corpus normativo: il gate trasversale copre 6 programmi validi, 8 non validi, 4 incompleti e 3 workspace; sui validi prova snapshot IDE e completamento, formattazione idempotente con equivalenza runtime, pausa/ripresa del debugger e fingerprint Build riproducibile (`0.12.5`, 2026-09-29).
 - [x] Raccogliere e classificare i problemi senza modificare implicitamente la specifica: registro JSON con schema, ID univoci, area, gravità, classificazione, stato, evidenza e impatto normativo; le due osservazioni iniziali erano difetti del gate, risolti senza modifiche DDF. Una modifica del contratto è rifiutata se priva di decisione e versione obiettivo (`0.12.5`, 2026-09-29).
 - [x] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio: policy e schema di change control richiedono classificazione breaking, impatto normativo, decisione esistente collegata al problema e versione maggiore della baseline; cinque scenari negativi sono protetti dalla regressione (`0.12.5`, DDF-0024, 2026-09-29).
-- [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.
+- [x] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati (`0.12.5`, 2026-09-30).
   - [x] Superare suite Core, build Release e smoke WinForms sul form reale, inclusi tutti i 76 comandi; rendere deterministica la preparazione degli appunti dopo l'osservazione CAND-0003 (`0.12.5`, 2026-09-30).
   - [x] Ripetere in cinque processi Release il budget CAND-0004 sul workspace realistico: tutti i p95 (`8,3`–`12,2 ms`) rispettano il target `16 ms`; mantenere un ingresso smoke mirato per la regressione (`0.12.5`, 2026-09-30).
   - [x] Risolvere CAND-0005/0006/0007 senza modificare il contratto DDF: separare le diagnostiche delle attivazioni rifiutate dal pacchetto attivo, ancorare e correggere il terminatore mancante sullo statement reale e uniformare prodotto/assembly/UI a `0.12.5 Beta`; 226 test Core, build Release e smoke dei 76 comandi verificano la regressione (`0.12.5`, 2026-09-30).
-  - [ ] Completare la sessione umana descritta in `DDF_CANDIDATE_MANUAL_SESSION.md`, registrare ogni anomalia e soltanto allora valutare il passaggio della ricevuta a `ready`.
+  - [x] Completare la sessione umana descritta in `DDF_CANDIDATE_MANUAL_SESSION.md`: verifica assistita e conferma finale del proprietario includono workspace di stress a 41 sorgenti e Playground; nessuna nuova anomalia, ricevuta `ready` (`0.12.5`, 2026-09-30).
 
 ### Criteri di completamento della 0.12
 
@@ -828,6 +879,137 @@ dipendenza logica; il resolver del contesto decide se e come soddisfarla.
 - [ ] Definire packaging e distribuzione: distinguere librerie da incorporare, dipendenze già presenti nel sistema e componenti forniti dall'host, rispettando licenze e divieti di redistribuzione.
 - [ ] Verificare lo stesso contratto tipizzato nei due contesti: build/esecuzione compilata standalone e convalida/esecuzione interpretata embedded, includendo debug, aggiornamento della libreria, revoca di un permesso e assenza della dipendenza.
 
+### 0.13.5 — Evoluzione applicativa controllata del linguaggio DDF
+
+Completare il DDF come linguaggio imperativo, tipizzato, modulare e adatto allo
+scripting reale senza trasformarlo in un clone OOP di C# o Java. Questa fase
+inizia soltanto dopo che il backend Roslyn dispone di un percorso verticale
+verificabile: ogni nuova semantica deve essere implementata nella IR comune,
+nella VM e nel backend compilato nello stesso incremento e confrontata sullo
+stesso corpus. Le decisioni qui pianificate non riaprono né modificano il
+candidato congelato `0.12.5`; richiederanno una nuova versione del linguaggio,
+dei pacchetti e degli schemi interessati.
+
+#### Valori immutabili e stato esplicito
+
+- [ ] Introdurre `fixed` come dichiarazione di costante tipizzata, locale o di modulo, con inizializzatore obbligatorio, valutazione deterministica in compilazione e divieto di assegnazione, incremento o decremento.
+- [ ] Definire le espressioni ammesse negli inizializzatori `fixed`, inizialmente limitate a letterali, enum, altre costanti e operazioni pure verificabili; conservare tipo esplicito nella prima versione.
+- [ ] Introdurre `state` per lo stato mutabile appartenente all'istanza dello script, senza usare la semantica implicita e ambigua delle variabili statiche locali.
+- [ ] Specificare lifecycle, inizializzazione, reset, isolamento tra istanze, concorrenza, snapshot, Watch e persistenza opzionale di `state`; standalone e host embedded devono decidere esplicitamente se e come serializzarlo.
+- [ ] Documentare le funzioni top-level come funzioni di modulo, già equivalenti a funzioni statiche: non aggiungere `static` finché non esiste un modello di tipi con istanze che gli attribuisca un significato distinto.
+
+#### Errori recuperabili e fault non intercettabili
+
+- [ ] Definire valori di errore tipizzati e una dichiarazione verificabile degli errori recuperabili che ogni funzione o API host può produrre.
+- [ ] Progettare una sintassi DDF coerente per esecuzione protetta, recupero selettivo, propagazione esplicita e cleanup garantito; `attempt`/`recover`/`always` sono nomi di lavoro, non ancora keyword normative.
+- [ ] Distinguere errori recuperabili da fault del motore che lo script non può nascondere, inclusi limite di istruzioni, cancellazione forzata, revoca di capacità, violazione di sicurezza e artefatto runtime corrotto.
+- [ ] Conservare codice stabile, tipo, messaggio, documento, span e stack DDF attraversando funzioni, moduli, adapter host, VM e assembly Roslyn, senza esporre eccezioni CLR allo script.
+- [ ] Integrare gli errori tipizzati in analisi dei percorsi, IntelliSense, hover, Quick Fix, debugger, Call Stack, Flowchart e documentazione delle API host.
+
+#### Controllo di flusso e valori simbolici
+
+- [ ] Aggiungere `continue` con destinazione deterministica al ciclo più interno e supporto completo in parser, formatter, IR, Flowchart, stepping e diagnostiche fuori contesto.
+- [ ] Introdurre enum nominali come insiemi tipizzati di costanti simboliche, senza conversioni implicite arbitrarie verso interi e senza trasformarli in classi.
+- [ ] Introdurre una selezione multipla senza fall-through implicito, con ramo predefinito, rilevamento dei casi duplicati e verifica di esaustività quando il dominio è chiuso; `select`/`when`/`otherwise` sono nomi di lavoro.
+- [ ] Progettare un tipo opzionale esplicito per rappresentare presenza o assenza senza introdurre `null`, con controllo obbligatorio prima dell'accesso e integrazione con risultati database, ricerca e API host; `maybe T` è una forma di lavoro.
+
+#### Moduli, collezioni e iterazione
+
+- [ ] Aggiungere qualificazione e alias dei simboli esportati dai moduli per evitare collisioni nello spazio dei nomi piatto, senza usare percorsi di file o directory come namespace impliciti.
+- [ ] Introdurre un costrutto di iterazione tipizzata su array, sequenze e viste host, con ordine deterministico, regole esplicite per la modifica durante l'iterazione e supporto del debugger; `each` è un nome di lavoro.
+- [ ] Definire collezioni dinamiche tipizzate minime: sequenza/lista, mappa e vista host in sola lettura, con conteggio, indicizzazione, iterazione e mutazioni autorizzate.
+- [ ] Evitare generici universali nella prima versione: le collezioni parametrizzate sono capacità integrate e chiuse, condivise da type checker, runtime, host e Roslyn.
+
+#### Tipi e libreria standard applicativa
+
+- [ ] Valutare e introdurre `long` per identificativi e contatori estesi e `decimal` per importi e calcoli decimali esatti, senza importare l'intera famiglia numerica CLR; definire overflow, conversioni e mapping Roslyn.
+- [ ] Rendere le stringhe realmente utilizzabili con concatenazione o formattazione sicura, ricerca, confronto, `contains`, prefisso/suffisso, sottostringa, sostituzione, trim, maiuscolo/minuscolo, split e join.
+- [ ] Estendere la libreria matematica con valore assoluto, min/max, arrotondamento, radice, potenza, logaritmi e funzioni trigonometriche, mantenendo errori e risultati non finiti coerenti con il contratto numerico DDF.
+- [ ] Definire tipi e operazioni controllate per date, orari e durate; rendere tempo corrente e casualità capacità sostituibili per test deterministici, non sorgenti globali implicite.
+- [ ] Versionare effetti, errori, mapping CLR e binding di ogni nuova funzione standard senza inserire comportamenti hardcoded nel parser o nella UI.
+
+#### Test, risorse e asincronia cooperativa
+
+- [ ] Definire asserzioni, casi di test, errori attesi, setup controllato e risultati consumabili da editor e futura CLI, includendo simulazione delle capacità host.
+- [ ] Introdurre una gestione deterministica delle risorse per database, file e librerie esterne, con cleanup LIFO garantito su uscita normale, `ret`, `brk`, `continue`, `end`, errore e cancellazione; `use` o `defer` sono forme da valutare.
+- [ ] Definire operazioni asincrone cooperative per database, rete, IA e host senza introdurre thread condivisi nel linguaggio: sospensione, ripresa, timeout e cancellazione devono mantenere reattivi editor e applicazione host.
+- [ ] Vietare accessi concorrenti impliciti a `state`; una singola istanza non esegue procedure concorrenti salvo futura capacità esplicita con un modello verificabile.
+- [ ] Conservare breakpoint, Step Into/Over/Out, Watch, Call Stack e Flowchart attraverso sospensioni asincrone e cleanup senza mostrare frame o temporanei generati dal backend.
+
+#### Evoluzione e compatibilità dell'Editor SDK
+
+- [ ] Versionare esplicitamente il contratto SDK richiesto dalla nuova semantica, distinguendo versione dei pacchetti NuGet, API pubblica, schemi persistiti, protocollo host e capacità del motore; ogni incremento deve dichiarare compatibilità binaria e sorgente.
+- [ ] Mantenere `DDFLanguageEditor.Core` e `DDFLanguageEditor.WinForms` privi di dipendenze Roslyn: l'embedded continua a validare, interpretare e debuggare script, ma non genera, carica o persiste assembly DDF.
+- [ ] Esporre `fixed` nei simboli, nel completamento e negli snapshot di debug come valore in sola lettura, senza richiedere nuove implementazioni agli host che non ne consumano i metadati.
+- [ ] Definire un provider opzionale e capability-based per caricamento, salvataggio, reset e migrazione di `state`; in assenza del provider lo stato resta limitato alla singola istanza e alla sessione corrente.
+- [ ] Pubblicare contratti immutabili per descrittori e valori di errore tipizzati, recuperabilità, propagazione, stack DDF ed esito delle invocazioni host, senza far attraversare eccezioni CLR il confine SDK.
+- [ ] Aggiungere adapter tipizzati per opzionali, enum, `long`, `decimal`, date/durate, liste, mappe e viste host; vietare cast, reflection o esposizione automatica di collezioni CLR non registrate.
+- [ ] Definire handle o lease di risorsa revocabili con ownership, lifetime e cleanup espliciti; l'host deve poter negare, revocare e osservare la capacità senza consegnare allo script l'oggetto nativo sottostante.
+- [ ] Evolvere le invocazioni asincrone con sospensione cooperativa, cancellazione, timeout, budget e continuazioni versionate, mantenendo una sola esecuzione attiva per istanza salvo futura capacità esplicita.
+- [ ] Estendere snapshot, Watch, Variabili, Call Stack, eventi di pausa e modello Flowchart con i nuovi valori senza esporre temporanei della VM o del codice generato e senza rendere mutabili gli snapshot pubblici.
+- [ ] Versionare persistenza di documenti, breakpoint, Watch, layout, `state` opt-in e progetti; un host deve poter ispezionare e migrare uno snapshot precedente oppure rifiutarlo atomicamente senza perdere la versione leggibile.
+- [ ] Preferire nuove interfacce opzionali, capability e adapter a nuovi membri obbligatori sulle interfacce esistenti; una funzione non supportata produce una diagnostica DDF stabile anziché rompere l'avvio dell'host.
+- [ ] Definire deprecazione e migrazione per ogni API sostituita, mantenendo il vecchio contratto per un intervallo documentato e fornendo esempi prima della rimozione; nessuna rottura silenziosa è ammessa durante la beta.
+- [ ] Aggiornare `DDFLanguageEditor.HostDemo`, `DDFLanguageEditor.DatabaseDemo` e `DDFLanguageEditor.MinimalHost` come esempi e contract test permanenti rispettivamente per isolamento multi-istanza, capacità applicative complete e integrazione minima compatibile.
+- [ ] Coprire almeno un host compilato contro il contratto precedente e avviato con la nuova libreria, oltre a un host aggiornato che abilita tutte le nuove capability; documentare separatamente compatibilità binaria, sorgente e dei dati persistiti.
+- [ ] Mantenere C#/.NET come host di riferimento senza anticipare il supporto post-1.0: VB.NET, F#, WPF e host non-.NET useranno in futuro gli stessi contratti versionati, non implementazioni parallele della semantica DDF.
+
+#### Integrazione dichiarativa e gate di conformità
+
+- [ ] Aggiornare specifica autonoma, EBNF, lessico, grammatica, tipi, semantica, runtime, formatter, IntelliSense, libreria standard, schemi e profili equivalenti per ogni incremento, senza liste parallele nel codice UI.
+- [ ] Estendere il corpus con casi validi, non validi, incompleti, multi-file, embedded e compilati per `fixed`, `state`, errori, enum, selezione, opzionali, moduli qualificati, collezioni, nuovi tipi, risorse e asincronia.
+- [ ] Confrontare VM e Roslyn su valore, output, errori, effetti host, ordine di cleanup, stato persistibile e punti di debug; ogni divergenza blocca il rilascio della relativa funzione.
+- [ ] Aggiungere migrazioni e diagnostiche per keyword nuove o collisioni con identificatori esistenti; i profili sintattici possono rinominare la grafia ma non modificare la semantica.
+- [ ] Aggiornare Playground e futuro Package Studio affinché mostrino token, albero, tipi, errori dichiarati, lowering e anteprima formatter dei nuovi costrutti prima dell'attivazione di un pacchetto.
+
+#### Matrice obbligatoria di stabilità e controllo di flusso
+
+La verifica della `0.13.5` è incrementale: non sostituisce la suite esistente e
+non riparte da zero. I test già acquisiti restano regressioni permanenti; ogni
+nuovo costrutto aggiunge casi Core, differenziali, smoke UI e checkpoint manuali
+proporzionati al rischio. Una funzionalità non è completata finché tutti i
+percorsi applicabili risultano verdi senza allentare i budget esistenti in
+`EDITOR_PERFORMANCE_BUDGETS.md`.
+
+- [ ] Conservare verdi tutti i test Core, gli smoke dinamici e i comandi reali di menu già acquisiti prima di aggiungere nuovi oracoli; nessuna nuova keyword può degradare editing, Undo/Redo, selezione, formattazione, folding, navigazione o cambio profilo.
+- [ ] Creare una matrice combinatoria di `if`, selezione multipla, `for`, `while`, `do while`, funzioni, moduli ed error handling, includendo annidamenti e rami raggiungibili/non raggiungibili.
+- [ ] Verificare `continue`, `brk`, `ret` ed `end` da ogni profondità consentita, sia nel flusso normale sia dentro esecuzione protetta, recupero e cleanup; le destinazioni della IR devono essere univoche e diagnosticabili.
+- [ ] Dimostrare che il cleanup viene eseguito esattamente una volta e in ordine LIFO con uscita normale, `continue`, `brk`, `ret`, `end`, errore recuperato, errore propagato, timeout e cancellazione, anche quando un cleanup fallisce.
+- [ ] Verificare `fixed` con espressioni costanti valide, dipendenze fra costanti, overflow e cicli, oltre al rifiuto di inizializzatori runtime e di ogni assegnazione, incremento o decremento.
+- [ ] Verificare `state` su inizializzazione, più chiamate, reset, istanze parallele isolate, chiusura/riapertura, persistenza opt-in, snapshot, revoca dell'host e rifiuto dell'esecuzione concorrente sulla stessa istanza.
+- [ ] Coprire errori dichiarati, recuperati, propagati e non gestiti, handler duplicati o irraggiungibili e fault non intercettabili; codice, tipo, messaggio, posizione e stack DDF devono restare invariati attraverso file, moduli e adapter host.
+- [ ] Coprire enum, selezione multipla e opzionali con casi completi, incompleti, duplicati e non validi; nessun opzionale può essere letto senza controllo e nessun ramo predefinito può nascondere diagnostiche di tipo.
+- [ ] Coprire qualificazione e alias di modulo con collisioni intenzionali, dipendenze dirette e transitive, export privati, alias duplicati e simboli assenti, mantenendo build e navigazione deterministiche.
+- [ ] Coprire array, liste, mappe, viste host e iterazione su raccolte vuote, minime e grandi; definire e testare modifica durante iterazione, limiti, identità, aliasing, ordine e revoca della vista.
+- [ ] Coprire `long`, `decimal`, stringhe, matematica, date, tempo e casualità con valori limite, conversioni, culture differenti, overflow, precisione, risultati non finiti e provider deterministici sostituibili.
+- [ ] Aggiungere test generativi o matrici equivalenti per precedenze, recovery, formatter idempotente e trasformazione dei profili, includendo identificatori storici che collidono con le nuove keyword.
+- [ ] Eseguire contract test SDK su host legacy senza nuove capability, host aggiornato completo, più istanze isolate, persistenza precedente/corrente, capability revocata e snapshot non migrabile; ogni fallimento deve lasciare l'host in uno stato coerente e riutilizzabile.
+
+#### Debugger, Flowchart e osservabilità
+
+- [ ] Per ogni nuovo statement verificare breakpoint prima, dentro e dopo il costrutto, Step Into/Over/Out, Continua, Stop, rimappatura dopo modifiche e cambio automatico della scheda in workspace e moduli multifile.
+- [ ] Rendere osservabili in Watch e Variabili `fixed`, `state`, enum, opzionali, collezioni ed errori senza consentire mutazioni; Call Stack e selezione del frame devono mostrare soltanto simboli e sorgenti DDF.
+- [ ] Verificare pausa e ripresa dentro recupero, cleanup, iterazione e sospensione asincrona, compresi timeout e cancellazione; nessun frame o temporaneo generato da Roslyn deve trapelare nella UI DDF.
+- [ ] Estendere il modello Flowchart con `continue`, selezione multipla, ramo di errore, propagazione, cleanup e sospensione; ogni uscita deve raggiungere la destinazione semantica corretta.
+- [ ] Ripetere i test geometrici della Flowchart su diagrammi semplici e complessi: nessuna intersezione o sovrapposizione tra linee continue e tratteggiate, etichette leggibili, gomiti condivisi quando leciti e frecce coerenti prima dei ricongiungimenti.
+- [ ] Verificare che l'evidenziazione del percorso runtime nella Flowchart e la riga corrente dell'editor restino sincronizzate durante stepping, cambio file, recupero e cleanup.
+
+#### Stress, prestazioni e confronto VM/Roslyn
+
+- [ ] Estendere il workspace di stress a nuove semantiche e misurare molti file/moduli, stack profondi, numerosi `state`, collezioni grandi, errori ripetuti, sospensioni frequenti e breakpoint distribuiti senza bloccare la UI.
+- [ ] Eseguire sessioni prolungate con apertura/chiusura documenti, modifica durante pausa, cambio profilo, Run/Debug ripetuti, cancellazione e risorse host; controllare memoria, handle, GDI/USER, code asincrone e assenza di callback dopo il dispose.
+- [ ] Misurare input, selezione, scroll, colorazione, analisi, completamento, apertura popup, caricamento workspace, cambio pacchetto, Flowchart e debugger sui carichi realistici; una regressione oltre budget deve essere risolta o registrata e differita esplicitamente, mai nascosta alzando il target.
+- [ ] Eseguire ogni programma normativo sia con IR/VM sia con IR/Roslyn e confrontare valore, output, errori, effetti host, ordine di valutazione, mutazioni di `state`, aliasing, cleanup, sospensioni e punti di pausa osservabili.
+- [ ] Ripetere build e test in processi isolati e con culture/configurazioni controllate, verificando fingerprint, assembly, PDB e risultati deterministici; gli artefatti compilati non possono dipendere da stato globale o ordine casuale dei file.
+- [ ] Eseguire test automatici Core a ogni incremento, smoke WinForms sui flussi reali, misure Release isolate per i budget e una sessione manuale visuale/accessibile prima di chiudere ogni checkpoint semantico rilevante.
+- [ ] Bloccare attivazione del pacchetto, dichiarazione di conformità e chiusura della milestone se VM e Roslyn divergono oppure se restano anomalie non classificate in controllo di flusso, cleanup, debug o isolamento host.
+
+#### Funzioni differite e confini intenzionali
+
+- [ ] Valutare dopo il nucleo precedente, senza renderle prerequisiti automatici della prima stabile: parametri predefiniti, argomenti nominati, espressione condizionale, range, tuple, destructuring, funzioni come valori, lambda/closure, funzioni locali, pattern matching avanzato, attributi, slicing e comprehension.
+- [ ] Continuare a escludere dal nucleo iniziale classi con ereditarietà, metodi virtuali, overload, operator overloading, reflection, `dynamic`, puntatori, memoria manuale, `goto`, macro/preprocessore, concorrenza condivisa, eccezioni CLR e caricamento arbitrario di librerie dal sorgente.
+- [ ] Mantenere strutture, moduli, funzioni e cataloghi host come modello principale: eventuali future astrazioni a oggetti richiederanno un caso d'uso non risolvibile con questi strumenti e una decisione normativa separata.
+
 ### Criteri di completamento della 0.13
 
 - almeno un programma multi-file viene compilato separatamente, collegato ed eseguito fuori dall'IDE;
@@ -835,7 +1017,11 @@ dipendenza logica; il resolver del contesto decide se e come soddisfarla.
 - build ripetute con gli stessi input producono artefatti deterministici;
 - moduli incompatibili o malformati vengono rifiutati con diagnostiche chiare;
 - riferimenti esterni producono lo stesso contratto tipizzato, ma vengono risolti per la compilazione soltanto nello standalone e come adapter/capacità runtime nell'embedded;
-- debug e CLI condividono le regole del pacchetto senza implementazioni parallele del linguaggio.
+- debug e CLI condividono le regole del pacchetto senza implementazioni parallele del linguaggio;
+- il nucleo applicativo pianificato nella `0.13.5` dispone di specifica, corpus e implementazione equivalente su VM e Roslyn, oppure ogni elemento non completato viene esplicitamente rinviato prima di dichiarare chiusa la milestone;
+- `fixed`, `state`, errori recuperabili, valori opzionali, collezioni, risorse e asincronia non introducono stato globale implicito, `null`, eccezioni CLR o concorrenza non governata;
+- gli host SDK esistenti continuano ad avviarsi senza adottare capability opzionali, mentre gli host aggiornati possono usare l'intera semantica nuova tramite contratti versionati e testati;
+- Core e WinForms restano compiler-free e nessun percorso embedded genera o carica assembly DDF.
 
 ## 0.14 — DDF Language Package Studio
 
@@ -957,19 +1143,53 @@ implicita; l'utente può verificare le modifiche e continuare a lavorare senza I
 Gli altri adapter saranno aggiunti in base alle richieste degli integratori,
 verificando API, termini del servizio e licenze dei modelli al momento dell'uso.
 
-## Dopo 0.16 — Backend aggiuntivi e preparazione della 1.0
+## Dopo 0.16 — Stabilizzazione dell'ecosistema e preparazione della 1.0
 
-- [ ] Estendere il manifest di progetto di base con dipendenze, configurazioni e distribuzione di pacchetti riutilizzabili.
-- [ ] Valutare backend compilati separati senza accoppiare l'editor a uno specifico compilatore.
-- [ ] Definire i gate finali di compatibilità, distribuzione, documentazione e supporto per `1.0.0`.
+La prima stabile usa VM DDF per l'embedded e backend Roslyn per standalone/CLI.
+Non viene trattenuta in attesa di CIL diretto o bytecode proprietario: prima si
+validano linguaggio, SDK e librerie su applicazioni reali, mantenendo Roslyn come
+backend maturo e la VM come oracolo semantico.
 
-## Dopo 1.0 — Portabilità dell'SDK e compatibilità degli host
+- [ ] Congelare l'insieme di funzioni linguistiche ammesse nella 1.0 e aprire una finestra di stabilizzazione senza nuove keyword, salvo correzioni governate e migrazioni obbligatorie.
+- [ ] Estendere il manifest di progetto con dipendenze, configurazioni, classificazione transitiva della portabilità e distribuzione di pacchetti riutilizzabili.
+- [ ] Separare `ddf.standard`, moduli ufficiali portabili, adapter .NET, componenti native/COM e capability host nei nomi, nei manifesti, nella documentazione e nella UI del gestore pacchetti.
+- [ ] Portare a qualità stabile un insieme ridotto ma sufficiente di librerie ufficiali per testo, collezioni, matematica, date/tempo, serializzazione, I/O controllato, dati/database, logging, configurazione e test.
+- [ ] Applicare a ogni libreria ufficiale il gate di documentazione, esempi, errori/effetti, licenza, test differenziali, compatibilità, deprecazione e ownership manutentiva; pacchetti incompleti restano sperimentali.
+- [ ] Realizzare applicazioni standalone ed embedded rappresentative che usino moduli, librerie, errori, stato, asincronia, debug, persistenza e capability senza dipendere da scorciatoie interne dell'editor.
+- [ ] Definire i gate finali di compatibilità, sicurezza, prestazioni, accessibilità, distribuzione, documentazione e supporto per `1.0.0`.
+- [ ] Dichiarare portabile soltanto un progetto verificato end-to-end su ogni piattaforma supportata con lo stesso lockfile compatibile; COM, DLL native e API host specifiche impediscono il profilo `portable` salvo adapter alternativi espliciti.
 
-Questa fase resta intenzionalmente l'ultimo ampliamento della roadmap: prima si
-stabilizzano contratto, runtime, sicurezza, distribuzione e integrazione
-WinForms. La compatibilità riguarda il linguaggio e la tecnologia
-dell'applicazione ospitante, non i profili sintattici caricati nell'editor e non
-implica supporto nativo ai linguaggi imitati dai pacchetti DDF.
+## Dopo 1.0 — Ecosistema maturo, backend autonomi e portabilità SDK
+
+L'ordine di questa fase è intenzionale: consolidare prima l'ecosistema su casi
+reali, poi sostituire Roslyn con emissione CIL diretta, infine progettare il
+bytecode. CIL e bytecode restano backend complementari; il secondo non cancella
+il primo. La compatibilità degli host prosegue sullo stesso Core e non implica
+supporto nativo ai linguaggi imitati dai profili sintattici.
+
+### Gate di maturità dell'ecosistema
+
+- [ ] Raccogliere casi d'uso e profili prestazionali da applicazioni reali, classificando ciò che richiede linguaggio, libreria portabile, adapter di piattaforma o capability host.
+- [ ] Stabilizzare ABI runtime, modello dei moduli, errori, collezioni, cleanup, asincronia, debug map e formato dei pacchetti prima di promettere compatibilità per nuovi artefatti compilati.
+- [ ] Mantenere un catalogo ufficiale curato e un processo di promozione da sperimentale a stabile; nessuna libreria diventa standard soltanto perché molto usata o perché avvolge una API .NET.
+
+### Backend CIL diretto
+
+- [ ] Definire un'interfaccia backend sostituibile che riceve soltanto IR bound e contratti runtime versionati, senza dipendere dalla UI o dal sorgente C# generato.
+- [ ] Emettere direttamente metadati CLR, CIL, assembly, riferimenti e Portable PDB con name mangling e mappe DDF deterministici.
+- [ ] Conservare Roslyn come oracolo fino a quando VM, Roslyn e CIL diretto coincidono sull'intero corpus e sulle applicazioni rappresentative per valori, errori, effetti, cleanup, prestazioni e debug.
+- [ ] Rendere il backend CIL diretto predefinito soltanto dopo compatibilità, diagnostica, riproducibilità e supporto operativo equivalenti o superiori a Roslyn; mantenere rollback e selezione esplicita durante la transizione.
+
+### Bytecode DDF e VM portabile
+
+- [ ] Aprire la progettazione del bytecode soltanto dopo il gate di maturità dell'ecosistema e la stabilizzazione del backend CIL diretto; documentare i casi reali che richiedono un formato DDF indipendente dal CLR.
+- [ ] Specificare formato binario versionato, instruction set, tipi, costanti, moduli, chiamate, errori, cleanup, asincronia, capability e debug map senza incorporare dettagli CIL, Roslyn o del layout di una VM particolare.
+- [ ] Implementare compilatore IR bound → bytecode, verifier strutturale e tipizzato, linker/loader e ricevuta riproducibile prima di eseguire artefatti non fidati.
+- [ ] Evolvere la VM di riferimento in una VM bytecode mantenendo limiti, cancellazione, capability, osservabilità e isolamento; l'esecuzione in-process non viene dichiarata sandbox senza un confine di processo.
+- [ ] Verificare lo stesso artefatto bytecode su almeno due implementazioni o piattaforme della VM prima di dichiarare portabilità del formato; confrontare sempre VM, CIL diretto e backend di riferimento sul corpus normativo.
+- [ ] Conservare il backend CIL per EXE/DLL .NET e usare il bytecode principalmente per embedded, distribuzione portabile e runtime controllati; la scelta appartiene al manifest e non cambia la semantica DDF.
+
+### Portabilità dell'SDK e compatibilità degli host
 
 - [ ] Pubblicare pacchetti SDK separati e versionati per Core e WinForms, senza richiedere un riferimento all'eseguibile standalone.
 - [ ] Mantenere C#/.NET come integrazione di riferimento e aggiungere demo e contract test per host VB.NET e F#.
@@ -983,7 +1203,10 @@ implica supporto nativo ai linguaggi imitati dai pacchetti DDF.
 Criteri di completamento: ogni combinazione dichiarata supportata dispone di un
 pacchetto installabile, una demo compilabile, test automatici e documentazione
 del ciclo di vita; gli host non-.NET comunicano attraverso un confine esplicito
-e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
+e non ottengono accesso diretto agli oggetti interni dell'editor o della VM. Il
+backend CIL è promosso soltanto dopo equivalenza con Roslyn e il bytecode è
+dichiarato portabile soltanto dopo esecuzione dello stesso artefatto su runtime
+indipendenti verificati.
 
 ## Principi di sviluppo
 
@@ -1004,6 +1227,10 @@ e non ottengono accesso diretto agli oggetti interni dell'editor o della VM.
 
 | Data | Decisione | Motivazione |
 | --- | --- | --- |
+| 2026-09-30 | Pubblicare la prima 1.0 con VM embedded e backend Roslyn stabile, rinviando CIL diretto e bytecode alla maturità dell'ecosistema | Evitare che il prodotto resti bloccato dalla costruzione prematura di una toolchain proprietaria; applicazioni e librerie reali devono prima stabilizzare semantica e ABI. Dopo la 1.0 l'ordine vincolante è ecosistema maturo, CIL diretto verificato contro Roslyn, quindi bytecode DDF e VM portabile. |
+| 2026-09-30 | Rendere vincolanti dieci guardrail su sintassi, librerie, IR, SDK, portabilità, bytecode, OOP, conformità, prestazioni e qualità | Trasformare i principali rischi del progetto in gate verificabili: nessuna nuova sintassi senza problema reale, nessun wrapper di piattaforma presentato come standard, nessuna dipendenza Roslyn nel Core, nessuna portabilità o regressione occultata per dichiarazione. |
+| 2026-09-30 | Usare `fixed` per le costanti tipizzate e `state` per lo stato mutabile dell'istanza | Distinguere in modo visibile valori immutabili e stato persistibile senza importare `const`/`static` e le relative assunzioni OOP; le funzioni top-level restano funzioni di modulo e la persistenza di `state` è sempre esplicita. |
+| 2026-09-30 | Pianificare nella `0.13.5` l'evoluzione applicativa del DDF dopo il primo backend Roslyn verificabile | Completare errori tipizzati, controllo di flusso, valori opzionali, enum, moduli qualificati, collezioni, tipi applicativi, libreria standard, test, risorse e asincronia implementandoli insieme su VM e Roslyn, senza riaprire il candidato `0.12.5` o trasformare DDF in un linguaggio OOP generalista. |
 | 2026-09-28 | Limitare compilatore Roslyn, emit, linker, loader e pubblicazione a standalone e CLI | L'embedded deve rimanere sempre scripting interpretato di espansione dell'host: conserva analisi e debug, ma non genera, carica o persiste assembly DDF e non acquisisce dipendenze dal compilatore. |
 | 2026-09-27 | Includere soltanto il DDF e trattare tutti gli altri profili come pacchetti utente installati | Mantenere una sola identità linguistica predefinita e un solo fallback affidabile; italiano, like-C e futuri profili attraversano lo stesso catalogo, la stessa convalida e lo stesso lifecycle dei pacchetti creati dagli utenti. |
 | 2026-09-27 | Convertire dinamicamente le schede aperte quando cambia il profilo sintattico | Rendere immediatamente osservabile il cambio lingua senza riscritture manuali; la trasformazione usa ruoli semantici, resta in memoria, marca i buffer modificati ed è annullabile. I file non aperti richiederanno una futura conversione workspace esplicita prima di qualsiasi scrittura su disco. |

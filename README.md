@@ -335,6 +335,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/language-corpus/`: corpus normativo completo con manifesto, oracoli runtime, diagnostiche per fase e progetti multi-file;
 - `samples/project/`: workspace con `ddf-project.json` pronto per Convalida, Build, Run e Debug;
 - `samples/flowchart-workspace/`: workspace multi-file per provare navigazione tra funzioni, gruppi comprimibili, Flowchart e debug attraversando tutti i principali costrutti di controllo;
+- `samples/debug-large-workspace/`: stress test del debugger con 41 sorgenti, 41 frame di stack, breakpoint profondi e Watch su array;
 - `samples/module-workspace/`: applicazione con una libreria DDF versionata installata nello store locale e API limitata agli export;
 - `samples/DDFLanguageEditor.HostDemo/`: applicazione WinForms separata con due istanze isolate del controllo incorporabile;
 - `samples/DDFLanguageEditor.DatabaseDemo/`: integrazione completa con database di prova, regola personalizzata, transazione, debug e flowchart;

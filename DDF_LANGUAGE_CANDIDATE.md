@@ -99,8 +99,10 @@ nella `0.13`. La parola “Build” nella `0.12.5` indica ancora validazione e
 preparazione IR, non emissione di assembly DDF.
 
 La ricevuta `ddf-language-candidate-evaluation.json` mantiene separati esito
-automatico e manuale. Il primo è verde; il secondo resta `pending`, quindi la
-readiness è correttamente `not-ready` e lo stato pubblico rimane `beta`.
+automatico e manuale. Entrambi sono verdi dopo la sessione assistita e la
+conferma finale del proprietario, quindi la readiness è `ready`; lo stato
+pubblico rimane comunque `beta` finché un cambiamento separato e verificato non
+promuoverà esplicitamente la stabilità del prodotto e del linguaggio.
 CAND-0004 è stata chiusa dopo cinque processi Release isolati sul carico
 normativo di 2.000 righe e 40 file: i p95 `8,6`, `8,9`, `8,9`, `12,2` e `8,3 ms`
 rispettano tutti il target `16 ms`. Il precedente `24,5 ms` era stato osservato

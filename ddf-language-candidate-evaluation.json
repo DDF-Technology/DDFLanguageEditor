@@ -7,16 +7,16 @@
   "automated": {
     "status": "passed",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-dynamic-smoke.ps1",
-    "coreTestsPassed": 226,
+    "coreTestsPassed": 227,
     "menuCommandsCovered": 76,
     "releaseWarnings": 0,
     "releaseErrors": 0
   },
   "manual": {
-    "status": "pending",
+    "status": "passed",
     "checklist": "DDF_CANDIDATE_MANUAL_SESSION.md",
-    "completedBy": null,
-    "notes": "Verifica visiva assistita completata sulla build Release: buffer, navigazione, IntelliSense, formattazione, debug multifile, Watch, Call Stack, flowchart, export JPEG, convalida, build, profili lingua e persistenza hanno risposto correttamente. CAND-0005, CAND-0006 e CAND-0007 sono risolte e protette da regressioni automatiche; la conferma umana finale sulla build corretta resta pending e il candidato non supera ancora il gate manuale."
+    "completedBy": "project-owner",
+    "notes": "Verifica visiva assistita e conferma finale del proprietario completate sulla build corretta: buffer, navigazione, IntelliSense, formattazione, debug multifile, Watch, Call Stack, flowchart, export JPEG, convalida, build, profili lingua e persistenza hanno risposto correttamente. Il workspace di stress con 41 sorgenti ha restituito 3344 con stack profondo e Watch coerenti; il Playground ha aggiornato token, albero, diagnostiche e formattazione senza modificare il documento. CAND-0005, CAND-0006 e CAND-0007 sono risolte e protette da regressioni automatiche."
   },
-  "readiness": "not-ready"
+  "readiness": "ready"
 }

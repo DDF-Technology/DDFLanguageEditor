@@ -1,0 +1,18 @@
+stage40(int value) out int
+{
+    int baseValue << value + 40;
+    int[4] values;
+    int total << 0;
+
+    values[0] << baseValue;
+    values[1] << baseValue + 10;
+    values[2] << baseValue + 20;
+    values[3] << baseValue + 30;
+
+    for(int index << 0; index < 4; index++)
+    {
+        total << total + values[index];
+    }
+
+    ret total;
+}

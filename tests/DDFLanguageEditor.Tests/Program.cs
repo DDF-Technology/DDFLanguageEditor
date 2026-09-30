@@ -125,7 +125,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
             Run("keeps candidate issues classified without implicit language changes", KeepsCandidateIssuesClassified);
             Run("rejects ungoverned incompatible DDF candidate changes", RejectsUngovernedCandidateChanges);
-            Run("keeps DDF candidate readiness pending until manual validation", KeepsCandidateReadinessPendingUntilManualValidation);
+            Run("keeps DDF candidate readiness aligned with manual validation", KeepsCandidateReadinessAlignedWithManualValidation);
             Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
@@ -134,6 +134,7 @@ namespace DDFLanguageEditor.Tests
             Run("resolves versioned modules with export visibility and cycle checks", ResolvesVersionedModulesWithExportVisibilityAndCycleChecks);
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
+            Run("validates and debugs the shipped large workspace", ValidatesAndDebugsShippedLargeWorkspace);
             Run("validates the shipped versioned module workspace", ValidatesShippedModuleWorkspace);
             Run("exposes direct module exports to live editor analysis", ExposesModuleExportsToEditorAnalysis);
             Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
@@ -3892,7 +3893,7 @@ namespace DDFLanguageEditor.Tests
             return errors;
         }
 
-        private static void KeepsCandidateReadinessPendingUntilManualValidation()
+        private static void KeepsCandidateReadinessAlignedWithManualValidation()
         {
             string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "..", "..", "..", ".."));
@@ -3922,8 +3923,8 @@ namespace DDFLanguageEditor.Tests
             bool mayBeReady = automated["status"].GetValue<string>() == "passed" &&
                 manual["status"].GetValue<string>() == "passed" && open == 0 && blocking == 0;
             Equal(mayBeReady ? "ready" : "not-ready", readiness);
-            Equal("pending", manual["status"].GetValue<string>());
-            Equal(null, manual["completedBy"]?.GetValue<string>());
+            Equal("passed", manual["status"].GetValue<string>());
+            Equal(true, !string.IsNullOrWhiteSpace(manual["completedBy"]?.GetValue<string>()));
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()
@@ -4289,6 +4290,58 @@ namespace DDFLanguageEditor.Tests
             Equal(true, execution.Succeeded);
             Equal(301, execution.ReturnValue);
             SequenceEqual(new[] { "Flowchart workspace completed" }, output);
+        }
+
+        private static void ValidatesAndDebugsShippedLargeWorkspace()
+        {
+            string root = Path.Combine(Environment.CurrentDirectory, "samples", "debug-large-workspace");
+            DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
+            Equal(true, loaded.Success);
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            DdfBuildResult result = new DdfBuildService().Validate(root, loaded.Manifest, package);
+            if (!result.Success)
+                throw new InvalidOperationException(string.Join(" | ", result.Issues.Select(
+                    issue => issue.Code + ": " + issue.Message)));
+
+            Equal("ddf.sample.debug.large", result.Artifact.ModuleId);
+            Equal("main.ddf", result.Artifact.EntrySource);
+            Equal(41, result.Artifact.Sources.Count);
+            Equal(41, result.Artifact.RuntimeModules.Count);
+
+            string stage40Path = Path.Combine(root, "stage-40.ddf");
+            int pauses = 0;
+            DdfDebugPauseInfo firstPause = null;
+            using var debugger = new DdfDebuggerSession();
+            debugger.SetBreakpoints(new[] { new DdfSourceBreakpoint(stage40Path, 14) });
+            debugger.Paused = pause =>
+            {
+                if (Interlocked.Increment(ref pauses) == 1)
+                    firstPause = pause;
+                debugger.Continue();
+            };
+
+            var output = new List<string>();
+            DdfExecutionResult execution = DdfInterpreter.Execute(result.Artifact.RuntimeModules,
+                package.Language, new DdfExecutionOptions
+                {
+                    EntryPoint = result.Artifact.EntryPoint,
+                    Output = output.Add,
+                    DebuggerSession = debugger
+                });
+
+            Equal(true, execution.Succeeded);
+            Equal(3344, execution.ReturnValue);
+            Equal(4, pauses);
+            Equal(true, firstPause != null);
+            Equal(14, firstPause.Line);
+            Equal(Path.GetFullPath(stage40Path), Path.GetFullPath(firstPause.DocumentPath));
+            Equal(41, firstPause.State.CallStack.Count);
+            Equal("stage40", firstPause.State.CallStack[0].FunctionName);
+            Equal("main", firstPause.State.CallStack[40].FunctionName);
+            Equal("821", DdfWatch.Evaluate("baseValue", firstPause.State).Value.DisplayValue);
+            Equal("821", DdfWatch.Evaluate("values[0]", firstPause.State).Value.DisplayValue);
+            Equal("851", DdfWatch.Evaluate("values[3]", firstPause.State).Value.DisplayValue);
+            SequenceEqual(new[] { "Large debugger workspace completed" }, output);
         }
 
         private static void ValidatesShippedModuleWorkspace()
