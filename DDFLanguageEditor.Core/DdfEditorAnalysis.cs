@@ -271,8 +271,17 @@ namespace DDFLanguageEditor.Core
                     request.ExternalRoots, cancellationToken, request.HostCatalog)
                 : new DdfCompletionResult(request.Position, 0,
                     Array.Empty<DdfCompletionItem>());
+            // The generic grammar diagnostic is useful when the typed parser accepts a construct
+            // that the package grammar forbids. When the typed parser already reports a concrete
+            // missing token, however, DDFG101 is only a remote and misleading duplicate.
+            IEnumerable<DdfDiagnostic> syntaxDiagnostics = parse.Diagnostics.Count == 0
+                ? parse.ValidationDiagnostics
+                : parse.Diagnostics;
+            IEnumerable<DdfDiagnostic> irDiagnostics = parse.Diagnostics.Count == 0
+                ? ir.Diagnostics
+                : ir.Diagnostics.Except(parse.GrammarDiagnostics);
             IReadOnlyList<DdfDiagnostic> diagnostics = MergeDiagnostics(
-                parse.ValidationDiagnostics, semantics.Diagnostics, types.Diagnostics, ir.Diagnostics);
+                syntaxDiagnostics, semantics.Diagnostics, types.Diagnostics, irDiagnostics);
             diagnostics = diagnostics.Select(language.Intellisense.Diagnostics.Apply).ToList().AsReadOnly();
             return new DdfEditorAnalysisSnapshot(requestId, request, lex, parse, semantics, types,
                 ir, symbols, folding, completions, diagnostics, DateTimeOffset.UtcNow);

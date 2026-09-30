@@ -7,7 +7,7 @@
   "automated": {
     "status": "passed",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-dynamic-smoke.ps1",
-    "coreTestsPassed": 225,
+    "coreTestsPassed": 226,
     "menuCommandsCovered": 76,
     "releaseWarnings": 0,
     "releaseErrors": 0
@@ -16,7 +16,7 @@
     "status": "pending",
     "checklist": "DDF_CANDIDATE_MANUAL_SESSION.md",
     "completedBy": null,
-    "notes": "La parte automatica e gli smoke sul form reale sono verdi; manca la conferma umana della sessione guidata."
+    "notes": "Verifica visiva assistita completata sulla build Release: buffer, navigazione, IntelliSense, formattazione, debug multifile, Watch, Call Stack, flowchart, export JPEG, convalida, build, profili lingua e persistenza hanno risposto correttamente. CAND-0005, CAND-0006 e CAND-0007 sono risolte e protette da regressioni automatiche; la conferma umana finale sulla build corretta resta pending e il candidato non supera ancora il gate manuale."
   },
   "readiness": "not-ready"
 }

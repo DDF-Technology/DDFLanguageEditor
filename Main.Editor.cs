@@ -358,15 +358,12 @@ namespace DDF___Program_Language_Editor
             if (documentSession.IsDirty)
                 updateWorkspaceDocument(documentSession.CurrentPath, text, snapshot.ParseResult.Root);
 
-            var allDiagnostics = new List<DdfDiagnostic>(snapshot.ParseResult.Diagnostics);
-            foreach (DdfDiagnostic diagnostic in snapshot.SemanticModel.Diagnostics)
-            {
-                if (!isResolvedByWorkspace(diagnostic, text)) allDiagnostics.Add(diagnostic);
-            }
-            allDiagnostics.AddRange(snapshot.TypeCheckResult.Diagnostics);
-            allDiagnostics.AddRange(snapshot.IntermediateRepresentation.Diagnostics);
-            allDiagnostics = allDiagnostics.Select(snapshot.Request.LanguagePackage.Language.Intellisense
-                .Diagnostics.Apply).ToList();
+            // Consume the normalized diagnostic set produced by the shared analysis service.
+            // Reassembling parser/IR diagnostics here used to reintroduce generic DDFG101
+            // duplicates that the analysis layer had already suppressed in favour of DDF102.
+            var allDiagnostics = snapshot.Diagnostics
+                .Where(diagnostic => !isResolvedByWorkspace(diagnostic, text))
+                .ToList();
             allDiagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
             int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue

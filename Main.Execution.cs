@@ -174,7 +174,7 @@ namespace DDF___Program_Language_Editor
                 string buildIdentity = activeRuntimeArtifact == null ? string.Empty :
                     " [" + activeRuntimeArtifact.Backend + ", " +
                     activeRuntimeArtifact.Fingerprint.Substring(0, 12) + "]";
-                appendOutput("DDFLanguageEditor 0.11.2 Beta — " +
+                appendOutput(ProductInfo.DisplayName + " — " +
                     (debug ? "debug" : "esecuzione") + " di " +
                     runtimeEntryPoint + "()" + buildIdentity);
             }

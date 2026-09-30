@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.12.4 - in sviluppo
+## 0.12.5 - in sviluppo
 
+- Risolte le tre anomalie emerse dalla verifica visiva del candidato: la finestra del pacchetto attivo non mescola piu diagnostiche di attivazioni rifiutate, i token mancanti sono ancorati allo statement reale e offrono il Quick Fix nel punto corretto senza il duplicato remoto `DDFG101`, mentre titolo, Output, About e versioni assembly espongono coerentemente `0.12.5 Beta`.
 - Avviato il ciclo `0.12.5` Language Candidate senza anticiparne la dichiarazione: `DDF_LANGUAGE_CANDIDATE.md` definisce perimetro congelato, procedura di modifica, registro problemi e gate di uscita. Una baseline macchina conserva le impronte SHA-256 normalizzate dei 17 artefatti normativi e una regressione ne blocca la deriva accidentale; DDF-0023 mantiene lo stato pubblico `beta` fino al completamento delle verifiche.
 - Superato il gate trasversale della toolchain candidata sul corpus normativo: analisi/diagnostiche coprono 6 programmi validi, 8 non validi, 4 incompleti e 3 workspace multi-file; per ogni valido vengono inoltre verificati IntelliSense, formatter idempotente e semanticamente equivalente, pausa/ripresa reale del debugger, runtime e doppia Build di preparazione con fingerprint stabile. Il backend resta correttamente `ddf-vm-ir-v1`: Roslyn appartiene alla `0.13`.
 - Introdotto il registro verificabile dei problemi del candidato con schema JSON, classificazione, gravità, stato, evidenze e contatori coerenti. Le prime due osservazioni documentano errori dell'infrastruttura dei gate già risolti, senza impatto sul DDF; qualsiasi futura voce che dichiari una modifica normativa deve indicare obbligatoriamente decisione `DDF-nnnn` e nuova versione del linguaggio.

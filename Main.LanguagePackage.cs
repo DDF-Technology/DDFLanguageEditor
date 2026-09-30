@@ -434,8 +434,11 @@ namespace DDF___Program_Language_Editor
         {
             if (languagePackageInfoForm == null || languagePackageInfoForm.IsDisposed)
             {
+                // The active-package dialog must describe only the package that is actually in use.
+                // Diagnostics from a rejected activation remain available in the status tooltip and
+                // in the rejection dialog, but mixing them here made a healthy package look invalid.
                 languagePackageInfoForm = new LanguagePackageInfoForm(editorLanguageSession.ActivePackage,
-                    editorLanguageSession.Diagnostics.Concat(languagePackageActivationDiagnostics).ToList());
+                    editorLanguageSession.Diagnostics);
                 languagePackageInfoForm.FormClosed += (closedSender, closedArgs) => languagePackageInfoForm = null;
                 languagePackageInfoForm.Show(this);
                 return;

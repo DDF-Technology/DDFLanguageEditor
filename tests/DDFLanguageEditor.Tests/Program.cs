@@ -59,6 +59,7 @@ namespace DDFLanguageEditor.Tests
             Run("offers safe lexical quick fixes", OffersSafeLexicalQuickFixes);
             Run("inserts parser expected tokens", InsertsParserExpectedTokens);
             Run("anchors missing tokens before intervening trivia", AnchorsMissingTokensBeforeTrivia);
+            Run("anchors and repairs incomplete multi-file returns", AnchorsAndRepairsIncompleteMultiFileReturns);
             Run("restores mandatory opening braces structurally", RestoresMandatoryOpeningBracesStructurally);
             Run("restores nested closing braces structurally", RestoresNestedClosingBracesStructurally);
             Run("keeps valid braces independent from indentation", KeepsValidBracesIndependentFromIndentation);
@@ -827,11 +828,47 @@ namespace DDFLanguageEditor.Tests
             const string source = "main() out int\n{\n    int value << 1\n\n    ret value;\n}";
             DdfDiagnostic diagnostic = DdfParser.Parse(source).Diagnostics.First(item =>
                 item.Code == "DDF102" && item.Message.Contains("';'"));
-            DdfQuickFix fix = DdfQuickFixService.CreateDefault().GetFixes(source, diagnostic).Single();
             int expectedInsertion = source.IndexOf('1') + 1;
+            Equal(expectedInsertion - 1, diagnostic.Start);
+            Equal(3, diagnostic.Line);
+            DdfQuickFix fix = DdfQuickFixService.CreateDefault()
+                .GetFixesAt(source, new[] { diagnostic }, diagnostic.Start).Single();
             Equal(expectedInsertion, fix.Start);
             Equal(';', ApplyQuickFix(source, fix)[expectedInsertion]);
-            Equal(true, diagnostic.Start > fix.Start);
+        }
+
+        private static void AnchorsAndRepairsIncompleteMultiFileReturns()
+        {
+            const string valid =
+                "main() out int\n" +
+                "{\n" +
+                "    Pair pair;\n" +
+                "    pair.left << 19;\n" +
+                "    pair.right << 23;\n" +
+                "    ret add(pair.left, pair.right);\n" +
+                "}";
+            string source = valid.Replace("pair.right);", "pair.right)", StringComparison.Ordinal);
+            int expectedInsertion = source.LastIndexOf(')') + 1;
+            DdfParseResult parse = DdfParser.Parse(source);
+            DdfDiagnostic diagnostic = parse.Diagnostics.Single(item =>
+                item.Code == "DDF102" && item.Message.Contains("';'", StringComparison.Ordinal));
+            Equal(6, diagnostic.Line);
+            Equal(expectedInsertion - 1, diagnostic.Start);
+            Equal(expectedInsertion, diagnostic.InsertionPosition.Value);
+
+            DdfQuickFix fix = DdfQuickFixService.CreateDefault()
+                .GetFixesAt(source, parse.Diagnostics, diagnostic.Start).Single();
+            Equal(expectedInsertion, fix.Start);
+            Equal(valid, ApplyQuickFix(source, fix));
+
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            using (var analysis = new DdfEditorAnalysisService())
+            {
+                DdfEditorAnalysisSnapshot snapshot = analysis.Analyze(
+                    new DdfEditorAnalysisRequest(source, diagnostic.Start, 1, package, 1));
+                Equal(true, snapshot.Diagnostics.Any(item => item.Code == "DDF102" && item.Line == 6));
+                Equal(false, snapshot.Diagnostics.Any(item => item.Code == "DDFG101"));
+            }
         }
 
         private static void RestoresMandatoryOpeningBracesStructurally()
@@ -1173,6 +1210,13 @@ namespace DDFLanguageEditor.Tests
                 DdfParser.Parse(source, result.Package.Language).Diagnostics.Count);
             Equal(DdfFormatter.Format(source).Text,
                 DdfFormatter.Format(source, result.Package.Language).Text);
+
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            DdfLanguagePackageLoadResult external = DdfLanguagePackageLoader.Load(
+                Path.Combine(projectRoot, "language-packages", "ddf"));
+            Equal(true, external.Success);
+            Equal(0, external.Diagnostics.Count);
         }
 
         private static void ParsesCanonicalEbnfGrammar()

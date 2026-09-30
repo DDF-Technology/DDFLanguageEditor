@@ -732,6 +732,7 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.
   - [x] Superare suite Core, build Release e smoke WinForms sul form reale, inclusi tutti i 76 comandi; rendere deterministica la preparazione degli appunti dopo l'osservazione CAND-0003 (`0.12.5`, 2026-09-30).
   - [x] Ripetere in cinque processi Release il budget CAND-0004 sul workspace realistico: tutti i p95 (`8,3`–`12,2 ms`) rispettano il target `16 ms`; mantenere un ingresso smoke mirato per la regressione (`0.12.5`, 2026-09-30).
+  - [x] Risolvere CAND-0005/0006/0007 senza modificare il contratto DDF: separare le diagnostiche delle attivazioni rifiutate dal pacchetto attivo, ancorare e correggere il terminatore mancante sullo statement reale e uniformare prodotto/assembly/UI a `0.12.5 Beta`; 226 test Core, build Release e smoke dei 76 comandi verificano la regressione (`0.12.5`, 2026-09-30).
   - [ ] Completare la sessione umana descritta in `DDF_CANDIDATE_MANUAL_SESSION.md`, registrare ogni anomalia e soltanto allora valutare il passaggio della ricevuta a `ready`.
 
 ### Criteri di completamento della 0.12

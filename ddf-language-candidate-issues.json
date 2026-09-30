@@ -4,7 +4,7 @@
   "candidateId": "ddf-0.12-candidate-cycle-1",
   "reviewedAt": "2026-09-30",
   "summary": {
-    "observations": 4,
+    "observations": 7,
     "open": 0,
     "blocking": 0,
     "normativeChanges": 0
@@ -72,6 +72,60 @@
         "Cinque processi Release isolati hanno misurato 8,6 ms, 8,9 ms, 8,9 ms, 12,2 ms e 8,3 ms sullo stesso carico di 2.000 righe e 40 file."
       ],
       "resolution": "Non riprodotto nel profilo normativo Release: tutti i cinque p95 indipendenti rispettano il target 16 ms. Il comando mirato resta disponibile per future regressioni."
+    },
+    {
+      "id": "CAND-0005",
+      "title": "Il pacchetto DDF risulta caricato correttamente nonostante diagnostiche di compatibilita",
+      "area": "package",
+      "severity": "major",
+      "classification": "implementation-conformance",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [
+        "Help > Linguaggio > Informazioni sul pacchetto attivo mostra DDF 0.12, pacchetto ddf 0.12.3 e lo stato verde Pacchetto esterno caricato correttamente.",
+        "Nella stessa finestra compaiono DDFL030 per schemaVersion di types.json e standard-library.json e DDFL031 per l'adapter ddf-standard-library-v2."
+      ],
+      "resolution": "La sessione conserva le diagnostiche del pacchetto effettivamente caricato e la finestra Informazioni non concatena piu quelle di un tentativo di attivazione rifiutato. Il pacchetto DDF esterno 0.12.3 viene inoltre caricato senza diagnostiche; uno smoke inietta intenzionalmente DDFL030 nello stato dell'ultimo tentativo e verifica che non sia attribuito al pacchetto attivo."
+    },
+    {
+      "id": "CAND-0006",
+      "title": "Punto e virgola mancante diagnosticato lontano dall'errore e senza Quick Fix applicabile",
+      "area": "analysis",
+      "severity": "major",
+      "classification": "implementation-conformance",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [
+        "Rimuovendo temporaneamente il punto e virgola da ret add(pair.left, pair.right); in main.ddf, l'editor ha segnalato DDFG101 a riga 1 colonna 1 e DDF102 a riga 10 colonna 1 invece della riga modificata.",
+        "Con il cursore sullo statement incompleto, Applica correzione rapida non ha proposto ne applicato alcuna correzione. Undo ha ripristinato correttamente il sorgente."
+      ],
+      "resolution": "DDF102 per i token non strutturali viene ora ancorato all'ultimo carattere dello statement incompleto, mantenendo separata la posizione esatta di inserimento. La pipeline live sopprime il DDFG101 remoto quando esiste gia un errore sintattico concreto. Una regressione sul medesimo ret add(pair.left, pair.right) verifica riga 6, Quick Fix al punto corretto e sorgente riparato."
+    },
+    {
+      "id": "CAND-0007",
+      "title": "La build Release del candidato espone ancora la versione prodotto 0.11.2 Beta",
+      "area": "build",
+      "severity": "minor",
+      "classification": "implementation-conformance",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [
+        "La build Release usata per la sessione mostra DDFLanguageEditor 0.11.2 Beta nella barra del titolo e nell'Output del debugger.",
+        "La roadmap e il gate in esame identificano il prodotto come 0.12.5, mentre il pacchetto attivo e DDF 0.12.3."
+      ],
+      "resolution": "Il prodotto standalone, Core e WinForms espongono AssemblyVersion, FileVersion e InformationalVersion 0.12.5; titolo, About e Output usano una sola identita DDFLanguageEditor 0.12.5 Beta. Linguaggio DDF 0.12 e pacchetto ddf 0.12.3 restano versioni distinte."
     }
   ]
 }

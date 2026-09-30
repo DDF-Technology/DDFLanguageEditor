@@ -567,9 +567,21 @@ namespace DDFLanguageEditor.Core
             int? insertionPosition = null,
             int? contextStart = null)
         {
-            int sourcePosition = CurrentStart;
-            int diagnosticStart = text.Length == 0 ? 0 : Math.Min(sourcePosition, text.Length - 1);
-            int length = Current == null ? 1 : Math.Max(1, Current.Length);
+            // Missing-token diagnostics belong where the token must be inserted, not on the
+            // following token. Besides producing the right line/column, this makes the marked
+            // span and the Quick Fix discoverable from the incomplete statement itself.
+            bool anchorAtInsertion = code == "DDF102" && insertionPosition.HasValue &&
+                !message.Contains("'{'", StringComparison.Ordinal) &&
+                !message.Contains("'}'", StringComparison.Ordinal);
+            int sourcePosition = anchorAtInsertion
+                ? Math.Min(insertionPosition.Value, text.Length)
+                : CurrentStart;
+            int diagnosticStart = text.Length == 0
+                ? 0
+                : anchorAtInsertion
+                    ? Math.Max(0, Math.Min(sourcePosition, text.Length) - 1)
+                    : Math.Min(sourcePosition, text.Length - 1);
+            int length = anchorAtInsertion || Current == null ? 1 : Math.Max(1, Current.Length);
             GetLineAndColumn(sourcePosition, out int line, out int column);
             diagnostics.Add(new DdfDiagnostic(
                 code,

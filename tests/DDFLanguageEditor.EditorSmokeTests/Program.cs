@@ -2841,11 +2841,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 ToolStripMenuItem languageMenu = FindMenuItem(form, "languagePackageInfoMenuItem");
                 Require(languageMenu.DropDownItems.Count > 0,
                     "La voce Linguaggio deve essere soltanto il contenitore dei relativi comandi.");
+                Require(form.Text.Contains("DDFLanguageEditor 0.12.5 Beta", StringComparison.Ordinal),
+                    "La shell standalone non espone la versione prodotto candidata.");
                 languageMenu.PerformClick();
                 PumpMessages(30);
                 Require(!Application.OpenForms.Cast<Form>().Any(openForm =>
                         openForm.Name == "LanguagePackageInfoForm" && openForm.Owner == form),
                     "Un clic sulla voce padre Linguaggio non deve eseguire un comando.");
+                SetPrivateField(form, "languagePackageActivationDiagnostics",
+                    (IReadOnlyList<DdfLanguagePackageDiagnostic>)new[]
+                    {
+                        new DdfLanguagePackageDiagnostic("DDFL030",
+                            "Diagnostica intenzionale di un'attivazione rifiutata.")
+                    });
                 FindMenuItem(form, "languagePackageDetailsMenuItem").PerformClick();
                 PumpMessages(80);
 
@@ -2865,8 +2873,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             expectedOrigin, StringComparison.OrdinalIgnoreCase) &&
                         !string.IsNullOrWhiteSpace(FindControl<TextBox>(packageInfo, "languagePackageSourceTextBox").Text),
                     "Versione, origine o sorgente del pacchetto attivo non sono esposte.");
-                Require(FindControl<ListBox>(packageInfo, "languagePackageDiagnosticsListBox").Items.Count > 0,
+                ListBox packageDiagnostics = FindControl<ListBox>(packageInfo,
+                    "languagePackageDiagnosticsListBox");
+                Require(packageDiagnostics.Items.Count > 0,
                     "La finestra non espone lo stato delle diagnostiche di caricamento.");
+                Require(!packageDiagnostics.Items.Cast<object>().Any(item =>
+                        item.ToString().Contains("DDFL030", StringComparison.Ordinal)),
+                    "Le diagnostiche di un'attivazione rifiutata sono state attribuite al pacchetto attivo.");
                 Require(FindControl<Label>(packageInfo, "languagePackageNativeExtensionsValueLabel").Text == "Nessuno",
                     "La finestra non espone i requisiti dei plug-in nativi del pacchetto.");
                 FindControl<Button>(packageInfo, "languagePackageCloseButton").PerformClick();
@@ -2935,8 +2948,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text.Contains("0.11.2") &&
-                        FindControl<Label>(about, "aboutVersionLabel").Text.Contains("Beta"),
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text == "Versione 0.12.5 Beta",
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
                     "About non riporta l'autore.");
@@ -5186,9 +5198,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
             const string missingSemicolon =
                 "main() out int\n{\n    int value << 1\n\n    ret value;\n}";
             editor.Text = missingSemicolon;
-            int returnStart = missingSemicolon.IndexOf("ret", StringComparison.Ordinal);
-            editor.Select(returnStart, 0);
             PumpMessages(220);
+            DdfDiagnostic missingTerminator = diagnostics.Items.Cast<DdfDiagnostic>().Single(item =>
+                item.Code == "DDF102" && item.Message.Contains("';'", StringComparison.Ordinal));
+            Require(missingTerminator.Line == 3,
+                "Il terminatore mancante non è ancorato alla riga dell'istruzione incompleta.");
+            Require(!diagnostics.Items.Cast<DdfDiagnostic>().Any(item => item.Code == "DDFG101"),
+                "Il terminatore mancante mostra ancora la diagnostica grammaticale generica DDFG101.");
+            editor.Select(missingTerminator.Start, 0);
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.OemPeriod),
                 "Ctrl+. non gestisce il punto e virgola mancante.");
             PumpMessages(220);

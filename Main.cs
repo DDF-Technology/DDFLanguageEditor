@@ -67,7 +67,9 @@ namespace DDF___Program_Language_Editor
             documentViews = new DdfDocumentViewCoordinator(openDocuments);
             installShippedUserLanguagePackages();
             restoreActiveLanguagePackage();
-            editorLanguageSession = new DdfLanguagePackageSession(DdfLanguageCatalog.DefaultPackage);
+            editorLanguageSession = new DdfLanguagePackageSession(
+                DdfLanguageCatalog.DefaultPackage,
+                DdfLanguageCatalog.LoadDiagnostics);
             recreateLanguageServices();
             InitializeComponent();
             panelEditor.BindEditor(richTextBoxMainEditor);
@@ -645,7 +647,7 @@ namespace DDF___Program_Language_Editor
         private void updateDocumentUi()
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
-            Text = "DDFLanguageEditor 0.11.2 Beta — " + documentSession.DisplayName + dirtyMarker;
+            Text = ProductInfo.DisplayName + " — " + documentSession.DisplayName + dirtyMarker;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

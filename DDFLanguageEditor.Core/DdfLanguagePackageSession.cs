@@ -38,14 +38,16 @@ namespace DDFLanguageEditor.Core
         private static readonly Lazy<DdfLanguagePackageLoadResult> EmbeddedPackage =
             new Lazy<DdfLanguagePackageLoadResult>(DdfLanguagePackageLoader.LoadEmbeddedDefault, true);
 
-        public DdfLanguagePackageSession(DdfLanguagePackage initialPackage = null)
+        public DdfLanguagePackageSession(DdfLanguagePackage initialPackage = null,
+            IEnumerable<DdfLanguagePackageDiagnostic> initialDiagnostics = null)
         {
             DdfLanguagePackageLoadResult embedded = initialPackage == null
                 ? EmbeddedPackage.Value
                 : null;
             ActivePackage = initialPackage ?? embedded?.Package ??
                 throw new InvalidOperationException("Nessun pacchetto linguaggio valido disponibile.");
-            Diagnostics = embedded?.Diagnostics ?? Array.Empty<DdfLanguagePackageDiagnostic>();
+            Diagnostics = (initialDiagnostics ?? embedded?.Diagnostics ??
+                Array.Empty<DdfLanguagePackageDiagnostic>()).ToList().AsReadOnly();
             Revision = 1;
         }
 
