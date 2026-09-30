@@ -77,6 +77,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertEmbeddedModuleStoreCapability(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument, "--large-workspace-performance-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertLargeDocumentAndWorkspaceResponsiveness(visible);
+                    return 0;
+                }
                 if (!args.Any(argument => string.Equals(argument, "--skip-host-demo",
                         StringComparison.OrdinalIgnoreCase)))
                 {

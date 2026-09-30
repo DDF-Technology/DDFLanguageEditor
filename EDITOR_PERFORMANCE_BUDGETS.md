@@ -70,3 +70,13 @@ the UI application phase still has to remain bounded.
 Every later `0.9.5` optimization must run the same scenarios and update these
 numbers only when the workload or product expectation intentionally changes.
 Loosening a ceiling to hide a regression is not an acceptable fix.
+
+## Candidate 0.12 measurement
+
+On 2026-09-30 the dedicated Release entry point
+`--large-workspace-performance-only` was executed in five independent processes
+after a slower observation in the complete Debug smoke suite. The large-workspace
+input p95 values were `8.6`, `8.9`, `8.9`, `12.2`, and `8.3 ms`; all remained
+below the `16 ms` target with the normative 2,000-line/40-file workload. The
+earlier Debug value is retained as CAND-0004 evidence, not used to weaken either
+the target or the smoke ceiling.

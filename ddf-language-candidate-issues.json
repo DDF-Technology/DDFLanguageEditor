@@ -5,7 +5,7 @@
   "reviewedAt": "2026-09-30",
   "summary": {
     "observations": 4,
-    "open": 1,
+    "open": 0,
     "blocking": 0,
     "normativeChanges": 0
   },
@@ -61,14 +61,17 @@
       "area": "performance",
       "severity": "minor",
       "classification": "implementation-conformance",
-      "status": "open",
+      "status": "resolved",
       "normativeImpact": {
         "changesContract": false,
         "decisionId": null,
         "targetLanguageVersion": null
       },
-      "evidence": [ "Il run ufficiale del 2026-09-30 ha misurato p95 24,5 ms contro il target 16 ms; il run precedente aveva misurato 12,5 ms." ],
-      "resolution": "In analisi: ripetere il campione, separare rumore ambientale e regressione e chiudere o differire esplicitamente prima della readiness."
+      "evidence": [
+        "Il run completo Debug del 2026-09-30 ha misurato p95 24,5 ms contro il target 16 ms; un run precedente aveva misurato 12,5 ms.",
+        "Cinque processi Release isolati hanno misurato 8,6 ms, 8,9 ms, 8,9 ms, 12,2 ms e 8,3 ms sullo stesso carico di 2.000 righe e 40 file."
+      ],
+      "resolution": "Non riprodotto nel profilo normativo Release: tutti i cinque p95 indipendenti rispettano il target 16 ms. Il comando mirato resta disponibile per future regressioni."
     }
   ]
 }

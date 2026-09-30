@@ -57,7 +57,7 @@ leggibile e non sostituisce il registro.
 | CAND-0001 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
 | CAND-0002 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
 | CAND-0003 | infrastruttura test | minore | test-infrastructure | risolto | nessuno |
-| CAND-0004 | prestazioni | minore | implementation-conformance | aperto | nessuno |
+| CAND-0004 | prestazioni | minore | implementation-conformance | risolto | nessuno |
 
 Ogni nuova voce deve indicare un caso riproducibile del corpus o una procedura
 manuale. La chiusura richiede il riferimento a test, decisione o documento che
@@ -101,9 +101,11 @@ preparazione IR, non emissione di assembly DDF.
 La ricevuta `ddf-language-candidate-evaluation.json` mantiene separati esito
 automatico e manuale. Il primo è verde; il secondo resta `pending`, quindi la
 readiness è correttamente `not-ready` e lo stato pubblico rimane `beta`.
-Inoltre CAND-0004 conserva come osservazione aperta la variabilità del p95 di
-input su workspace realistico (`12,5 ms` e `24,5 ms` in due run, target `16 ms`):
-non cambia il DDF, ma deve essere ripetuta e chiusa o differita esplicitamente.
+CAND-0004 è stata chiusa dopo cinque processi Release isolati sul carico
+normativo di 2.000 righe e 40 file: i p95 `8,6`, `8,9`, `8,9`, `12,2` e `8,3 ms`
+rispettano tutti il target `16 ms`. Il precedente `24,5 ms` era stato osservato
+nella lunga suite Debug e non si è riprodotto nel profilo prescritto da
+`EDITOR_PERFORMANCE_BUDGETS.md`.
 
 ## Uscita dal ciclo
 
