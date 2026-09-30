@@ -2,10 +2,10 @@
   "$schema": "./ddf-language-candidate-issues.schema.json",
   "schemaVersion": "1.0",
   "candidateId": "ddf-0.12-candidate-cycle-1",
-  "reviewedAt": "2026-09-29",
+  "reviewedAt": "2026-09-30",
   "summary": {
-    "observations": 2,
-    "open": 0,
+    "observations": 4,
+    "open": 1,
     "blocking": 0,
     "normativeChanges": 0
   },
@@ -39,6 +39,36 @@
       },
       "evidence": [ "Il corpus defaults-and-conversions contiene intenzionalmente un ret finale non raggiungibile." ],
       "resolution": "Il gate ab59e59 interroga IntelliSense prima del primo ret del main e pone il breakpoint sullo stesso statement raggiungibile."
+    },
+    {
+      "id": "CAND-0003",
+      "title": "Preparazione clipboard non verificata rendeva intermittente lo smoke di incolla",
+      "area": "test-infrastructure",
+      "severity": "minor",
+      "classification": "test-infrastructure",
+      "status": "resolved",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [ "Il primo run del 2026-09-30 non ha incollato il testo; la ripetizione invariata ha superato lo scenario." ],
+      "resolution": "Tutte le scritture clipboard degli smoke usano ora retry e verifica di lettura prima di invocare il comando dell'editor."
+    },
+    {
+      "id": "CAND-0004",
+      "title": "Variabilità del budget input su documento e workspace realistico",
+      "area": "performance",
+      "severity": "minor",
+      "classification": "implementation-conformance",
+      "status": "open",
+      "normativeImpact": {
+        "changesContract": false,
+        "decisionId": null,
+        "targetLanguageVersion": null
+      },
+      "evidence": [ "Il run ufficiale del 2026-09-30 ha misurato p95 24,5 ms contro il target 16 ms; il run precedente aveva misurato 12,5 ms." ],
+      "resolution": "In analisi: ripetere il campione, separare rumore ambientale e regressione e chiudere o differire esplicitamente prima della readiness."
     }
   ]
 }

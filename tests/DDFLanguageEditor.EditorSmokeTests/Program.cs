@@ -3142,7 +3142,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(editor.Text == " beta alpha",
                     "Ctrl+X dipende ancora dallo stato obsoleto della voce di menu.");
                 editor.Undo();
-                Clipboard.SetText("gamma");
+                SetClipboardTextWithRetry("gamma");
                 editor.Select(6, 4);
                 FindMenuItem(form, "pasteMenuItem").Enabled = false;
                 InvokeProcessCmdKey(form, Keys.Control | Keys.V);
@@ -3152,7 +3152,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
                 editor.Select(0, 5);
                 editor.Focus();
-                Clipboard.SetText("omega");
+                SetClipboardTextWithRetry("omega");
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
 
                 Require(FindMenuItem(form, "cutMenuItem").Enabled, "Taglia non è abilitato con una selezione.");
@@ -3172,7 +3172,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 InvokeHandler(form, "editMenuItem_DropDownOpening", FindMenuItem(form, "editMenuItem"), EventArgs.Empty);
                 FindMenuItem(form, "undoMenuItem").PerformClick();
 
-                Clipboard.SetText("gamma");
+                SetClipboardTextWithRetry("gamma");
                 editor.Select(6, 4);
                 FindMenuItem(form, "pasteMenuItem").PerformClick();
                 Require(editor.Text == "alpha gamma alpha", "Incolla non ha sostituito la selezione.");
@@ -3612,6 +3612,26 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             return false;
+        }
+
+        private static void SetClipboardTextWithRetry(string text)
+        {
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    if (ClipboardTextEqualsWithRetry(text)) return;
+                }
+                catch (ExternalException)
+                {
+                }
+
+                PumpMessages(20);
+            }
+
+            throw new InvalidOperationException(
+                "Impossibile preparare in modo verificabile gli appunti per lo smoke.");
         }
 
         private static void SetSource(RichTextBox editor)
@@ -4605,7 +4625,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
             editor.Text = "main()\n{\n    \n}";
             editor.Select(13, 0);
-            Clipboard.SetText("    if(true)\r\n    {\r\n        ret 1;\r\n    }");
+            SetClipboardTextWithRetry("    if(true)\r\n    {\r\n        ret 1;\r\n    }");
             InvokeProcessCmdKey(form, Keys.Control | Keys.V);
             Require(editor.Text == "main()\n{\n    if(true)\n    {\n        ret 1;\n    }\n}",
                 "L'incolla multilinea non adatta il rientro al blocco corrente: " + editor.Text.Replace("\n", "\\n"));
@@ -4682,7 +4702,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
             editor.Select(first, "value".Length);
             InvokeProcessCmdKey(form, Keys.Control | Keys.Shift | Keys.L);
-            Clipboard.SetText("item");
+            SetClipboardTextWithRetry("item");
             InvokeProcessCmdKey(form, Keys.Control | Keys.V);
             Require(editor.Text == "int item;\nitem << item + 1; // value",
                 "Seleziona tutte e Incolla hanno modificato commenti o perso un'occorrenza del codice.");
@@ -5768,7 +5788,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             const string multiline = "prima riga\nseconda riga\nterza riga";
             editor.Text = string.Empty;
             editor.Select(0, 0);
-            Clipboard.SetText(multiline);
+            SetClipboardTextWithRetry(multiline);
             InvokeProcessCmdKey(form, Keys.Control | Keys.V);
             PumpMessages(120);
             Require(editor.Text == multiline && editor.GetPositionFromCharIndex(0).Y >= 0,
@@ -6101,12 +6121,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(40);
             Require(search.Focused, "La casella di ricerca workspace non riceve il focus.");
 
-            Clipboard.SetText("clipboard-before-copy");
+            SetClipboardTextWithRetry("clipboard-before-copy");
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.C) && ClipboardTextEqualsWithRetry("alpha"),
                 "Ctrl+C nella ricerca workspace viene ancora inviato all'editor.");
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.X) && search.Text == " beta",
                 "Ctrl+X non taglia la selezione nella casella di testo focalizzata.");
-            Clipboard.SetText("gamma");
+            SetClipboardTextWithRetry("gamma");
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.V) && search.Text == "gamma beta",
                 "Ctrl+V non incolla nella casella di testo focalizzata.");
             Require(InvokeProcessCmdKey(form, Keys.Control | Keys.A) && search.SelectionLength == search.TextLength,

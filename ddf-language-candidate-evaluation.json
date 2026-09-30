@@ -1,0 +1,22 @@
+{
+  "$schema": "./ddf-language-candidate-evaluation.schema.json",
+  "schemaVersion": "1.0",
+  "candidateId": "ddf-0.12-candidate-cycle-1",
+  "sessionId": "candidate-session-2026-09-30-01",
+  "evaluatedAt": "2026-09-30",
+  "automated": {
+    "status": "passed",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-dynamic-smoke.ps1",
+    "coreTestsPassed": 225,
+    "menuCommandsCovered": 76,
+    "releaseWarnings": 0,
+    "releaseErrors": 0
+  },
+  "manual": {
+    "status": "pending",
+    "checklist": "DDF_CANDIDATE_MANUAL_SESSION.md",
+    "completedBy": null,
+    "notes": "La parte automatica e gli smoke sul form reale sono verdi; manca la conferma umana della sessione guidata."
+  },
+  "readiness": "not-ready"
+}

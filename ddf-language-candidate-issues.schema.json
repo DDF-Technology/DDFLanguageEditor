@@ -31,7 +31,7 @@
           "id": { "type": "string", "pattern": "^CAND-[0-9]{4}$" },
           "title": { "type": "string", "minLength": 1 },
           "area": {
-            "enum": [ "specification", "package", "analysis", "intellisense", "formatter", "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability" ]
+            "enum": [ "specification", "package", "analysis", "intellisense", "formatter", "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability", "performance" ]
           },
           "severity": { "enum": [ "note", "minor", "major", "blocking" ] },
           "classification": { "enum": [ "test-infrastructure", "implementation-conformance", "editorial", "compatible-addition", "breaking-contract" ] },

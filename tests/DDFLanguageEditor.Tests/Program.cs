@@ -124,6 +124,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
             Run("keeps candidate issues classified without implicit language changes", KeepsCandidateIssuesClassified);
             Run("rejects ungoverned incompatible DDF candidate changes", RejectsUngovernedCandidateChanges);
+            Run("keeps DDF candidate readiness pending until manual validation", KeepsCandidateReadinessPendingUntilManualValidation);
             Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
@@ -3690,7 +3691,8 @@ namespace DDFLanguageEditor.Tests
             Equal(true, ids.All(id => Regex.IsMatch(id, "^CAND-[0-9]{4}$")));
 
             string[] areas = { "specification", "package", "analysis", "intellisense", "formatter",
-                "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability" };
+                "debugger", "runtime", "build", "test-infrastructure", "documentation", "usability",
+                "performance" };
             string[] severities = { "note", "minor", "major", "blocking" };
             string[] classifications = { "test-infrastructure", "implementation-conformance",
                 "editorial", "compatible-addition", "breaking-contract" };
@@ -3844,6 +3846,40 @@ namespace DDFLanguageEditor.Tests
                     errors.Add("DDFCC006");
             }
             return errors;
+        }
+
+        private static void KeepsCandidateReadinessPendingUntilManualValidation()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject baseline = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-baseline.json"), Encoding.UTF8)).AsObject();
+            JsonObject evaluation = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-evaluation.json"), Encoding.UTF8)).AsObject();
+            JsonObject issues = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-candidate-issues.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", evaluation["schemaVersion"].GetValue<string>());
+            Equal(baseline["candidateId"].GetValue<string>(),
+                evaluation["candidateId"].GetValue<string>());
+            JsonObject automated = evaluation["automated"].AsObject();
+            Equal("passed", automated["status"].GetValue<string>());
+            Equal(true, automated["coreTestsPassed"].GetValue<int>() >= 224);
+            Equal(76, automated["menuCommandsCovered"].GetValue<int>());
+            Equal(0, automated["releaseWarnings"].GetValue<int>());
+            Equal(0, automated["releaseErrors"].GetValue<int>());
+
+            JsonObject manual = evaluation["manual"].AsObject();
+            string checklist = manual["checklist"].GetValue<string>();
+            Equal(true, File.Exists(Path.Combine(projectRoot, checklist)));
+            int open = issues["summary"].AsObject()["open"].GetValue<int>();
+            int blocking = issues["summary"].AsObject()["blocking"].GetValue<int>();
+            string readiness = evaluation["readiness"].GetValue<string>();
+            bool mayBeReady = automated["status"].GetValue<string>() == "passed" &&
+                manual["status"].GetValue<string>() == "passed" && open == 0 && blocking == 0;
+            Equal(mayBeReady ? "ready" : "not-ready", readiness);
+            Equal("pending", manual["status"].GetValue<string>());
+            Equal(null, manual["completedBy"]?.GetValue<string>());
         }
 
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()

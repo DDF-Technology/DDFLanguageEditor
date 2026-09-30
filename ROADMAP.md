@@ -730,6 +730,8 @@ una grammatica formale e un pacchetto eseguibile che descrivono lo stesso lingua
 - [x] Raccogliere e classificare i problemi senza modificare implicitamente la specifica: registro JSON con schema, ID univoci, area, gravità, classificazione, stato, evidenza e impatto normativo; le due osservazioni iniziali erano difetti del gate, risolti senza modifiche DDF. Una modifica del contratto è rifiutata se priva di decisione e versione obiettivo (`0.12.5`, 2026-09-29).
 - [x] Accettare cambiamenti incompatibili soltanto tramite decisione registrata e nuova versione del linguaggio: policy e schema di change control richiedono classificazione breaking, impatto normativo, decisione esistente collegata al problema e versione maggiore della baseline; cinque scenari negativi sono protetti dalla regressione (`0.12.5`, DDF-0024, 2026-09-29).
 - [ ] Dichiarare il candidato pronto per la stabilizzazione `1.0` solo con tutti i gate superati.
+  - [x] Superare suite Core, build Release e smoke WinForms sul form reale, inclusi tutti i 76 comandi; rendere deterministica la preparazione degli appunti dopo l'osservazione CAND-0003 (`0.12.5`, 2026-09-30).
+  - [ ] Completare la sessione umana descritta in `DDF_CANDIDATE_MANUAL_SESSION.md`, registrare ogni anomalia e soltanto allora valutare il passaggio della ricevuta a `ready`.
 
 ### Criteri di completamento della 0.12
 

@@ -56,6 +56,8 @@ leggibile e non sostituisce il registro.
 | --- | --- | --- | --- | --- | --- |
 | CAND-0001 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
 | CAND-0002 | infrastruttura test | nota | test-infrastructure | risolto | nessuno |
+| CAND-0003 | infrastruttura test | minore | test-infrastructure | risolto | nessuno |
+| CAND-0004 | prestazioni | minore | implementation-conformance | aperto | nessuno |
 
 Ogni nuova voce deve indicare un caso riproducibile del corpus o una procedura
 manuale. La chiusura richiede il riferimento a test, decisione o documento che
@@ -83,7 +85,7 @@ decisione mancante o inesistente, versione invariata e decisione non collegata.
 | IntelliSense e formatter | Verificato nel Core | snapshot di completamento sui validi/incompleti; formatter idempotente e semanticamente equivalente sui 6 validi |
 | Debugger e runtime VM | Verificato nel Core | pausa/ripresa sulla `ret` raggiungibile e risultato invariato per ognuno dei 6 programmi validi; oracoli runtime e multi-file |
 | Build di preparazione corrente | Verificato nel Core | doppia validazione con fingerprint riproducibile dei 6 validi e Build dei 3 workspace; backend `ddf-vm-ir-v1` |
-| Uso reale | Da verificare | sessioni registrate e problemi classificati |
+| Uso reale | In corso | smoke WinForms e 76 comandi superati; sessione umana `DDF_CANDIDATE_MANUAL_SESSION.md` ancora da completare |
 
 La regressione `verifies the DDF candidate toolchain against the normative corpus`
 costituisce il gate trasversale. Riusa tutti i casi dichiarati dal manifesto e
@@ -95,6 +97,13 @@ non una nuova definizione della semantica.
 Il runner Roslyn non appartiene a questo ciclo: verrà collegato allo stesso corpus
 nella `0.13`. La parola “Build” nella `0.12.5` indica ancora validazione e
 preparazione IR, non emissione di assembly DDF.
+
+La ricevuta `ddf-language-candidate-evaluation.json` mantiene separati esito
+automatico e manuale. Il primo è verde; il secondo resta `pending`, quindi la
+readiness è correttamente `not-ready` e lo stato pubblico rimane `beta`.
+Inoltre CAND-0004 conserva come osservazione aperta la variabilità del p95 di
+input su workspace realistico (`12,5 ms` e `24,5 ms` in due run, target `16 ms`):
+non cambia il DDF, ma deve essere ripetuta e chiusa o differita esplicitamente.
 
 ## Uscita dal ciclo
 

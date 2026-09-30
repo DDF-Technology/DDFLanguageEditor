@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/language-candidate-evaluation-1.0.json",
+  "title": "DDF language candidate evaluation receipt 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "candidateId", "sessionId", "evaluatedAt", "automated", "manual", "readiness" ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": "1.0" },
+    "candidateId": { "type": "string" },
+    "sessionId": { "type": "string" },
+    "evaluatedAt": { "type": "string", "format": "date" },
+    "automated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "status", "command", "coreTestsPassed", "menuCommandsCovered", "releaseWarnings", "releaseErrors" ],
+      "properties": {
+        "status": { "enum": [ "pending", "passed", "failed" ] },
+        "command": { "type": "string", "minLength": 1 },
+        "coreTestsPassed": { "type": "integer", "minimum": 0 },
+        "menuCommandsCovered": { "type": "integer", "minimum": 0 },
+        "releaseWarnings": { "type": "integer", "minimum": 0 },
+        "releaseErrors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "manual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "status", "checklist", "completedBy", "notes" ],
+      "properties": {
+        "status": { "enum": [ "pending", "passed", "failed" ] },
+        "checklist": { "type": "string", "minLength": 1 },
+        "completedBy": { "type": [ "string", "null" ] },
+        "notes": { "type": "string" }
+      }
+    },
+    "readiness": { "enum": [ "not-ready", "ready" ] }
+  }
+}
