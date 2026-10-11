@@ -1,0 +1,26 @@
+{
+  "$schema": "../../ddf-project.schema.json",
+  "schemaVersion": "1.2",
+  "name": "DDF clean VM acceptance",
+  "module": {
+    "id": "ddf.acceptance.clean-vm",
+    "version": "1.0.0",
+    "exports": [ "main" ]
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.12.3",
+  "sources": [ "main.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "references": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "clean-vm.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": false,
+    "maxInstructions": 10000
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ddf.technology/schemas/ddf-dotnet-linked-package-1.1.schema.json",
+  "title": "DDF .NET linked package manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format", "schemaVersion", "bundleFormatVersion", "bundleFingerprint",
+    "programFingerprint", "entryModuleIdentity", "referenceSetFingerprint",
+    "requiredHostCapabilities", "artifacts", "managedReferences"
+  ],
+  "properties": {
+    "format": { "const": "ddf-dotnet-linked-package" },
+    "schemaVersion": { "const": "1.1" },
+    "bundleFormatVersion": { "const": "1.2" },
+    "bundleFingerprint": { "$ref": "#/$defs/hash" },
+    "programFingerprint": { "$ref": "#/$defs/hash" },
+    "entryModuleIdentity": { "type": "string", "minLength": 3 },
+    "referenceSetFingerprint": { "$ref": "#/$defs/hash" },
+    "requiredHostCapabilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "managedReferences": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/reference" }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "moduleIdentity", "assemblyName", "assemblySha256",
+        "portablePdbSha256", "sourceMapSha256", "manifestSha256"
+      ],
+      "properties": {
+        "moduleIdentity": { "type": "string", "minLength": 3 },
+        "assemblyName": { "type": "string", "minLength": 1 },
+        "assemblySha256": { "$ref": "#/$defs/hash" },
+        "portablePdbSha256": { "$ref": "#/$defs/hash" },
+        "sourceMapSha256": { "$ref": "#/$defs/hash" },
+        "manifestSha256": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assemblyIdentity", "sha256", "size", "packaged"],
+      "properties": {
+        "assemblyIdentity": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/hash" },
+        "size": { "type": "integer", "minimum": 1 },
+        "packaged": { "type": "boolean" }
+      }
+    }
+  }
+}

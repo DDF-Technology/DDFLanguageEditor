@@ -1,0 +1,5 @@
+main() out int
+{
+    print("DDF CLEAN VM OK");
+    ret 42;
+}

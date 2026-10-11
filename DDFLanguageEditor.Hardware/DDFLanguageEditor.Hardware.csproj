@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DDFLanguageEditor.Hardware</RootNamespace>
+    <AssemblyName>DDFLanguageEditor.Hardware</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Version>0.13.4</Version>
+    <FileVersion>0.13.4.0</FileVersion>
+    <AssemblyVersion>0.13.4.0</AssemblyVersion>
+    <InformationalVersion>0.13.4</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <IsPackable>true</IsPackable>
+    <PackageId>DDFLanguageEditor.Hardware</PackageId>
+    <PackageVersion>0.13.4-beta</PackageVersion>
+    <Authors>Fabio De Deo</Authors>
+    <Company>DDF.Technology</Company>
+    <Description>Governed hardware contracts and simulated devices for DDF scripts.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="10.0.12" />
+    <PackageReference Include="System.Device.Gpio" Version="4.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" />
+  </ItemGroup>
+</Project>

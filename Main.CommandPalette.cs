@@ -111,8 +111,8 @@ namespace DDF___Program_Language_Editor
                 case "completionMenuItem": return DdfEditorCommandIds.Completion;
                 case "formatDocumentMenuItem": return DdfEditorCommandIds.FormatDocument;
                 case "goToDefinitionMenuItem": return DdfEditorCommandIds.GoToDefinition;
-                case "validateProjectMenuItem": return DdfEditorCommandIds.ValidateProject;
-                case "buildProjectMenuItem": return DdfEditorCommandIds.BuildProject;
+                case "validateProjectMenuItem": return DdfEditorCommandIds.ValidateScript;
+                case "buildProjectMenuItem": return DdfEditorCommandIds.PrepareScript;
                 case "runWithoutDebugMenuItem": return DdfEditorCommandIds.RunWithoutDebug;
                 case "runProgramMenuItem": return DdfEditorCommandIds.StartDebugging;
                 case "stopProgramMenuItem": return DdfEditorCommandIds.StopDebugging;
@@ -145,7 +145,8 @@ namespace DDF___Program_Language_Editor
                 case "runWithoutDebugMenuItem":
                 case "validateProjectMenuItem":
                     return !executionRunning;
-                case "buildProjectMenuItem": return !embeddedHostMode && !executionRunning;
+                case "buildProjectMenuItem": return !embeddedHostMode &&
+                    !executionRunning && !compiledBuildRunning;
                 case "stopProgramMenuItem": return executionRunning;
                 default: return item.Enabled;
             }

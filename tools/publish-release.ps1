@@ -104,7 +104,8 @@ $requiredSchemas = @(
     'language-standard-library.schema.json',
     'language-build.schema.json',
     'language-tests.schema.json',
-    'ddf-project.schema.json'
+    'ddf-project.schema.json',
+    'ddf-references-lock.schema.json'
 )
 $missingSchemas = @($requiredSchemas | Where-Object {
     -not (Test-Path -LiteralPath (Join-Path $publishDirectory $_) -PathType Leaf)

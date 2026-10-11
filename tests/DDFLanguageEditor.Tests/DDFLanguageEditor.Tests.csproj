@@ -29,5 +29,7 @@
     <None Include="..\..\samples\type-system\**\*.ddf" Link="Corpus\Types\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\type-system\corpus.json" Link="Corpus\Types\corpus.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\samples\language-corpus\**\*.*" Link="Corpus\Language\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\adapter-families\catalog.json" Link="AdapterFamilies\catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\ddf-adapter-family-catalog.schema.json" Link="ddf-adapter-family-catalog.schema.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

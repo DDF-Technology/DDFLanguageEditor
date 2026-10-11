@@ -254,7 +254,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorExecutionCompletion
     {
-        internal DdfEditorExecutionCompletion(long generation, DateTimeOffset startedAt,
+        public DdfEditorExecutionCompletion(long generation, DateTimeOffset startedAt,
             DateTimeOffset completedAt, DdfExecutionResult executionResult,
             IReadOnlyList<DdfBuildIssue> buildIssues, string internalError,
             DdfEditorExecutionMode mode, DdfBuildArtifact artifact = null)

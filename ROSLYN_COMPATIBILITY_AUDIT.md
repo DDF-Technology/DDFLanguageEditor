@@ -84,6 +84,9 @@ comandi di compilazione nella shell embedded.
 
 ### R1 — IR bound e tipizzata
 
+Stato: implementata come formato in memoria `2.1` nella pipeline Core; oltre a
+simboli e tipi conserva la natura pura/mutante delle funzioni host.
+
 La IR destinata ai backend deve contenere:
 
 - un ID stabile per ogni simbolo dichiarato e ogni riferimento;
@@ -122,6 +125,10 @@ essere emesso esplicitamente dopo ogni operazione che può produrre non-finite.
 
 ### R4 — Nomi generati sicuri
 
+Stato: name map deterministico e primo slice del generatore implementati; ogni
+nodo/token/literal usa API Roslyn e il corpus ostile impedisce injection. La
+copertura della IR completa resta richiesta prima dell'emit.
+
 I nomi DDF non devono essere concatenati direttamente nel sorgente C#. Il
 backend deve assegnare nomi interni deterministici basati sugli ID di simbolo,
 gestendo keyword C#, identificatori Unicode, normalizzazione, `_`, nomi riservati
@@ -132,6 +139,9 @@ validati; sorgente, stringhe, direttive e nomi DDF non possono diventare frammen
 C# arbitrari.
 
 ### R5 — Runtime ABI standalone e bridge VM dell'host
+
+Stato: ABI standalone `1.6.0` implementata in un assembly indipendente; il
+percorso embedded continua a usare esclusivamente la VM governata dall'host.
 
 Creare una piccola libreria runtime versionata, indipendente dalla UI, che
 fornisca controlli numerici, output, input, budget, cancellazione, `end` ed errori
@@ -144,6 +154,9 @@ all'applicazione incorporante deve entrare nell'assembly standalone.
 
 ### R6 — Riferimenti e dipendenze riproducibili
 
+Stato: profilo Roslyn/C#, reference set chiuso e resolver da directory reference
+pack esplicita implementati, collegati al piano e registrati nella ricevuta.
+
 Il backend deve compilare contro un insieme chiuso di reference assembly .NET,
 la runtime DDF e le sole librerie autorizzate dal manifest. Versione SDK,
 versione Roslyn, Target Framework, riferimenti, hash e opzioni entrano nella
@@ -154,6 +167,13 @@ cartelle correnti o reflection per “far compilare” un simbolo mancante.
 
 ### R7 — Emit deterministico e diagnostiche
 
+Stato: validazione semantica topologica, inizializzazione esplicita, PE gestiti
+e manifest con ricevuta sono deterministici; Portable PDB e source map DDF sono
+inclusi nel bundle pubblicato tramite staging e rinomina atomica senza
+sovrascrittura. I sequence point visibili sono rimappati nativamente sui
+documenti DDF e le diagnostiche espongono coordinate solo per mapped span noti;
+restano integrazione debugger e confronto con la VM.
+
 Usare una `CSharpCompilation` immutabile con versione C# fissata, nullable e
 overflow espliciti, ottimizzazione dichiarata, percorsi normalizzati ed emit PE
 e Portable PDB deterministici. Le diagnostiche Roslyn vanno tradotte verso
@@ -161,6 +181,16 @@ documento e span DDF; gli errori del C# generato restano errori del backend
 quando non esiste una mappa certa verso il sorgente.
 
 ### R8 — Debug e sorgenti
+
+Stato: Portable PDB e source map deterministici sono emessi; ogni sequence point
+visibile appartiene a un documento DDF e le regioni generate sono nascoste. La
+source map `1.1` conserva anche identità, nome, tipo, mutabilità, dichiarazione e
+storage CLR privato dei simboli del modulo. Un adapter read-only ricostruisce già
+frame, sequence point, breakpoint e visibilità per scope IL senza caricare
+l'assembly; un controller cooperativo controlla pausa, stepping e stop nel runner
+di verifica. Gli snapshot `1.2.0` acquisiscono parametri, locali, globali, array e
+strutture annidate senza reflection o nomi CLR; cicli, profondità, cardinalità e
+budget totale sono limitati esplicitamente. Resta il confronto con la VM.
 
 Ogni istruzione DDF eseguibile deve avere un sequence point riferito al documento
 DDF originale. Helper, conversioni e controlli generati devono essere nascosti
@@ -189,20 +219,40 @@ ordine di valutazione, overflow, conversioni, array, strutture, globali,
 multi-file, effetti host, breakpoint, stack e variabili. Ogni divergenza blocca
 la release oppure richiede una decisione DDF versionata.
 
+La prima slice eseguibile è attiva dal 2026-10-03: 11 programmi mirati confrontano
+risultato, `Output`, terminazione, controllo di flusso, array, strutture,
+`Input`, conversioni e sei errori runtime (`DDF404`, `DDF405`, `DDF408`,
+`DDF417`, `DDF418`, `DDF419`) con percorso e offset esatti. È attivo anche il
+confronto differenziale del debugger su pausa, stack e valori. Inoltre il gate
+consuma direttamente il corpus normativo eseguibile versionato: 6 casi validi,
+2 errori runtime e 2 workspace multifile, incluso un modulo installato. Il bridge
+copre funzioni sincrone/asincrone, oggetti primitivi e proprietà: capability
+esatte nel manifest, provider standalone deny-by-default e confronto VM/Roslyn di
+risultato, stato finale e cardinalità dell'effetto. Percorsi annidati, array,
+timeout, cleanup, ricevute e transazioni commit/rollback sono coperti da
+capability dedicate e gate reali; resta l'estensione continua del corpus quando
+evolve il linguaggio.
+
 ## Questioni rilevate durante l'audit
 
-1. La IR corrente non è ancora bound o completamente tipizzata.
+1. Risolto il 2026-10-01/04: la IR bound `2.1` conserva simboli, tipi, conversioni, l-value, chiamate, flusso e natura pura/mutante delle funzioni host.
 2. Risolto il 2026-09-29: il pacchetto contiene mapping CLR verificabili e identici nei tre profili.
 3. Risolto lato VM il 2026-09-29: i gap della `0.12.2` sono protetti dal corpus; il backend dovrà dimostrare parità.
 4. Le strutture ricorsive non-null devono essere diagnosticate.
-5. I nomi DDF richiedono mangling deterministico.
-6. Non esiste ancora la runtime ABI usata dall'assembly generato.
-7. Il backend e le dipendenze `Microsoft.CodeAnalysis` non sono ancora presenti:
-   è corretto introdurli soltanto dopo la chiusura dei gate semantici.
-8. Gli span sorgente esistono, ma non la mappa DDF/IL/PDB.
-9. Opzioni, reference assemblies e packaging devono entrare nell'artefatto.
-10. Le chiamate host asincrone richiedono un bridge che mantenga timeout e
-    cancellazione senza cambiare la semantica sincrona DDF.
+5. Risolto il 2026-10-01: name map e primo generatore derivano esclusivamente dalla IR bound, usano `SyntaxFactory` e superano il corpus ostile senza injection; resta da estendere la copertura della IR.
+6. Risolto il 2026-10-01/04: `DDFLanguageEditor.Runtime` espone la ABI standalone `1.6.0` indipendente dalla UI, con observer debugger opzionale, stack bound, scope, snapshot dei valori, accessi capability tipizzati, asincronia governata, timeout, budget, cleanup LIFO e transazioni degli effetti.
+7. Risolto il 2026-09-30: backend isolato e Roslyn 5.9.0 sono presenti soltanto nell'assembly Compiler.
+8. Risolto il 2026-10-03: Portable PDB, sequence point DDF e source map `1.1`
+   sono letti dall'adapter; controller cooperativo, snapshot dei valori e gate
+   differenziale coprono breakpoint, stepping, stack e scope senza esporre nomi CLR.
+9. Risolto il 2026-10-02: opzioni/versioni, profilo e reference set chiuso/hashato
+   entrano nel piano, nella ricevuta persistente e nel bundle deterministico.
+10. Risolto per funzioni sincrone e asincrone il 2026-10-03/04: il codice
+    compilato usa capability dichiarate e un provider standalone esplicito; la
+    ABI attende le operazioni asincrone con timeout/cancellazione e rilascia le
+    risorse LIFO senza cambiare la semantica sincrona DDF. Ricevute immutabili e
+    transazioni standalone distinguono ora funzioni pure, funzioni mutanti e
+    scritture, con commit/rollback verificati anche sull'assembly Roslyn.
 
 ## Ordine di realizzazione approvato
 

@@ -572,22 +572,38 @@ namespace DDFLanguageEditor.Core
                     !hostObjects.TryGetValue(rootName, out DdfHostObjectDefinition hostObject))
                     return;
                 bool writableTarget = hostObject.CanWrite &&
-                    (expression is NameExpressionSyntax ||
-                     IsWritableHostMember(expression, hostObject));
+                    IsWritableHostTarget(expression, hostObject.TypeName);
                 if (!writableTarget)
                     Report("DDF309", "L'oggetto host '" + rootName +
                         "' è esposto in sola lettura per questa destinazione.", expression);
             }
 
-            private bool IsWritableHostMember(ExpressionSyntax expression,
-                DdfHostObjectDefinition hostObject)
+            private bool IsWritableHostTarget(ExpressionSyntax expression,
+                string typeName)
             {
+                if (expression is NameExpressionSyntax) return true;
+                if (expression is IndexExpressionSyntax index)
+                {
+                    string indexTargetType = expressionTypes.TryGetValue(index.Target,
+                        out DdfTypeSymbol indexResolvedTarget)
+                        ? indexResolvedTarget.DisplayName : typeName;
+                    if (string.IsNullOrEmpty(indexTargetType) ||
+                        !indexTargetType.EndsWith("[]", StringComparison.Ordinal))
+                        return false;
+                    return IsWritableHostTarget(index.Target, typeName);
+                }
                 if (!(expression is MemberAccessExpressionSyntax member) ||
                     hostCatalog == null) return false;
-                DdfHostTypeDefinition type = hostCatalog.Types.FirstOrDefault(item =>
-                    string.Equals(item.Name, hostObject.TypeName, StringComparison.Ordinal));
-                DdfHostFieldDefinition field = type?.Fields.FirstOrDefault(item =>
-                    string.Equals(item.Name, member.Name, StringComparison.Ordinal));
+                string targetType = expressionTypes.TryGetValue(member.Target,
+                    out DdfTypeSymbol resolvedTarget)
+                    ? resolvedTarget.DisplayName : typeName;
+                if (!IsWritableHostTarget(member.Target, typeName)) return false;
+                DdfHostTypeDefinition hostType = hostCatalog.Types.FirstOrDefault(
+                    item => string.Equals(item.Name, targetType,
+                        StringComparison.Ordinal));
+                DdfHostFieldDefinition field = hostType?.Fields.FirstOrDefault(
+                    item => string.Equals(item.Name, member.Name,
+                        StringComparison.Ordinal));
                 return field?.CanWrite == true;
             }
 

@@ -54,6 +54,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<string> FileExtensions { get; }
         public DdfLanguageDefinition Language { get; }
         public DdfCompiledGrammar Grammar { get; }
+        public DdfLanguagePackageTestSuite Tests { get; internal set; }
         public IReadOnlyList<DdfNativeExtensionRequirement> NativeExtensions { get; }
         public DdfLanguagePackageOrigin Origin { get; }
         public string Source { get; }
@@ -266,6 +267,7 @@ namespace DDFLanguageEditor.Core
                             ExpectedReturn = item?.ExpectedReturn
                         }).ToList()
                 };
+                package.Tests = suite;
                 foreach (DdfLanguagePackageTestResult test in DdfLanguagePackageTestRunner.Run(package, suite).Where(item => !item.Passed))
                     diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFT001",
                         "Test dichiarativo '" + test.Name + "' non riuscito: " + test.Message,

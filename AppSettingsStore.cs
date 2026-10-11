@@ -20,6 +20,8 @@ namespace DDF___Program_Language_Editor
         private const string CrashRecoveryFileName = "crash-recovery.json";
         private const string WatchExpressionsFileName = "watch-expressions.json";
         private const string EducationalModeSettingsFileName = "educational-mode.txt";
+        private const string BuildConfigurationSettingsFileName = "build-configuration.txt";
+        private const string PublishIconSettingsFileName = "publish-icon.txt";
 
         public static string LoadRecentFiles()
         {
@@ -196,6 +198,26 @@ namespace DDF___Program_Language_Editor
         public static void SaveEducationalMode(string value)
         {
             Save(EducationalModeSettingsFileName, value);
+        }
+
+        public static string LoadBuildConfiguration()
+        {
+            return Load(BuildConfigurationSettingsFileName);
+        }
+
+        public static void SaveBuildConfiguration(string value)
+        {
+            Save(BuildConfigurationSettingsFileName, value);
+        }
+
+        public static string LoadPublishIconPath()
+        {
+            return Load(PublishIconSettingsFileName);
+        }
+
+        public static void SavePublishIconPath(string value)
+        {
+            Save(PublishIconSettingsFileName, value ?? string.Empty);
         }
 
         private static string Load(string fileName)

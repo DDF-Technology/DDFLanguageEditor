@@ -78,7 +78,11 @@ deve avere il menu contestuale di modifica e il gutter deve restare escluso.
 | Comando | Verifica dinamica |
 | --- | --- |
 | Convalida progetto | usa tutti i sorgenti e i buffer non salvati senza creare l'output |
-| Compila progetto | crea una ricevuta deterministica con fingerprint senza salvare implicitamente i sorgenti |
+| Esegui build | salva o richiede il salvataggio dei buffer modificati e produce gli artefatti Roslyn verificati nella configurazione scelta |
+| Compila ed esegui | compila il progetto/workspace e avvia immediatamente l'esatto artefatto verificato nel worker isolato |
+| Esegui ultima build | riusa l'ultimo artefatto valido della sessione nel worker isolato, senza ricompilare le modifiche successive |
+| Pubblica EXE... | esegue una build fresca e crea in una nuova directory il package self-contained firmato dagli hash, con runtime, manifest, licenze e avvisi |
+| Apri cartella output | apre l'ultimo bundle valido di build o pubblicazione e non viene riassegnato da una build fallita |
 | Avvia senza debug | esegue l'artefatto in memoria con `Ctrl+F5` senza una sessione debugger |
 | Avvia debug | esegue `main` con `F5`, seleziona Output e verifica valore e completamento; un file attivo esterno al workspace viene eseguito in isolamento |
 | Entra nella funzione | con il debugger in pausa, `F11` entra nella prima istruzione della funzione DDF chiamata e aggiorna Call Stack, Variabili e Watch |
@@ -89,6 +93,11 @@ deve avere il menu contestuale di modifica e il gutter deve restare escluso.
 
 Il core verifica inoltre cancellazione cooperativa, limite anti-loop ed errori
 runtime posizionati nel sorgente.
+
+La matrice di compilazione standalone attraversa inoltre Debug e Release,
+l'intero workspace multifile, il salvataggio esplicito di un buffer modificato,
+una diagnostica compilata navigabile e la pubblicazione. Nell'editor embedded
+menu, pulsanti e innesto del backend di compilazione restano indisponibili.
 
 ## Visualizza
 
@@ -142,7 +151,7 @@ ritorno alla posizione precedente tramite Navigazione indietro.
 
 ## Barre degli strumenti
 
-Le sette barre mobili raggruppano per categoria 53 pulsanti a icona con tooltip: File, Modifica, Codice e formattazione,
+Le sette barre mobili raggruppano per categoria 56 pulsanti a icona con tooltip: File, Modifica, Codice e formattazione,
 Navigazione e ricerca, Visualizzazione, Progetto e linguaggio, Esecuzione e debug. Possono essere riordinate tramite la
 maniglia e mostrate o nascoste da **Visualizza > Barre degli strumenti**. Lo smoke verifica disposizione iniziale compatta,
 persistenza, accessibilità e condivisione degli handler Convalida/Build/Run/Debug/Breakpoint/Stop con il menu Esegui.
@@ -198,8 +207,8 @@ quelli della sessione in esecuzione. Un workspace implicito viene inoltre avviat
 dall'unica `main` anche se la scheda attiva contiene un breakpoint in una funzione
 mai richiamata.
 
-Lo smoke verifica le 51 scorciatoie dichiarate, incluse `Ctrl+,`, `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
-`F2` per la rinomina, `Ctrl+Shift+B` per Build, `Ctrl+F5` per Run, `F9` per i breakpoint, `F5` per Debug/Continua, `F11` per Entra nella funzione, `F10` per Passo successivo, `Shift+F11` per Esci dalla funzione e `Shift+F5` per Stop. Il gate completo si avvia con:
+Lo smoke verifica le 53 scorciatoie dichiarate, incluse `Ctrl+,`, `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
+`F2` per la rinomina, `Ctrl+Shift+B` per Build, `Ctrl+Shift+F5` per Compila ed esegui, `Ctrl+Alt+F5` per l'ultima build, `Ctrl+F5` per Run, `F9` per i breakpoint, `F5` per Debug/Continua, `F11` per Entra nella funzione, `F10` per Passo successivo, `Shift+F11` per Esci dalla funzione e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
 .\tests\run-dynamic-smoke.ps1

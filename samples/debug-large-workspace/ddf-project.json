@@ -1,6 +1,6 @@
 {
   "$schema": "../../ddf-project.schema.json",
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "name": "DDF large debugger stress workspace",
   "module": {
     "id": "ddf.sample.debug.large",
@@ -13,6 +13,7 @@
   "entrySource": "main.ddf",
   "entryPoint": "main",
   "dependencies": [],
+  "references": [],
   "backend": "ddf-vm-ir-v1",
   "output": {
     "directory": ".ddf-build",

@@ -89,6 +89,27 @@ namespace DDF___Program_Language_Editor
             if (target == null || target.IsDisposed || !target.IsHandleCreated) return;
             Point safePosition = new Point(Math.Max(0, position.X), Math.Max(0, position.Y));
             SendMessage(target.Handle, EmSetScrollPos, IntPtr.Zero, ref safePosition);
+            // Alcune versioni del RichEdit applicano nuovamente il fattore DPI
+            // quando il controllo è appena tornato visibile. Compensiamo solo
+            // l'espansione misurabile; non tocchiamo invece un valore inferiore,
+            // che può essere il normale clamp a fine documento.
+            if (TryGetScrollPosition(target, out Point actual) &&
+                (actual.X > position.X + 2 || actual.Y > position.Y + 2))
+            {
+                Point compensated = new Point(
+                    compensateExpandedCoordinate(position.X, actual.X),
+                    compensateExpandedCoordinate(position.Y, actual.Y));
+                SendMessage(target.Handle, EmSetScrollPos, IntPtr.Zero,
+                    ref compensated);
+            }
+        }
+
+        private static int compensateExpandedCoordinate(int requested,
+            int actual)
+        {
+            if (requested <= 0 || actual <= requested + 2) return requested;
+            return Math.Max(0, (int)Math.Round(
+                (double)requested * requested / actual));
         }
 
         private static ITextDocument TryGetTextDocument(IntPtr handle)

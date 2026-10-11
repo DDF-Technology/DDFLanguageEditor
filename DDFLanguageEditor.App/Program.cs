@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using DDFLanguageEditor.Compiler;
 
 namespace DDF___Program_Language_Editor
 {
@@ -9,7 +10,15 @@ namespace DDF___Program_Language_Editor
         private static void Main()
         {
             ApplicationConfiguration.Initialize();
-            Application.Run(new MainForm());
+            var form = new MainForm();
+            form.AttachStandaloneCompiledBuildService(
+                new DdfDotNetEditorBuildService());
+            var debugService = new DdfDotNetEditorDebugService(
+                () => form.EmbeddedEditor.DocumentService,
+                () => form.EmbeddedEditor.LanguageSession,
+                form.PrepareStandaloneBackendExecution);
+            form.AttachStandaloneDebugService(debugService);
+            Application.Run(form);
         }
     }
 }

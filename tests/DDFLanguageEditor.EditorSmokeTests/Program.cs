@@ -98,6 +98,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                 AssertProlongedEditingSession(visible);
                 RunMenuScenarios(visible);
+                AssertRunLastBuildCommand(visible);
                 AssertInstalledProfilesAndCloseAllWorkspaceDocuments(visible);
                 AssertRealisticLanguagePackageSwitching(visible);
                 if (UiExceptions.Count > 0)
@@ -106,7 +107,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Eccezioni UI intercettate:\n" + string.Join("\n---\n", UiExceptions.Select(exception => exception.ToString())));
                 }
 
-                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti i 76 comandi di menu completati senza eccezioni.");
+                Console.WriteLine("PASS smoke dinamico WinForms: scenari editor e tutti gli 80 comandi di menu completati senza eccezioni.");
                 return 0;
             }
             catch (Exception exception)
@@ -287,7 +288,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             .Cast<object>().Any(item => item.ToString().Contains("DDF201")),
                     "La demo database non incorpora la shell completa con il catalogo host. Diagnostiche: " +
                     string.Join(" | ", analysis.Diagnostics.Select(item => item.Code + ": " + item.Message)));
-                Require(form.Editor.CommandService.Find(DdfEditorCommandIds.BuildProject)?.IsVisible == false &&
+                Require(form.Editor.CommandService.Find(DdfEditorCommandIds.PrepareScript)?.IsVisible == false &&
                         form.Editor.CommandService.Find(DdfEditorCommandIds.StartDebugging)?.IsVisible == false &&
                         form.Editor.CommandService.Find(DdfEditorCommandIds.RunWithoutDebug)?.IsVisible == false,
                     "La modalità embedded espone ancora compilazione o avvio manuale.");
@@ -457,7 +458,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         !ReferenceEquals(left.HostCatalog, right.HostCatalog) &&
                         !ReferenceEquals(left.ExperienceState, right.ExperienceState) &&
                         !ReferenceEquals(left.AnalysisService, right.AnalysisService) &&
-                        !ReferenceEquals(left.BuildService, right.BuildService) &&
+                        !ReferenceEquals(left.PreparationService, right.PreparationService) &&
                         !ReferenceEquals(left.CommandService, right.CommandService) &&
                         !ReferenceEquals(left.ExecutionService, right.ExecutionService) &&
                         !ReferenceEquals(left.DebugService, right.DebugService) &&
@@ -474,8 +475,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 int leftCommandExecutions = 0;
                 left.AnalysisCompleted += (sender, args) => leftAnalysisEvents++;
                 right.AnalysisCompleted += (sender, args) => rightAnalysisEvents++;
-                left.BuildCompleted += (sender, args) => leftBuildEvents++;
-                right.BuildCompleted += (sender, args) => rightBuildEvents++;
+                left.PreparationCompleted += (sender, args) => leftBuildEvents++;
+                right.PreparationCompleted += (sender, args) => rightBuildEvents++;
                 left.SelectionSnapshotChanged += (sender, args) => leftSelectionEvents++;
                 right.SelectionSnapshotChanged += (sender, args) => rightSelectionEvents++;
 
@@ -528,21 +529,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Preferenze, palette, comandi o stato debug contaminano un'altra istanza.");
 
                 left.AnalyzeDocument();
-                DdfEditorBuildSnapshot leftBuild = left.BuildProject();
+                DdfEditorPreparationSnapshot leftBuild = left.PrepareScript();
                 Require(leftAnalysisEvents == 1 && rightAnalysisEvents == 0 &&
                         leftBuildEvents == 1 && rightBuildEvents == 0 &&
                         leftSelectionEvents > 0 && rightSelectionEvents == 0 &&
-                        leftBuild.Succeeded && right.BuildService.LastSnapshot == null,
+                        leftBuild.Succeeded && right.PreparationService.LastSnapshot == null,
                     "Eventi o snapshot di analisi/build attraversano il confine di istanza.");
 
                 right.AnalyzeDocument();
-                DdfEditorBuildSnapshot rightBuild = right.BuildProject();
+                DdfEditorPreparationSnapshot rightBuild = right.PrepareScript();
                 Require(rightAnalysisEvents == 1 && rightBuildEvents == 1 &&
                         rightBuild.Succeeded &&
-                        !string.Equals(leftBuild.Artifact.Fingerprint,
-                            rightBuild.Artifact.Fingerprint, StringComparison.Ordinal) &&
-                        ReferenceEquals(left.BuildService.LastSnapshot, leftBuild) &&
-                        ReferenceEquals(right.BuildService.LastSnapshot, rightBuild),
+                        !string.Equals(leftBuild.PreparedArtifact.Fingerprint,
+                            rightBuild.PreparedArtifact.Fingerprint, StringComparison.Ordinal) &&
+                        ReferenceEquals(left.PreparationService.LastSnapshot, leftBuild) &&
+                        ReferenceEquals(right.PreparationService.LastSnapshot, rightBuild),
                     "Le pipeline di build non mantengono snapshot indipendenti per superficie.");
 
                 Task<DdfEditorExecutionCompletion> leftRun = left.ExecutionService.RunAsync();
@@ -673,7 +674,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertInlineDiagnostics(form, editor, diagnostics);
                 AssertQuickFixes(form, editor, diagnostics);
                 AssertTypeChecking(form, editor, diagnostics);
-                AssertWorkspaceNavigation(form, editor, diagnostics);
+                try
+                {
+                    AssertWorkspaceNavigation(form, editor, diagnostics);
+                }
+                catch (Exception exception)
+                {
+                    Console.Error.WriteLine("DETTAGLIO scenario workspace/build: " +
+                        exception);
+                    throw;
+                }
                 try
                 {
                     AssertProgramExecution(form, editor);
@@ -1126,7 +1136,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             DdfEditorView shellSurface = FindControl<DdfEditorView>(form, "panelEditor");
             Require(shellSurface.ContractVersion == DdfEditorSdkContract.CurrentVersion &&
-                    shellSurface.ContractVersion == "0.33" &&
+                    shellSurface.ContractVersion == "0.34" &&
                     ReferenceEquals(shellSurface.DocumentService,
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments")) &&
                     shellSurface.SourceText == editor.Text &&
@@ -1242,6 +1252,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         isolated.AnalysisService.IsCurrent(analysis),
                     "Il servizio di analisi pubblico non restituisce uno snapshot coerente con il documento host.");
                 IDdfEditorCommandService commands = isolated.CommandService;
+                Require(DdfEditorSdkContract.CurrentVersion == "0.34" &&
+                        typeof(DdfEditorView).GetProperty("PreparationService") != null &&
+                        typeof(DdfEditorView).GetMethod("ValidateScript") != null &&
+                        typeof(DdfEditorView).GetMethod("PrepareScript") != null &&
+                        typeof(DdfEditorView).GetProperty("BuildService") == null &&
+                        typeof(DdfEditorView).GetMethod("BuildProject") == null &&
+                        typeof(DdfEditorView).GetMethod("AttachBuildService") == null,
+                    "Il contratto SDK espone ancora il servizio storico Build o non pubblica la preparazione script 0.34.");
                 bool commandEnabled = false;
                 int commandExecutions = 0;
                 int commandEvents = 0;
@@ -1258,8 +1276,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         commands.Find(DdfEditorCommandIds.RestoreHostState) != null &&
                         commands.Find(DdfEditorCommandIds.SaveHostProject) != null &&
                         commands.Find(DdfEditorCommandIds.OpenHostProject) != null &&
-                        commands.Find(DdfEditorCommandIds.ValidateProject) != null &&
-                        commands.Find(DdfEditorCommandIds.BuildProject) != null &&
+                        commands.Find(DdfEditorCommandIds.ValidateScript) != null &&
+                        commands.Find(DdfEditorCommandIds.PrepareScript) != null &&
                         commands.Find(DdfEditorCommandIds.RunWithoutDebug) != null &&
                         commands.Find(DdfEditorCommandIds.StopExecution) != null &&
                         commands.Find(DdfEditorCommandIds.StartDebugging) != null &&
@@ -1327,14 +1345,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La navigazione locale non raggiunge il parametro risolto semanticamente.");
                 int buildStateEvents = 0;
                 int buildCompletedEvents = 0;
-                isolated.BuildStateChanged += (sender, args) => buildStateEvents++;
-                isolated.BuildCompleted += (sender, args) => buildCompletedEvents++;
-                Require(commands.Find(DdfEditorCommandIds.ValidateProject).CanExecute &&
-                        commands.TryExecute(DdfEditorCommandIds.ValidateProject) &&
-                        isolated.BuildService.LastSnapshot.Succeeded &&
-                        isolated.BuildService.LastSnapshot.Mode == DdfEditorBuildMode.Validate &&
-                        commands.TryExecute(DdfEditorCommandIds.BuildProject) &&
-                        isolated.BuildService.LastSnapshot.Mode == DdfEditorBuildMode.Build &&
+                isolated.PreparationStateChanged += (sender, args) => buildStateEvents++;
+                isolated.PreparationCompleted += (sender, args) => buildCompletedEvents++;
+                Require(commands.Find(DdfEditorCommandIds.ValidateScript).CanExecute &&
+                        commands.TryExecute(DdfEditorCommandIds.ValidateScript) &&
+                        isolated.PreparationService.LastSnapshot.Succeeded &&
+                        isolated.PreparationService.LastSnapshot.Mode == DdfEditorPreparationMode.Validate &&
+                        commands.TryExecute(DdfEditorCommandIds.PrepareScript) &&
+                        isolated.PreparationService.LastSnapshot.Mode == DdfEditorPreparationMode.PrepareScript &&
                         buildCompletedEvents == 2 && buildStateEvents == 4,
                     "Convalida, build o relativi eventi del contratto host non sono coerenti.");
                 int executionEvents = 0;
@@ -1607,7 +1625,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             shellSurface.SetSelection(0, 0);
             Require(shellSurface.PersistenceProvider == null,
                 "La shell associa implicitamente una persistenza SDK al profilo applicativo.");
-            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.33, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, build, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
+            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.34, preparazione script separata dalla compilazione, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
         }
 
         private static IEnumerable<Tuple<PointF, PointF>> RouteSegments(IReadOnlyList<PointF> points)
@@ -1756,6 +1774,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "Il salvataggio con formattazione non è riuscito nello smoke viewport.");
                     PumpMessages(180);
                     Point afterSave = GetEditorScrollPosition(editor);
+                    object savedViewState = GetPropertyValue<object>(form,
+                        "activeDocumentView");
+                    Point storedAfterSave = GetPropertyValue<Point>(
+                        savedViewState, "ScrollPosition");
                     Require(Math.Abs(afterSave.Y - beforeSave.Y) <= 2,
                         "Salva o Formatta al salvataggio sposta la viewport verticale.");
 
@@ -1767,8 +1789,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     PumpMessages(180);
                     editor = GetPrivateField<RichTextBox>(form, "richTextBoxMainEditor");
                     Point afterTabSwitch = GetEditorScrollPosition(editor);
+                    Point storedAfterSwitch = GetPropertyValue<Point>(
+                        savedViewState, "ScrollPosition");
                     Require(Math.Abs(afterTabSwitch.Y - afterSave.Y) <= 2,
-                        "Il cambio scheda perde la posizione verticale del documento.");
+                        "Il cambio scheda perde la posizione verticale del documento: " +
+                        "prima=" + afterSave.Y + ", dopo=" +
+                        afterTabSwitch.Y + ", statoPrima=" +
+                        storedAfterSave.Y + ", statoDopo=" +
+                        storedAfterSwitch.Y + ".");
 
                     SetPrivateField(form, "saveWorkspaceSessionSetting",
                         new Action<string>(value => sessionData = value));
@@ -2411,8 +2439,28 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     embedded.Show();
                     PumpMessages(100);
                     Require(embedded.EmbeddedHostMode &&
-                            FindMenuItem(embedded, "manageLanguagePackagesMenuItem").Available,
+                            FindMenuItem(embedded, "manageLanguagePackagesMenuItem").Available &&
+                            !FindMenuItem(embedded, "compilationMenuItem").Available &&
+                            !FindToolbarButton(embedded,
+                                "toolbarCompileAndRunButton").Available &&
+                            !FindToolbarButton(embedded,
+                                "toolbarPublishExecutableButton").Available &&
+                            !FindMenuItem(embedded,
+                                "openCompiledOutputMenuItem").Available &&
+                            !FindToolbarButton(embedded,
+                                "toolbarOpenCompiledOutputButton").Available,
                         "La selezione dei pacchetti non è disponibile all'utente nella shell embedded.");
+                    bool compiledBuildRejected = false;
+                    try
+                    {
+                        embedded.AttachStandaloneCompiledBuildService(null);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        compiledBuildRejected = true;
+                    }
+                    Require(compiledBuildRejected,
+                        "La shell embedded ha accettato un backend di compilazione standalone.");
                     embedded.SetEmbeddedPrimaryDocument("embedded.ddfc",
                         "main() returns int { return 2; }");
                     RichTextBox embeddedEditor = FindControl<RichTextBox>(embedded, "richTextBoxMainEditor");
@@ -2771,6 +2819,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "goToDefinitionMenuItem", Keys.F12 },
                     { "renameSymbolMenuItem", Keys.F2 },
                     { "buildProjectMenuItem", Keys.Control | Keys.Shift | Keys.B },
+                    { "compileAndRunMenuItem", Keys.Control | Keys.Shift | Keys.F5 },
+                    { "runLastBuildMenuItem", Keys.Control | Keys.Alt | Keys.F5 },
                     { "runWithoutDebugMenuItem", Keys.Control | Keys.F5 },
                     { "runProgramMenuItem", Keys.F5 },
                     { "stepIntoMenuItem", Keys.F11 },
@@ -2795,7 +2845,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "goToFileMenuItem", "goToSymbolMenuItem", "findReferencesMenuItem", "goToLineMenuItem", "goToLastEditMenuItem",
                     "navigateBackMenuItem", "navigateForwardMenuItem",
                     "completionMenuItem", "formatDocumentMenuItem", "quickFixMenuItem",
-                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "validateProjectMenuItem", "buildProjectMenuItem",
+                    "goToDefinitionMenuItem", "renameSymbolMenuItem", "validateProjectMenuItem", "buildProjectMenuItem", "compileAndRunMenuItem", "runLastBuildMenuItem", "publishExecutableMenuItem", "openCompiledOutputMenuItem",
                     "runWithoutDebugMenuItem", "runProgramMenuItem", "stepIntoMenuItem", "stepOverMenuItem", "stepOutMenuItem", "toggleBreakpointMenuItem", "stopProgramMenuItem",
                     "toggleFoldMenuItem", "expandAllFoldsMenuItem", "highlightCurrentLineMenuItem", "showWhitespaceMenuItem",
                     "showIndentGuidesMenuItem", "wordWrapMenuItem", "showOverviewMenuItem", "educationalModeMenuItem", "languagePackageInfoMenuItem",
@@ -2822,7 +2872,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
             }
 
-            Console.WriteLine("PASS struttura menu e 51 scorciatoie");
+            Console.WriteLine("PASS struttura menu e 53 scorciatoie");
         }
 
         private static void AssertHelpMenu(bool visible)
@@ -4824,9 +4874,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(output.Text.Contains("Convalida completata", StringComparison.Ordinal) &&
                         output.Text.Contains("Nessun file scritto", StringComparison.Ordinal) && !Directory.Exists(buildDirectory),
                     "Convalida progetto non è rimasta in memoria o non ha comunicato l'esito.");
-                Require(editorSurface.BuildService.LastSnapshot?.Mode == DdfEditorBuildMode.Validate &&
-                        editorSurface.BuildService.LastSnapshot.Succeeded,
-                    "La convalida standalone non attraversa il servizio pubblico di build dell'editor.");
+                Require(editorSurface.PreparationService.LastSnapshot?.Mode == DdfEditorPreparationMode.Validate &&
+                        editorSurface.PreparationService.LastSnapshot.Succeeded,
+                    "La convalida standalone non attraversa il servizio pubblico di preparazione dell'editor.");
                 string diskSource = File.ReadAllText(mainPath);
                 editor.AppendText("\n// modifica non salvata");
                 FindMenuItem(form, "buildProjectMenuItem").PerformClick();
@@ -4837,11 +4887,134 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Compila progetto ha scritto implicitamente il buffer non salvato sul sorgente.");
                 Require(output.Text.Contains("Fingerprint:", StringComparison.Ordinal) && output.Text.Contains(receiptPath, StringComparison.OrdinalIgnoreCase),
                     "L'Output di compilazione non espone fingerprint e percorso artefatto.");
-                Require(editorSurface.BuildService.LastSnapshot?.Mode == DdfEditorBuildMode.Build &&
-                        editorSurface.BuildService.LastSnapshot.Succeeded &&
-                        string.Equals(editorSurface.BuildService.LastSnapshot.Result.ArtifactPath,
+                Require(editorSurface.PreparationService.LastSnapshot?.Mode == DdfEditorPreparationMode.PrepareScript &&
+                        editorSurface.PreparationService.LastSnapshot.Succeeded &&
+                        string.Equals(editorSurface.PreparationService.LastSnapshot.Result.ArtifactPath,
                             receiptPath, StringComparison.OrdinalIgnoreCase),
-                    "La compilazione standalone non pubblica lo snapshot tramite il contratto SDK.");
+                    "La preparazione standalone non pubblica lo snapshot tramite il contratto SDK.");
+
+                var compiledService = new FakeCompiledBuildService();
+                form.AttachStandaloneCompiledBuildService(compiledService);
+                FindMenuItem(form, "debugBuildConfigurationMenuItem")
+                    .PerformClick();
+                ToolStripMenuItem compileAndRun = FindMenuItem(form,
+                    "compileAndRunMenuItem");
+                ToolStripButton compileAndRunToolbar = FindToolbarButton(form,
+                    "toolbarCompileAndRunButton");
+                Require(compileAndRun.Enabled && compileAndRunToolbar.Enabled,
+                    "Compila ed esegui non si abilita con backend collegato.");
+                compileAndRun.PerformClick();
+                PumpUntil(() => compiledService.BuildCount == 1 &&
+                        compiledService.RunCount == 1 && compileAndRun.Enabled,
+                    5000, "Compila ed esegui non ha completato build e worker.");
+                Require(compiledService.BuildConfigurations.SequenceEqual(
+                            new[] { DdfEditorBuildConfiguration.Debug }) &&
+                        compiledService.LastSourceCount >= 2,
+                    "La build UI Debug non ha ricevuto l'intero workspace multifile.");
+                Require(File.ReadAllText(mainPath).Contains(
+                        "// modifica non salvata", StringComparison.Ordinal),
+                    "La build persistente non ha salvato il buffer modificato prima di compilare.");
+                Require(output.Text.Contains("Compila ed esegui:",
+                            StringComparison.Ordinal) &&
+                        output.Text.Contains("compiled-output",
+                            StringComparison.Ordinal) &&
+                        output.Text.Contains("Valore restituito: 42",
+                            StringComparison.Ordinal),
+                    "Compila ed esegui non riporta nell'Output l'esito del worker.");
+
+                ToolStripMenuItem openOutput = FindMenuItem(form,
+                    "openCompiledOutputMenuItem");
+                ToolStripButton openOutputToolbar = FindToolbarButton(form,
+                    "toolbarOpenCompiledOutputButton");
+                string openedOutput = null;
+                SetPrivateField(form, "openCompiledOutputDirectory",
+                    new Action<string>(path => openedOutput = path));
+                Require(openOutput.Enabled && openOutputToolbar.Enabled,
+                    "Apri cartella output non si abilita dopo una build valida.");
+                openOutput.PerformClick();
+                Require(string.Equals(openedOutput,
+                        compiledService.LastArtifactDirectory,
+                        StringComparison.OrdinalIgnoreCase),
+                    "Apri cartella output non usa gli artefatti dell'ultima build valida.");
+
+                FindMenuItem(form, "releaseBuildConfigurationMenuItem")
+                    .PerformClick();
+                ToolStripMenuItem compiledBuild = FindMenuItem(form,
+                    "buildProjectMenuItem");
+                compiledBuild.PerformClick();
+                PumpUntil(() => compiledService.BuildCount == 2 &&
+                        compiledBuild.Enabled,
+                    5000, "La build Release dalla UI non è terminata.");
+                Require(compiledService.BuildConfigurations.Last() ==
+                        DdfEditorBuildConfiguration.Release &&
+                        compiledService.LastArtifactDirectory.Contains(
+                            Path.Combine("bin", "Release", "win-x64"),
+                            StringComparison.OrdinalIgnoreCase),
+                    "La configurazione Release non raggiunge il backend o usa un output errato.");
+
+                compiledService.FailNextBuild = true;
+                compiledBuild.PerformClick();
+                PumpUntil(() => compiledService.BuildCount == 3 &&
+                        compiledBuild.Enabled && output.Text.Contains(
+                            "DDFC999", StringComparison.Ordinal),
+                    5000, "La diagnostica della build non valida non è comparsa.");
+                Require(output.Text.Contains("Build non completata",
+                            StringComparison.Ordinal) &&
+                        GetPrivateField<System.Collections.IList>(form,
+                            "outputNavigationTargets").Count > 0,
+                    "L'errore compilato non è visibile o navigabile dalla palette Output.");
+                openedOutput = null;
+                openOutputToolbar.PerformClick();
+                Require(string.Equals(openedOutput,
+                        compiledService.LastSuccessfulArtifactDirectory,
+                        StringComparison.OrdinalIgnoreCase),
+                    "Una build fallita ha sostituito l'ultima cartella output valida.");
+
+                string publishedExecutable = Path.Combine(directory,
+                    "SmokeProgram.exe");
+                SetPrivateField(form, "showPublishExecutableDialog",
+                    new Func<PublishExecutableDialog, DialogResult>(dialog =>
+                    {
+                        dialog.ExecutablePath = publishedExecutable;
+                        dialog.IconPath = string.Empty;
+                        return DialogResult.OK;
+                    }));
+                ToolStripMenuItem publish = FindMenuItem(form,
+                    "publishExecutableMenuItem");
+                ToolStripButton publishToolbar = FindToolbarButton(form,
+                    "toolbarPublishExecutableButton");
+                Require(publish.Enabled && publishToolbar.Enabled,
+                    "Pubblica EXE non si abilita con backend collegato.");
+                int buildsBeforePublish = compiledService.BuildCount;
+                publish.PerformClick();
+                DateTime publishDeadline = DateTime.UtcNow.AddSeconds(10);
+                while (DateTime.UtcNow < publishDeadline &&
+                       !(compiledService.BuildCount == buildsBeforePublish + 1 &&
+                         compiledService.PublishCount == 1 &&
+                         publish.Enabled))
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(10);
+                }
+                Require(compiledService.BuildCount == buildsBeforePublish + 1 &&
+                        compiledService.PublishCount == 1 && publish.Enabled,
+                    "Pubblica EXE non ha completato build e package. Build=" +
+                    compiledService.BuildCount + ", publish=" +
+                    compiledService.PublishCount + ", enabled=" +
+                    publish.Enabled + ", output=" + output.Text);
+                Require(output.Text.Contains("Pubblicazione EXE completata",
+                            StringComparison.Ordinal) &&
+                        output.Text.Contains("SmokeProgram.exe",
+                            StringComparison.Ordinal),
+                    "Pubblica EXE non riporta package ed eseguibile nell'Output.");
+                Require(openOutput.Enabled && openOutputToolbar.Enabled,
+                    "Apri cartella output non si abilita dopo la pubblicazione.");
+                openedOutput = null;
+                openOutputToolbar.PerformClick();
+                Require(string.Equals(openedOutput,
+                        compiledService.LastPublishedDirectory,
+                        StringComparison.OrdinalIgnoreCase),
+                    "Apri cartella output non usa l'ultimo package valido.");
 
                 int helperReference = editor.Text.IndexOf("helper", StringComparison.Ordinal);
                 editor.Select(helperReference + 3, 0);
@@ -5733,7 +5906,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarFormatButton", "toolbarFoldButton", "toolbarHighlightCurrentLineButton",
                 "toolbarShowWhitespaceButton", "toolbarShowIndentGuidesButton", "toolbarWordWrapButton",
                 "toolbarOverviewButton",
-                "toolbarValidateButton", "toolbarBuildButton", "toolbarRunWithoutDebugButton",
+                "toolbarValidateButton", "toolbarBuildButton", "toolbarCompileAndRunButton", "toolbarRunLastBuildButton", "toolbarPublishExecutableButton", "toolbarOpenCompiledOutputButton", "toolbarRunWithoutDebugButton",
                 "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton", "toolbarModuleManagerButton",
                 "toolbarBreakpointButton", "toolbarRunButton", "toolbarStepIntoButton", "toolbarStepOverButton", "toolbarStepOutButton", "toolbarStopButton"
             };
@@ -5791,7 +5964,36 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS sette toolbar mobili per categoria con 53 comandi, posizione e visibilità persistenti");
+            Console.WriteLine("PASS sette toolbar mobili per categoria con 57 comandi, posizione e visibilità persistenti");
+        }
+
+        private static void AssertRunLastBuildCommand(bool visible)
+        {
+            using (var form = ShowSmokeForm(visible))
+            {
+                var service = new FakeCompiledBuildService();
+                form.AttachStandaloneCompiledBuildService(service);
+                ToolStripMenuItem command = FindMenuItem(form,
+                    "runLastBuildMenuItem");
+                ToolStripButton toolbar = FindToolbarButton(form,
+                    "toolbarRunLastBuildButton");
+                Require(command.Available && command.Enabled &&
+                        toolbar.Available && toolbar.Enabled,
+                    "Esegui ultima build non si abilita dopo una build valida.");
+                command.PerformClick();
+                PumpUntil(() => service.RunCount == 1 && command.Enabled,
+                    5000, "Esegui ultima build non ha completato il comando UI.");
+                RichTextBox output = FindControl<RichTextBox>(form,
+                    "richTextBoxOutput");
+                Require(output.Text.Contains("compiled-output",
+                            StringComparison.Ordinal) &&
+                        output.Text.Contains("Valore restituito: 42",
+                            StringComparison.Ordinal) &&
+                        output.Text.Contains("17 passi runtime",
+                            StringComparison.Ordinal),
+                    "L'Output non riporta risultato e passi dell'ultima build.");
+            }
+            Console.WriteLine("PASS Esegui ultima build da menu e toolbar con Output worker");
         }
 
         private static void AssertDocumentTabsDoNotCoverSource(MainForm form, RichTextBox editor)
@@ -6440,6 +6642,76 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 LoadCount++;
                 return State;
+            }
+        }
+
+        private sealed class FakeCompiledBuildService :
+            IDdfEditorCompiledBuildService
+        {
+            public bool HasRunnableBuild => true;
+            public string LastArtifactDirectory { get; private set; } =
+                string.Empty;
+            public string LastPublishedDirectory { get; private set; } =
+                string.Empty;
+            public string LastSuccessfulArtifactDirectory { get; private set; } =
+                string.Empty;
+            public List<DdfEditorBuildConfiguration> BuildConfigurations
+                { get; } = new List<DdfEditorBuildConfiguration>();
+            public int LastSourceCount { get; private set; }
+            public bool FailNextBuild { get; set; }
+            public int BuildCount { get; private set; }
+            public int PublishCount { get; private set; }
+            public int RunCount { get; private set; }
+
+            public DdfEditorCompiledBuildResult Build(
+                DdfEditorCompiledBuildRequest request)
+            {
+                BuildCount++;
+                BuildConfigurations.Add(request.Configuration);
+                LastSourceCount = request.Preparation.Artifact?.Sources.Count ??
+                    0;
+                LastArtifactDirectory = Path.Combine(request.OutputRoot,
+                    "artifacts");
+                if (FailNextBuild)
+                {
+                    FailNextBuild = false;
+                    string sourcePath = request.Preparation.Artifact?.Sources
+                        .FirstOrDefault()?.RelativePath ?? "main.ddf";
+                    return new DdfEditorCompiledBuildResult(
+                        request.OutputRoot, null, false, new[]
+                        {
+                            new DdfEditorCompiledBuildIssue("DDFC999",
+                                "Errore compilato simulato.", sourcePath, 1, 1)
+                        });
+                }
+                Directory.CreateDirectory(LastArtifactDirectory);
+                LastSuccessfulArtifactDirectory = LastArtifactDirectory;
+                return new DdfEditorCompiledBuildResult(request.OutputRoot,
+                    LastArtifactDirectory, false, null);
+            }
+
+            public Task<DdfEditorCompiledRunResult> RunLastBuildAsync(
+                TimeSpan? timeout = null,
+                CancellationToken cancellationToken = default)
+            {
+                RunCount++;
+                return Task.FromResult(new DdfEditorCompiledRunResult(
+                    LastArtifactDirectory, "42", 17, true,
+                    new[] { "compiled-output" }, null));
+            }
+
+            public DdfEditorCompiledPublishResult PublishLastBuild(
+                DdfEditorCompiledPublishRequest request)
+            {
+                string executable = Path.Combine(request.Destination,
+                    request.ExecutableName + ".exe");
+                Directory.CreateDirectory(request.Destination);
+                LastPublishedDirectory = request.Destination;
+                var result = new DdfEditorCompiledPublishResult(
+                    request.Destination, executable,
+                    new[] { executable }, null);
+                PublishCount++;
+                return result;
             }
         }
 

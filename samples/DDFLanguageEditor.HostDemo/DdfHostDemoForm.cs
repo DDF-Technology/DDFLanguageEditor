@@ -497,7 +497,7 @@ namespace DDFLanguageEditor.HostDemo
                 : "Watch " + result.Expression + " — " + result.Message);
         }
 
-        private static void ShowBuildSnapshot(DdfEditorBuildSnapshot snapshot,
+        private static void ShowBuildSnapshot(DdfEditorPreparationSnapshot snapshot,
             RichTextBox output, DdfEditorView editor, Label status)
         {
             output.Clear();
@@ -505,15 +505,15 @@ namespace DDFLanguageEditor.HostDemo
                 AppendOutput(output, issue.ToString());
             if (snapshot.Succeeded)
             {
-                AppendOutput(output, snapshot.Mode == DdfEditorBuildMode.Validate
-                    ? "Convalida completata." : "Compilazione in memoria completata.");
-                if (snapshot.Artifact != null)
-                    AppendOutput(output, "Fingerprint: " + snapshot.Artifact.Fingerprint);
+                AppendOutput(output, snapshot.Mode == DdfEditorPreparationMode.Validate
+                    ? "Convalida completata." : "Preparazione in memoria completata.");
+                if (snapshot.PreparedArtifact != null)
+                    AppendOutput(output, "Fingerprint: " + snapshot.PreparedArtifact.Fingerprint);
             }
             UpdateStatus(editor, status, snapshot.Succeeded
-                ? (snapshot.Mode == DdfEditorBuildMode.Validate
-                    ? "Progetto valido" : "Build completata")
-                : "Build terminata con errori");
+                ? (snapshot.Mode == DdfEditorPreparationMode.Validate
+                    ? "Script valido" : "Preparazione completata")
+                : "Preparazione terminata con errori");
         }
 
         private static void BuildProfile(DdfEditorView editor,
@@ -521,8 +521,8 @@ namespace DDFLanguageEditor.HostDemo
         {
             try
             {
-                ShowBuildSnapshot(compile ? editor.BuildProject() :
-                    editor.ValidateProject(), output, editor, status);
+                ShowBuildSnapshot(compile ? editor.PrepareScript() :
+                    editor.ValidateScript(), output, editor, status);
             }
             catch (InvalidOperationException exception)
             {

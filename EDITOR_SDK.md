@@ -3,17 +3,19 @@
 ## Stato
 
 La `0.11.2` introduce in modo incrementale il confine incorporabile dell'editor.
-Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.33"`.
+Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.34"`.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
 
 ## Pacchetti e applicazione standalone
 
-Il codice è separato in tre artefatti:
+Il codice è separato in quattro artefatti:
 
 - `DDFLanguageEditor.Core` (`net10.0`), privo di dipendenze WinForms;
 - `DDFLanguageEditor.WinForms` (`net10.0-windows`), contenente
   `DdfEditorView`, `DdfEmbeddedEditorControl` e la shell grafica;
+- `DDFLanguageEditor.Compiler` (`net10.0`), confine Roslyn riservato a
+  standalone e futura CLI, mai referenziato da Core o WinForms;
 - `DDFLanguageEditor.App`, launcher standalone che produce
   `DDFLanguageEditor.exe` e dipende dalla libreria WinForms.
 
@@ -41,7 +43,7 @@ I pacchetti locali si generano in modo ripetibile con:
 `IDdfEditorSurface`. La shell standalone usa la stessa classe come contenitore
 della propria superficie centrale e le associa l'editor del documento attivo.
 
-Il contratto `0.33` espone:
+Il contratto `0.34` espone:
 
 - testo sorgente tramite `SourceText`;
 - selezione normalizzata tramite `SetSelection`, `SelectionStart` e
@@ -154,12 +156,12 @@ la pipeline interpretata governata dall'host; non produrranno né caricheranno
 assembly DDF. Compila, Pubblica, linker, loader, PE e PDB appartengono soltanto a
 `DDFLanguageEditor.App` e alla CLI standalone.
 
-Il servizio oggi denominato `IDdfEditorBuildService` crea un piano IR in memoria
-usato da convalida, Run e Debug: non emette IL e non è il futuro compilatore.
-Prima della `0.13` il contratto verrà separato in modo esplicito in
-convalida/preparazione script e compilazione standalone. Quest'ultima non sarà
-collegabile a `DdfEditorView` o `DdfEmbeddedEditorControl`, nemmeno tramite API.
-Core e WinForms non acquisiranno riferimenti a `Microsoft.CodeAnalysis`.
+`IDdfEditorPreparationService` crea un piano IR in memoria usato da convalida e
+preparazione dello script: non emette IL, non scrive assembly e non è il
+compilatore Roslyn. Il contratto espone soltanto `ValidateScript()` e
+`PrepareScript()`; compilazione e relativo servizio non sono collegabili a
+`DdfEditorView` o `DdfEmbeddedEditorControl`, nemmeno tramite API. Core e
+WinForms non acquisiscono riferimenti a `Microsoft.CodeAnalysis`.
 
 Le API devono essere usate dal thread UI WinForms. L'evento
 `SourceTextChanged` viene emesso una sola volta anche quando l'host assegna il
@@ -413,40 +415,40 @@ dichiarazione; una destinazione in un altro buffer usa esclusivamente
 virtuali. L'esito è restituito come `bool` e una navigazione riuscita pubblica
 `DefinitionNavigated` con `DdfEditorNavigationTarget`.
 
-## Eventi operativi e build
+## Eventi operativi e preparazione script
 
 La superficie inoltra in modo uniforme il lifecycle che prima era osservabile
 soltanto collegandosi ai singoli servizi. Sono disponibili eventi per aggiunta,
 modifica, attivazione e chiusura dei documenti, uno snapshot immutabile della
-selezione, aggiornamento delle diagnostiche, navigazione, build, output,
+selezione, aggiornamento delle diagnostiche, navigazione, preparazione, output,
 esecuzione e debug. Gli eventi di Run e Debug mantengono il thread del servizio:
 un host grafico deve quindi effettuare il marshal verso la propria UI.
 
-`IDdfEditorBuildService` fotografa testo e versione di ogni buffer e condivide la
-stessa pipeline usata da Run e Debug. `ValidateProject()` e `BuildProject()` non
-leggono i sorgenti dal disco e non scrivono artefatti: il risultato contiene
-diagnostiche, fingerprint e artefatto immutabile che l'host può conservare nel
-proprio contenitore.
+`IDdfEditorPreparationService` fotografa testo e versione di ogni buffer.
+`ValidateScript()` e `PrepareScript()` non leggono i sorgenti dal disco e non
+scrivono artefatti: il risultato contiene diagnostiche, fingerprint e piano VM
+immutabile che l'host può conservare nel proprio contenitore.
 
 ```csharp
-editor.BuildCompleted += (sender, args) =>
+editor.PreparationCompleted += (sender, args) =>
     ShowIssues(args.Snapshot.Issues);
 
-DdfEditorBuildSnapshot validation = editor.ValidateProject();
-DdfEditorBuildSnapshot build = editor.BuildProject();
+DdfEditorPreparationSnapshot validation = editor.ValidateScript();
+DdfEditorPreparationSnapshot prepared = editor.PrepareScript();
 ```
 
-Per gli host che possiedono già un modello di progetto, il contratto `0.30`
-consente di costruire `DdfEditorBuildService` con un `DdfEditorBuildHandler`.
+Per gli host che possiedono già un modello di progetto, il contratto `0.34`
+consente di costruire `DdfEditorPreparationService` con un
+`DdfEditorPreparationHandler`.
 Il delegate riceve modalità, richiesta, snapshot dei documenti, pacchetto e
 catalogo host, ma pubblica il risultato attraverso gli stessi stati, eventi e
-snapshot di `IDdfEditorBuildService`. Senza handler resta valido il comportamento
-sicuro predefinito: build interamente in memoria e nessun I/O implicito. La shell
+snapshot di `IDdfEditorPreparationService`. Senza handler resta valido il comportamento
+sicuro predefinito: preparazione interamente in memoria e nessun I/O implicito. La shell
 standalone usa questa estensione per aggiungere manifest, sorgenti del workspace
 e ricevuta su disco senza creare un secondo percorso operativo per menu e toolbar.
 
-I comandi `run.validate` e `run.build` seguono automaticamente disponibilità dei
-documenti e stato di Build, Run e Debug. La superficie inoltra inoltre
+I comandi `script.validate` e `script.prepare` seguono automaticamente disponibilità dei
+documenti e stato di preparazione, Run e Debug. La superficie inoltra inoltre
 `ExecutionStateChanged`, `ExecutionOutputReceived`, `ExecutionCompleted`,
 `DebugStateChanged`, `DebugPaused`, `DebugOutputReceived` e `DebugCompleted`,
 senza obbligare l'host a conoscere l'implementazione concreta dei servizi.
@@ -454,13 +456,13 @@ senza obbligare l'host a conoscere l'implementazione concreta dei servizi.
 ## Isolamento e proprietà dei servizi
 
 Ogni `DdfEditorView` crea configurazione, sessione linguistica, stato didattico,
-analisi, build, catalogo comandi, esecuzione e debug indipendenti. Anche eventi,
+analisi, preparazione, catalogo comandi, esecuzione e debug indipendenti. Anche eventi,
 snapshot, breakpoint, Watch, palette e scorciatoie rimangono confinati
 all'istanza. Il solo dato condiviso internamente è il pacchetto DDF incorporato,
 caricato una volta e trattato come definizione immutabile; ogni sessione conserva
 comunque selezione, revisione e diagnostiche proprie.
 
-Nessuna modifica, analisi, build, esecuzione o sessione di debug invoca
+Nessuna modifica, analisi, preparazione, esecuzione o sessione di debug invoca
 automaticamente `Save` o `Load` sui provider. Persistenza e contenitori progetto
 vengono consultati soltanto dalle operazioni esplicite richieste dall'host. I
 servizi sostituibili iniettati dall'host restano di sua proprietà e non vengono

@@ -21,9 +21,22 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DDF - Program Language Editor.csproj" />
+    <ProjectReference Include="..\DDFLanguageEditor.Compiler\DDFLanguageEditor.Compiler.csproj" />
+    <ProjectReference Include="..\DDFLanguageEditor.Runner\DDFLanguageEditor.Runner.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <Target Name="CopyDdfRunner" AfterTargets="Build">
+    <ItemGroup>
+      <DdfRunnerFile Include="..\DDFLanguageEditor.Runner\bin\$(Configuration)\DDFLanguageEditor.Runner.dll" />
+      <DdfRunnerFile Include="..\DDFLanguageEditor.Runner\bin\$(Configuration)\DDFLanguageEditor.Runner.deps.json" />
+      <DdfRunnerFile Include="..\DDFLanguageEditor.Runner\bin\$(Configuration)\DDFLanguageEditor.Runner.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DdfRunnerFile)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup>
+    <Content Include="..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\language-packages\ddf-it-didactic\*.*" Link="language-package-seeds\ddf-it-didactic\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\language-packages\ddf-c-familiar\*.*" Link="language-package-seeds\ddf-c-familiar\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

@@ -820,6 +820,8 @@ namespace DDF___Program_Language_Editor
 
         private void richTextBoxMainEditor_VScroll(object sender, EventArgs e)
         {
+            if (isSwitchingDocument ||
+                !ReferenceEquals(sender, richTextBoxMainEditor)) return;
             captureDocumentViewport(findDocumentView(sender as RichTextBox));
             updateLineNumbers();
             refreshEditorOverviewViewport();

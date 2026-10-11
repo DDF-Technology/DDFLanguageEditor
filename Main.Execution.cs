@@ -15,7 +15,7 @@ namespace DDF___Program_Language_Editor
     public partial class MainForm
     {
         private DdfEditorExecutionService standaloneExecutionService;
-        private DdfEditorDebugService standaloneDebugService;
+        private IDdfEditorDebugService standaloneDebugService;
         private readonly List<OutputNavigationTarget> outputNavigationTargets = new List<OutputNavigationTarget>();
         private readonly DdfBuildService projectBuildService = new DdfBuildService();
         private string runtimeDocumentId;
@@ -37,6 +37,8 @@ namespace DDF___Program_Language_Editor
             "toggleLineCommentMenuItem", "duplicateLinesMenuItem", "moveLinesUpMenuItem",
             "moveLinesDownMenuItem", "deleteLinesMenuItem", "quickFixMenuItem",
             "validateProjectMenuItem", "buildProjectMenuItem", "runWithoutDebugMenuItem",
+            "compileAndRunMenuItem", "runLastBuildMenuItem",
+            "publishExecutableMenuItem",
             "settingsMenuItem", "manageLanguagePackagesMenuItem", "validateLanguagePackageMenuItem",
             "languagePlaygroundMenuItem", "manageModulePackagesMenuItem"
         };
@@ -49,6 +51,8 @@ namespace DDF___Program_Language_Editor
             "toolbarMoveLinesUpButton", "toolbarMoveLinesDownButton", "toolbarDeleteLinesButton",
             "toolbarCompletionButton", "toolbarQuickFixButton", "toolbarFormatButton",
             "toolbarValidateButton", "toolbarBuildButton", "toolbarRunWithoutDebugButton",
+            "toolbarCompileAndRunButton", "toolbarRunLastBuildButton",
+            "toolbarPublishExecutableButton",
             "toolbarSettingsButton", "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton",
             "toolbarLanguageButton", "toolbarModuleManagerButton"
         };
@@ -84,33 +88,35 @@ namespace DDF___Program_Language_Editor
 
         private void validateProjectMenuItem_Click(object sender, EventArgs e) => validateOrBuildProject(false);
 
-        private void buildProjectMenuItem_Click(object sender, EventArgs e) => validateOrBuildProject(true);
+        private void buildProjectMenuItem_Click(object sender, EventArgs e) =>
+            executeCompiledBuild();
 
         private void validateOrBuildProject(bool writeArtifact)
         {
-            DdfEditorBuildSnapshot snapshot = writeArtifact
-                ? panelEditor.BuildProject()
-                : panelEditor.ValidateProject();
+            DdfEditorPreparationSnapshot snapshot = writeArtifact
+                ? panelEditor.PrepareScript()
+                : panelEditor.ValidateScript();
             showBuildResult(writeArtifact ? "Compilazione" : "Convalida",
                 snapshot.Result);
         }
 
-        private DdfBuildResult executeStandaloneBuild(DdfEditorBuildMode mode,
-            DdfEditorBuildRequest request,
-            IReadOnlyList<DdfEditorBuildDocumentSnapshot> documents,
+        private DdfBuildResult executeStandalonePreparation(
+            DdfEditorPreparationMode mode,
+            DdfEditorPreparationRequest request,
+            IReadOnlyList<DdfEditorPreparationDocumentSnapshot> documents,
             DdfLanguagePackage package, DdfHostCatalogSnapshot hostCatalog)
         {
             if (!tryCreateBuildContext(out ProjectBuildContext context,
                 out IReadOnlyList<DdfBuildIssue> setupIssues))
                 return DdfBuildResult.Failure(setupIssues);
-            if (mode == DdfEditorBuildMode.Build && context.IsUntitled)
+            if (mode == DdfEditorPreparationMode.PrepareScript && context.IsUntitled)
                 return DdfBuildResult.Failure(DdfBuildIssue.Configuration("DDFB008",
                     "Salvare il documento o aprire una cartella progetto prima di generare un artefatto."));
 
-            applyEditorBuildRequest(context, request);
+            applyEditorPreparationRequest(context, request);
             try
             {
-                return mode == DdfEditorBuildMode.Build
+                return mode == DdfEditorPreparationMode.PrepareScript
                     ? projectBuildService.Build(context.Root, context.Manifest,
                         context.Package, context.Buffers, hostCatalog)
                     : projectBuildService.Validate(context.Root, context.Manifest,
@@ -124,8 +130,8 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private void applyEditorBuildRequest(ProjectBuildContext context,
-            DdfEditorBuildRequest request)
+        private void applyEditorPreparationRequest(ProjectBuildContext context,
+            DdfEditorPreparationRequest request)
         {
             if (request == null) return;
             if (!string.IsNullOrWhiteSpace(request.EntryPoint))
@@ -248,6 +254,29 @@ namespace DDF___Program_Language_Editor
                 paths);
         }
 
+        public DdfEditorExecutionBuildContext PrepareStandaloneBackendExecution(
+            DdfEditorExecutionRequest request,
+            IReadOnlyList<DdfEditorBuildDocumentSnapshot> documents,
+            DdfLanguagePackage package)
+        {
+            if (embeddedHostMode) throw new InvalidOperationException(
+                "Il backend compilato non è disponibile nell'editor embedded.");
+            return prepareStandaloneExecution(request,
+                documents ?? Array.Empty<DdfEditorBuildDocumentSnapshot>(),
+                package, panelEditor.HostCatalog?.Snapshot);
+        }
+
+        public void AttachStandaloneDebugService(IDdfEditorDebugService service)
+        {
+            if (embeddedHostMode) throw new InvalidOperationException(
+                "Il debugger compilato non è disponibile nell'editor embedded.");
+            if (service == null) throw new ArgumentNullException(nameof(service));
+            IDdfEditorDebugService previous = standaloneDebugService;
+            standaloneDebugService = service;
+            panelEditor.AttachDebugService(service);
+            previous?.Dispose();
+        }
+
         private void applyEditorExecutionRequest(ProjectBuildContext context,
             DdfEditorExecutionRequest request)
         {
@@ -360,6 +389,12 @@ namespace DDF___Program_Language_Editor
         private void stopProgramMenuItem_Click(object sender, EventArgs e)
         {
             clearDebugExecutionLine();
+            if (compiledBuildRunning && compiledBuildCancellation != null)
+            {
+                compiledBuildCancellation?.Cancel();
+                appendOutput("Arresto dell'esecuzione compilata richiesto...");
+                return;
+            }
             if (panelEditor.DebugService?.IsActive == true)
                 panelEditor.DebugService.Stop();
             else
@@ -372,35 +407,88 @@ namespace DDF___Program_Language_Editor
         private void updateExecutionCommands(bool running)
         {
             bool paused = running && panelEditor.DebugService?.IsPaused == true;
-            bool runtimeControlsVisible = !embeddedHostMode || running;
-            setDebugUiLock(running);
+            bool busy = running || compiledBuildRunning;
+            bool compiledRunCancellable = compiledBuildRunning &&
+                compiledBuildCancellation != null;
+            bool runtimeControlsVisible = !embeddedHostMode || busy;
+            setDebugUiLock(busy);
             updateWatchExecutionState(running, paused);
             updateVariablesExecutionState(running, paused);
             updateCallStackExecutionState(running, paused);
-            runProgramMenuItem.Enabled = !running || paused;
+            runProgramMenuItem.Enabled = !compiledBuildRunning &&
+                (!running || paused);
             runProgramMenuItem.Text = paused ? "&Continua" : "Avvia &debug";
-            runWithoutDebugMenuItem.Enabled = !running;
+            runWithoutDebugMenuItem.Enabled = !busy;
             runProgramMenuItem.Available = runtimeControlsVisible;
             runWithoutDebugMenuItem.Available = !embeddedHostMode;
-            validateProjectMenuItem.Enabled = !running;
-            buildProjectMenuItem.Enabled = !embeddedHostMode && !running;
-            stopProgramMenuItem.Enabled = running;
+            if (compilationMenuItem != null)
+                compilationMenuItem.Available = !embeddedHostMode;
+            validateProjectMenuItem.Enabled = !running && !compiledBuildRunning;
+            buildProjectMenuItem.Enabled = !embeddedHostMode && !running &&
+                !compiledBuildRunning;
+            if (compileAndRunMenuItem != null)
+                compileAndRunMenuItem.Enabled = !embeddedHostMode && !busy &&
+                    standaloneCompiledBuildService != null;
+            if (runLastBuildMenuItem != null)
+                runLastBuildMenuItem.Enabled = !embeddedHostMode && !busy &&
+                    standaloneCompiledBuildService?.HasRunnableBuild == true;
+            if (publishExecutableMenuItem != null)
+                publishExecutableMenuItem.Enabled = !embeddedHostMode &&
+                    !busy && standaloneCompiledBuildService != null;
+            if (openCompiledOutputMenuItem != null)
+            {
+                openCompiledOutputMenuItem.Available = !embeddedHostMode;
+                openCompiledOutputMenuItem.Enabled = !busy &&
+                    Directory.Exists(lastCompiledOutputDirectory);
+            }
+            if (buildConfigurationMenuItem != null)
+                buildConfigurationMenuItem.Enabled = !running &&
+                    !compiledBuildRunning;
+            stopProgramMenuItem.Enabled = running || compiledRunCancellable;
             stopProgramMenuItem.Available = runtimeControlsVisible;
-            if (toolbarValidateButton != null) toolbarValidateButton.Enabled = !running;
-            if (toolbarBuildButton != null) toolbarBuildButton.Enabled = !embeddedHostMode && !running;
-            if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Enabled = !running;
+            if (toolbarValidateButton != null)
+                toolbarValidateButton.Enabled = !running && !compiledBuildRunning;
+            if (toolbarBuildButton != null)
+                toolbarBuildButton.Enabled = !embeddedHostMode && !running &&
+                    !compiledBuildRunning;
+            if (toolbarCompileAndRunButton != null)
+            {
+                toolbarCompileAndRunButton.Available = !embeddedHostMode;
+                toolbarCompileAndRunButton.Enabled = !busy &&
+                    standaloneCompiledBuildService != null;
+            }
+            if (toolbarRunLastBuildButton != null)
+            {
+                toolbarRunLastBuildButton.Available = !embeddedHostMode;
+                toolbarRunLastBuildButton.Enabled = !busy &&
+                    standaloneCompiledBuildService?.HasRunnableBuild == true;
+            }
+            if (toolbarPublishExecutableButton != null)
+            {
+                toolbarPublishExecutableButton.Available = !embeddedHostMode;
+                toolbarPublishExecutableButton.Enabled = !busy &&
+                    standaloneCompiledBuildService != null;
+            }
+            if (toolbarOpenCompiledOutputButton != null)
+            {
+                toolbarOpenCompiledOutputButton.Available = !embeddedHostMode;
+                toolbarOpenCompiledOutputButton.Enabled = !busy &&
+                    Directory.Exists(lastCompiledOutputDirectory);
+            }
+            if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Enabled = !busy;
             if (toolbarRunWithoutDebugButton != null) toolbarRunWithoutDebugButton.Available = !embeddedHostMode;
             if (toolbarRunButton != null)
             {
                 toolbarRunButton.Available = runtimeControlsVisible;
-                toolbarRunButton.Enabled = !running || paused;
+                toolbarRunButton.Enabled = !compiledBuildRunning &&
+                    (!running || paused);
                 toolbarRunButton.ToolTipText = paused ? "Continua (F5)" : "Avvia debug (F5)";
                 toolbarRunButton.AccessibleName = toolbarRunButton.ToolTipText;
             }
             if (toolbarStopButton != null)
             {
                 toolbarStopButton.Available = runtimeControlsVisible;
-                toolbarStopButton.Enabled = running;
+                toolbarStopButton.Enabled = running || compiledRunCancellable;
             }
             if (stepIntoMenuItem != null) stepIntoMenuItem.Enabled = paused;
             if (toolbarStepIntoButton != null) toolbarStepIntoButton.Enabled = paused;

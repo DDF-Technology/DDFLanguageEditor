@@ -27,15 +27,16 @@ namespace DDFLanguageEditor.Core
     {
         public DdfIrModule(string documentPath, string source, DdfIrProgram program)
             : this(documentPath, source, program, "local.module", "0.0.0",
-                Array.Empty<string>(), Array.Empty<DdfProjectDependency>())
+                Array.Empty<string>(), Array.Empty<DdfProjectDependency>(), documentPath)
         {
         }
 
         public DdfIrModule(string documentPath, string source, DdfIrProgram program,
             string moduleId, string moduleVersion, IEnumerable<string> exports,
-            IEnumerable<DdfProjectDependency> dependencies)
+            IEnumerable<DdfProjectDependency> dependencies, string relativePath = null)
         {
             DocumentPath = documentPath ?? string.Empty;
+            RelativePath = (relativePath ?? documentPath ?? string.Empty).Replace('\\', '/');
             Source = source ?? throw new ArgumentNullException(nameof(source));
             Program = program ?? throw new ArgumentNullException(nameof(program));
             ModuleId = string.IsNullOrWhiteSpace(moduleId) ? "local.module" : moduleId;
@@ -48,6 +49,7 @@ namespace DDFLanguageEditor.Core
         }
 
         public string DocumentPath { get; }
+        public string RelativePath { get; }
         public string Source { get; }
         public DdfIrProgram Program { get; }
         public string ModuleId { get; }

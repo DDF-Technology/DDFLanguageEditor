@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.ddf.technology/schemas/project-1.1.json",
-  "title": "DDF project manifest 1.1",
+  "$id": "https://www.ddf.technology/schemas/project-1.2.json",
+  "title": "DDF project manifest 1.2",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "schemaVersion", "name", "module", "languageId", "languagePackageVersion", "sources", "entryPoint", "dependencies", "backend", "output", "options" ],
+  "required": [ "schemaVersion", "name", "module", "languageId", "languagePackageVersion", "sources", "entryPoint", "dependencies", "references", "backend", "output", "options" ],
   "properties": {
     "$schema": { "type": "string" },
-    "schemaVersion": { "const": "1.1" },
+    "schemaVersion": { "const": "1.2" },
     "name": { "type": "string", "minLength": 1 },
     "module": {
       "type": "object", "additionalProperties": false,
@@ -28,6 +28,25 @@
       "items": {
         "type": "object", "additionalProperties": false, "required": [ "id", "version" ],
         "properties": { "id": { "$ref": "#/$defs/id" }, "version": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": [ "id", "kind", "version", "architecture", "origin", "capabilities" ],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "kind": { "enum": [ "managed-dotnet", "com", "native", "host-service" ] },
+          "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}$" },
+          "architecture": { "enum": [ "any", "x86", "x64", "arm64" ] },
+          "origin": { "enum": [ "project", "configured", "system", "host" ] },
+          "capabilities": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+        },
+        "allOf": [
+          { "if": { "properties": { "kind": { "const": "host-service" } } }, "then": { "properties": { "origin": { "const": "host" } } } },
+          { "if": { "properties": { "kind": { "enum": [ "com", "native" ] } } }, "then": { "properties": { "architecture": { "enum": [ "x86", "x64", "arm64" ] } } } }
+        ]
       }
     },
     "backend": { "const": "ddf-vm-ir-v1" },

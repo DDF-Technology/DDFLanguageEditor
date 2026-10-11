@@ -77,13 +77,14 @@ namespace DDF___Program_Language_Editor
             panelEditor.AttachDocumentService(openDocuments, false);
             initializeEditingExperience();
             initializeMainToolbar();
+            initializeStandaloneBuildCommands();
             initializeLanguagePackageCommands();
             initializeModulePackageCommands();
-            panelEditor.AttachBuildService(new DdfEditorBuildService(
+            panelEditor.AttachPreparationService(new DdfEditorPreparationService(
                 () => openDocuments,
                 () => editorLanguageSession,
                 () => panelEditor.HostCatalog?.Snapshot,
-                executeStandaloneBuild));
+                executeStandalonePreparation));
             standaloneExecutionService = new DdfEditorExecutionService(
                 () => openDocuments,
                 () => editorLanguageSession,
@@ -186,9 +187,21 @@ namespace DDF___Program_Language_Editor
         private void applyEmbeddedHostMode()
         {
             if (!embeddedHostMode) return;
+            if (compilationMenuItem != null)
+                compilationMenuItem.Available = false;
             buildProjectMenuItem.Available = false;
             saveAsMenuItem.Available = false;
             if (toolbarBuildButton != null) toolbarBuildButton.Available = false;
+            if (toolbarCompileAndRunButton != null)
+                toolbarCompileAndRunButton.Available = false;
+            if (toolbarRunLastBuildButton != null)
+                toolbarRunLastBuildButton.Available = false;
+            if (toolbarPublishExecutableButton != null)
+                toolbarPublishExecutableButton.Available = false;
+            if (openCompiledOutputMenuItem != null)
+                openCompiledOutputMenuItem.Available = false;
+            if (toolbarOpenCompiledOutputButton != null)
+                toolbarOpenCompiledOutputButton.Available = false;
             runWithoutDebugMenuItem.Available = false;
             runProgramMenuItem.Available = false;
             stopProgramMenuItem.Available = false;

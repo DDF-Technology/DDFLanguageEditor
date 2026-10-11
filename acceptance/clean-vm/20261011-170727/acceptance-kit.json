@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "state": "prepared-not-executed",
+  "createdUtc": "2026-10-11T17:07:44.9688588Z",
+  "sourceProject": "samples/clean-vm-acceptance",
+  "runtimeIdentifier": "win-x64",
+  "executable": "DdfCleanVmProbe.exe",
+  "publicationFingerprint": "c1274b1d9f5eb6bbe1475e70333f3beb28d1489730c9254d5f0221275e7a89de",
+  "archive": {
+    "file": "DdfCleanVmProbe-win-x64.zip",
+    "size": 37210784,
+    "sha256": "fd820d6c8438b66d633be5a895d97e747f535db9ead1993f07ea97f0d5e458a1"
+  },
+  "expected": {
+    "exitCode": 0,
+    "outputContains": [
+      "DDF CLEAN VM OK",
+      "Valore restituito: 42"
+    ]
+  }
+}

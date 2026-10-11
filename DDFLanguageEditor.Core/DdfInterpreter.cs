@@ -65,7 +65,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfExecutionResult
     {
-        internal DdfExecutionResult(object returnValue, int instructions, bool cancelled,
+        public DdfExecutionResult(object returnValue, int instructions, bool cancelled,
             bool terminated, IReadOnlyList<DdfDiagnostic> diagnostics,
             IReadOnlyList<DdfRuntimeStackFrame> stackTrace,
             IReadOnlyList<DdfHostValueResult> hostValues = null,
@@ -598,6 +598,12 @@ namespace DDFLanguageEditor.Core
                         Fail("DDF413", exception.Message, node);
                         return null;
                     }
+                    catch (DdfExternalApiUnavailableException exception)
+                    {
+                        options.HostEffectTracker?.Failed(effectToken, exception);
+                        Fail("DDF409", exception.Message, node);
+                        return null;
+                    }
                     catch (Exception exception)
                     {
                         options.HostEffectTracker?.Failed(effectToken, exception);
@@ -635,6 +641,7 @@ namespace DDFLanguageEditor.Core
                 }
                 catch (OperationCanceledException)
                 {
+                    ObserveLateHostFailure(task);
                     if (options.CancellationToken.IsCancellationRequested ||
                         options.CancellationRequested?.Invoke() == true)
                         throw new CancelledSignal();
@@ -643,6 +650,21 @@ namespace DDFLanguageEditor.Core
                             CultureInfo.InvariantCulture) + " ms.", node);
                     return null;
                 }
+            }
+
+            private static void ObserveLateHostFailure(Task<object> task)
+            {
+                if (task.IsFaulted)
+                {
+                    _ = task.Exception;
+                    return;
+                }
+                if (!task.IsCompleted)
+                    _ = task.ContinueWith(completed => _ = completed.Exception,
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted |
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
             }
 
             private bool hostResourcesClosed;

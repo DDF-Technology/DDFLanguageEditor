@@ -8,7 +8,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Core\**;tests\**;samples\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Cli\**;DDFLanguageEditor.Compiler\**;DDFLanguageEditor.Core\**;DDFLanguageEditor.Data\**;DDFLanguageEditor.Network\**;DDFLanguageEditor.Storage\**;DDFLanguageEditor.Hardware\**;DDFLanguageEditor.Runtime\**;DDFLanguageEditor.Runner\**;tests\**;samples\**</DefaultItemExcludes>
     <IsPackable>true</IsPackable>
     <PackageId>DDFLanguageEditor.WinForms</PackageId>
     <PackageVersion>0.11.2-beta</PackageVersion>
@@ -43,6 +43,9 @@
     <Content Include="language-tests.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="type-system-corpus.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="ddf-project.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="ddf-references-lock.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="ddf-adapter-family-catalog.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="adapter-families\catalog.json" Link="adapter-families\catalog.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

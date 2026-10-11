@@ -28,5 +28,7 @@
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="" />
     <None Update="README.md" Pack="true" PackagePath="" />
+    <None Include="..\ddf-adapter-family-catalog.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\adapter-families\catalog.json" Pack="true" PackagePath="contentFiles\any\any\adapter-families\" />
   </ItemGroup>
 </Project>

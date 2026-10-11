@@ -1,6 +1,6 @@
 {
   "$schema": "../../ddf-project.schema.json",
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "name": "DDF module workspace",
   "module": {
     "id": "ddf.sample.module-app",
@@ -16,6 +16,7 @@
     { "id": "ddf.sample.math", "version": "1.0.0" },
     { "id": "ddf.sample.scale", "version": "1.0.0" }
   ],
+  "references": [],
   "backend": "ddf-vm-ir-v1",
   "output": {
     "directory": ".ddf-build",

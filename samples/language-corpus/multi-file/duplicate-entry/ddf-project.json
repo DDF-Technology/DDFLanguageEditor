@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "name": "Normative duplicate entry workspace",
   "module": { "id": "ddf.corpus.duplicate", "version": "1.0.0", "exports": [] },
   "languageId": "ddf",
@@ -8,6 +8,7 @@
   "entrySource": "first.ddf",
   "entryPoint": "main",
   "dependencies": [],
+  "references": [],
   "backend": "ddf-vm-ir-v1",
   "output": { "directory": ".ddf-build", "artifact": "duplicate.ddfbuild.json" },
   "options": { "useUnsavedBuffers": false, "maxInstructions": 100000 }

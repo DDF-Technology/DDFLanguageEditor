@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "name": "DDF sample math library",
   "module": {
     "id": "ddf.sample.math",
@@ -12,6 +12,7 @@
   "entrySource": null,
   "entryPoint": "unused",
   "dependencies": [],
+  "references": [],
   "backend": "ddf-vm-ir-v1",
   "output": {
     "directory": ".ddf-build",

@@ -39,7 +39,17 @@ artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 - requisiti opzionali per plug-in nativi identificati esattamente e soggetti ad autorizzazione separata per capacità, senza caricamento implicito di codice host;
 - VM IR indipendente dalla sintassi concreta, con operatori tradotti in operazioni controllate e libreria standard dichiarata dal pacchetto;
 - manifest `ddf-project.json` separato dal pacchetto, con identità/versione/export del modulo, sorgenti, entry point, dipendenze, backend, output e opzioni riproducibili;
-- comandi distinti Convalida, Compila, Avvia senza debug e Avvia debug, con errori multi-file navigabili dall'Output;
+- manifest progetto `1.2` con riferimenti esterni esclusivamente logici e versionati per assembly .NET, COM, native e servizi host; architettura, origine e capacità sono esplicite, mentre percorsi, CLSID, ProgID e caricamenti arbitrari sono vietati. Il resolver sostituibile usa solo un catalogo esatto e un'autorizzazione esplicita, consegnando assembly verificati allo standalone oppure identità di adapter tipizzati all'embedded ([contratto riferimenti](DDF_EXTERNAL_REFERENCES.md));
+- lockfile locale `ddf-references.lock.json` con binding, percorsi autorizzati, dimensioni, SHA-256 e dipendenze transitive; viene scritto atomicamente e una divergenza deve essere aggiornata esplicitamente, mai sovrascritta in silenzio;
+- descrittore API esterno `1.0` privo di codice CLR: permessi, tipi, oggetti, funzioni, firme, effetti e documentazione alimentano lo stesso catalogo di analisi, IntelliSense, runtime VM e debugger; l'adapter esecutivo deve avere identità esatta e non può introdurre discovery tramite reflection o `P/Invoke` arbitrario;
+- bridge Roslyn degli adapter esterni: le stesse API vengono convertite nelle capability canoniche del manifest compilato, con controllo esatto di identità/versione/fingerprint/adapter e rivalutazione dei permessi a ogni chiamata; il gate trasversale confronta `Validate`/`Build`, esecuzione e debug VM/Roslyn, aggiornamento compatibile, revoca e assenza fail-closed;
+- adapter dati gestito `DDFLanguageEditor.Data` per ADO.NET/SQLite: lo script richiama soltanto operazioni host nominate e parametrizzate; connessioni e credenziali restano esterne, mentre permessi, transazioni, timeout, cancellazione e cleanup sono governati ([contratto adapter dati](DDF_DATA_ADAPTERS.md));
+- adapter rete gestito `DDFLanguageEditor.Network` per HTTP/JSON: origine HTTPS, metodi, route, parametri, risposta, timeout e quote sono dichiarati dall'host; URL, header e credenziali non provengono mai dallo script ([contratto adapter HTTP](DDF_HTTP_ADAPTERS.md));
+- adapter filesystem gestito `DDFLanguageEditor.Storage`: lo script vede soltanto funzioni associate a risorse logiche; percorsi host, enumerazione e accesso libero restano esclusi, mentre UTF-8/JSON/CSV, quote e scritture transazionali sono governati ([contratto adapter filesystem](DDF_FILESYSTEM_ADAPTERS.md));
+- contratto hardware `DDFLanguageEditor.Hardware`: dispositivi e operazioni sono iniettati dall'host con identità logiche, permessi, quote, timeout e lease; seriale, MIDI, LPT e GPIO/I²C/SPI/PWM mantengono endpoint, registri, pin e bus fuori dallo script. L'operazione `Exchange` preserva le transazioni I²C/SPI atomiche e il bridge opzionale `System.Device.Gpio` resta dietro il contratto provider-neutral ([contratto hardware](DDF_HARDWARE_ADAPTERS.md), [gate fisici IoT](DDF_IOT_PHYSICAL_TESTS.md));
+- catalogo di governance `adapter-families/catalog.json`: separa le famiglie disponibili, candidate e differite senza installarle né promuoverle nella libreria standard; maintainer, caso d'uso e gate di sicurezza, portabilità, licenza e test sono obbligatori prima dello stato `available` ([contratto del catalogo](DDF_ADAPTER_FAMILY_CATALOG.md));
+- menu standalone `Compilazione` con Convalida, `Esegui build` Roslyn reale, `Compila ed esegui`, `Esegui ultima build` nel worker isolato e `Pubblica EXE...` self-contained, selezione persistente Debug/Release, target `win-x64` e output separati sotto `bin`; comando equivalente, cache verificata, diagnostiche multi-file, risultato runtime e percorso del package sono visibili nell'Output. Il dialogo di pubblicazione consente anche di scegliere e vedere in anteprima un'icona `.ico`, con fallback DDF. Il package finale mantiene soltanto l'EXE nella radice e raccoglie runtime, DLL, manifest e licenze in `support\`; l'embedded non espone né accetta il backend di compilazione;
+- eseguibile CLI standalone `ddf` con `validate`, `test`, `build`, `run` isolato nel worker e `package`; `test` riporta il corpus dichiarativo di conformità del pacchetto, mentre il primo profilo di packaging pubblica un EXE DDF self-contained `win-x64` con manifest e licenze, senza Roslyn/Compiler nel payload. Diagnostiche testuali/JSON, codici d'uscita per CI e cache compilata verificata completano il contratto `0.13.3` ([contratto CLI](DDF_CLI.md)). Un [kit dedicato](DDF_CLEAN_VM_ACCEPTANCE.md) prepara e documenta la prova distributiva conclusiva su Windows x64 privo di .NET;
 - runtime multi-file: `main` può richiamare funzioni e usare strutture o globali dichiarate negli altri sorgenti selezionati dal progetto, inclusi i buffer non salvati;
 - resolver di moduli versionati nello store locale `.ddf/modules`, con dipendenze ricorsive, visibilità limitata agli export, simboli privati qualificati, rilevamento cicli e ricevuta riproducibile;
 - analisi live dei moduli coerente con la build: diagnostica, tipi, completamento, Signature Help e navigazione vedono soltanto gli export delle dipendenze dirette, senza mostrare lo store tra i file del workspace;
@@ -88,12 +98,12 @@ artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 - cursori multipli con `Alt+Click`, `Ctrl+D` per l'occorrenza successiva e `Ctrl+Shift+L` per tutte;
 - type checker per primitivi, strutture e array con diagnostiche `DDF3xx` e hover tipizzato;
 - VM IR indipendente dalla sintassi concreta con funzioni, scope, controllo di flusso, array e strutture;
-- menu Esegui con Convalida, Build (`Ctrl+Shift+B`), Run (`Ctrl+F5`), Debug (`F5`), Stop (`Shift+F5`) e palette Output;
+- menu Compilazione con Convalida, Build (`Ctrl+Shift+B`) ed esecuzione dell'ultima build (`Ctrl+Alt+F5`), più menu Esegui con Run (`Ctrl+F5`), Debug (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
 - breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`, Entra nella funzione con `F11`, Passo successivo con `F10` ed Esci dalla funzione con `Shift+F11`;
 - libreria standard minima versionata `ddf.standard@0.12.3`: `print`, `readLine`, `length`, `toInt` e `toFloat`, con effetti ed errori dichiarati nello stesso catalogo usato da IDE, type checker e VM;
-- sette barre mobili con 53 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, moduli, build e debug;
+- sette barre mobili con 57 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, moduli, build e debug;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
 - palette destra a tutta altezza, tab coerenti e finestre secondarie centrate;
 - dimensioni e stato pin/auto-hide delle palette destra e inferiore persistenti tra gli avvii;
@@ -298,7 +308,7 @@ comando:
 Lo smoke apre il form fuori schermo, usa il vero controllo editor e verifica
 che le selezioni mouse non vengano riscritte dal matching, oltre a taglio di
 direttive libreria, Undo, diagnostiche transitorie e modifiche rapide. Esercita
-inoltre tutti i 76 comandi presenti nei menu File, Modifica, Moduli, Esegui, Visualizza e Help; la
+inoltre tutti gli 80 comandi presenti nei menu File, Modifica, Moduli, Compilazione, Esegui, Visualizza e Help; la
 copertura è descritta in `MENU_TEST_MATRIX.md`. Misura inoltre i budget p95 definiti
 in `EDITOR_PERFORMANCE_BUDGETS.md`. Per osservarlo mentre viene
 eseguito:
@@ -341,12 +351,28 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/DDFLanguageEditor.DatabaseDemo/`: integrazione completa con database di prova, regola personalizzata, transazione, debug e flowchart;
 - `samples/DDFLanguageEditor.MinimalHost/`: esempio minimo della shell embedded con esecuzione e persistenza governate dall'host;
 - `DDFLanguageEditor.App/`: launcher standalone separato dalle librerie SDK;
+- `DDFLanguageEditor.Data/`: adapter ADO.NET provider-neutral con gate di integrazione SQLite reale;
+- `DDFLanguageEditor.Network/`: adapter HTTP/JSON deny-by-default con gate deterministici senza rete reale;
+- `DDFLanguageEditor.Storage/`: adapter filesystem logico deny-by-default con staging transazionale e gate su UTF-8/JSON/CSV;
+- `DDFLanguageEditor.Hardware/`: contratto hardware deny-by-default, loopback, seriale, MIDI, LPT e profili GPIO/I²C/SPI/PWM governati;
+- `adapter-families/`: catalogo machine-readable delle famiglie adapter disponibili e pianificate;
 - `LANGUAGE_REFERENCE.md`: sottoinsieme sintattico riconosciuto dall'editor;
 - `DDF_GRAMMAR.md`: grammatica e precedenze implementate dal parser;
 - `DDF_LANGUAGE_CATALOG.md`: inventario del vocabolario e procedura di estensione;
 - `LANGUAGE_PACKAGE_FORMAT.md`: contratto, struttura, sicurezza e versionamento dei pacchetti `.ddflang`;
 - `LANGUAGE_AUTHORING.md`: guida ai confini dichiarativi, estensioni del motore, plug-in e futuro editor assistito;
 - `INTERMEDIATE_REPRESENTATION.md`: pipeline, modello e contratto della IR comune usata dal runtime;
+- `DDF_COMPILATION_UNIT_CONTRACT.md`: unità backend-neutral per modulo, interfacce esportate e separazione fra sorgente, IR e futuri artefatti persistenti;
+- `DDF_DOTNET_ARTIFACT_FORMAT.md`: manifest compilato .NET, DLL, Portable PDB, dipendenze e mappe al sorgente DDF;
+- `DDF_DOTNET_ARTIFACT_COMPATIBILITY.md`: matrice TFM/ABI/RID/host, diagnostiche e limiti di verifica prima del caricamento;
+- `DDF_DOTNET_COMPILATION_PIPELINE.md`: pianificazione deterministica per moduli e librerie dalla pipeline Core condivisa;
+- `DDF_DOTNET_COMPILER_PROFILE.md`: profilo Roslyn/C# fissato, reference set chiuso e primo sottoinsieme di generazione sintattica sicura;
+- `DDF_RUNTIME_ABI.md`: ABI standalone indipendente per gli assembly DDF compilati;
+- `DDF_DATA_ADAPTERS.md`: contratto degli adapter dati governati, transazioni e primo percorso SQLite/ADO.NET;
+- `DDF_HTTP_ADAPTERS.md`: contratto dell'adapter HTTP/JSON, origini, credenziali, payload e limiti;
+- `DDF_ADAPTER_FAMILY_CATALOG.md`: ammissione, classificazione e gate delle famiglie adapter;
+- `DDF_HARDWARE_ADAPTERS.md`: identità, permessi, lifecycle, hot-plug e simulazione delle integrazioni hardware;
+- `DDF_FILESYSTEM_ADAPTERS.md`: contratto del filesystem logico, quote, formati e transazioni;
 - `NATIVE_EXTENSIONS.md`: confine di sicurezza, identità e autorizzazione deny-by-default dei futuri plug-in nativi;
 - `PROJECT_BUILD.md`: manifest progetto, comandi, artefatti riproducibili e limiti multi-file correnti;
 - `DDF_MODULE_SYSTEM_SPEC.md`: identità, visibilità, export, inizializzazione e dipendenze dei moduli;

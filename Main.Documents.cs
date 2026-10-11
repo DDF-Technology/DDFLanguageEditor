@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem saveAllMenuItem;
         private ToolStripMenuItem closeDocumentMenuItem;
         private bool isSwitchingDocument;
+        private Timer documentViewportRestoreTimer;
 
         private DocumentView activeDocumentView => documentViews.ActiveView;
 
@@ -257,6 +258,15 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
+            cancelDocumentViewportRestore();
+
+            // Congela la viewport della scheda entrante prima che binding,
+            // colorazione e notifiche VScroll possano aggiornarne lo stato.
+            // Gli eventi intermedi non devono trasformare la coordinata già
+            // salvata (in particolare con scaling DPI diverso da 100%).
+            bool restoreIncomingViewport = view.HasScrollPosition;
+            Point incomingViewport = view.ScrollPosition;
+
             isSwitchingDocument = true;
             try
             {
@@ -299,9 +309,56 @@ namespace DDF___Program_Language_Editor
             updateCaretPosition();
             updateBreadcrumb();
             richTextBoxMainEditor.Focus();
-            restoreDocumentViewport(view);
+            if (restoreIncomingViewport)
+            {
+                RichTextBoxUpdateScope.SetScrollPosition(view.Editor,
+                    incomingViewport);
+                view.ScrollPosition = incomingViewport;
+                view.HasScrollPosition = true;
+                BeginInvoke(new Action(() =>
+                {
+                    if (IsDisposed || Disposing ||
+                        !ReferenceEquals(activeDocumentView, view)) return;
+                    RichTextBoxUpdateScope.SetScrollPosition(view.Editor,
+                        incomingViewport);
+                    view.ScrollPosition = incomingViewport;
+                    view.HasScrollPosition = true;
+                    updateLineNumbers();
+                    refreshEditorOverviewViewport();
+                    scheduleDocumentViewportVerification(view,
+                        incomingViewport);
+                }));
+            }
             updateLineNumbers();
             refreshEditorOverview();
+        }
+
+        private void scheduleDocumentViewportVerification(DocumentView view,
+            Point position)
+        {
+            cancelDocumentViewportRestore();
+            documentViewportRestoreTimer = new Timer { Interval = 75 };
+            documentViewportRestoreTimer.Tick += (sender, args) =>
+            {
+                cancelDocumentViewportRestore();
+                if (IsDisposed || Disposing ||
+                    !ReferenceEquals(activeDocumentView, view)) return;
+                RichTextBoxUpdateScope.SetScrollPosition(view.Editor,
+                    position);
+                view.ScrollPosition = position;
+                view.HasScrollPosition = true;
+                updateLineNumbers();
+                refreshEditorOverviewViewport();
+            };
+            documentViewportRestoreTimer.Start();
+        }
+
+        private void cancelDocumentViewportRestore()
+        {
+            if (documentViewportRestoreTimer == null) return;
+            documentViewportRestoreTimer.Stop();
+            documentViewportRestoreTimer.Dispose();
+            documentViewportRestoreTimer = null;
         }
 
         private void selectDocumentTab(TabPage tab)

@@ -32,7 +32,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorDebugLocation
     {
-        internal DdfEditorDebugLocation(string documentId, string displayName,
+        public DdfEditorDebugLocation(string documentId, string displayName,
             string filePath, int line, int column, int start, int length)
         {
             DocumentId = documentId ?? string.Empty;
@@ -84,7 +84,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorDebugVariableSnapshot
     {
-        internal DdfEditorDebugVariableSnapshot(string name, string displayValue,
+        public DdfEditorDebugVariableSnapshot(string name, string displayValue,
             string typeName, int scopeDepth, DdfRuntimeVariableKind kind,
             IReadOnlyList<DdfEditorDebugVariableSnapshot> children, bool isTruncated)
         {
@@ -108,7 +108,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorDebugStackFrameSnapshot
     {
-        internal DdfEditorDebugStackFrameSnapshot(int index, string functionName,
+        public DdfEditorDebugStackFrameSnapshot(int index, string functionName,
             DdfEditorDebugLocation location,
             IReadOnlyList<DdfEditorDebugVariableSnapshot> variables)
         {
@@ -126,7 +126,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorDebugSnapshot
     {
-        internal DdfEditorDebugSnapshot(DdfEditorDebugLocation location,
+        public DdfEditorDebugSnapshot(DdfEditorDebugLocation location,
             IReadOnlyList<DdfEditorDebugStackFrameSnapshot> callStack,
             IReadOnlyList<DdfEditorDebugVariableSnapshot> variables,
             IReadOnlyList<DdfEditorDebugVariableSnapshot> globals)
@@ -145,7 +145,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorWatchResult
     {
-        internal DdfEditorWatchResult(string expression, int frameIndex,
+        public DdfEditorWatchResult(string expression, int frameIndex,
             DdfEditorDebugVariableSnapshot value, string message)
         {
             Expression = expression ?? string.Empty;

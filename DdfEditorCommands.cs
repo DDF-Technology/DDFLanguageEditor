@@ -24,8 +24,8 @@ namespace DDF___Program_Language_Editor
         public const string FormatDocument = "edit.formatDocument";
         public const string AnalyzeDocument = "analysis.refresh";
         public const string GoToDefinition = "navigate.goToDefinition";
-        public const string ValidateProject = "run.validate";
-        public const string BuildProject = "run.build";
+        public const string ValidateScript = "script.validate";
+        public const string PrepareScript = "script.prepare";
         public const string RunWithoutDebug = "run.startWithoutDebug";
         public const string StopExecution = "run.stop";
         public const string StartDebugging = "debug.start";

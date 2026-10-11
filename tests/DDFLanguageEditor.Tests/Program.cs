@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using DDFLanguageEditor.Core;
 
 namespace DDFLanguageEditor.Tests
@@ -114,6 +115,7 @@ namespace DDFLanguageEditor.Tests
             Run("registers typed host function libraries atomically", RegistersTypedHostFunctionLibrariesAtomically);
             Run("reports and rolls back partial host effects", ReportsAndRollsBackPartialHostEffects);
             Run("builds immutable host document snapshots", BuildsImmutableHostDocumentSnapshots);
+            Run("prepares immutable host scripts without compilation", PreparesImmutableHostScriptsWithoutCompilation);
             Run("routes host builds through a custom public handler", RoutesHostBuildsThroughCustomHandler);
             Run("routes host execution through a custom public build handler", RoutesHostExecutionThroughCustomBuildHandler);
             Run("debugs host buffers with document breakpoints", DebugsHostBuffersWithDocumentBreakpoints);
@@ -127,10 +129,16 @@ namespace DDFLanguageEditor.Tests
             Run("rejects ungoverned incompatible DDF candidate changes", RejectsUngovernedCandidateChanges);
             Run("keeps DDF candidate readiness aligned with manual validation", KeepsCandidateReadinessAlignedWithManualValidation);
             Run("verifies the DDF candidate toolchain against the normative corpus", VerifiesDdfCandidateToolchainAgainstNormativeCorpus);
+            Run("isolates Roslyn from Core WinForms and embedded SDK", IsolatesRoslynFromCoreWinFormsAndEmbeddedSdk);
             Run("rejects unsupported VM and host operations atomically", RejectsUnsupportedVmAndHostOperationsAtomically);
             Run("loads a project manifest independently from the language package", LoadsProjectManifestIndependentlyFromLanguagePackage);
             Run("builds reproducible VM artifacts from unsaved buffers", BuildsReproducibleVmArtifactsFromUnsavedBuffers);
+            Run("defines immutable backend-neutral compilation units", DefinesImmutableBackendNeutralCompilationUnits);
             Run("rejects unsafe or mismatched project configurations", RejectsUnsafeOrMismatchedProjectConfigurations);
+            Run("resolves external references only through an authorized exact catalog", ResolvesExternalReferencesThroughAuthorizedCatalog);
+            Run("locates actionable external-reference diagnostics in the manifest", LocatesExternalReferenceDiagnosticsInManifest);
+            Run("governs adapter families without promoting planned integrations", GovernsAdapterFamiliesWithoutPromotion);
+            Run("projects one external API contract across analysis and runtime", ProjectsExternalApiAcrossAnalysisAndRuntime);
             Run("resolves versioned modules with export visibility and cycle checks", ResolvesVersionedModulesWithExportVisibilityAndCycleChecks);
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
@@ -3067,6 +3075,41 @@ namespace DDFLanguageEditor.Tests
                 item.Severity == DdfDiagnosticSeverity.Error));
         }
 
+        private static void PreparesImmutableHostScriptsWithoutCompilation()
+        {
+            var documents = new OpenDocumentCollection();
+            IDdfEditorDocument main = documents.CreateVirtual("main.ddf",
+                "main() out int { ret helper(20); }");
+            documents.CreateVirtual("helpers.ddf",
+                "helper(int value) out int { ret value + 22; }");
+            var service = new DdfEditorPreparationService(documents,
+                new DdfLanguagePackageSession());
+            var states = new List<DdfEditorPreparationState>();
+            int completions = 0;
+            service.StateChanged += (sender, args) => states.Add(args.State);
+            service.PreparationCompleted += (sender, args) => completions++;
+
+            DdfEditorPreparationSnapshot validation = service.Validate(
+                new DdfEditorPreparationRequest(entryDocumentId: main.Id));
+            Equal(true, validation.Succeeded);
+            Equal(DdfEditorPreparationMode.Validate, validation.Mode);
+            Equal(2, validation.Documents.Count);
+            Equal(true, string.IsNullOrEmpty(validation.Result.ArtifactPath));
+            Equal(1, completions);
+
+            DdfEditorPreparationSnapshot prepared = service.PrepareScript(
+                new DdfEditorPreparationRequest(entryDocumentId: main.Id));
+            Equal(true, prepared.Succeeded);
+            Equal(DdfEditorPreparationMode.PrepareScript, prepared.Mode);
+            Equal(true, prepared.PreparedArtifact != null);
+            Equal(true, string.IsNullOrEmpty(prepared.Result.ArtifactPath));
+            Equal(2L, prepared.Generation);
+            Equal(true, ReferenceEquals(prepared, service.LastSnapshot));
+            Equal(DdfEditorPreparationState.Idle, service.State);
+            Equal(true, states.Contains(DdfEditorPreparationState.Preparing));
+            Equal(2, completions);
+        }
+
         private static void RoutesHostBuildsThroughCustomHandler()
         {
             var documents = new OpenDocumentCollection();
@@ -3927,6 +3970,90 @@ namespace DDFLanguageEditor.Tests
             Equal(true, !string.IsNullOrWhiteSpace(manual["completedBy"]?.GetValue<string>()));
         }
 
+        private static void IsolatesRoslynFromCoreWinFormsAndEmbeddedSdk()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            string coreProject = Path.Combine(projectRoot, "DDFLanguageEditor.Core",
+                "DDFLanguageEditor.Core.csproj");
+            string winFormsProject = Path.Combine(projectRoot,
+                "DDF - Program Language Editor.csproj");
+            string compilerProject = Path.Combine(projectRoot, "DDFLanguageEditor.Compiler",
+                "DDFLanguageEditor.Compiler.csproj");
+            string appProject = Path.Combine(projectRoot, "DDFLanguageEditor.App",
+                "DDFLanguageEditor.App.csproj");
+            string runnerProject = Path.Combine(projectRoot,
+                "DDFLanguageEditor.Runner", "DDFLanguageEditor.Runner.csproj");
+            string cliProject = Path.Combine(projectRoot,
+                "DDFLanguageEditor.Cli", "DDFLanguageEditor.Cli.csproj");
+            string compilerTestsProject = Path.Combine(projectRoot, "tests",
+                "DDFLanguageEditor.Compiler.Tests",
+                "DDFLanguageEditor.Compiler.Tests.csproj");
+            string cliTestsProject = Path.Combine(projectRoot, "tests",
+                "DDFLanguageEditor.Cli.Tests",
+                "DDFLanguageEditor.Cli.Tests.csproj");
+
+            foreach (string forbiddenProject in new[] { coreProject, winFormsProject })
+            {
+                XDocument document = XDocument.Load(forbiddenProject);
+                Equal(false, ProjectItems(document, "PackageReference").Any(item =>
+                    ItemIdentity(item).StartsWith("Microsoft.CodeAnalysis",
+                        StringComparison.OrdinalIgnoreCase)));
+                Equal(false, ProjectItems(document, "ProjectReference").Any(item =>
+                    ItemIdentity(item).EndsWith("DDFLanguageEditor.Compiler.csproj",
+                        StringComparison.OrdinalIgnoreCase)));
+            }
+
+            XDocument winForms = XDocument.Load(winFormsProject);
+            string defaultExcludes = winForms.Descendants().Single(element =>
+                element.Name.LocalName == "DefaultItemExcludes").Value;
+            Equal(true, defaultExcludes.Contains("DDFLanguageEditor.Compiler\\**",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, defaultExcludes.Contains("DDFLanguageEditor.Runner\\**",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, defaultExcludes.Contains("DDFLanguageEditor.Cli\\**",
+                StringComparison.OrdinalIgnoreCase));
+
+            XDocument compiler = XDocument.Load(compilerProject);
+            XElement roslyn = ProjectItems(compiler, "PackageReference").Single(item =>
+                string.Equals(ItemIdentity(item), "Microsoft.CodeAnalysis.CSharp",
+                    StringComparison.OrdinalIgnoreCase));
+            Equal("5.9.0", roslyn.Attribute("Version")?.Value);
+
+            var allowedConsumers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                Path.GetFullPath(appProject),
+                Path.GetFullPath(runnerProject),
+                Path.GetFullPath(cliProject),
+                Path.GetFullPath(compilerTestsProject),
+                Path.GetFullPath(cliTestsProject)
+            };
+            foreach (string project in Directory.EnumerateFiles(projectRoot, "*.csproj",
+                SearchOption.AllDirectories).Where(path => !path.Contains(
+                    Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                XDocument document = XDocument.Load(project);
+                bool consumesCompiler = ProjectItems(document, "ProjectReference").Any(item =>
+                    ItemIdentity(item).EndsWith("DDFLanguageEditor.Compiler.csproj",
+                        StringComparison.OrdinalIgnoreCase));
+                if (consumesCompiler)
+                    Equal(true, allowedConsumers.Contains(Path.GetFullPath(project)));
+            }
+
+            string solution = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF - Program Language Editor.sln"), Encoding.UTF8);
+            Equal(true, solution.Contains(
+                "DDFLanguageEditor.Compiler\\DDFLanguageEditor.Compiler.csproj",
+                StringComparison.Ordinal));
+        }
+
+        private static IEnumerable<XElement> ProjectItems(XDocument document, string localName) =>
+            document.Descendants().Where(element => element.Name.LocalName == localName);
+
+        private static string ItemIdentity(XElement element) =>
+            element.Attribute("Include")?.Value ?? element.Attribute("Update")?.Value ?? string.Empty;
+
         private static void RejectsUnsupportedVmAndHostOperationsAtomically()
         {
             string root = Path.Combine(Path.GetTempPath(), "ddf-invalid-runtime-" + Guid.NewGuid().ToString("N"));
@@ -3971,6 +4098,41 @@ namespace DDFLanguageEditor.Tests
                 manifest.Module.Version = "1.2.3";
                 manifest.Module.Exports.Add("main");
                 manifest.Dependencies.Add(new DdfProjectDependency { Id = "example.math", Version = "1.2.0" });
+                manifest.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "microsoft.data.sqlclient",
+                    Kind = DdfExternalReferenceKinds.ManagedDotNet,
+                    Version = "6.1.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.Configured,
+                    Capabilities = new List<string> { "database.read" }
+                });
+                manifest.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "microsoft.ado",
+                    Kind = DdfExternalReferenceKinds.Com,
+                    Version = "6.1",
+                    Architecture = DdfExternalReferenceArchitectures.X64,
+                    Origin = DdfExternalReferenceOrigins.System,
+                    Capabilities = new List<string> { "database.legacy" }
+                });
+                manifest.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "vendor.math",
+                    Kind = DdfExternalReferenceKinds.Native,
+                    Version = "1.0.0",
+                    Architecture = DdfExternalReferenceArchitectures.X64,
+                    Origin = DdfExternalReferenceOrigins.Project
+                });
+                manifest.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "host.analytics",
+                    Kind = DdfExternalReferenceKinds.HostService,
+                    Version = "1.0.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.Host,
+                    Capabilities = new List<string> { "analytics.invoke" }
+                });
                 File.WriteAllText(Path.Combine(root, DdfProjectManifest.FileName),
                     JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
 
@@ -3985,7 +4147,33 @@ namespace DDFLanguageEditor.Tests
                 Equal("main.ddf", loaded.Manifest.EntrySource);
                 Equal(DdfVmBuildBackend.BackendId, loaded.Manifest.Backend);
                 Equal("example.math", loaded.Manifest.Dependencies.Single().Id);
+                Equal(4, loaded.Manifest.References.Count);
+                Equal(DdfExternalReferenceKinds.ManagedDotNet,
+                    loaded.Manifest.References[0].Kind);
+                Equal(DdfExternalReferenceKinds.Com,
+                    loaded.Manifest.References[1].Kind);
+                Equal(DdfExternalReferenceKinds.Native,
+                    loaded.Manifest.References[2].Kind);
+                Equal(DdfExternalReferenceKinds.HostService,
+                    loaded.Manifest.References[3].Kind);
+                SequenceEqual(new[] { "database.read" },
+                    loaded.Manifest.References[0].Capabilities);
                 Equal(true, typeof(IDdfBuildBackend).IsAssignableFrom(typeof(DdfVmBuildBackend)));
+
+                manifest.SchemaVersion = "1.1";
+                manifest.References = null;
+                File.WriteAllText(Path.Combine(root,
+                    DdfProjectManifest.FileName), JsonSerializer.Serialize(
+                    manifest), new UTF8Encoding(false));
+                DdfProjectManifestLoadResult migrated =
+                    DdfProjectManifestLoader.Load(root);
+                Equal(true, migrated.Success);
+                Equal(DdfProjectManifest.SchemaVersionValue,
+                    migrated.Manifest.SchemaVersion);
+                Equal(0, migrated.Manifest.References.Count);
+                Equal(true, migrated.Issues.Any(item =>
+                    item.Code == "DDFP021" && item.Severity ==
+                    DdfDiagnosticSeverity.Warning));
             }
             finally
             {
@@ -4038,6 +4226,81 @@ namespace DDFLanguageEditor.Tests
                 DdfBuildResult diskBuild = service.Validate(root, manifest, package, buffers);
                 Equal(false, diskBuild.Artifact.Sources.Single().FromUnsavedBuffer);
                 Equal(false, first.Artifact.Fingerprint == diskBuild.Artifact.Fingerprint);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DefinesImmutableBackendNeutralCompilationUnits()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+                string declarationsPath = Path.Combine(root, "declarations.ddf");
+                string mainPath = Path.Combine(root, "main.ddf");
+                const string declarations =
+                    "struct Box { int value; }\n" +
+                    "int offset << 2;\n" +
+                    "add(int left, int right) out int { ret left + right + offset; }";
+                const string main = "main() out int { ret add(3, 4); }";
+                File.WriteAllText(declarationsPath, declarations, new UTF8Encoding(false));
+                File.WriteAllText(mainPath, main, new UTF8Encoding(false));
+                DdfProjectManifest manifest = DdfProjectManifest.CreateImplicit(
+                    "Compilation unit", package, "main.ddf");
+                manifest.Module.Id = "example.contract";
+                manifest.Module.Version = "1.2.0";
+                manifest.Module.Exports.AddRange(new[] { "main", "add", "Box", "offset" });
+
+                DdfBuildResult first = new DdfBuildService().Validate(root, manifest, package);
+                Equal(true, first.Success);
+                DdfCompilationUnit unit = first.Artifact.CompilationUnits.Single();
+                Equal("1.0", unit.Version);
+                Equal("example.contract@1.2.0", unit.Identity);
+                Equal(package.Id, unit.LanguageId);
+                Equal(package.PackageVersion, unit.LanguagePackageVersion);
+                Equal(DdfIrProgram.FormatVersion, unit.IrFormatVersion);
+                SequenceEqual(new[] { "declarations.ddf", "main.ddf" },
+                    unit.Sources.Select(item => item.RelativePath));
+                SequenceEqual(unit.Sources.Select(item => item.RelativePath),
+                    unit.IntermediateRepresentation.Select(item => item.RelativePath));
+                Equal(declarations, unit.Sources.First().SourceText);
+                Equal(64, unit.Sources.First().Sha256.Length);
+                Equal(false, unit.Sources.Any(item => item.FromUnsavedBuffer));
+                SequenceEqual(new[] { "Box", "add", "main", "offset" },
+                    unit.PublicInterface.Exports.Select(item => item.Name));
+                Equal("add(int,int)->int", unit.PublicInterface.Exports
+                    .Single(item => item.Name == "add").Signature);
+                Equal(DdfCompilationExportKind.Structure, unit.PublicInterface.Exports
+                    .Single(item => item.Name == "Box").Kind);
+                Equal(DdfCompilationExportKind.Global, unit.PublicInterface.Exports
+                    .Single(item => item.Name == "offset").Kind);
+                Equal(64, unit.Fingerprint.Length);
+                Throws<NotSupportedException>(() =>
+                    ((IList<DdfCompilationSourceSnapshot>)unit.Sources).Add(null));
+                Throws<NotSupportedException>(() =>
+                    ((IList<DdfCompilationExport>)unit.PublicInterface.Exports).Add(null));
+
+                DdfBuildResult second = new DdfBuildService().Validate(root, manifest, package);
+                Equal(unit.Fingerprint, second.Artifact.CompilationUnits.Single().Fingerprint);
+                var buffers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [mainPath] = "main() out int { ret add(4, 4); }"
+                };
+                DdfBuildResult changed = new DdfBuildService().Validate(root, manifest,
+                    package, buffers);
+                Equal(true, changed.Success);
+                Equal(false, unit.Fingerprint ==
+                    changed.Artifact.CompilationUnits.Single().Fingerprint);
+                Equal(true, changed.Artifact.CompilationUnits.Single().Sources
+                    .Single(item => item.RelativePath == "main.ddf").FromUnsavedBuffer);
+
+                string receipt = JsonSerializer.Serialize(first.Artifact);
+                Equal(false, receipt.Contains("SourceText", StringComparison.Ordinal));
+                Equal(false, receipt.Contains("IntermediateRepresentation", StringComparison.Ordinal));
+                Equal(false, receipt.Contains("CompilationUnits", StringComparison.Ordinal));
             }
             finally
             {
@@ -4127,11 +4390,614 @@ namespace DDFLanguageEditor.Tests
                 DdfProjectManifestLoadResult unsafeLoad = DdfProjectManifestLoader.Load(root);
                 Equal(false, unsafeLoad.Success);
                 Equal(true, unsafeLoad.Issues.Any(item => item.Code == "DDFP013"));
+
+                DdfProjectManifest invalidReferences =
+                    DdfProjectManifest.CreateImplicit("Invalid references",
+                        package, "main.ddf");
+                invalidReferences.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "legacy.component",
+                    Kind = DdfExternalReferenceKinds.Com,
+                    Version = "1.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.System
+                });
+                invalidReferences.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "legacy.component",
+                    Kind = DdfExternalReferenceKinds.HostService,
+                    Version = "1.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.Configured
+                });
+                File.WriteAllText(Path.Combine(root,
+                    DdfProjectManifest.FileName), JsonSerializer.Serialize(
+                    invalidReferences), new UTF8Encoding(false));
+                DdfProjectManifestLoadResult invalidReferenceLoad =
+                    DdfProjectManifestLoader.Load(root);
+                Equal(false, invalidReferenceLoad.Success);
+                Equal(true, invalidReferenceLoad.Issues.Any(item =>
+                    item.Code == "DDFP018"));
+                Equal(true, invalidReferenceLoad.Issues.Any(item =>
+                    item.Code == "DDFP019"));
+
+                invalidReferences.References = null;
+                File.WriteAllText(Path.Combine(root,
+                    DdfProjectManifest.FileName), JsonSerializer.Serialize(
+                    invalidReferences), new UTF8Encoding(false));
+                DdfProjectManifestLoadResult missingReferencesLoad =
+                    DdfProjectManifestLoader.Load(root);
+                Equal(false, missingReferencesLoad.Success);
+                Equal(true, missingReferencesLoad.Issues.Any(item =>
+                    item.Code == "DDFP020"));
+
+                DdfProjectManifest unresolvedReference =
+                    DdfProjectManifest.CreateImplicit("Unresolved reference",
+                        package, "main.ddf");
+                unresolvedReference.References.Add(
+                    new DdfProjectExternalReference
+                    {
+                        Id = "vendor.analytics",
+                        Kind = DdfExternalReferenceKinds.ManagedDotNet,
+                        Version = "1.0.0",
+                        Architecture = DdfExternalReferenceArchitectures.Any,
+                        Origin = DdfExternalReferenceOrigins.Configured
+                    });
+                DdfBuildResult unresolvedResult = new DdfBuildService()
+                    .Validate(root, unresolvedReference, package);
+                Equal(false, unresolvedResult.Success);
+                Equal(true, unresolvedResult.Issues.Any(item =>
+                    item.Code == "DDFB018" && item.Domain ==
+                    DdfDiagnosticDomain.EngineCapability));
             }
             finally
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void ResolvesExternalReferencesThroughAuthorizedCatalog()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                File.WriteAllText(Path.Combine(root, "main.ddf"),
+                    "main() out int { ret 9; }", new UTF8Encoding(false));
+                DdfProjectManifest plain = DdfProjectManifest.CreateImplicit(
+                    "Reference baseline", package, "main.ddf");
+                DdfBuildResult baseline = new DdfBuildService().Validate(root,
+                    plain, package);
+                Equal(true, baseline.Success);
+
+                DdfProjectManifest managed = DdfProjectManifest.CreateImplicit(
+                    "Managed reference", package, "main.ddf");
+                managed.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "ddf.core.contract",
+                    Kind = DdfExternalReferenceKinds.ManagedDotNet,
+                    Version = "1.0.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.Configured,
+                    Capabilities = new List<string> { "library.invoke" }
+                });
+                int authorizations = 0;
+                var managedResolver = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.ManagedAssembly(
+                            "ddf.core.contract", "1.0.0", "any",
+                            "configured", new[] { "library.invoke" },
+                            typeof(DdfBuildService).Assembly.Location,
+                            new[]
+                            {
+                                new DdfExternalReferenceCatalogDependency(
+                                    "system.text.json", "10.0.0",
+                                    typeof(JsonDocument).Assembly.Location)
+                            })
+                    }, request =>
+                    {
+                        authorizations++;
+                        return request.Context ==
+                                   DdfExternalReferenceContext.Standalone &&
+                               request.Reference.Id == "ddf.core.contract";
+                    });
+                var managedService = new DdfBuildService(
+                    externalReferenceResolver: managedResolver,
+                    externalReferenceContext:
+                    DdfExternalReferenceContext.Standalone);
+                DdfBuildResult managedResult = managedService.Validate(root,
+                    managed, package);
+                if (!managedResult.Success)
+                    throw new InvalidOperationException(string.Join(" | ",
+                        managedResult.Issues.Select(item => item.ToString())));
+                Equal(true, managedResult.Success);
+                Equal(1, authorizations);
+                Equal(1, managedResult.ResolvedExternalReferences.Count);
+                Equal(true, managedResult.ResolvedExternalReferences[0]
+                    .ApiDefinition.IsEmpty);
+                Equal(false, baseline.Artifact.Fingerprint ==
+                    managedResult.Artifact.Fingerprint);
+
+                DdfProjectManifest embedded = DdfProjectManifest
+                    .CreateImplicit("Host adapter", package, "main.ddf");
+                embedded.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "host.analytics",
+                    Kind = DdfExternalReferenceKinds.HostService,
+                    Version = "1.0.0",
+                    Architecture = DdfExternalReferenceArchitectures.Any,
+                    Origin = DdfExternalReferenceOrigins.Host,
+                    Capabilities = new List<string> { "analytics.invoke" }
+                });
+                var adapterResolver = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.TypedAdapter(
+                            "host.analytics", "host-service", "1.0.0",
+                            "any", "host", new[] { "analytics.invoke" },
+                            "host.analytics.v1")
+                    }, _ => true);
+                DdfBuildResult embeddedResult = new DdfBuildService(
+                    externalReferenceResolver: adapterResolver,
+                    externalReferenceContext:
+                    DdfExternalReferenceContext.Embedded).Validate(root,
+                    embedded, package);
+                if (!embeddedResult.Success)
+                    throw new InvalidOperationException(string.Join(" | ",
+                        embeddedResult.Issues.Select(item => item.ToString())));
+                Equal(true, embeddedResult.Success);
+
+                var deniedResolver = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.TypedAdapter(
+                            "host.analytics", "host-service", "1.0.0",
+                            "any", "host", new[] { "analytics.invoke" },
+                            "host.analytics.v1")
+                    }, _ => false);
+                DdfBuildResult denied = new DdfBuildService(
+                    externalReferenceResolver: deniedResolver,
+                    externalReferenceContext:
+                    DdfExternalReferenceContext.Embedded).Validate(root,
+                    embedded, package);
+                Equal(false, denied.Success);
+                Equal(true, denied.Issues.Any(item => item.Code ==
+                    "DDFR002"));
+
+                var contextResolver = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.ManagedAssembly(
+                            "ddf.core.contract", "1.0.0", "any",
+                            "configured", new[] { "library.invoke" },
+                            typeof(DdfBuildService).Assembly.Location)
+                    }, _ => true);
+                DdfBuildResult wrongContext = new DdfBuildService(
+                    externalReferenceResolver: contextResolver,
+                    externalReferenceContext:
+                    DdfExternalReferenceContext.Embedded).Validate(root,
+                    managed, package);
+                Equal(false, wrongContext.Success);
+                Equal(true, wrongContext.Issues.Any(item => item.Code ==
+                    "DDFR003"));
+
+                DdfBuildResult locked = managedService.Build(root, managed,
+                    package);
+                Equal(true, locked.Success);
+                string lockPath = Path.Combine(root,
+                    managed.Output.Directory,
+                    DdfExternalReferenceLockFile.FileName);
+                Equal(true, File.Exists(lockPath));
+                using (JsonDocument lockDocument = JsonDocument.Parse(
+                           File.ReadAllText(lockPath, Encoding.UTF8)))
+                {
+                    JsonElement lockRoot = lockDocument.RootElement;
+                    Equal(DdfExternalReferenceLockFile.FormatValue,
+                        lockRoot.GetProperty("format").GetString());
+                    Equal(64, lockRoot.GetProperty("fingerprint")
+                        .GetString().Length);
+                    JsonElement lockedReference = lockRoot
+                        .GetProperty("references")[0];
+                    Equal("ddf.core.contract", lockedReference
+                        .GetProperty("id").GetString());
+                    Equal(64, lockedReference.GetProperty("sha256")
+                        .GetString().Length);
+                    Equal(64, lockedReference.GetProperty("apiFingerprint")
+                        .GetString().Length);
+                    Equal("system.text.json", lockedReference
+                        .GetProperty("dependencies")[0].GetProperty("id")
+                        .GetString());
+                }
+                Equal(true, managedService.Build(root, managed, package)
+                    .Success);
+
+                string lockText = File.ReadAllText(lockPath, Encoding.UTF8);
+                using (JsonDocument lockDocument = JsonDocument.Parse(
+                           lockText))
+                {
+                    string fingerprint = lockDocument.RootElement
+                        .GetProperty("fingerprint").GetString();
+                    File.WriteAllText(lockPath, lockText.Replace(fingerprint,
+                        new string('0', 64), StringComparison.Ordinal),
+                        new UTF8Encoding(false));
+                }
+                DdfBuildResult alteredLock = managedService.Validate(root,
+                    managed, package);
+                Equal(false, alteredLock.Success);
+                Equal(true, alteredLock.Issues.Any(item => item.Code ==
+                    "DDFR010"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void LocatesExternalReferenceDiagnosticsInManifest()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                File.WriteAllText(Path.Combine(root, "main.ddf"),
+                    "main() out int { ret 0; }", new UTF8Encoding(false));
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "Riferimenti esterni è", package, "main.ddf");
+                project.References.Add(new DdfProjectExternalReference
+                {
+                    Id = "host.analytics",
+                    Kind = DdfExternalReferenceKinds.HostService,
+                    Version = "2.0.0",
+                    Architecture = DdfExternalReferenceArchitectures.X64,
+                    Origin = DdfExternalReferenceOrigins.Host,
+                    Capabilities = new List<string> { "analytics.invoke" }
+                });
+                string manifestPath = Path.Combine(root,
+                    DdfProjectManifest.FileName);
+                string manifestSource = JsonSerializer.Serialize(project,
+                    new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(manifestPath, manifestSource,
+                    new UTF8Encoding(false));
+
+                var wrongVersion = new DdfExternalReferenceCatalogResolver(
+                    new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.TypedAdapter(
+                            "host.analytics", DdfExternalReferenceKinds
+                                .HostService, "1.0.0",
+                            DdfExternalReferenceArchitectures.X86,
+                            DdfExternalReferenceOrigins.Host,
+                            new[] { "analytics.invoke" },
+                            "host.analytics.v1")
+                    }, _ => true);
+                DdfBuildIssue versionIssue = new DdfBuildService(
+                        externalReferenceResolver: wrongVersion,
+                        externalReferenceContext:
+                        DdfExternalReferenceContext.Embedded)
+                    .Validate(root, project, package).Issues.Single(item =>
+                        item.Code == "DDFR012");
+                Equal(Path.GetFullPath(manifestPath),
+                    Path.GetFullPath(versionIssue.DocumentPath));
+                Equal("\"2.0.0\"", manifestSource.Substring(
+                    versionIssue.Start, versionIssue.Length));
+                Equal(true, versionIssue.Line > 1 &&
+                    versionIssue.Column > 1);
+
+                var wrongArchitecture = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.TypedAdapter(
+                            "host.analytics", DdfExternalReferenceKinds
+                                .HostService, "2.0.0",
+                            DdfExternalReferenceArchitectures.X86,
+                            DdfExternalReferenceOrigins.Host,
+                            new[] { "analytics.invoke" },
+                            "host.analytics.v2")
+                    }, _ => true);
+                DdfBuildIssue architectureIssue = new DdfBuildService(
+                        externalReferenceResolver: wrongArchitecture,
+                        externalReferenceContext:
+                        DdfExternalReferenceContext.Embedded)
+                    .Validate(root, project, package).Issues.Single(item =>
+                        item.Code == "DDFR013");
+                Equal("\"x64\"", manifestSource.Substring(
+                    architectureIssue.Start, architectureIssue.Length));
+
+                var wrongCapabilities = new
+                    DdfExternalReferenceCatalogResolver(new[]
+                    {
+                        DdfExternalReferenceCatalogEntry.TypedAdapter(
+                            "host.analytics", DdfExternalReferenceKinds
+                                .HostService, "2.0.0",
+                            DdfExternalReferenceArchitectures.X64,
+                            DdfExternalReferenceOrigins.Host,
+                            new[] { "analytics.read" },
+                            "host.analytics.v2")
+                    }, _ => true);
+                DdfBuildIssue capabilityIssue = new DdfBuildService(
+                        externalReferenceResolver: wrongCapabilities,
+                        externalReferenceContext:
+                        DdfExternalReferenceContext.Embedded)
+                    .Validate(root, project, package).Issues.Single(item =>
+                        item.Code == "DDFR014");
+                Equal(true, manifestSource.Substring(capabilityIssue.Start,
+                    capabilityIssue.Length).StartsWith("[",
+                    StringComparison.Ordinal));
+
+                var denied = new DdfExternalReferenceCatalogResolver(new[]
+                {
+                    DdfExternalReferenceCatalogEntry.TypedAdapter(
+                        "host.analytics", DdfExternalReferenceKinds
+                            .HostService, "2.0.0",
+                        DdfExternalReferenceArchitectures.X64,
+                        DdfExternalReferenceOrigins.Host,
+                        new[] { "analytics.invoke" }, "host.analytics.v2")
+                }, _ => false);
+                DdfBuildIssue deniedIssue = new DdfBuildService(
+                        externalReferenceResolver: denied,
+                        externalReferenceContext:
+                        DdfExternalReferenceContext.Embedded)
+                    .Validate(root, project, package).Issues.Single(item =>
+                        item.Code == "DDFR002");
+                Equal("\"host.analytics\"", manifestSource.Substring(
+                    deniedIssue.Start, deniedIssue.Length));
+
+                DdfBuildIssue unavailableResolver = new DdfBuildService()
+                    .Validate(root, project, package).Issues.Single(item =>
+                        item.Code == "DDFB018");
+                Equal(deniedIssue.Start, unavailableResolver.Start);
+                Equal(deniedIssue.DocumentPath,
+                    unavailableResolver.DocumentPath);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void GovernsAdapterFamiliesWithoutPromotion()
+        {
+            string path = Path.Combine(AppContext.BaseDirectory,
+                "AdapterFamilies", "catalog.json");
+            DdfAdapterFamilyCatalogLoadResult result =
+                DdfAdapterFamilyCatalogLoader.Load(path);
+            if (!result.Success) throw new InvalidOperationException(
+                string.Join(" | ", result.Issues));
+
+            DdfAdapterFamilyCatalog catalog = result.Catalog;
+            Equal(DdfAdapterFamilyCatalog.FormatVersionValue,
+                catalog.FormatVersion);
+            Equal(19, catalog.Families.Count);
+            Equal(6, catalog.Families.Count(item => item.IsAvailable));
+            Equal(64, catalog.Fingerprint.Length);
+            Equal(false, catalog.Families.Any(item => item.StandardLibrary));
+            Equal(true, catalog.Families.Where(item => item.IsAvailable)
+                .All(item => item.Maintainer.Length != 0 &&
+                    item.UseCases.Count != 0 && item.Blockers.Count == 0 &&
+                    item.Gates.All.All(gate => gate.IsSatisfied)));
+            Equal(DdfAdapterFamilyStage.Deferred,
+                catalog.Find("ddf.dotnet.ai.providers").Stage);
+            Equal(DdfAdapterPortability.ExternalService,
+                catalog.Find("ddf.dotnet.ai.providers").Portability);
+
+            JsonObject document = JsonNode.Parse(File.ReadAllText(path,
+                Encoding.UTF8)).AsObject();
+            JsonArray sourceFamilies = document["families"].AsArray();
+            var reversedFamilies = new JsonArray();
+            foreach (JsonNode family in sourceFamilies.Reverse())
+                reversedFamilies.Add(JsonNode.Parse(family.ToJsonString()));
+            document["families"] = reversedFamilies;
+            DdfAdapterFamilyCatalogLoadResult reordered =
+                DdfAdapterFamilyCatalogLoader.Parse(document.ToJsonString());
+            Equal(true, reordered.Success);
+            Equal(catalog.Fingerprint, reordered.Catalog.Fingerprint);
+
+            JsonObject invalidAvailable = JsonNode.Parse(File.ReadAllText(path,
+                Encoding.UTF8)).AsObject();
+            JsonObject first = invalidAvailable["families"].AsArray()[0]
+                .AsObject();
+            first["maintainer"] = null;
+            first["gates"]["testing"]["status"] = "required";
+            DdfAdapterFamilyCatalogLoadResult invalidResult =
+                DdfAdapterFamilyCatalogLoader.Parse(
+                    invalidAvailable.ToJsonString());
+            Equal(false, invalidResult.Success);
+            Equal(true, invalidResult.Issues.Any(item => item.Code ==
+                "DDFAC010"));
+            Equal(true, invalidResult.Issues.Any(item => item.Code ==
+                "DDFAC011"));
+
+            JsonObject promoted = JsonNode.Parse(File.ReadAllText(path,
+                Encoding.UTF8)).AsObject();
+            promoted["families"].AsArray()[0]["standardLibrary"] = true;
+            DdfAdapterFamilyCatalogLoadResult promotedResult =
+                DdfAdapterFamilyCatalogLoader.Parse(promoted.ToJsonString());
+            Equal(true, promotedResult.Issues.Any(item => item.Code ==
+                "DDFAC007"));
+
+            JsonObject unknown = JsonNode.Parse(File.ReadAllText(path,
+                Encoding.UTF8)).AsObject();
+            unknown["implicitActivation"] = true;
+            DdfAdapterFamilyCatalogLoadResult unknownResult =
+                DdfAdapterFamilyCatalogLoader.Parse(unknown.ToJsonString());
+            Equal(false, unknownResult.Success);
+            Equal("DDFAC002", unknownResult.Issues.Single().Code);
+        }
+
+        private static void ProjectsExternalApiAcrossAnalysisAndRuntime()
+        {
+            var api = new DdfExternalApiDefinition("host.analytics", "1.0.0",
+                new[]
+                {
+                    new DdfHostPermissionDefinition("analytics.use",
+                        "Usa analytics", "Consente calcoli analytics esterni.")
+                },
+                new[]
+                {
+                    new DdfHostTypeDefinition("Metric", new[]
+                    {
+                        new DdfHostFieldDefinition("value", "int",
+                            "Valore della metrica.")
+                    }, "Metrica descritta dall'adapter.")
+                },
+                new[]
+                {
+                    new DdfExternalApiObjectDefinition("externalBase",
+                        "analytics.base", "int", "Valore base esterno.",
+                        requiredPermissions: new[] { "analytics.use" })
+                },
+                new[]
+                {
+                    new DdfExternalApiFunctionDefinition("externalAdd",
+                        "analytics.add", "int", new[]
+                        {
+                            new DdfExternalApiParameterDefinition("left", "int"),
+                            new DdfExternalApiParameterDefinition("right", "int")
+                        }, "Somma due valori tramite l'adapter.",
+                        new[] { "analytics.use" })
+                });
+            Equal(64, api.Fingerprint.Length);
+            Equal(false, api.IsEmpty);
+
+            var resolver = new DdfExternalReferenceCatalogResolver(new[]
+            {
+                DdfExternalReferenceCatalogEntry.TypedAdapter(
+                    "host.analytics", DdfExternalReferenceKinds.HostService,
+                    "1.0.0", DdfExternalReferenceArchitectures.Any,
+                    DdfExternalReferenceOrigins.Host,
+                    new[] { "analytics.invoke" }, "host.analytics.v1", api)
+            }, _ => true);
+            var declaration = new DdfProjectExternalReference
+            {
+                Id = "host.analytics",
+                Kind = DdfExternalReferenceKinds.HostService,
+                Version = "1.0.0",
+                Architecture = DdfExternalReferenceArchitectures.Any,
+                Origin = DdfExternalReferenceOrigins.Host,
+                Capabilities = new List<string> { "analytics.invoke" }
+            };
+            DdfExternalReferenceResolutionResult resolved = resolver.Resolve(
+                new DdfExternalReferenceResolutionRequest(
+                    Path.GetTempPath(), declaration,
+                    DdfExternalReferenceContext.Embedded));
+            Equal(true, resolved.Success);
+            Equal(api.Fingerprint,
+                resolved.Reference.ApiDefinition.Fingerprint);
+
+            string source = "main() out int { ret externalAdd(externalBase, 2); }";
+            DdfLanguagePackage package = new DdfLanguagePackageSession()
+                .ActivePackage;
+            DdfHostCatalogSnapshot analysisCatalog =
+                DdfExternalApiCatalogProjector.CreateAnalysisCatalog(api,
+                    new[] { "analytics.use" });
+            using (var analysis = new DdfEditorAnalysisService())
+            {
+                DdfEditorAnalysisSnapshot snapshot = analysis.Analyze(
+                    new DdfEditorAnalysisRequest(source,
+                        source.IndexOf("externalAdd", StringComparison.Ordinal),
+                        1, package, 1, includeAllCompletions: true,
+                        hostCatalog: analysisCatalog));
+                Equal(false, snapshot.TypeCheckResult.Diagnostics.Any());
+                DdfCompletionItem function = snapshot.Completions.Items.Single(
+                    item => item.DisplayText == "externalAdd");
+                Equal("int", function.TypeName);
+                Equal(true, function.Detail.Contains(
+                    "Somma due valori tramite l'adapter."));
+                Equal(true, snapshot.Completions.Items.Any(item =>
+                    item.DisplayText == "externalBase" &&
+                    item.TypeName == "int"));
+                Equal(true, snapshot.Completions.Items.Any(item =>
+                    item.DisplayText == "Metric" &&
+                    item.Kind == DdfCompletionKind.Type));
+
+                const string missingSource =
+                    "main() out int { ret externalMissing(); }";
+                DdfEditorAnalysisSnapshot missing = analysis.Analyze(
+                    new DdfEditorAnalysisRequest(missingSource,
+                        missingSource.IndexOf("externalMissing",
+                            StringComparison.Ordinal), 2, package, 2,
+                        hostCatalog: analysisCatalog));
+                DdfDiagnostic missingDiagnostic = missing.TypeCheckResult
+                    .Diagnostics.Single(item => item.Code == "DDF312");
+                Equal(missingSource.IndexOf("externalMissing",
+                    StringComparison.Ordinal), missingDiagnostic.Start);
+            }
+
+            var adapter = new FakeExternalApiRuntimeAdapter();
+            DdfHostCatalogSnapshot runtimeCatalog =
+                DdfExternalApiCatalogProjector.CreateRuntimeCatalog(api,
+                    "host.analytics.v1", adapter,
+                    new[] { "analytics.use" });
+            var documents = new OpenDocumentCollection();
+            documents.CreateVirtual("external-api.ddf", source);
+            var language = new DdfLanguagePackageSession();
+            using (var execution = new DdfEditorExecutionService(
+                () => documents, () => language, () => runtimeCatalog))
+            {
+                DdfEditorExecutionCompletion result = execution.RunAsync()
+                    .GetAwaiter().GetResult();
+                Equal(true, result.Succeeded);
+                Equal(42L, Convert.ToInt64(
+                    result.ExecutionResult.ReturnValue));
+            }
+            SequenceEqual(new[] { "analytics.base", "analytics.add" },
+                adapter.Calls);
+
+            adapter.Calls.Clear();
+            var debugDocuments = new OpenDocumentCollection();
+            IDdfEditorDocument debugDocument = debugDocuments.CreateVirtual(
+                "external-api-debug.ddf",
+                "main() out int\n{\n    int result << " +
+                "externalAdd(externalBase, 2);\n    ret result;\n}");
+            using (var debugger = new DdfEditorDebugService(
+                       () => debugDocuments, () => language,
+                       () => runtimeCatalog))
+            using (var paused = new SemaphoreSlim(0))
+            {
+                debugger.SetBreakpoints(new[]
+                {
+                    new DdfEditorBreakpoint(debugDocument.Id, 3)
+                });
+                debugger.Paused += (sender, args) => paused.Release();
+                Task<DdfEditorExecutionCompletion> debugRun = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(
+                        entryDocumentId: debugDocument.Id));
+                Equal(true, paused.Wait(TimeSpan.FromSeconds(5)));
+                Equal(DdfEditorDebugState.Paused, debugger.State);
+                Equal(3, debugger.CurrentLocation.Line);
+                Equal(true, debugger.Continue());
+                DdfEditorExecutionCompletion debugResult = debugRun
+                    .GetAwaiter().GetResult();
+                Equal(true, debugResult.Succeeded);
+                Equal(42L, Convert.ToInt64(
+                    debugResult.ExecutionResult.ReturnValue));
+            }
+            SequenceEqual(new[] { "analytics.base", "analytics.add" },
+                adapter.Calls);
+            Throws<ArgumentException>(() =>
+                DdfExternalApiCatalogProjector.CreateRuntimeCatalog(api,
+                    "different.adapter", adapter));
+
+            var mismatched = new DdfExternalApiDefinition("other.api", "1.0.0");
+            var mismatchedResolver = new DdfExternalReferenceCatalogResolver(
+                new[]
+                {
+                    DdfExternalReferenceCatalogEntry.TypedAdapter(
+                        "host.analytics", DdfExternalReferenceKinds.HostService,
+                        "1.0.0", DdfExternalReferenceArchitectures.Any,
+                        DdfExternalReferenceOrigins.Host,
+                        new[] { "analytics.invoke" }, "host.analytics.v1",
+                        mismatched)
+                }, _ => true);
+            DdfExternalReferenceResolutionResult rejected = mismatchedResolver
+                .Resolve(new DdfExternalReferenceResolutionRequest(
+                    Path.GetTempPath(), declaration,
+                    DdfExternalReferenceContext.Embedded));
+            Equal(false, rejected.Success);
+            Equal("DDFR008", rejected.Code);
         }
 
         private static void ResolvesVersionedModulesWithExportVisibilityAndCycleChecks()
@@ -4248,6 +5114,8 @@ namespace DDFLanguageEditor.Tests
         private static void ValidatesShippedSampleProject()
         {
             string root = Path.Combine(Environment.CurrentDirectory, "samples", "project");
+            string outputRoot = Path.Combine(root, ".ddf-build");
+            string[] outputStateBefore = CaptureDirectoryState(outputRoot);
             DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
             Equal(true, loaded.Success);
             DdfBuildResult result = new DdfBuildService().Validate(root, loaded.Manifest,
@@ -4257,12 +5125,29 @@ namespace DDFLanguageEditor.Tests
             Equal("0.1.0", result.Artifact.ModuleVersion);
             Equal("main.ddf", result.Artifact.EntrySource);
             Equal(2, result.Artifact.Sources.Count);
-            Equal(false, Directory.Exists(Path.Combine(root, ".ddf-build")));
+            SequenceEqual(outputStateBefore, CaptureDirectoryState(outputRoot));
             DdfExecutionResult execution = DdfInterpreter.Execute(result.Artifact.RuntimeModules,
                 DdfLanguagePackageLoader.LoadEmbeddedDefault().Package.Language,
                 new DdfExecutionOptions { EntryPoint = result.Artifact.EntryPoint });
             Equal(true, execution.Succeeded);
             Equal(2, execution.ReturnValue);
+        }
+
+        private static string[] CaptureDirectoryState(string root)
+        {
+            if (!Directory.Exists(root)) return Array.Empty<string>();
+            return Directory.EnumerateFileSystemEntries(root, "*",
+                    SearchOption.AllDirectories)
+                .Select(path =>
+                {
+                    string relative = Path.GetRelativePath(root, path);
+                    if (Directory.Exists(path)) return "D|" + relative;
+                    var info = new FileInfo(path);
+                    return "F|" + relative + "|" + info.Length + "|" +
+                        info.LastWriteTimeUtc.Ticks;
+                })
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
         private static void ValidatesShippedFlowchartWorkspace()
@@ -7059,6 +7944,38 @@ main() out int
             {
                 releases.Add(name);
                 return ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class FakeExternalApiRuntimeAdapter :
+            IDdfExternalApiRuntimeAdapter
+        {
+            public string AdapterId => "host.analytics.v1";
+            public List<string> Calls { get; } = new List<string>();
+
+            public object ReadObject(string bindingId)
+            {
+                Calls.Add(bindingId);
+                if (bindingId == "analytics.base") return 40;
+                throw new InvalidOperationException(
+                    "Oggetto esterno non riconosciuto: " + bindingId + ".");
+            }
+
+            public void WriteObject(string bindingId, object value) => throw new
+                InvalidOperationException("Oggetto esterno in sola lettura: " +
+                    bindingId + ".");
+
+            public ValueTask<object> InvokeAsync(
+                DdfHostInvocationContext context, string bindingId,
+                IReadOnlyList<object> arguments)
+            {
+                Calls.Add(bindingId);
+                if (bindingId != "analytics.add") throw new
+                    InvalidOperationException(
+                        "Funzione esterna non riconosciuta: " + bindingId + ".");
+                return ValueTask.FromResult<object>(
+                    Convert.ToInt32(arguments[0]) +
+                    Convert.ToInt32(arguments[1]));
             }
         }
 

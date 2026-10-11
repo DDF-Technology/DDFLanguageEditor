@@ -1,0 +1,367 @@
+{
+  "$schema": "../ddf-adapter-family-catalog.schema.json",
+  "formatVersion": "1.0",
+  "families": [
+    {
+      "id": "ddf.dotnet.data.ado-net",
+      "displayName": "ADO.NET provider governati",
+      "classification": "dotNet",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Eseguire statement SQL nominati e parametrizzati tramite un provider scelto dall'host"],
+      "portability": "managedProvider",
+      "dependencies": ["Provider ADO.NET selezionato e distribuito dall'host"],
+      "capabilities": ["data.statement.execute"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Statement, parametri, permessi e credenziali sono governati da DDF_DATA_ADAPTERS.md." },
+        "portability": { "status": "complete", "evidence": "Il contratto Core è provider-neutral; il provider concreto dichiara la propria matrice." },
+        "licensing": { "status": "complete", "evidence": "Il provider non è redistribuito dall'SDK; il gate usa Microsoft.Data.Sqlite con notice dedicata." },
+        "testing": { "status": "complete", "evidence": "Gate SQLite reale e gate trasversale VM/Roslyn con revoca e cleanup." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.dotnet.network.http-json",
+      "displayName": "HTTP e JSON governati",
+      "classification": "dotNet",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Invocare route HTTPS nominate con richiesta e risposta tipizzate"],
+      "portability": "portable",
+      "dependencies": ["System.Net.Http"],
+      "capabilities": ["network.http.invoke"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Origine, metodo, route, payload, credenziali e quote sono sigillati da DDF_HTTP_ADAPTERS.md." },
+        "portability": { "status": "complete", "evidence": "Il contratto usa API .NET gestite e non richiede componenti nativi specifici." },
+        "licensing": { "status": "notApplicable", "evidence": "L'adapter usa soltanto librerie del runtime .NET nel percorso base." },
+        "testing": { "status": "complete", "evidence": "Gate deterministici senza rete reale e gate trasversale VM/Roslyn." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.dotnet.storage.files",
+      "displayName": "Filesystem logico governato",
+      "classification": "dotNet",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Leggere e scrivere risorse logiche UTF-8, JSON e CSV senza esporre percorsi host"],
+      "portability": "portable",
+      "dependencies": ["System.IO", "System.Text.Json"],
+      "capabilities": ["storage.logical-file.access"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Risorse logiche, quote, formati e transazioni sono governati da DDF_FILESYSTEM_ADAPTERS.md." },
+        "portability": { "status": "complete", "evidence": "Il contratto non contiene percorsi o primitive specifiche di sistema operativo." },
+        "licensing": { "status": "notApplicable", "evidence": "L'adapter usa soltanto librerie del runtime .NET nel percorso base." },
+        "testing": { "status": "complete", "evidence": "Gate su formati, traversal, quote, commit/rollback e gate trasversale VM/Roslyn." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.platform.hardware.core",
+      "displayName": "Contratto hardware governato e loopback",
+      "classification": "platform",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Integrare e testare dispositivi autorizzati tramite identità logiche, lifecycle deterministico e trasporti simulati"],
+      "portability": "platformSpecific",
+      "dependencies": ["Provider fisico esplicito per ciascun trasporto; nessuno richiesto dal loopback"],
+      "capabilities": ["hardware.device.access"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "DDF_HARDWARE_ADAPTERS.md vieta enumerazione e identificatori fisici provenienti dallo script e separa probe/read/write/configure." },
+        "portability": { "status": "complete", "evidence": "Il contratto comune è gestito; ogni provider fisico deve dichiarare separatamente piattaforma, driver e architettura." },
+        "licensing": { "status": "notApplicable", "evidence": "Contratto e loopback non aggiungono dipendenze esterne; ogni futuro provider ha un gate di licenza proprio." },
+        "testing": { "status": "complete", "evidence": "Quattro gate deterministici coprono superficie API, lifecycle, hot-plug, quote, timeout e accesso esclusivo; il gate trasversale applica e rilascia lo stesso profilo loopback in VM e Roslyn." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.platform.hardware.serial",
+      "displayName": "Porte seriali RS232 e USB/seriale",
+      "classification": "platform",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Scambiare frame UTF-8 con un endpoint seriale scelto e configurato esplicitamente dall'host"],
+      "portability": "platformSpecific",
+      "dependencies": ["System.IO.Ports 10.0.12", "Porta e driver installati sul sistema host"],
+      "capabilities": ["hardware.serial.exchange"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "La porta non proviene dallo script, non viene enumerata e profili, framing, quote e permessi sono predefiniti dall'host." },
+        "portability": { "status": "complete", "evidence": "Il provider dichiara System.IO.Ports e mantiene porta, driver e architettura nella configurazione host; la disponibilità fisica dipende dalla piattaforma." },
+        "licensing": { "status": "complete", "evidence": "System.IO.Ports 10.0.12 è distribuito da Microsoft con licenza MIT e notice dedicata." },
+        "testing": { "status": "complete", "evidence": "Quattro gate seriali con backend iniettato coprono profili, API priva di dettagli fisici, UTF-8/framing, eventi, timeout, lease e cleanup; le prove su hardware reale restano opt-in." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.platform.hardware.differential-serial",
+      "displayName": "Seriale differenziale RS422 e RS485",
+      "classification": "platform",
+      "stage": "available",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Scambiare frame su endpoint RS422 full-duplex o RS485 full/half-duplex configurati dall'host"],
+      "portability": "platformSpecific",
+      "dependencies": ["Provider seriale DDF", "Porta, transceiver e driver compatibili", "Adapter vendor esplicito quando il controllo direzione non è esposto dal driver"],
+      "capabilities": ["hardware.differential-serial.exchange"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Modalità, profilo elettrico logico, controllo direzione, polarità RTS e turnaround sono scelti dall'host e non dallo script." },
+        "portability": { "status": "complete", "evidence": "RS422/RS485 sono profili espliciti sopra il contratto seriale; supporto fisico e controllo direzione dipendono da porta, transceiver, driver o adapter vendor dichiarati." },
+        "licensing": { "status": "complete", "evidence": "Il percorso System.IO.Ports usa la dipendenza MIT già registrata; ogni adapter vendor richiede un gate di licenza separato." },
+        "testing": { "status": "complete", "evidence": "Quattro gate differenziali con backend iniettato coprono validazione, full/half-duplex, direzione, turnaround, cancellazione e rifiuto dei profili vendor non supportati; hardware reale resta opt-in." }
+      },
+      "blockers": []
+    },
+    {
+      "id": "ddf.platform.hardware.midi",
+      "displayName": "MIDI 1.0/2.0 e UMP governati",
+      "classification": "platform",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Scambiare pacchetti MIDI autorizzati con endpoint scelti dall'host, conservando UMP moderno e MIDI 1.0 legacy come profili distinti"],
+      "portability": "platformSpecific",
+      "dependencies": ["Bridge Windows MIDI Services C#/WinRT da fissare dopo stabilizzazione dell'API", "Percorso legacy MIDI 1.0 separato quando richiesto"],
+      "capabilities": ["hardware.midi.exchange"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Endpoint e profili restano host-side; formato, direzione, gruppi UMP, scheduling, SysEx e code sono governati." },
+        "portability": { "status": "required", "evidence": "Fissare matrice Windows 11/architettura/API mode e comportamento del fallback legacy sul bridge fisico." },
+        "licensing": { "status": "required", "evidence": "Verificare versione e condizioni di redistribuzione del pacchetto Windows.Devices.Midi2 scelto quando l'ABI sarà stabilizzata." },
+        "testing": { "status": "complete", "evidence": "Quattro gate con backend iniettato coprono isolamento endpoint, UMP canonico, gruppi, timestamp, SysEx, legacy, hot-plug e cleanup." }
+      },
+      "blockers": ["Bridge C#/WinRT fisico non ancora fissato", "SDK Windows MIDI Services ancora pre-release al 2026-10-10"]
+    },
+    {
+      "id": "ddf.platform.hardware.parallel",
+      "displayName": "Porte parallele LPT e IEEE 1284 governate",
+      "classification": "platform",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Comunicare con dispositivi paralleli legacy attraverso un driver firmato, un'interfaccia Windows documentata o un SDK vendor approvato"],
+      "portability": "platformSpecific",
+      "dependencies": ["Driver firmato o SDK vendor esplicitamente selezionato", "Dispositivo parallelo IEEE 1284 compatibile"],
+      "capabilities": ["hardware.parallel.exchange"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Il contratto non espone indirizzi I/O, registri o IOCTL arbitrari; porta, driver, modo, daisy-chain, reset e quote sono host-side." },
+        "portability": { "status": "required", "evidence": "Definire una matrice per Windows, architettura, driver, adattatori USB-parallelo e modi IEEE 1284 realmente supportati." },
+        "licensing": { "status": "required", "evidence": "Verificare firma, licenza e redistribuzione del driver o SDK vendor scelto." },
+        "testing": { "status": "complete", "evidence": "Quattro gate simulati coprono isolamento fisico, Compatibility/Nibble/Byte/EPP/ECP, quote, stato, reset, hot-plug, rollback e cleanup." }
+      },
+      "blockers": ["Nessun bridge fisico approvato", "Matrice driver e adattatori non definita"]
+    },
+    {
+      "id": "ddf.platform.hardware.iot",
+      "displayName": "GPIO, I2C, SPI e PWM governati",
+      "classification": "platform",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": "DDF.Technology",
+      "useCases": ["Controllare pin, sensori e periferiche a bus attraverso topologie e profili predefiniti dall'host"],
+      "portability": "platformSpecific",
+      "dependencies": ["System.Device.Gpio 4.2.0 oppure provider vendor esplicito", "Controller, bus e driver supportati dalla piattaforma"],
+      "capabilities": ["hardware.iot.exchange"],
+      "gates": {
+        "security": { "status": "complete", "evidence": "Pin, bus, indirizzo I2C, chip-select, clock SPI e canale PWM sono configurazione host; lo script usa frame tipizzati e quote." },
+        "portability": { "status": "required", "evidence": "La matrice board/OS/architettura/binding è pubblicata in DDF_IOT_PHYSICAL_TESTS.md, ma non contiene ancora righe validate su hardware reale." },
+        "licensing": { "status": "complete", "evidence": "System.Device.Gpio 4.2.0 è MIT; ogni binding o SDK vendor aggiuntivo richiede un gate separato." },
+        "testing": { "status": "complete", "evidence": "Ventisette gate hardware includono sette test IoT simulati per contratto e bridge; lo smoke fisico è separato e opt-in." }
+      },
+      "blockers": ["Nessuna riga della matrice hardware è stata ancora validata fisicamente"]
+    },
+    {
+      "id": "ddf.dotnet.data.relational-providers",
+      "displayName": "Provider PostgreSQL, MySQL, SQL Server e ODBC",
+      "classification": "dotNet",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Connettere uno stesso contratto dati governato a database relazionali diversi"],
+      "portability": "managedProvider",
+      "dependencies": ["Provider gestito e driver eventualmente richiesto dal database"],
+      "capabilities": ["data.provider.relational"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire gestione segreti, TLS, pool, timeout e SQL provider-specifico." },
+        "portability": { "status": "required", "evidence": "Pubblicare una matrice per provider, sistema operativo e architettura." },
+        "licensing": { "status": "required", "evidence": "Verificare separatamente licenza e redistribuzione di ogni provider e driver." },
+        "testing": { "status": "required", "evidence": "Aggiungere container opt-in e fake deterministici per ciascun provider supportato." }
+      },
+      "blockers": ["Maintainer non assegnato", "Matrice provider non definita"]
+    },
+    {
+      "id": "ddf.dotnet.data.orm",
+      "displayName": "ORM e micro-ORM",
+      "classification": "dotNet",
+      "stage": "deferred",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Mappare risultati tipizzati senza esporre query builder o reflection allo script"],
+      "portability": "managedProvider",
+      "dependencies": ["Contratto ADO.NET stabilizzato", "ORM scelto tramite decisione architetturale"],
+      "capabilities": ["data.mapping.query"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire limiti di espressione, mapping autorizzati e prevenzione di query implicite." },
+        "portability": { "status": "required", "evidence": "Separare il modello DDF dalle API e dai tipi dell'ORM concreto." },
+        "licensing": { "status": "required", "evidence": "Scegliere e verificare dipendenze solo dopo un caso d'uso reale." },
+        "testing": { "status": "required", "evidence": "Dimostrare equivalenza con il percorso ADO.NET e assenza di N+1 non governati." }
+      },
+      "blockers": ["Nessun caso integratore prioritario", "Scelta ORM prematura"]
+    },
+    {
+      "id": "ddf.dotnet.network.websocket",
+      "displayName": "WebSocket governati",
+      "classification": "dotNet",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Scambiare messaggi bidirezionali tipizzati con endpoint autorizzati"],
+      "portability": "portable",
+      "dependencies": ["System.Net.WebSockets"],
+      "capabilities": ["network.websocket.session"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire origine, autenticazione, dimensioni, rate limit e lifecycle sessione." },
+        "portability": { "status": "required", "evidence": "Verificare runtime desktop, server e ambienti embedded supportati." },
+        "licensing": { "status": "notApplicable", "evidence": "Il percorso base previsto usa API del runtime .NET." },
+        "testing": { "status": "required", "evidence": "Servono server simulato, riconnessione, cancellazione e backpressure deterministici." }
+      },
+      "blockers": ["Maintainer non assegnato", "Semantica asincrona DDF non stabilizzata"]
+    },
+    {
+      "id": "ddf.dotnet.network.messaging",
+      "displayName": "MQTT e messaggistica",
+      "classification": "dotNet",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Pubblicare e ricevere messaggi tipizzati su broker autorizzati"],
+      "portability": "managedProvider",
+      "dependencies": ["Client MQTT o provider di messaggistica selezionato"],
+      "capabilities": ["network.messaging.exchange"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire broker, topic, QoS, credenziali, TLS, quote e retained messages." },
+        "portability": { "status": "required", "evidence": "Separare il contratto comune dalle estensioni specifiche del broker." },
+        "licensing": { "status": "required", "evidence": "Verificare client, broker di test e condizioni di redistribuzione." },
+        "testing": { "status": "required", "evidence": "Aggiungere broker simulato, duplicati, ordering, reconnect e cancellazione." }
+      },
+      "blockers": ["Maintainer non assegnato", "Semantica asincrona DDF non stabilizzata"]
+    },
+    {
+      "id": "ddf.dotnet.storage.archive-xml",
+      "displayName": "Archivi ZIP e XML",
+      "classification": "dotNet",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Leggere o produrre archivi e documenti XML attraverso risorse logiche"],
+      "portability": "portable",
+      "dependencies": ["System.IO.Compression", "System.Xml"],
+      "capabilities": ["storage.archive-xml.transform"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Bloccare zip-slip, zip-bomb, DTD/XXE e imporre quote di profondità e decompressione." },
+        "portability": { "status": "complete", "evidence": "Le primitive previste sono gestite e multipiattaforma." },
+        "licensing": { "status": "notApplicable", "evidence": "Il percorso base previsto usa API del runtime .NET." },
+        "testing": { "status": "required", "evidence": "Aggiungere corpus ostile e round-trip deterministici collegati al filesystem logico." }
+      },
+      "blockers": ["Maintainer non assegnato", "Quote per archivi non definite"]
+    },
+    {
+      "id": "ddf.dotnet.documents.pdf-office",
+      "displayName": "PDF e documenti",
+      "classification": "dotNet",
+      "stage": "deferred",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Generare documenti e PDF da modelli e dati tipizzati autorizzati"],
+      "portability": "managedProvider",
+      "dependencies": ["Motore documentale da selezionare"],
+      "capabilities": ["documents.render"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire template, font, risorse esterne, macro e limiti di rendering." },
+        "portability": { "status": "required", "evidence": "Valutare dipendenze native, font e resa su ogni piattaforma." },
+        "licensing": { "status": "required", "evidence": "La scelta del motore dipende dalla compatibilità con distribuzione commerciale e embedded." },
+        "testing": { "status": "required", "evidence": "Servono golden files, validazione strutturale e budget di memoria/tempo." }
+      },
+      "blockers": ["Nessun motore selezionato", "Requisiti di rendering non raccolti"]
+    },
+    {
+      "id": "ddf.dotnet.media.images-reporting",
+      "displayName": "Immagini e reporting",
+      "classification": "dotNet",
+      "stage": "deferred",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Produrre grafici, immagini e report da dati tipizzati"],
+      "portability": "managedProvider",
+      "dependencies": ["Motore grafico e motore report da selezionare"],
+      "capabilities": ["media.report.render"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Limitare codec, dimensioni, font, template e risorse esterne." },
+        "portability": { "status": "required", "evidence": "Evitare dipendenza implicita da System.Drawing e verificare backend grafici." },
+        "licensing": { "status": "required", "evidence": "Verificare librerie, codec, font e redistribuzione." },
+        "testing": { "status": "required", "evidence": "Aggiungere golden files multipiattaforma e budget contro immagini ostili." }
+      },
+      "blockers": ["Nessun motore selezionato", "Contratto dati report non definito"]
+    },
+    {
+      "id": "ddf.dotnet.compute.math",
+      "displayName": "Matematica, statistica, matrici e segnali",
+      "classification": "dotNet",
+      "stage": "candidate",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Eseguire calcoli numerici riproducibili su vettori, matrici e serie temporali"],
+      "portability": "managedProvider",
+      "dependencies": ["Provider numerico da selezionare", "Tipi numerici DDF stabilizzati"],
+      "capabilities": ["compute.numeric.analyze"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire quote su memoria, dimensioni, iterazioni e parallelismo." },
+        "portability": { "status": "required", "evidence": "Specificare precisione, determinismo e accelerazioni opzionali per piattaforma." },
+        "licensing": { "status": "required", "evidence": "Verificare provider numerico e backend nativi opzionali." },
+        "testing": { "status": "required", "evidence": "Aggiungere tolleranze numeriche, corpus di riferimento e confronto VM/Roslyn." }
+      },
+      "blockers": ["Maintainer non assegnato", "decimal e collezioni non ancora stabilizzati"]
+    },
+    {
+      "id": "ddf.dotnet.security.cryptography",
+      "displayName": "Crittografia governata",
+      "classification": "dotNet",
+      "stage": "deferred",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Firmare, verificare, cifrare o derivare chiavi con profili scelti dall'host"],
+      "portability": "platformSpecific",
+      "dependencies": ["Provider crittografico e archivio chiavi scelti dall'host"],
+      "capabilities": ["security.crypto.profile"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Vietare primitive arbitrarie e definire profili, key custody, rotazione e zeroization." },
+        "portability": { "status": "required", "evidence": "Dichiarare differenze tra software, keystore di sistema, HSM e requisiti normativi." },
+        "licensing": { "status": "required", "evidence": "Verificare provider, HSM SDK e vincoli di esportazione applicabili." },
+        "testing": { "status": "required", "evidence": "Usare vettori ufficiali, negative test e provider simulati senza segreti reali." }
+      },
+      "blockers": ["Revisione di sicurezza specialistica necessaria", "Nessun profilo crittografico approvato"]
+    },
+    {
+      "id": "ddf.dotnet.ai.providers",
+      "displayName": "Provider IA locali e cloud",
+      "classification": "dotNet",
+      "stage": "deferred",
+      "standardLibrary": false,
+      "maintainer": null,
+      "useCases": ["Richiedere assistenza sul codice a un modello locale o cloud scelto esplicitamente"],
+      "portability": "externalService",
+      "dependencies": ["Provider locale o cloud opt-in", "Contratto IA e privacy da definire"],
+      "capabilities": ["ai.assistant.request"],
+      "gates": {
+        "security": { "status": "required", "evidence": "Definire consenso, redazione dati, prompt injection, tool access, retention e segreti." },
+        "portability": { "status": "required", "evidence": "Separare capacità comuni, limiti modello e fallback senza invio cloud implicito." },
+        "licensing": { "status": "required", "evidence": "Verificare SDK, modello, termini del servizio, output e redistribuzione per provider." },
+        "testing": { "status": "required", "evidence": "Usare provider fake deterministico e test opt-in separati per servizi reali." }
+      },
+      "blockers": ["Fase IA successiva alla stabilizzazione del linguaggio e dell'SDK", "Maintainer non assegnato"]
+    }
+  ]
+}

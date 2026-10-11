@@ -10,7 +10,7 @@ namespace DDF___Program_Language_Editor
     /// </summary>
     public static class DdfEditorSdkContract
     {
-        public const string CurrentVersion = "0.33";
+        public const string CurrentVersion = "0.34";
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ namespace DDF___Program_Language_Editor
         IDdfEditorPersistenceProvider PersistenceProvider { get; }
         IDdfEditorProjectContainer ProjectContainer { get; }
         DdfEditorProjectState CurrentProject { get; }
-        IDdfEditorBuildService BuildService { get; }
+        IDdfEditorPreparationService PreparationService { get; }
         IDdfEditorExecutionService ExecutionService { get; }
         IDdfEditorDebugService DebugService { get; }
 
@@ -56,8 +56,8 @@ namespace DDF___Program_Language_Editor
         event EventHandler<DdfEditorDefinitionNavigatedEventArgs> DefinitionNavigated;
         event EventHandler<DdfEditorProjectEventArgs> ProjectSaved;
         event EventHandler<DdfEditorProjectEventArgs> ProjectOpened;
-        event EventHandler<DdfEditorBuildStateChangedEventArgs> BuildStateChanged;
-        event EventHandler<DdfEditorBuildCompletedEventArgs> BuildCompleted;
+        event EventHandler<DdfEditorPreparationStateChangedEventArgs> PreparationStateChanged;
+        event EventHandler<DdfEditorPreparationCompletedEventArgs> PreparationCompleted;
         event EventHandler<DdfEditorExecutionStateChangedEventArgs> ExecutionStateChanged;
         event EventHandler<DdfEditorExecutionOutputEventArgs> ExecutionOutputReceived;
         event EventHandler<DdfEditorExecutionCompletedEventArgs> ExecutionCompleted;
@@ -70,8 +70,10 @@ namespace DDF___Program_Language_Editor
         bool FocusEditor();
         DdfEditorAnalysisSnapshot AnalyzeDocument();
         bool TryGoToDefinition();
-        DdfEditorBuildSnapshot ValidateProject(DdfEditorBuildRequest request = null);
-        DdfEditorBuildSnapshot BuildProject(DdfEditorBuildRequest request = null);
+        DdfEditorPreparationSnapshot ValidateScript(
+            DdfEditorPreparationRequest request = null);
+        DdfEditorPreparationSnapshot PrepareScript(
+            DdfEditorPreparationRequest request = null);
         DdfEditorPersistedState CapturePersistenceState();
         void ApplyPersistenceState(DdfEditorPersistedState state);
         void SaveState();
@@ -90,7 +92,8 @@ namespace DDF___Program_Language_Editor
         void AttachCommandService(IDdfEditorCommandService commandService);
         void AttachPersistenceProvider(IDdfEditorPersistenceProvider persistenceProvider);
         void AttachProjectContainer(IDdfEditorProjectContainer projectContainer);
-        void AttachBuildService(IDdfEditorBuildService buildService);
+        void AttachPreparationService(
+            IDdfEditorPreparationService preparationService);
         void AttachExecutionService(IDdfEditorExecutionService executionService);
         void AttachDebugService(IDdfEditorDebugService debugService);
     }

@@ -11,6 +11,10 @@ namespace DDF___Program_Language_Editor
         private ToolStripButton toolbarRunButton;
         private ToolStripButton toolbarRunWithoutDebugButton;
         private ToolStripButton toolbarBuildButton;
+        private ToolStripButton toolbarCompileAndRunButton;
+        private ToolStripButton toolbarPublishExecutableButton;
+        private ToolStripButton toolbarOpenCompiledOutputButton;
+        private ToolStripButton toolbarRunLastBuildButton;
         private ToolStripButton toolbarValidateButton;
         private ToolStripButton toolbarLanguageManagerButton;
         private ToolStripButton toolbarLanguagePlaygroundButton;
@@ -60,7 +64,7 @@ namespace DDF___Program_Language_Editor
             }),
             new ToolbarGroupDefinition("project", "Progetto e linguaggio", "toolStripProject", new[]
             {
-                "toolbarSettingsButton", "toolbarValidateButton", "toolbarBuildButton", "toolbarLanguageManagerButton",
+                "toolbarSettingsButton", "toolbarValidateButton", "toolbarBuildButton", "toolbarCompileAndRunButton", "toolbarRunLastBuildButton", "toolbarPublishExecutableButton", "toolbarOpenCompiledOutputButton", "toolbarLanguageManagerButton",
                 "toolbarLanguagePlaygroundButton", "toolbarLanguageButton", "toolbarModuleManagerButton"
             }),
             new ToolbarGroupDefinition("debug", "Esecuzione e debug", "toolStripDebug", new[]
@@ -107,6 +111,29 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(toolbarValidateButton);
             toolbarBuildButton = createToolbarButton("toolbarBuildButton", "\uE895", "Compila progetto (Ctrl+Shift+B)", buildProjectMenuItem_Click);
             toolStripMain.Items.Add(toolbarBuildButton);
+            toolbarCompileAndRunButton = createToolbarButton(
+                "toolbarCompileAndRunButton", "\uE7C4",
+                "Compila ed esegui (Ctrl+Shift+F5)",
+                compileAndRunMenuItem_Click);
+            toolbarCompileAndRunButton.ForeColor = AppTheme.Run;
+            toolStripMain.Items.Add(toolbarCompileAndRunButton);
+            toolbarRunLastBuildButton = createToolbarButton(
+                "toolbarRunLastBuildButton", "\uE768",
+                "Esegui ultima build (Ctrl+Alt+F5)",
+                runLastBuildMenuItem_Click);
+            toolbarRunLastBuildButton.ForeColor = AppTheme.Run;
+            toolbarRunLastBuildButton.Enabled = false;
+            toolStripMain.Items.Add(toolbarRunLastBuildButton);
+            toolbarPublishExecutableButton = createToolbarButton(
+                "toolbarPublishExecutableButton", "\uE74E",
+                "Pubblica EXE self-contained",
+                publishExecutableMenuItem_Click);
+            toolStripMain.Items.Add(toolbarPublishExecutableButton);
+            toolbarOpenCompiledOutputButton = createToolbarButton(
+                "toolbarOpenCompiledOutputButton", "\uE838",
+                "Apri cartella output", openCompiledOutputMenuItem_Click);
+            toolbarOpenCompiledOutputButton.Enabled = false;
+            toolStripMain.Items.Add(toolbarOpenCompiledOutputButton);
             toolbarRunWithoutDebugButton = createToolbarButton("toolbarRunWithoutDebugButton", "\uE72A", "Avvia senza debug (Ctrl+F5)", runWithoutDebugMenuItem_Click);
             toolbarRunWithoutDebugButton.ForeColor = AppTheme.Run;
             toolStripMain.Items.Add(toolbarRunWithoutDebugButton);

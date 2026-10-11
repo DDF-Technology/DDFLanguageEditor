@@ -37,8 +37,9 @@ checker. Run viene bloccato se una fase non riesce a rappresentare il sorgente.
 modulo, export e dipendenze dirette. La VM usa questi metadati per qualificare
 funzioni, strutture e globali: più moduli possono conservare gli stessi nomi
 privati, mentre il lookup attraversa soltanto gli export dichiarati. Questa è
-qualificazione runtime deterministica; il futuro IR bound `2.0` assegnerà anche
-un'identità simbolica stabile a ogni riferimento già risolto.
+qualificazione runtime deterministica; la IR bound `2.1` assegna inoltre
+un'identità simbolica stabile a ogni riferimento già risolto e conserva se una
+funzione host è pura o mutante.
 
 Ogni diagnostica dichiara anche il proprio dominio: `Codice sorgente`,
 `Definizione linguaggio`, `Funzionalità motore` oppure `Runtime`. Il lowerer usa
@@ -66,10 +67,36 @@ evoluzione sostituirà gradualmente il ponte legacy con il lowering diretto dell
 operazioni semantiche pianificate; eventuali estensioni native resteranno
 plug-in espliciti e autorizzabili.
 
-L'audit Roslyn ha inoltre fissato il successivo confine: la IR strutturale `1.0`
-non verrà passata direttamente al generatore C#. Una IR bound `2.0` dovrà
-assegnare identità stabile ai simboli, annotare il tipo di ogni espressione,
-materializzare conversioni e destinazioni e risolvere ogni chiamata. In questo
-modo Roslyn convalida ed emette il programma senza diventare accidentalmente il
-definitore della semantica DDF. I gate completi sono in
+Dal contratto compilatore `1.0`, ogni modulo validato viene inoltre proiettato in
+una `DdfCompilationUnit`: snapshot sorgenti, documenti IR e interfaccia esportata
+restano livelli immutabili distinti. Le unità sono descritte in
+[DDF_COMPILATION_UNIT_CONTRACT.md](DDF_COMPILATION_UNIT_CONTRACT.md) e non sono
+di per sé un formato persistente.
+
+L'audit Roslyn ha inoltre fissato un secondo confine: la IR strutturale `1.0`
+non viene passata direttamente al generatore C#. La IR bound `2.1`, prodotta
+dalla stessa preparazione Core, assegna identità simboliche deterministiche,
+annota il tipo e la categoria di valore di ogni espressione, materializza la
+conversione contestuale, risolve le chiamate e conserva l'esito del flusso dei
+ritorni e la natura degli effetti host prima che inizi il backend.
+
+`DdfBoundCompilationUnit` contiene una vista per documento sopra l'albero
+strutturale e una tabella di simboli immutabile. `DdfBoundExpression` distingue
+valori, destinazioni modificabili, destinazioni in sola lettura, tipi e callable;
+conserva inoltre il simbolo referenziato, la destinazione esatta di una chiamata
+e la conversione `Identity` o `Implicit` richiesta dal contesto. Le identità non
+dipendono dal percorso assoluto del workspace e il fingerprint bound partecipa
+al fingerprint dell'unità di compilazione.
+
+`DdfBoundFunctionFlow` registra inoltre se una funzione restituisce sempre un
+valore, può raggiungere la fine o contiene un arresto `end`; il backend non deve
+ricalcolare queste proprietà attraverso la semantica accidentale del C#.
+
+I simboli privati delle dipendenze non entrano nella vista del chiamante; quelli
+esportati, le funzioni standard e le capability host autorizzate ricevono invece
+identità esplicite. I callable standard conservano inoltre il loro
+`SemanticBindingId`, separato dal nome visibile e quindi stabile anche nei
+profili sintattici tradotti. Il generatore C# consuma esclusivamente questa vista,
+così Roslyn convaliderà ed emetterà il programma senza diventare accidentalmente
+il definitore della semantica DDF. I gate completi sono in
 `ROSLYN_COMPATIBILITY_AUDIT.md`.

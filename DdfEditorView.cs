@@ -33,7 +33,7 @@ namespace DDF___Program_Language_Editor
         private IDdfEditorPersistenceProvider persistenceProvider;
         private IDdfEditorProjectContainer projectContainer;
         private DdfEditorProjectState currentProject;
-        private IDdfEditorBuildService buildService;
+        private IDdfEditorPreparationService preparationService;
         private IDdfEditorExecutionService executionService;
         private bool ownsExecutionService;
         private IDdfEditorDebugService debugService;
@@ -76,7 +76,7 @@ namespace DDF___Program_Language_Editor
             AttachHostCatalog(new DdfEditorHostCatalog());
             AttachExperienceState(new DdfEditorExperienceState());
             AttachAnalysisService(new DdfEditorAnalysisService(), true);
-            AttachBuildService(new DdfEditorBuildService(
+            AttachPreparationService(new DdfEditorPreparationService(
                 () => documentService, () => languageSession,
                 () => hostCatalog?.Snapshot));
             AttachExecutionService(new DdfEditorExecutionService(
@@ -184,7 +184,7 @@ namespace DDF___Program_Language_Editor
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public IDdfEditorBuildService BuildService => buildService;
+        public IDdfEditorPreparationService PreparationService => preparationService;
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -231,8 +231,8 @@ namespace DDF___Program_Language_Editor
         public event EventHandler<DdfEditorDefinitionNavigatedEventArgs> DefinitionNavigated;
         public event EventHandler<DdfEditorProjectEventArgs> ProjectSaved;
         public event EventHandler<DdfEditorProjectEventArgs> ProjectOpened;
-        public event EventHandler<DdfEditorBuildStateChangedEventArgs> BuildStateChanged;
-        public event EventHandler<DdfEditorBuildCompletedEventArgs> BuildCompleted;
+        public event EventHandler<DdfEditorPreparationStateChangedEventArgs> PreparationStateChanged;
+        public event EventHandler<DdfEditorPreparationCompletedEventArgs> PreparationCompleted;
         public event EventHandler<DdfEditorExecutionStateChangedEventArgs> ExecutionStateChanged;
         public event EventHandler<DdfEditorExecutionOutputEventArgs> ExecutionOutputReceived;
         public event EventHandler<DdfEditorExecutionCompletedEventArgs> ExecutionCompleted;
@@ -285,18 +285,18 @@ namespace DDF___Program_Language_Editor
             return true;
         }
 
-        public DdfEditorBuildSnapshot ValidateProject(
-            DdfEditorBuildRequest request = null)
+        public DdfEditorPreparationSnapshot ValidateScript(
+            DdfEditorPreparationRequest request = null)
         {
-            EnsureNoActiveOperation("convalidare il progetto");
-            return buildService.Validate(request);
+            EnsureNoActiveOperation("convalidare lo script");
+            return preparationService.Validate(request);
         }
 
-        public DdfEditorBuildSnapshot BuildProject(
-            DdfEditorBuildRequest request = null)
+        public DdfEditorPreparationSnapshot PrepareScript(
+            DdfEditorPreparationRequest request = null)
         {
-            EnsureNoActiveOperation("compilare il progetto");
-            return buildService.Build(request);
+            EnsureNoActiveOperation("preparare lo script");
+            return preparationService.PrepareScript(request);
         }
 
         public DdfEditorPersistedState CapturePersistenceState()
@@ -564,19 +564,19 @@ namespace DDF___Program_Language_Editor
             RefreshCommands();
         }
 
-        public void AttachBuildService(IDdfEditorBuildService service)
+        public void AttachPreparationService(IDdfEditorPreparationService service)
         {
             if (service == null) throw new ArgumentNullException(nameof(service));
-            if (ReferenceEquals(buildService, service)) return;
-            EnsureNoActiveOperation("sostituire il servizio di build");
-            if (buildService != null)
+            if (ReferenceEquals(preparationService, service)) return;
+            EnsureNoActiveOperation("sostituire il servizio di preparazione");
+            if (preparationService != null)
             {
-                buildService.StateChanged -= buildService_StateChanged;
-                buildService.BuildCompleted -= buildService_BuildCompleted;
+                preparationService.StateChanged -= preparationService_StateChanged;
+                preparationService.PreparationCompleted -= preparationService_PreparationCompleted;
             }
-            buildService = service;
-            buildService.StateChanged += buildService_StateChanged;
-            buildService.BuildCompleted += buildService_BuildCompleted;
+            preparationService = service;
+            preparationService.StateChanged += preparationService_StateChanged;
+            preparationService.PreparationCompleted += preparationService_PreparationCompleted;
             RefreshCommands();
         }
 
@@ -681,11 +681,11 @@ namespace DDF___Program_Language_Editor
                 persistenceProvider = null;
                 projectContainer = null;
                 currentProject = null;
-                if (buildService != null)
+                if (preparationService != null)
                 {
-                    buildService.StateChanged -= buildService_StateChanged;
-                    buildService.BuildCompleted -= buildService_BuildCompleted;
-                    buildService = null;
+                    preparationService.StateChanged -= preparationService_StateChanged;
+                    preparationService.PreparationCompleted -= preparationService_PreparationCompleted;
+                    preparationService = null;
                 }
                 if (activeEditor != null)
                 {
@@ -880,10 +880,10 @@ namespace DDF___Program_Language_Editor
             RegisterBuiltInCommand(DdfEditorCommandIds.OpenHostProject, "Apri progetto host", "Progetto",
                 () => OpenProject(), () => projectContainer != null && !HasActiveOperation() &&
                       (documentService == null || documentService.OpenDocuments.Count == 0));
-            RegisterBuiltInCommand(DdfEditorCommandIds.ValidateProject, "Convalida progetto", "Progetto",
-                () => ValidateProject(), CanBuildProject);
-            RegisterBuiltInCommand(DdfEditorCommandIds.BuildProject, "Compila progetto", "Progetto",
-                () => BuildProject(), CanBuildProject);
+            RegisterBuiltInCommand(DdfEditorCommandIds.ValidateScript, "Convalida script", "Script",
+                () => ValidateScript(), CanPrepareScript);
+            RegisterBuiltInCommand(DdfEditorCommandIds.PrepareScript, "Prepara script", "Script",
+                () => PrepareScript(), CanPrepareScript);
             RegisterBuiltInCommand(DdfEditorCommandIds.RunWithoutDebug, "Avvia senza debug", "Esecuzione",
                 () => _ = executionService.RunAsync(),
                 () => executionService != null && !executionService.IsRunning &&
@@ -943,10 +943,10 @@ namespace DDF___Program_Language_Editor
         private bool CanEdit() => HasEditor() && !activeEditor.ReadOnly;
 
         private bool HasActiveOperation() =>
-            buildService?.IsBuilding == true || executionService?.IsRunning == true ||
+            preparationService?.IsPreparing == true || executionService?.IsRunning == true ||
             debugService?.IsActive == true;
 
-        private bool CanBuildProject() => buildService != null && !HasActiveOperation() &&
+        private bool CanPrepareScript() => preparationService != null && !HasActiveOperation() &&
             documentService?.OpenDocuments.Count > 0;
 
         private void EnsureNoActiveOperation(string action)
@@ -1119,17 +1119,17 @@ namespace DDF___Program_Language_Editor
             RefreshCommands();
         }
 
-        private void buildService_StateChanged(object sender,
-            DdfEditorBuildStateChangedEventArgs e)
+        private void preparationService_StateChanged(object sender,
+            DdfEditorPreparationStateChangedEventArgs e)
         {
-            BuildStateChanged?.Invoke(this, e);
+            PreparationStateChanged?.Invoke(this, e);
             RefreshCommands();
         }
 
-        private void buildService_BuildCompleted(object sender,
-            DdfEditorBuildCompletedEventArgs e)
+        private void preparationService_PreparationCompleted(object sender,
+            DdfEditorPreparationCompletedEventArgs e)
         {
-            BuildCompleted?.Invoke(this, e);
+            PreparationCompleted?.Invoke(this, e);
         }
 
         private void executionService_OutputReceived(object sender,

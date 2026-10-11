@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DDFLanguageEditor.Cli.Tests</RootNamespace>
+    <AssemblyName>DDFLanguageEditor.Cli.Tests</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\DDFLanguageEditor.Cli\DDFLanguageEditor.Cli.csproj" />
+    <ProjectReference Include="..\..\DDFLanguageEditor.Core\DDFLanguageEditor.Core.csproj" />
+  </ItemGroup>
+</Project>

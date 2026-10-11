@@ -34,7 +34,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class DdfEditorBuildDocumentSnapshot
     {
-        internal DdfEditorBuildDocumentSnapshot(string id, string displayName,
+        public DdfEditorBuildDocumentSnapshot(string id, string displayName,
             string filePath, string sourceText, long version)
         {
             Id = id ?? string.Empty;

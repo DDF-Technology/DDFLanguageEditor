@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "state": "passed",
+  "startedUtc": "2026-10-11T23:00:32.8191067Z",
+  "completedUtc": "2026-10-11T23:00:34.0534970Z",
+  "machine": "DESKTOP-OTF5926",
+  "os": "Microsoft Windows NT 10.0.19045.0",
+  "is64BitOperatingSystem": true,
+  "packageRoot": "C:\\Users\\VM\\Desktop\\20261011-170727\\input\\package",
+  "checks": {
+    "manifestAndHashes": true,
+    "rootAllowlist": true,
+    "runtimeSelfContained": true,
+    "compilerDependenciesAbsent": true,
+    "dotnetCommandAbsent": true,
+    "modernDotNetRegistryAbsent": true,
+    "foreignWorkingDirectory": true,
+    "globalDotNetNeutralized": true,
+    "programResult": true
+  },
+  "processExitCode": 0,
+  "standardOutput": "DDF CLEAN VM OK\r\nValore restituito: 42\r\n",
+  "standardError": "",
+  "failure": null
+}
