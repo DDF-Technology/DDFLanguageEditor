@@ -72,3 +72,39 @@ Matematica avanzata, collezioni, filesystem, rete, database, reflection,
 assembly .NET e componenti COM non appartengono a questo nucleo minimo. Saranno
 eventualmente forniti come moduli o adattatori autorizzati, mai come capacità
 implicite della libreria standard.
+
+La decisione futura `DDF-0036` promuove esclusivamente la matematica pura nella
+libreria standard `0.21.0`, con algoritmo DDF versionato e senza capacità host.
+Non modifica `ddf.standard@0.12.3`: matematica applicata, statistica, matrici e
+integrazioni esterne restano moduli separati. Il contratto è
+`ddf-math-library-design.json`.
+
+La decisione futura `DDF-0037` aggiunge alla libreria standard `0.22.0`
+costruttori, accessori, calcolo e testo temporali. Le sole funzioni non pure sono
+`currentInstant` e la famiglia random, collegate a provider espliciti con
+effetti `clock` e `random`; non concedono accesso generale all'host. Anche
+questa decisione non modifica `ddf.standard@0.12.3`. Il contratto è
+`ddf-temporal-random-design.json`.
+
+La decisione futura `DDF-0038` governa l'evoluzione di tutte queste API con lo
+schema `2.0` e l'adapter `ddf-standard-library-v4`. Firma, effetti, errori,
+determinismo, portabilità, costo, regola costante, dipendenze e binding entrano
+in un'identità e fingerprint comuni a strumenti e backend. L'attuale schema
+`1.1` rimane normativo finché modello, migrazione e negoziazione worker non sono
+implementati integralmente. Il disegno è
+`ddf-standard-library-binding-design.json`.
+
+La capability dialoghi `DDF-0039` resta deliberatamente fuori da
+`ddf.standard`: disponibilità, dispatcher, owner, policy e permesso dipendono
+dall'ambiente host. La firma DDF è proiettata dal catalogo capability soltanto
+quando autorizzata. Il contratto è `ddf-host-dialog-design.json`.
+
+Anche `ddf.testing@1`, pianificata da `DDF-0040`, resta fuori dalla libreria
+standard di produzione. È un catalogo test-only governato dal piano del
+progetto, assente da Run, Build e pubblicazione normali. Il contratto è
+`ddf-project-testing-design.json`.
+
+Le future funzioni `beep` e `tone` non apparterranno a `ddf.standard`: saranno
+operazioni della famiglia di piattaforma `ddf.platform.hardware.audio`, visibili
+soltanto quando l'host espone un provider e concede la capability
+`hardware.audio.signal`. La loro assenza non modifica la grammatica DDF.

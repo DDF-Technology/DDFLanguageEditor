@@ -11,9 +11,10 @@ namespace DDFLanguageEditor.Runner
 {
     internal sealed class DdfDotNetWorkerDuplexChannel
     {
-        private readonly object synchronization = new();
+        private readonly SemaphoreSlim synchronization = new(1, 1);
         private readonly DdfDotNetWorkerDuplexTranscript transcript = new();
         private readonly string correlationId;
+        private Func<DdfDotNetWorkerDebugPause> cooperativeDebugSnapshotProvider;
         private int nextSequence = 1;
         private int nextRequestId = 1;
 
@@ -27,8 +28,19 @@ namespace DDFLanguageEditor.Runner
 
         internal object Invoke(string capabilityId,
             IReadOnlyList<object> arguments, CancellationToken cancellationToken)
+            => InvokeAsync(capabilityId, arguments, cancellationToken)
+                .AsTask().GetAwaiter().GetResult();
+
+        internal void SetCooperativeDebugSnapshotProvider(
+            Func<DdfDotNetWorkerDebugPause> provider) =>
+            cooperativeDebugSnapshotProvider = provider;
+
+        internal async ValueTask<object> InvokeAsync(string capabilityId,
+            IReadOnlyList<object> arguments, CancellationToken cancellationToken)
         {
-            lock (synchronization)
+            await synchronization.WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 string requestId = "capability-" + nextRequestId
@@ -43,13 +55,17 @@ namespace DDFLanguageEditor.Runner
                     CapabilityId = capabilityId,
                     ArgumentsJson = (arguments ?? Array.Empty<object>())
                         .Select(value => JsonSerializer.Serialize(value))
-                        .ToList()
+                        .ToList(),
+                    CooperativeDebugSnapshot = capabilityId ==
+                        DdfDotNetWorkerBrokerCapabilities.NextDebugCommand
+                        ? null : cooperativeDebugSnapshotProvider?.Invoke()
                 };
                 Accept(request);
-                WriteFrame(request, cancellationToken);
+                await WriteFrameAsync(request, cancellationToken)
+                    .ConfigureAwait(false);
 
-                string line = Console.In.ReadLineAsync(cancellationToken)
-                    .AsTask().GetAwaiter().GetResult();
+                string line = await Console.In.ReadLineAsync(cancellationToken)
+                    .ConfigureAwait(false);
                 if (line == null || line.Length >
                         DdfDotNetWorkerDuplexProtocol.MaxFrameCharacters)
                     throw new InvalidDataException(
@@ -83,6 +99,7 @@ namespace DDFLanguageEditor.Runner
                         "La capability live ha restituito un tipo non scalare.")
                 };
             }
+            finally { synchronization.Release(); }
         }
 
         internal async Task WriteCompleteAsync(
@@ -109,13 +126,14 @@ namespace DDFLanguageEditor.Runner
             nextSequence = frame.Sequence + 1;
         }
 
-        private static void WriteFrame(DdfDotNetWorkerDuplexFrame frame,
+        private static async ValueTask WriteFrameAsync(
+            DdfDotNetWorkerDuplexFrame frame,
             CancellationToken cancellationToken)
         {
-            Console.Out.WriteLine(
+            await Console.Out.WriteLineAsync(
                 DdfDotNetWorkerDuplexProtocol.SerializeFrame(frame));
-            Console.Out.Flush();
-            cancellationToken.ThrowIfCancellationRequested();
+            await Console.Out.FlushAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 }

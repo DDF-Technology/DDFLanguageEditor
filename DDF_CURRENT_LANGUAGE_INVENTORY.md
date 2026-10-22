@@ -38,9 +38,10 @@ elencate. La vecchia `DDF - Program Language Spec.txt` è una bozza storica.
 | Tipi primitivi | `int`, `float`, `char`, `bool`, `void`, `string` | Contratto normativo in `DDF_TYPE_SYSTEM_SPEC.md`; allineamento del motore in corso |
 | Tipo dizionario | `dict` | Residuo beta da rimuovere; escluso dal nucleo normativo 0.12 |
 | Strutture | `struct` | Contratto nominale non nullo definito; allineamento del motore in corso |
+| Enum nominali | `enum Nome { ValoreA, ValoreB }` | Implementati; valori qualificati e immutabili, nessuna conversione implicita verso interi o stringhe |
 | Funzioni | `out`, `ret` | Conservate come forma distintiva DDF nella `0.12.1` |
-| Controllo | `if`, `else`, `while`, `do`, `for` | Implementato con struttura prevalentemente C-like |
-| Salti controllati | `brk`, `end` | Implementati; chiarire scope di `end` e future alternative |
+| Controllo | `if`, `else`, `select`, `when`, `otherwise`, `while`, `do`, `for` | Implementato; `select` non ha fall-through e verifica casi duplicati ed esaustività dei domini chiusi |
+| Salti controllati | `brk`, `continue`, `end` | Implementati; `brk` e `continue` agiscono sul ciclo più interno, resta da chiarire lo scope futuro di `end` |
 
 ## Operatori
 
@@ -69,10 +70,13 @@ forme binarie sono associative a sinistra.
 | Variabile | `tipo nome [<< espressione];` | Implementata; inizializzazione obbligatoria da decidere |
 | Array | tipo con suffisso `[dimensione]`, accesso `[indice]` | Implementato; dimensione, durata e collezioni dinamiche aperte |
 | Struttura | `struct Nome { dichiarazioni }` | Implementata; costruttori e valori iniziali assenti |
+| Enum nominale | `enum Nome { ValoreA, ValoreB }` | Implementato; il primo valore è il default deterministico |
 | Condizione | `if (condizione) { ... } [else { ... } | else if ...]` | Contratto 0.12.1; blocchi obbligatori |
 | Cicli | `while`, `do ... while`, `for` con corpo `{ ... }` | Contratto sintattico 0.12.1; semantica del `for` da chiudere |
 | Ritorno | `ret [espressione];` | Implementato |
 | Interruzione | `brk;` | Implementato soltanto nel ciclo corrente |
+| Iterazione successiva | `continue;` | Implementato sul ciclo più interno; nel `for` attraversa l'incremento |
+| Selezione multipla | `select(x) { when valore { ... } otherwise { ... } }` | Implementata; il valore è valutato una volta, `otherwise` è unico e ultimo |
 | Fine programma | `end;` | Implementato come terminazione esplicita |
 
 ## Semantica beta corrente

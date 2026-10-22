@@ -163,6 +163,11 @@ namespace DDF___Program_Language_Editor
 
             languagePackageInfoMenuItem.Click -= languagePackageInfoMenuItem_Click;
             languagePackageInfoMenuItem.Text = "&Linguaggio";
+            helpMenuItem.DropDownItems.Remove(languagePackageInfoMenuItem);
+            helpMenuItem.DropDownItems.Remove(helpSeparator);
+            int helpIndex = menuStripMain.Items.IndexOf(helpMenuItem);
+            if (helpIndex < 0) menuStripMain.Items.Add(languagePackageInfoMenuItem);
+            else menuStripMain.Items.Insert(helpIndex, languagePackageInfoMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(manageLanguagePackagesMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(validateLanguagePackageMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(languagePlaygroundMenuItem);
@@ -243,7 +248,11 @@ namespace DDF___Program_Language_Editor
             if (useEmbeddedLanguageMenuItem != null)
                 useEmbeddedLanguageMenuItem.Checked = package.Origin == DdfLanguagePackageOrigin.Embedded;
             if (languagePackageInfoMenuItem != null)
-                languagePackageInfoMenuItem.Text = "&Linguaggio — " + package.Name + " " + package.LanguageVersion;
+            {
+                languagePackageInfoMenuItem.Text = "&Linguaggio";
+                languagePackageInfoMenuItem.ToolTipText = "Pacchetto attivo: " +
+                    package.Name + " " + package.LanguageVersion;
+            }
             if (toolbarLanguageButton != null)
             {
                 toolbarLanguageButton.ToolTipText = "Linguaggio attivo: " + package.Name + " " + package.LanguageVersion;
@@ -316,6 +325,40 @@ namespace DDF___Program_Language_Editor
                     : string.Join(Environment.NewLine, languagePackageActivationDiagnostics.Select(item => item.ToString()));
                 MessageBox.Show(this, details, "Pacchetto linguaggio non caricato",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            DdfLanguageMigrationPlan migration =
+                DdfLanguageMigrationAnalyzer.Analyze(
+                    documentViews.Values.Select(view =>
+                        new DdfLanguageMigrationDocument(
+                            string.IsNullOrWhiteSpace(view.Buffer.FilePath)
+                                ? view.Buffer.DisplayName
+                                : view.Buffer.FilePath,
+                            view.Editor.Text)),
+                    editorLanguageSession.ActivePackage, result.Package);
+            if (!migration.CanActivate)
+            {
+                string[] blocking = migration.Diagnostics
+                    .Where(item => item.Severity ==
+                        DdfLanguageMigrationSeverity.Error)
+                    .Select(item => item.ToString()).ToArray();
+                string details = string.Join(Environment.NewLine,
+                    blocking.Take(20));
+                if (blocking.Length > 20)
+                    details += Environment.NewLine + "... e altri " +
+                        (blocking.Length - 20) + " problemi.";
+                languagePackageActivationDiagnostics = result.Diagnostics;
+                applyActiveLanguagePackageStatus();
+                appendOutput("Cambio linguaggio annullato: " +
+                    blocking.Length + " collisioni o incompatibilità da correggere.");
+                MessageBox.Show(this,
+                    "Il pacchetto non è stato attivato perché alcuni identificatori " +
+                    "diventerebbero parole riservate oppure la semantica dei profili " +
+                    "non coincide. Nessun documento è stato modificato.\n\n" +
+                    details,
+                    "Migrazione linguaggio richiesta", MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 

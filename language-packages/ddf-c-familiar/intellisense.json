@@ -23,7 +23,9 @@
   "symbolKinds": [
     { "kind": "Library", "label": "libreria", "documentation": "Direttiva di libreria DDF." },
     { "kind": "Structure", "label": "struttura", "documentation": "Struttura dati dichiarata nel sorgente DDF." },
-    { "kind": "Function", "label": "funzione", "documentation": "Funzione dichiarata nel sorgente DDF." },
+    { "kind": "Enumeration", "label": "enum", "documentation": "Insieme nominale di valori simbolici tipizzati." },
+    { "kind": "EnumerationMember", "label": "valore enum", "documentation": "Valore simbolico appartenente a un enum DDF." },
+    { "kind": "Function", "label": "funzione di modulo", "documentation": "Funzione top-level appartenente al modulo DDF; non richiede né ammette il modificatore static." },
     { "kind": "Parameter", "label": "parametro", "documentation": "Parametro della funzione corrente." },
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
@@ -38,6 +40,7 @@
       "Process": "Sequential statement {code}; execution then moves to the next node.", "Call": "Call {code}; control returns here when the function completes.",
       "Decision": "Decision {code}: follow {true} when true and {false} when false.", "LoopDecision": "Loop condition {code}: repeat the body or continue after the loop.",
       "Return": "Return {code}: finish the function and return its value.", "Break": "Leave the nearest loop immediately.",
+      "Continue": "Skip the rest of the current iteration and continue with the nearest loop.",
       "Terminate": "Terminate the current execution path.", "Partial": "Partial node generated from incomplete code.",
       "Group": "Collapsed group of sequential statements; double-click to expand it."
     }
@@ -46,19 +49,34 @@
     "DDF001": "Unterminated string literal.", "DDF002": "Unterminated block comment.", "DDF003": "Unterminated library directive.",
     "DDF004": "Invalid source character.", "DDF005": "Unknown string escape sequence.",
     "DDF101": "Unexpected syntax element.", "DDF102": "A required syntax element is missing.", "DDF103": "Expression expected.",
-    "DDF104": "Type expected.", "DDF105": "Identifier expected.", "DDF201": "Unresolved symbol.", "DDF202": "Duplicate declaration in the same scope.",
+    "DDF104": "Type expected.", "DDF105": "Identifier expected.", "DDF106": "A const declaration requires an initializer.", "DDF107": "A state declaration requires an initializer.", "DDF201": "Unresolved symbol.", "DDF202": "Duplicate declaration in the same scope.",
     "DDF301": "Incompatible types.", "DDF302": "Operator is not valid for these operand types.", "DDF303": "Invalid function arguments.",
     "DDF304": "Returned value does not match the declared type.", "DDF305": "Invalid type usage.", "DDF306": "Condition must be boolean.",
-    "DDF307": "Function must return a value.", "DDF308": "Assignment target is not writable.", "DDF309": "Host value is incompatible with the declared type."
+    "DDF307": "Function must return a value.", "DDF308": "Assignment target is not writable.", "DDF309": "Host value is incompatible with the declared type.",
+    "DDF314": "A const declaration requires an initializer.", "DDF315": "The const initializer must be constant and pure.",
+    "DDF316": "A const value cannot be modified.", "DDF317": "This const form is not valid here.",
+    "DDF318": "Cyclic dependency between const values.", "DDF319": "The const initializer cannot be represented.",
+    "DDF320": "state is only allowed for module values.", "DDF321": "A state declaration requires an initializer.",
+    "DDF322": "The current state contract accepts primitive scalar types only.",
+    "DDF323": "This statement can only be used inside a loop.",
+    "DDF324": "An enum must declare at least one value.", "DDF325": "An enum value is duplicated.",
+    "DDF326": "A case is not constant or compatible with the switch value.", "DDF327": "A case is duplicated.",
+    "DDF328": "A switch must be exhaustive or declare default.", "DDF329": "default must be unique and last.",
+    "DDF423": "The same state store cannot be used by overlapping executions."
   },
   "snippets": [
     { "prefix": "if", "displayText": "if — blocco", "description": "Blocco condizionale", "body": "if(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "while", "displayText": "while — ciclo", "description": "Ciclo con condizione iniziale", "body": "while(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "do", "displayText": "do — ciclo", "description": "Ciclo con condizione finale", "body": "do\n{\n    ${1:statement};\n} while(${2:condition});${0}", "requiresKeyword": true },
     { "prefix": "for", "displayText": "for — ciclo", "description": "Ciclo indicizzato", "body": "for(int ${1:index}; ${2:index} < ${3:limit}; ${4:index}++)\n{\n    ${5:statement};\n}${0}", "requiresKeyword": true },
+    { "prefix": "continue", "displayText": "continue — next iteration", "description": "Skip the rest of the current iteration", "body": "continue;${0}", "requiresKeyword": true },
     { "prefix": "function", "displayText": "function — dichiarazione", "description": "Dichiarazione di funzione", "body": "${1:name}(${2:int} ${3:parameter}) returns ${4:void}\n{\n    ${5:statement};\n}${0}" },
     { "prefix": "main", "displayText": "main — entry point", "description": "Funzione principale", "body": "main() returns ${1:int}\n{\n    ${2:return 0};\n}${0}" },
-    { "prefix": "struct", "displayText": "struct — dichiarazione", "description": "Dichiarazione di struttura", "body": "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", "requiresKeyword": true }
+    { "prefix": "struct", "displayText": "struct — dichiarazione", "description": "Dichiarazione di struttura", "body": "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", "requiresKeyword": true },
+    { "prefix": "enum", "displayText": "enum — declaration", "description": "Nominal symbolic value set", "body": "enum ${1:Name}\n{\n    ${2:First},\n    ${3:Second}\n}${0}", "requiresKeyword": true },
+    { "prefix": "switch", "displayText": "switch — exhaustive selection", "description": "Multi-way selection without fall-through", "body": "switch (${1:value})\n{\n    case ${2:value}\n    {\n        ${3}\n    }\n    default\n    {\n        ${0}\n    }\n}", "requiresKeyword": true },
+    { "prefix": "const", "displayText": "const — typed constant", "description": "Immutable local or module value", "body": "const ${1:int} ${2:name} = ${3:0};${0}", "requiresKeyword": true },
+    { "prefix": "state", "displayText": "state — instance state", "description": "Module value persisted only in the explicit instance store", "body": "state ${1:int} ${2:name} = ${3:0};${0}", "requiresKeyword": true }
   ],
   "description": "Presentazione dichiarativa dei servizi IntelliSense per il profilo DDF familiare C."
 }

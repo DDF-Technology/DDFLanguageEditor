@@ -23,7 +23,9 @@
   "symbolKinds": [
     { "kind": "Library", "label": "libreria", "documentation": "Direttiva di libreria DDF." },
     { "kind": "Structure", "label": "struttura", "documentation": "Struttura dati dichiarata nel sorgente DDF." },
-    { "kind": "Function", "label": "funzione", "documentation": "Funzione dichiarata nel sorgente DDF." },
+    { "kind": "Enumeration", "label": "enumerazione", "documentation": "Insieme nominale di valori simbolici tipizzati." },
+    { "kind": "EnumerationMember", "label": "valore enumerato", "documentation": "Valore simbolico appartenente a una enumerazione DDF." },
+    { "kind": "Function", "label": "funzione di modulo", "documentation": "Funzione top-level appartenente al modulo DDF; non richiede né ammette il modificatore static." },
     { "kind": "Parameter", "label": "parametro", "documentation": "Parametro della funzione corrente." },
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
@@ -38,6 +40,7 @@
       "Process": "Il programma esegue {code} una volta e poi passa al blocco successivo.", "Call": "Il programma richiama {code}, ne esegue le istruzioni e poi torna qui.",
       "Decision": "Il programma controlla {code}: segue {true} se la condizione è vera, altrimenti segue {false}.", "LoopDecision": "Il programma controlla {code} per decidere se ripetere il ciclo oppure continuare oltre.",
       "Return": "Con {code} la funzione termina e consegna un valore al chiamante.", "Break": "Questa istruzione fa uscire immediatamente dal ciclo più vicino.",
+      "Continue": "Questa istruzione salta il resto dell'iterazione e passa alla verifica successiva del ciclo.",
       "Terminate": "Questa istruzione conclude il percorso corrente.", "Partial": "Questo blocco è provvisorio perché il codice non è ancora completo.",
       "Group": "Questo blocco raccoglie più istruzioni consecutive; fai doppio clic per vederle separatamente."
     }
@@ -47,21 +50,37 @@
     "DDF004": "Questo carattere non appartiene alla sintassi scelta.", "DDF005": "Questa sequenza speciale non è riconosciuta nella stringa.",
     "DDF101": "In questo punto c'è un elemento che la grammatica non si aspetta.", "DDF102": "Prima di continuare devi aggiungere l'elemento sintattico mancante.",
     "DDF103": "Qui serve un valore o un'espressione.", "DDF104": "Qui devi indicare un tipo.", "DDF105": "Qui devi scrivere un nome valido.",
+    "DDF106": "Una dichiarazione fisso richiede un inizializzatore.", "DDF107": "Una dichiarazione stato richiede un inizializzatore.",
     "DDF201": "Questo nome non è stato dichiarato: dichiaralo oppure correggine la grafia.", "DDF202": "Questo nome è già stato dichiarato nello stesso contesto.",
     "DDF301": "Questi due tipi non possono essere usati insieme in questa operazione.", "DDF302": "Questo operatore non può lavorare con i valori indicati.",
     "DDF303": "Controlla numero e tipo dei valori passati alla funzione.", "DDF304": "Il valore restituito non corrisponde al tipo dichiarato dalla funzione.",
     "DDF305": "Il tipo usato in questo punto non è valido.", "DDF306": "La condizione deve produrre vero oppure falso.",
     "DDF307": "Questa funzione deve restituire un valore.", "DDF308": "Questo elemento non può essere modificato.",
-    "DDF309": "L'elemento esposto dall'applicazione host non corrisponde al tipo richiesto."
+    "DDF309": "L'elemento esposto dall'applicazione host non corrisponde al tipo richiesto.",
+    "DDF314": "Una dichiarazione fisso richiede un inizializzatore.", "DDF315": "L'inizializzatore fisso deve essere costante e puro.",
+    "DDF316": "Un valore fisso non è modificabile.", "DDF317": "Questa forma fisso non è ammessa qui.",
+    "DDF318": "Dipendenza ciclica fra valori fissi.", "DDF319": "L'inizializzatore fisso non è rappresentabile.",
+    "DDF320": "stato è consentito soltanto per valori di modulo.", "DDF321": "Una dichiarazione stato richiede un inizializzatore.",
+    "DDF322": "Il contratto stato corrente accetta soltanto tipi primitivi scalari.",
+    "DDF323": "Questa istruzione può essere usata soltanto all'interno di un ciclo.",
+    "DDF324": "Una enumerazione deve dichiarare almeno un valore.", "DDF325": "Un valore enumerato è duplicato.",
+    "DDF326": "Il caso non è costante o compatibile con il valore scelto.", "DDF327": "Il caso è duplicato.",
+    "DDF328": "La scelta deve essere completa o avere un ramo predefinito.", "DDF329": "Il ramo predefinito deve essere unico e ultimo.",
+    "DDF423": "Lo stesso archivio stato non può essere usato da esecuzioni sovrapposte."
   },
   "snippets": [
     { "prefix": "se", "displayText": "se — blocco", "description": "Blocco condizionale", "body": "se(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },
     { "prefix": "mentre", "displayText": "mentre — ciclo", "description": "Ciclo con condizione iniziale", "body": "mentre(${1:condizione})\n{\n    ${2:istruzione};\n}${0}", "requiresKeyword": true },
     { "prefix": "fai", "displayText": "fai — ciclo", "description": "Ciclo con condizione finale", "body": "fai\n{\n    ${1:istruzione};\n} mentre(${2:condizione});${0}", "requiresKeyword": true },
     { "prefix": "per", "displayText": "per — ciclo", "description": "Ciclo indicizzato", "body": "per(int ${1:indice}; ${2:indice} < ${3:limite}; ${4:indice}++)\n{\n    ${5:istruzione};\n}${0}", "requiresKeyword": true },
+    { "prefix": "continua", "displayText": "continua — iterazione successiva", "description": "Salta il resto dell'iterazione corrente", "body": "continua;${0}", "requiresKeyword": true },
     { "prefix": "funzione", "displayText": "funzione — dichiarazione", "description": "Dichiarazione di funzione", "body": "${1:nome}(${2:int} ${3:parametro}) restituisce ${4:void}\n{\n    ${5:istruzione};\n}${0}" },
     { "prefix": "main", "displayText": "main — punto di ingresso", "description": "Funzione principale", "body": "main() restituisce ${1:int}\n{\n    ${2:restituisci 0};\n}${0}" },
-    { "prefix": "struttura", "displayText": "struttura — dichiarazione", "description": "Dichiarazione di struttura", "body": "struttura ${1:Nome}\n{\n    ${2:int} ${3:campo};\n}${0}", "requiresKeyword": true }
+    { "prefix": "struttura", "displayText": "struttura — dichiarazione", "description": "Dichiarazione di struttura", "body": "struttura ${1:Nome}\n{\n    ${2:int} ${3:campo};\n}${0}", "requiresKeyword": true },
+    { "prefix": "enumerazione", "displayText": "enumerazione — dichiarazione", "description": "Insieme nominale di valori simbolici", "body": "enumerazione ${1:Nome}\n{\n    ${2:Primo},\n    ${3:Secondo}\n}${0}", "requiresKeyword": true },
+    { "prefix": "scegli", "displayText": "scegli — selezione completa", "description": "Scelta multipla senza attraversamento implicito", "body": "scegli (${1:valore})\n{\n    caso ${2:valore}\n    {\n        ${3}\n    }\n    predefinito\n    {\n        ${0}\n    }\n}", "requiresKeyword": true },
+    { "prefix": "fisso", "displayText": "fisso — costante tipizzata", "description": "Valore immutabile locale o di modulo", "body": "fisso ${1:int} ${2:nome} << ${3:0};${0}", "requiresKeyword": true },
+    { "prefix": "stato", "displayText": "stato — stato di istanza", "description": "Valore di modulo persistente soltanto nell'archivio esplicito dell'istanza", "body": "stato ${1:int} ${2:nome} << ${3:0};${0}", "requiresKeyword": true }
   ],
   "description": "Presentazione dichiarativa dei servizi IntelliSense per il profilo didattico italiano."
 }

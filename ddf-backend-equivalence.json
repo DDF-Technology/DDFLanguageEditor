@@ -1,0 +1,82 @@
+{
+  "$schema": "ddf-backend-equivalence.schema.json",
+  "schemaVersion": "1.0",
+  "languageVersion": "0.13",
+  "backends": [ "ddf-vm-ir-v1", "dotnet-roslyn-v1" ],
+  "releasePolicy": {
+    "mode": "block-on-divergence",
+    "requiredDimensions": [
+      "value",
+      "output",
+      "runtime-errors",
+      "host-effects",
+      "cleanup-order",
+      "persistable-state",
+      "debug-points"
+    ]
+  },
+  "dimensions": [
+    {
+      "id": "value",
+      "status": "enforced",
+      "evidence": [
+        "compiler:MatchesVmOnDifferentialExecutionCorpus",
+        "compiler:MatchesVersionedNormativeLanguageCorpus"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "output",
+      "status": "enforced",
+      "evidence": [
+        "compiler:MatchesVmOnDifferentialExecutionCorpus",
+        "compiler:MatchesVersionedNormativeLanguageCorpus"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "runtime-errors",
+      "status": "enforced",
+      "evidence": [
+        "compiler:MatchesVmOnDifferentialExecutionCorpus",
+        "compiler:MatchesVersionedNormativeLanguageCorpus"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "host-effects",
+      "status": "enforced",
+      "evidence": [
+        "compiler:BridgesExplicitStandaloneHostCapabilities",
+        "compiler:VerifiesGovernedAdaptersAcrossVmAndCompiledBackend"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "cleanup-order",
+      "status": "enforced",
+      "evidence": [
+        "compiler:MatchesCleanupOrderAcrossVmAndCompiledBackend"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "persistable-state",
+      "status": "enforced",
+      "evidence": [
+        "core:OwnsTransactionalStatePerEditorHostInstance",
+        "compiler:PersistsStateAcrossVmAndCompiledSessions",
+        "runtime:ValidatesPortablePersistedState"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "debug-points",
+      "status": "enforced",
+      "evidence": [
+        "compiler:PlansModulesAndLibrariesThroughTheSharedPipeline"
+      ],
+      "remainingGap": null
+    }
+  ]
+}

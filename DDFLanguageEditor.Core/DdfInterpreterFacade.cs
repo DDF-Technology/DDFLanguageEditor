@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace DDFLanguageEditor.Core
 {
@@ -53,6 +54,21 @@ namespace DDFLanguageEditor.Core
             if (options.MaxInstructions <= 0) options.MaxInstructions = language.Runtime.DefaultInstructionLimit;
             return DdfVirtualMachine.Execute(modules, language.Runtime, language.Types,
                 language.StandardLibrary, options);
+        }
+
+        public static Task<DdfExecutionResult> ExecuteAsync(
+            System.Collections.Generic.IReadOnlyList<DdfIrModule> modules,
+            DdfLanguageDefinition language, DdfExecutionOptions options = null)
+        {
+            if (modules == null) throw new ArgumentNullException(nameof(modules));
+            if (language == null) throw new ArgumentNullException(nameof(language));
+            options = options ?? new DdfExecutionOptions();
+            if (string.IsNullOrWhiteSpace(options.EntryPoint))
+                options.EntryPoint = language.Runtime.EntryPoint;
+            if (options.MaxInstructions <= 0)
+                options.MaxInstructions = language.Runtime.DefaultInstructionLimit;
+            return DdfVirtualMachine.ExecuteAsync(modules, language.Runtime,
+                language.Types, language.StandardLibrary, options);
         }
 
         private static DdfExecutionResult Failed(System.Collections.Generic.IReadOnlyList<DdfDiagnostic> diagnostics) =>

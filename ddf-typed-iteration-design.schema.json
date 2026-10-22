@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/typed-iteration-design-1.0.json",
+  "title": "DDF typed iteration design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "keywords", "grammar", "rules", "collectionKinds", "snapshot", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-typed-iteration-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0032" },
+    "targetLanguageVersion": { "const": "0.17" },
+    "keywords": {
+      "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" }
+    },
+    "grammar": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "iterationStatement" ],
+      "properties": { "iterationStatement": { "type": "string", "minLength": 1 } }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "elementTypeIsExplicit", "collectionEvaluatedOnce", "bindingCreatedPerIteration", "bindingIsNotAssignable", "bindingDoesNotWriteBack", "emptyCollectionRunsZeroIterations", "continueAdvancesToNextElement", "breakExitsInnermostLoop", "iterationOrderIsDeterministic", "snapshotIsRequired", "clrEnumerationIsForbidden", "unorderedHostViewsAreForbidden" ],
+      "properties": {
+        "elementTypeIsExplicit": { "const": true },
+        "collectionEvaluatedOnce": { "const": true },
+        "bindingCreatedPerIteration": { "const": true },
+        "bindingIsNotAssignable": { "const": true },
+        "bindingDoesNotWriteBack": { "const": true },
+        "emptyCollectionRunsZeroIterations": { "const": true },
+        "continueAdvancesToNextElement": { "const": true },
+        "breakExitsInnermostLoop": { "const": true },
+        "iterationOrderIsDeterministic": { "const": true },
+        "snapshotIsRequired": { "const": true },
+        "clrEnumerationIsForbidden": { "const": true },
+        "unorderedHostViewsAreForbidden": { "const": true }
+      }
+    },
+    "collectionKinds": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "initial", "planned", "neverImplicit" ],
+      "properties": {
+        "initial": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "planned": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "neverImplicit": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+      }
+    },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "arrayOrder", "depth", "dynamicCollections", "hostViews" ],
+      "properties": {
+        "arrayOrder": { "const": "ascending-index" },
+        "depth": { "const": "shallow" },
+        "dynamicCollections": { "const": "freeze-before-first-iteration" },
+        "hostViews": { "const": "authorized-bounded-ordered-snapshot" }
+      }
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "irIsBackendNeutral", "debuggerExposesReadOnlySyntheticIndex", "flowchartModelsIterationEdges", "languageProfilesOwnKeywordTranslations" ],
+      "properties": {
+        "irIsBackendNeutral": { "const": true },
+        "debuggerExposesReadOnlySyntheticIndex": { "const": true },
+        "flowchartModelsIterationEdges": { "const": true },
+        "languageProfilesOwnKeywordTranslations": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

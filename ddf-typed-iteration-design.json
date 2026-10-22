@@ -1,0 +1,43 @@
+{
+  "$schema": "./ddf-typed-iteration-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0032",
+  "targetLanguageVersion": "0.17",
+  "keywords": [ "each", "in" ],
+  "grammar": {
+    "iterationStatement": "each '(' type identifier in expression ')' block"
+  },
+  "rules": {
+    "elementTypeIsExplicit": true,
+    "collectionEvaluatedOnce": true,
+    "bindingCreatedPerIteration": true,
+    "bindingIsNotAssignable": true,
+    "bindingDoesNotWriteBack": true,
+    "emptyCollectionRunsZeroIterations": true,
+    "continueAdvancesToNextElement": true,
+    "breakExitsInnermostLoop": true,
+    "iterationOrderIsDeterministic": true,
+    "snapshotIsRequired": true,
+    "clrEnumerationIsForbidden": true,
+    "unorderedHostViewsAreForbidden": true
+  },
+  "collectionKinds": {
+    "initial": [ "array" ],
+    "planned": [ "sequence", "readonly-host-view", "ordered-map-entry-view" ],
+    "neverImplicit": [ "string", "number", "structure", "host-object", "unordered-map" ]
+  },
+  "snapshot": {
+    "arrayOrder": "ascending-index",
+    "depth": "shallow",
+    "dynamicCollections": "freeze-before-first-iteration",
+    "hostViews": "authorized-bounded-ordered-snapshot"
+  },
+  "diagnostics": [ "DDF337", "DDF338", "DDF339", "DDF340", "DDF341" ],
+  "integration": {
+    "irIsBackendNeutral": true,
+    "debuggerExposesReadOnlySyntheticIndex": true,
+    "flowchartModelsIterationEdges": true,
+    "languageProfilesOwnKeywordTranslations": true
+  }
+}

@@ -389,20 +389,21 @@ namespace DDFLanguageEditor.Compiler
             bool returnsVoid = main.Type.Name == "void" &&
                 main.Type.ArrayRank == 0;
             string invoke = returnsVoid
-                ? container + "." + mainName +
+                ? "await " + container + "." + mainName +
                   "(runtime); return null;"
-                : "return " + container + "." + mainName + "(runtime);";
+                : "return await " + container + "." + mainName + "(runtime);";
             return "using System;\n" +
+                "using System.Threading.Tasks;\n" +
                 "using DDFLanguageEditor.Runtime;\n\n" +
                 "internal static class Program\n{\n" +
-                "    private static int Main()\n    {\n" +
+                "    private static async Task<int> Main()\n    {\n" +
                 "        try\n        {\n" +
                 "            var context = new DdfRuntimeContext(" +
                 maxInstructions + ", output: Console.WriteLine, " +
                 "input: Console.ReadLine);\n" +
                 "            DdfRuntimeExecutionResult result = " +
-                "context.Execute(runtime =>\n            {\n" +
-                "                " + container +
+                "await context.ExecuteAsync(async runtime =>\n            {\n" +
+                "                await " + container +
                 ".DdfGenerated_Helper_ModuleInitialize(runtime);\n" +
                 "                " + invoke + "\n" +
                 "            });\n" +

@@ -15,6 +15,7 @@ namespace DDFLanguageEditor.Core
         LoopDecision,
         Return,
         Break,
+        Continue,
         Terminate,
         Partial,
         Group
@@ -26,6 +27,7 @@ namespace DDFLanguageEditor.Core
         True,
         False,
         Break,
+        Continue,
         Return,
         Terminate
     }
@@ -176,27 +178,34 @@ namespace DDFLanguageEditor.Core
                 string exit = AddNode(DdfFlowchartNodeKind.Exit, presentation.FormatExit(function.Name),
                     function.NameStart, function.NameLength);
                 Target exitTarget = new Target(exit, DdfFlowchartEdgeKind.Next);
-                string body = BuildBlock(function.Body, exitTarget, exitTarget);
+                string body = BuildBlock(function.Body, exitTarget, exitTarget, exitTarget);
                 string entry = AddNode(DdfFlowchartNodeKind.Entry, function.Name + "()",
                     function.NameStart, function.NameLength);
                 AddEdge(entry, body ?? exit, DdfFlowchartEdgeKind.Next);
                 return new DdfFlowchart(documentPath, function.Name, entry, exit, nodes, edges);
             }
 
-            private string BuildBlock(DdfIrBlock block, Target continuation, Target breakTarget)
+            private string BuildBlock(DdfIrBlock block, Target continuation, Target breakTarget,
+                Target continueTarget)
             {
                 Target current = continuation;
                 if (block != null)
                     for (int index = block.Statements.Count - 1; index >= 0; index--)
-                        current = new Target(BuildStatement(block.Statements[index], current, breakTarget), DdfFlowchartEdgeKind.Next);
+                        current = new Target(BuildStatement(block.Statements[index], current,
+                            breakTarget, continueTarget), DdfFlowchartEdgeKind.Next);
                 return current.Id;
             }
 
-            private string BuildStatement(DdfIrStatement statement, Target continuation, Target breakTarget)
+            private string BuildStatement(DdfIrStatement statement, Target continuation,
+                Target breakTarget, Target continueTarget)
             {
                 if (statement == null) return continuation.Id;
-                if (statement is DdfIrBlock block) return BuildBlock(block, continuation, breakTarget);
-                if (statement is DdfIrIf conditional) return BuildIf(conditional, continuation, breakTarget);
+                if (statement is DdfIrBlock block) return BuildBlock(block, continuation,
+                    breakTarget, continueTarget);
+                if (statement is DdfIrIf conditional) return BuildIf(conditional,
+                    continuation, breakTarget, continueTarget);
+                if (statement is DdfIrSelect selection) return BuildSelect(selection,
+                    continuation, breakTarget, continueTarget);
                 if (statement is DdfIrWhile loop) return BuildWhile(loop, continuation);
                 if (statement is DdfIrDoWhile postLoop) return BuildDoWhile(postLoop, continuation);
                 if (statement is DdfIrFor forLoop) return BuildFor(forLoop, continuation);
@@ -211,6 +220,14 @@ namespace DDFLanguageEditor.Core
                 {
                     string node = AddNode(DdfFlowchartNodeKind.Break, Slice(statement), statement.Start, statement.Length);
                     AddEdge(node, breakTarget.Id, DdfFlowchartEdgeKind.Break);
+                    return node;
+                }
+                if (statement is DdfIrContinue)
+                {
+                    string node = AddNode(DdfFlowchartNodeKind.Continue, Slice(statement),
+                        statement.Start, statement.Length);
+                    AddEdge(node, continueTarget.Id, DdfFlowchartEdgeKind.Continue,
+                        continueTarget.IsBackEdge);
                     return node;
                 }
                 if (statement is DdfIrEnd)
@@ -230,14 +247,17 @@ namespace DDFLanguageEditor.Core
                 return process;
             }
 
-            private string BuildIf(DdfIrIf conditional, Target continuation, Target breakTarget)
+            private string BuildIf(DdfIrIf conditional, Target continuation,
+                Target breakTarget, Target continueTarget)
             {
                 string decision = AddNode(DdfFlowchartNodeKind.Decision, Slice(conditional.Condition),
                     conditional.Condition?.Start ?? conditional.Start, Math.Max(1, conditional.Condition?.Length ?? 1),
                     Calls(conditional.Condition));
-                string whenTrue = BuildStatement(conditional.Body, continuation, breakTarget);
+                string whenTrue = BuildStatement(conditional.Body, continuation,
+                    breakTarget, continueTarget);
                 string whenFalse = conditional.ElseBody == null ? continuation.Id :
-                    BuildStatement(conditional.ElseBody, continuation, breakTarget);
+                    BuildStatement(conditional.ElseBody, continuation, breakTarget,
+                        continueTarget);
                 AddEdge(decision, whenTrue, DdfFlowchartEdgeKind.True,
                     conditional.Body == null && continuation.IsBackEdge);
                 AddEdge(decision, whenFalse, DdfFlowchartEdgeKind.False,
@@ -245,11 +265,38 @@ namespace DDFLanguageEditor.Core
                 return decision;
             }
 
+            private string BuildSelect(DdfIrSelect selection, Target continuation,
+                Target breakTarget, Target continueTarget)
+            {
+                DdfIrSelectClause fallback = selection.Clauses.LastOrDefault(
+                    clause => clause.IsOtherwise);
+                string current = fallback == null ? continuation.Id :
+                    BuildStatement(fallback.Body, continuation, breakTarget,
+                        continueTarget);
+                foreach (DdfIrSelectClause clause in selection.Clauses
+                             .Where(item => !item.IsOtherwise).Reverse())
+                {
+                    string label = Slice(selection.Expression) + " == " +
+                        Slice(clause.Value);
+                    string decision = AddNode(DdfFlowchartNodeKind.Decision, label,
+                        clause.Value?.Start ?? clause.Start,
+                        Math.Max(1, clause.Value?.Length ?? clause.Length),
+                        Calls(selection.Expression).Concat(Calls(clause.Value)));
+                    string branch = BuildStatement(clause.Body, continuation,
+                        breakTarget, continueTarget);
+                    AddEdge(decision, branch, DdfFlowchartEdgeKind.True);
+                    AddEdge(decision, current, DdfFlowchartEdgeKind.False);
+                    current = decision;
+                }
+                return current;
+            }
+
             private string BuildWhile(DdfIrWhile loop, Target continuation)
             {
                 string decision = AddNode(DdfFlowchartNodeKind.LoopDecision, Slice(loop.Condition),
                     loop.Condition?.Start ?? loop.Start, Math.Max(1, loop.Condition?.Length ?? 1), Calls(loop.Condition));
-                string body = BuildStatement(loop.Body, new Target(decision, DdfFlowchartEdgeKind.Next, true), continuation);
+                var repeat = new Target(decision, DdfFlowchartEdgeKind.Next, true);
+                string body = BuildStatement(loop.Body, repeat, continuation, repeat);
                 AddEdge(decision, body, DdfFlowchartEdgeKind.True);
                 AddEdge(decision, continuation.Id, DdfFlowchartEdgeKind.False);
                 return decision;
@@ -259,7 +306,9 @@ namespace DDFLanguageEditor.Core
             {
                 string decision = AddNode(DdfFlowchartNodeKind.LoopDecision, Slice(loop.Condition),
                     loop.Condition?.Start ?? loop.Start, Math.Max(1, loop.Condition?.Length ?? 1), Calls(loop.Condition));
-                string body = BuildStatement(loop.Body, new Target(decision, DdfFlowchartEdgeKind.Next), continuation);
+                var repeat = new Target(decision, DdfFlowchartEdgeKind.Next);
+                var continueTarget = new Target(decision, DdfFlowchartEdgeKind.Next, true);
+                string body = BuildStatement(loop.Body, repeat, continuation, continueTarget);
                 AddEdge(decision, body, DdfFlowchartEdgeKind.True, true);
                 AddEdge(decision, continuation.Id, DdfFlowchartEdgeKind.False);
                 return body;
@@ -277,11 +326,14 @@ namespace DDFLanguageEditor.Core
                         Math.Max(1, loop.Increment.Length), Calls(loop.Increment));
                     AddEdge(increment, decision, DdfFlowchartEdgeKind.Next, true);
                 }
-                string body = BuildStatement(loop.Body, new Target(increment, DdfFlowchartEdgeKind.Next), continuation);
+                var repeat = new Target(increment, DdfFlowchartEdgeKind.Next);
+                var continueTarget = new Target(increment, DdfFlowchartEdgeKind.Next, true);
+                string body = BuildStatement(loop.Body, repeat, continuation, continueTarget);
                 AddEdge(decision, body, DdfFlowchartEdgeKind.True);
                 AddEdge(decision, continuation.Id, DdfFlowchartEdgeKind.False);
                 return loop.Initializer == null ? decision :
-                    BuildStatement(loop.Initializer, new Target(decision, DdfFlowchartEdgeKind.Next), continuation);
+                    BuildStatement(loop.Initializer, new Target(decision,
+                        DdfFlowchartEdgeKind.Next), continuation, continuation);
             }
 
             private string AddNode(DdfFlowchartNodeKind kind, string label, int start, int length,

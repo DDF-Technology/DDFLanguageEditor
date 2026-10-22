@@ -61,6 +61,36 @@ Non è un emulatore elettrico di RS232, RS485, MIDI, GPIO o altri bus. Ogni
 provider reale dovrà aggiungere un proprio caso d'uso, maintainer e gate di
 sicurezza, portabilità, licenza e test prima di essere dichiarato disponibile.
 
+## Segnale acustico pianificato
+
+La futura famiglia `ddf.platform.hardware.audio` esporrà un segnale acustico
+come API tipizzata di piattaforma, non come sintassi del linguaggio. La prima
+forma prevista è:
+
+```ddf
+beep();
+```
+
+`beep() out void` userà frequenza e durata predefinite dal profilo host. Dopo
+l'attivazione del tipo `duration`, una funzione distinta
+`tone(int frequencyHz, duration length) out void` consentirà toni espliciti
+entro i limiti autorizzati. Non sono previsti overload né accesso a driver,
+registri, porte I/O o mixer di sistema dal sorgente.
+
+L'host registrerà un endpoint logico `internalSpeaker` e la capability
+`hardware.audio.signal`. Un provider PC speaker, un provider audio di sistema e
+un simulatore sono implementazioni differenti: se il provider richiesto non è
+disponibile, l'operazione fallisce con un errore DDF tipizzato invece di usare
+silenziosamente un'altra uscita. Frequenza, durata, numero di segnali, duty/rate
+e volume eventualmente disponibile sono soggetti a policy e quote host.
+
+Il provider deve eseguire e attendere il segnale in modo cooperativo fuori dal
+thread UI, osservare cancellazione e timeout e arrestare il tono quando la
+piattaforma lo consente. Un'API o un driver non cooperativo richiede isolamento
+nel worker. Prima della promozione da `candidate` serviranno simulatore
+deterministico, confronto VM/Roslyn, matrice Windows/hardware e test fisico
+opt-in su una macchina dotata dell'uscita dichiarata.
+
 ## Provider seriale
 
 `DdfSerialHardwareDevice` realizza il primo provider fisico sopra

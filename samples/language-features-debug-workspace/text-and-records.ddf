@@ -1,0 +1,33 @@
+isKnownNumber(string text) out bool
+{
+    ret text == "7" || text == "42";
+}
+
+parseKnownNumber(OperationResult result, string text) out int
+{
+    if(!isKnownNumber(text))
+    {
+        result.value << 0;
+        result.status << OperationStatus.InvalidText;
+        ret 0;
+    }
+
+    result.value << toInt(text);
+    result.status << OperationStatus.Ok;
+    ret result.value;
+}
+
+fillRecord(SampleRecord record, int identifier, string label) out int
+{
+    record.identifier << identifier;
+    record.measurement << average(identifier, 10);
+    record.accepted << identifier >= 0 && length(label) > 0;
+    record.label << label;
+    ret record.identifier;
+}
+
+writeSummary(string title, int value) out void
+{
+    print(title);
+    value >> Console;
+}

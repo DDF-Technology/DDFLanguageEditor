@@ -125,8 +125,8 @@ namespace DDFLanguageEditor.Runtime
         public static double ToFloat(string value, DdfRuntimeSourceLocation location)
         {
             if (double.TryParse(value?.Trim(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out double result))
-                return Finite(result, location);
+                    CultureInfo.InvariantCulture, out double result) &&
+                !double.IsNaN(result) && !double.IsInfinity(result)) return result;
             throw DdfRuntimeContext.Error("DDF408",
                 "Conversione a float non valida.", location);
         }

@@ -12,11 +12,13 @@ namespace DDFLanguageEditor.Core
         public const string CreateScope = "scope.create";
         public const string Call = "call.invoke";
         public const string Branch = "flow.branch";
+        public const string Select = "flow.select";
         public const string PreconditionLoop = "flow.while";
         public const string PostconditionLoop = "flow.do-while";
         public const string CountedLoop = "flow.for";
         public const string Return = "flow.return";
         public const string Break = "flow.break";
+        public const string Continue = "flow.continue";
         public const string End = "flow.end";
         public const string CreateArray = "array.create";
         public const string IndexArray = "array.index";
@@ -26,8 +28,8 @@ namespace DDFLanguageEditor.Core
 
         private static readonly IReadOnlyCollection<string> all = Array.AsReadOnly(new[]
         {
-            DeclareVariable, LoadValue, StoreValue, CreateScope, Call, Branch,
-            PreconditionLoop, PostconditionLoop, CountedLoop, Return, Break, End,
+            DeclareVariable, LoadValue, StoreValue, CreateScope, Call, Branch, Select,
+            PreconditionLoop, PostconditionLoop, CountedLoop, Return, Break, Continue, End,
             CreateArray, IndexArray, CreateStructure, AccessMember, HostCall
         });
 

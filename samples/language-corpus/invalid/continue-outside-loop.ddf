@@ -1,0 +1,5 @@
+main() out int
+{
+    continue;
+    ret 0;
+}

@@ -1,0 +1,33 @@
+runRuntimeErrorScenario(int scenario) out int
+{
+    select(scenario)
+    {
+        when 1
+        {
+            int zero << scenario - 1;
+            ret 10 / zero;
+        }
+
+        when 2
+        {
+            int[2] values;
+            int invalidIndex << 4;
+            ret values[invalidIndex];
+        }
+
+        when 3
+        {
+            ret toInt("not-a-number");
+        }
+
+        otherwise
+        {
+            ret 0;
+        }
+    }
+}
+
+stopImmediately() out void
+{
+    end;
+}

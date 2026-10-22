@@ -8,7 +8,7 @@ contratto DDF.
 ## Preparazione
 
 1. Avviare la build Release standalone.
-2. Verificare in **Help > Linguaggio** che sia attivo il DDF `0.12`, pacchetto
+2. Verificare in **Linguaggio** che sia attivo il DDF `0.12`, pacchetto
    `0.12.3`.
 3. Aprire `samples/language-corpus/multi-file/flat-workspace` come progetto.
 4. Tenere visibili Diagnostica, Output, Outline, Breakpoint e Flowchart.
@@ -52,7 +52,7 @@ contratto DDF.
 
 ## Playground linguaggio
 
-1. Aprire **Playground linguaggio** dalla barra o da **Help > Linguaggio**.
+1. Aprire **Playground linguaggio** dalla barra o da **Linguaggio > Playground linguaggio**.
 2. Sul sorgente iniziale verificare che Token, Albero, Diagnostiche e
    Formattazione siano popolati e che le diagnostiche indichino nessun problema.
 3. Eliminare temporaneamente il `;` da `ret 0;`: Token e Albero devono

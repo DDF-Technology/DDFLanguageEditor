@@ -9,6 +9,8 @@ namespace DDFLanguageEditor.Core
     public enum DdfBoundSymbolKind
     {
         Structure,
+        Enumeration,
+        EnumerationMember,
         Function,
         Global,
         Field,
@@ -88,7 +90,7 @@ namespace DDFLanguageEditor.Core
             string moduleIdentity, string relativePath, int start, int length,
             DdfBoundType type, IEnumerable<DdfBoundType> parameterTypes = null,
             bool isWritable = true, string semanticBindingId = null,
-            bool hasSideEffects = false)
+            bool hasSideEffects = false, bool isState = false)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             Name = name ?? string.Empty;
@@ -103,6 +105,7 @@ namespace DDFLanguageEditor.Core
             IsWritable = isWritable;
             SemanticBindingId = semanticBindingId ?? string.Empty;
             HasSideEffects = hasSideEffects;
+            IsState = isState;
         }
 
         public string Id { get; }
@@ -117,6 +120,7 @@ namespace DDFLanguageEditor.Core
         public bool IsWritable { get; }
         public string SemanticBindingId { get; }
         public bool HasSideEffects { get; }
+        public bool IsState { get; }
         public bool IsCallable => Kind == DdfBoundSymbolKind.Function ||
             Kind == DdfBoundSymbolKind.StandardFunction ||
             Kind == DdfBoundSymbolKind.HostFunction;
@@ -370,6 +374,15 @@ namespace DDFLanguageEditor.Core
                     BindStatement(conditional.Body, returnType);
                     BindStatement(conditional.ElseBody, returnType);
                 }
+                else if (statement is DdfIrSelect selection)
+                {
+                    BindExpression(selection.Expression);
+                    foreach (DdfIrSelectClause clause in selection.Clauses)
+                    {
+                        BindExpression(clause.Value);
+                        BindStatement(clause.Body, returnType);
+                    }
+                }
                 else if (statement is DdfIrWhile loop)
                 {
                     BindExpression(loop.Condition);
@@ -406,7 +419,8 @@ namespace DDFLanguageEditor.Core
                 if (kind != DdfBoundSymbolKind.Field)
                 {
                     DdfBoundSymbol symbol = CreateDeclaredSymbol(variable.Name, kind,
-                        variable.Start, Math.Max(1, variable.Name.Length), declaredType);
+                        variable.Start, Math.Max(1, variable.Name.Length), declaredType,
+                        !variable.IsFixed, variable.IsState);
                     if (scopes.Count != 0)
                         scopes[scopes.Count - 1][variable.Name] = symbol;
                 }
@@ -538,13 +552,12 @@ namespace DDFLanguageEditor.Core
                 draft.Category = symbol.IsCallable
                     ? DdfBoundValueCategory.Callable
                         : symbol.Kind == DdfBoundSymbolKind.Structure ||
+                          symbol.Kind == DdfBoundSymbolKind.Enumeration ||
                           symbol.Kind == DdfBoundSymbolKind.HostType
                         ? DdfBoundValueCategory.Type
-                        : symbol.Kind == DdfBoundSymbolKind.HostObject
-                            ? symbol.IsWritable
+                            : symbol.IsWritable
                                 ? DdfBoundValueCategory.MutableLocation
-                                : DdfBoundValueCategory.ReadOnlyLocation
-                            : DdfBoundValueCategory.MutableLocation;
+                                : DdfBoundValueCategory.ReadOnlyLocation;
             }
 
             private DdfBoundSymbol Resolve(string name)
@@ -568,11 +581,13 @@ namespace DDFLanguageEditor.Core
             }
 
             private DdfBoundSymbol CreateDeclaredSymbol(string name,
-                DdfBoundSymbolKind kind, int start, int length, DdfBoundType type)
+                DdfBoundSymbolKind kind, int start, int length, DdfBoundType type,
+                bool isWritable = true, bool isState = false)
             {
                 string id = StableId(kind, moduleIdentity, relativePath, start, name);
                 var symbol = new DdfBoundSymbol(id, name, kind, moduleIdentity,
-                    relativePath, start, length, type);
+                    relativePath, start, length, type, isWritable: isWritable,
+                    isState: isState);
                 localSymbols.Add(symbol);
                 return symbol;
             }
@@ -625,6 +640,9 @@ namespace DDFLanguageEditor.Core
                     return conditional.ElseBody != null &&
                         AlwaysReturns(conditional.Body) &&
                         AlwaysReturns(conditional.ElseBody);
+                if (statement is DdfIrSelect selection)
+                    return selection.Clauses.Count > 0 &&
+                        selection.Clauses.All(clause => AlwaysReturns(clause.Body));
                 if (statement is DdfIrDoWhile postLoop)
                     return AlwaysReturns(postLoop.Body);
                 return false;
@@ -640,6 +658,9 @@ namespace DDFLanguageEditor.Core
                     return conditional.ElseBody != null &&
                         AlwaysTerminates(conditional.Body) &&
                         AlwaysTerminates(conditional.ElseBody);
+                if (statement is DdfIrSelect selection)
+                    return selection.Clauses.Count > 0 &&
+                        selection.Clauses.All(clause => AlwaysTerminates(clause.Body));
                 if (statement is DdfIrDoWhile postLoop)
                     return AlwaysTerminates(postLoop.Body);
                 return false;
@@ -654,6 +675,8 @@ namespace DDFLanguageEditor.Core
                 if (statement is DdfIrIf conditional)
                     return ContainsEnd(conditional.Body) ||
                         ContainsEnd(conditional.ElseBody);
+                if (statement is DdfIrSelect selection)
+                    return selection.Clauses.Any(clause => ContainsEnd(clause.Body));
                 if (statement is DdfIrWhile loop) return ContainsEnd(loop.Body);
                 if (statement is DdfIrDoWhile postLoop) return ContainsEnd(postLoop.Body);
                 if (statement is DdfIrFor counted) return ContainsEnd(counted.Body);
@@ -809,8 +832,29 @@ namespace DDFLanguageEditor.Core
                                     DdfBoundSymbolKind.Field, identity, path, field.Start,
                                     structure.Name + "." + field.Name), field.Name,
                                 DdfBoundSymbolKind.Field, identity, path, field.Start,
-                                Math.Max(1, field.Name.Length), Type(field.Type));
+                                Math.Max(1, field.Name.Length), Type(field.Type),
+                                isWritable: !field.IsFixed);
                             declaredFields[field.Name] = fieldSymbol;
+                        }
+                    }
+                    else if (member is DdfIrEnum enumeration)
+                    {
+                        name = enumeration.Name;
+                        symbol = new DdfBoundSymbol(StableId(DdfBoundSymbolKind.Enumeration,
+                                identity, path, enumeration.NameStart, name), name,
+                            DdfBoundSymbolKind.Enumeration, identity, path,
+                            enumeration.NameStart, enumeration.NameLength, Type(name),
+                            isWritable: false);
+                        declaredFields = new Dictionary<string, DdfBoundSymbol>(StringComparer.Ordinal);
+                        foreach (DdfIrEnumMember value in enumeration.Members)
+                        {
+                            DdfBoundSymbol valueSymbol = new DdfBoundSymbol(StableId(
+                                    DdfBoundSymbolKind.EnumerationMember, identity, path,
+                                    value.Start, enumeration.Name + "." + value.Name), value.Name,
+                                DdfBoundSymbolKind.EnumerationMember, identity, path,
+                                value.Start, Math.Max(1, value.Length), Type(enumeration.Name),
+                                isWritable: false);
+                            declaredFields[value.Name] = valueSymbol;
                         }
                     }
                     else if (member is DdfIrGlobal global &&
@@ -820,7 +864,8 @@ namespace DDFLanguageEditor.Core
                         symbol = new DdfBoundSymbol(StableId(DdfBoundSymbolKind.Global,
                                 identity, path, variable.Start, name), name,
                             DdfBoundSymbolKind.Global, identity, path, variable.Start,
-                            Math.Max(1, name.Length), Type(variable.Type));
+                            Math.Max(1, name.Length), Type(variable.Type),
+                            isWritable: !variable.IsFixed, isState: variable.IsState);
                     }
                     if (symbol == null) continue;
                     bool exported = module.Exports.Contains(symbol.Name,

@@ -15,7 +15,7 @@ namespace DDFLanguageEditor.MinimalHost
         }
     }
 
-    internal sealed class MinimalHostForm : Form
+    public sealed class MinimalHostForm : Form
     {
         private const string InitialScript =
             "main() out int\r\n" +
@@ -71,11 +71,26 @@ namespace DDFLanguageEditor.MinimalHost
             scriptDocumentId = editorHost.SetPrimaryDocument("minimal-script.ddf", savedScript);
         }
 
-        private void executeButton_Click(object sender, EventArgs e)
+        public DdfEmbeddedEditorControl EditorHost => editorHost;
+        public DdfEditorView Editor => editorHost.Editor;
+        public Button ExecuteButton => executeButton;
+        public Label StatusLabel => statusLabel;
+        public string ScriptDocumentId => scriptDocumentId;
+        public string SavedScript => savedScript;
+
+        public bool ExecuteLinkedScript()
         {
-            statusLabel.Text = editorHost.ExecuteScript(editorHost.HasBreakpoints)
+            editorHost.ActivateDocument(scriptDocumentId);
+            bool started = editorHost.ExecuteScript(editorHost.HasBreakpoints);
+            statusLabel.Text = started
                 ? "Esecuzione avviata"
                 : "Impossibile avviare lo script";
+            return started;
+        }
+
+        private void executeButton_Click(object sender, EventArgs e)
+        {
+            ExecuteLinkedScript();
         }
 
         private void editorHost_DocumentSaveRequested(object sender,

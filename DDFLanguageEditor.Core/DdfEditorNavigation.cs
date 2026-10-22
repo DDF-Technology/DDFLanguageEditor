@@ -77,6 +77,7 @@ namespace DDFLanguageEditor.Core
         private static bool IsWorkspaceVisible(DdfSymbolKind kind)
         {
             return kind == DdfSymbolKind.Function || kind == DdfSymbolKind.Structure ||
+                   kind == DdfSymbolKind.Enumeration ||
                    kind == DdfSymbolKind.Variable || kind == DdfSymbolKind.Library;
         }
     }

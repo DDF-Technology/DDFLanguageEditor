@@ -1,0 +1,50 @@
+runScenario(int seed) out int
+{
+    int total << seed;
+
+    for(int outer << 0; outer < 3; outer++)
+    {
+        if(outer == 1)
+        {
+            continue;
+        }
+
+        int inner << 0;
+        while(inner < 2)
+        {
+            total++;
+            inner++;
+        }
+    }
+
+    while(total < 7)
+    {
+        total++;
+    }
+
+    do
+    {
+        total++;
+        if(total == 9)
+        {
+            brk;
+        }
+    } while(total < 12);
+
+    total << total + classify(total);
+
+    select(total)
+    {
+        when 42
+        {
+            total << finalize(total);
+        }
+
+        otherwise
+        {
+            total << 1000;
+        }
+    }
+
+    ret total;
+}

@@ -1,0 +1,29 @@
+enum Color
+{
+    Red,
+    Green,
+    Blue
+}
+
+main() out int
+{
+    Color selected << Color.Red;
+
+    select(selected)
+    {
+        when Color.Red
+        {
+            ret 42;
+        }
+
+        when Color.Green
+        {
+            ret 2;
+        }
+
+        when Color.Blue
+        {
+            ret 3;
+        }
+    }
+}

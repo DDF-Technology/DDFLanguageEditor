@@ -104,6 +104,8 @@ namespace DDFLanguageEditor.Core
                 Collect(compilation.Members, start, length, ranges);
             else if (node is StructDeclarationSyntax structure)
                 Collect(structure.Fields, start, length, ranges);
+            else if (node is EnumDeclarationSyntax enumeration)
+                Collect(enumeration.Members, start, length, ranges);
             else if (node is FunctionDeclarationSyntax function)
             {
                 Collect(function.Parameters, start, length, ranges);
@@ -128,6 +130,16 @@ namespace DDFLanguageEditor.Core
                 CollectContainingNodes(conditional.Condition, start, length, ranges);
                 CollectContainingNodes(conditional.Body, start, length, ranges);
                 CollectContainingNodes(conditional.ElseBody, start, length, ranges);
+            }
+            else if (node is SelectStatementSyntax selection)
+            {
+                CollectContainingNodes(selection.Expression, start, length, ranges);
+                Collect(selection.Clauses, start, length, ranges);
+            }
+            else if (node is SelectClauseSyntax clause)
+            {
+                CollectContainingNodes(clause.Value, start, length, ranges);
+                CollectContainingNodes(clause.Body, start, length, ranges);
             }
             else if (node is WhileStatementSyntax whileStatement)
             {

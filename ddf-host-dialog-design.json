@@ -1,0 +1,68 @@
+{
+  "$schema": "./ddf-host-dialog-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0039",
+  "minimumLanguageVersion": "0.13",
+  "targetEditorSdkContract": "0.38",
+  "capabilityId": "ui.dialog.message",
+  "providerContract": "ddf.ui.dialog.message.v1",
+  "function": {
+    "name": "dialogMessage",
+    "parameters": [ "string", "string", "dialogButtons", "dialogIcon" ],
+    "returnType": "dialogResult",
+    "effect": "ui"
+  },
+  "enums": {
+    "dialogButtons": [ "ok", "okCancel", "yesNo", "yesNoCancel" ],
+    "dialogIcon": [ "none", "info", "warning", "error", "question" ],
+    "dialogResult": [ "ok", "cancel", "yes", "no" ]
+  },
+  "defaultLimits": {
+    "maximumTextCodeUnits": 32768,
+    "maximumTitleCodeUnits": 256,
+    "maximumDialogsPerExecution": 8,
+    "maximumPendingPerInstance": 1,
+    "timeoutMilliseconds": 300000
+  },
+  "recoverableErrors": [ "ui.dialog.denied", "ui.dialog.unavailable", "ui.dialog.busy", "ui.dialog.timeout", "ui.dialog.cancelled" ],
+  "diagnosticMapping": {
+    "deniedOrUnavailable": "DDF409",
+    "quotaOrBusy": "DDF413",
+    "timeout": "DDF414",
+    "cleanup": "DDF415",
+    "invalidProviderResponse": "DDF424"
+  },
+  "rules": {
+    "embeddedIsDenyByDefault": true,
+    "standaloneUsesGovernedDefaultProvider": true,
+    "headlessNeverCreatesWindows": true,
+    "textAndTitleArePlainText": true,
+    "emptyTitleUsesHostDefault": true,
+    "scriptCannotSelectNativeOwner": true,
+    "scriptCannotControlWindowGeometry": true,
+    "hostMayOnlyRestrictPolicy": true,
+    "executionNeverRunsOnUiThread": true,
+    "onlyPresentationUsesUiDispatcher": true,
+    "scriptSuspendsCooperatively": true,
+    "stateLocksNotHeldWhileAwaiting": true,
+    "reentrancyAndHiddenQueuesForbidden": true,
+    "windowCloseReturnsCancel": true,
+    "stopAndDisposeCancelExecution": true,
+    "lateOrDuplicateResponsesRejected": true,
+    "debuggerShowsOnlyCapabilityIdentity": true,
+    "workerNeverLoadsUiToolkit": true,
+    "automaticRetryForbidden": true,
+    "fixedUsageForbidden": true
+  },
+  "requestFields": [ "executionId", "callId", "text", "title", "buttons", "icon", "deadline", "cancellation", "capabilityId", "providerContract", "policyFingerprint" ],
+  "responseFields": [ "callId", "result", "receipt" ],
+  "integration": {
+    "optionalSdkInterfacesOnly": true,
+    "catalogAndToolsShareSnapshot": true,
+    "effectReceiptRequired": true,
+    "vmAndRoslynMustBeEquivalent": true,
+    "automaticTestsUseInMemoryProvider": true,
+    "manualStandaloneAndEmbeddedSmokesRequired": true
+  }
+}

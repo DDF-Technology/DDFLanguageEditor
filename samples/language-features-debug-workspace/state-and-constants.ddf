@@ -1,0 +1,7 @@
+fixed int MaximumSamples << 6;
+fixed int ExpectedDivisor << 2;
+fixed Priority DefaultPriority << Priority.High;
+
+state int completedRuns << 0;
+
+int globalAdjustment << 3;

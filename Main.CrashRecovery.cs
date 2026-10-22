@@ -117,10 +117,15 @@ namespace DDF___Program_Language_Editor
                 statusFileLabel.ToolTipText = "Impossibile leggere il recovery locale: " + exception.Message;
                 return false;
             }
-            CrashRecoverySnapshot snapshot = CrashRecoverySnapshot.Parse(serialized);
+            DdfPersistenceReadResult<CrashRecoverySnapshot> read =
+                CrashRecoverySnapshot.ParseVersioned(serialized);
+            CrashRecoverySnapshot snapshot = read.Value;
             if (snapshot == null)
             {
-                if (!string.IsNullOrWhiteSpace(serialized)) clearCrashRecoverySafely();
+                if (!string.IsNullOrWhiteSpace(serialized))
+                    statusFileLabel.ToolTipText =
+                        "Recovery non applicato; lo snapshot originale è stato conservato. " +
+                        read.Failure;
                 return false;
             }
 

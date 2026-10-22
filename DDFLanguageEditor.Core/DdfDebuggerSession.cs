@@ -18,7 +18,8 @@ namespace DDFLanguageEditor.Core
         Parameter,
         Global,
         Field,
-        Element
+        Element,
+        State
     }
 
     public sealed class DdfDebugPauseInfo
@@ -46,7 +47,17 @@ namespace DDFLanguageEditor.Core
     {
         internal DdfRuntimeVariableSnapshot(string name, string displayValue, int scopeDepth,
             DdfRuntimeVariableKind kind)
-        { Name = name; DisplayValue = displayValue; ScopeDepth = scopeDepth; Kind = kind; }
+            : this(name, displayValue, scopeDepth, kind, false, false) { }
+        internal DdfRuntimeVariableSnapshot(string name, string displayValue, int scopeDepth,
+            DdfRuntimeVariableKind kind, bool isReadOnly, bool isFixed)
+        {
+            Name = name;
+            DisplayValue = displayValue;
+            ScopeDepth = scopeDepth;
+            Kind = kind;
+            IsReadOnly = isReadOnly;
+            IsFixed = isFixed;
+        }
         public string Name { get; }
         public string DisplayValue { get; }
         public int ScopeDepth { get; }
@@ -54,6 +65,8 @@ namespace DDFLanguageEditor.Core
         public string TypeName { get; internal set; }
         public IReadOnlyList<DdfRuntimeVariableSnapshot> Children { get; internal set; } = Array.Empty<DdfRuntimeVariableSnapshot>();
         public bool IsTruncated { get; internal set; }
+        public bool IsReadOnly { get; }
+        public bool IsFixed { get; }
     }
 
     public sealed class DdfRuntimeStateSnapshot

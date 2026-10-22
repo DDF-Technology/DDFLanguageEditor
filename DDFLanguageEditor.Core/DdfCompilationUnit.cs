@@ -10,6 +10,7 @@ namespace DDFLanguageEditor.Core
     {
         Function,
         Structure,
+        Enumeration,
         Global
     }
 
@@ -264,6 +265,11 @@ namespace DDFLanguageEditor.Core
                             DdfCompilationExportKind.Structure,
                             StructureSignature(structure, source.Source),
                             source.RelativePath, structure.Start, structure.Length);
+                    if (member is DdfIrEnum enumeration && enumeration.Name == name)
+                        return new DdfCompilationExport(name,
+                            DdfCompilationExportKind.Enumeration,
+                            EnumSignature(enumeration), source.RelativePath,
+                            enumeration.Start, enumeration.Length);
                     if (member is DdfIrGlobal global &&
                         global.Statement is DdfIrVariableDeclaration variable &&
                         variable.Name == name)
@@ -284,6 +290,10 @@ namespace DDFLanguageEditor.Core
         private static string StructureSignature(DdfIrStructure structure, string source) =>
             structure.Name + "{" + string.Join(",", structure.Fields.Select(field =>
                 field.Name + ":" + TypeSignature(field.Type, source))) + "}";
+
+        private static string EnumSignature(DdfIrEnum enumeration) =>
+            enumeration.Name + "{" + string.Join(",",
+                enumeration.Members.Select(value => value.Name)) + "}";
 
         private static string TypeSignature(DdfIrType type, string source)
         {

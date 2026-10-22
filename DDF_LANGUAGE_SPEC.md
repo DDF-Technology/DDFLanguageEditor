@@ -1,11 +1,11 @@
-# Specifica autonoma del linguaggio DDF 0.12
+# Specifica autonoma del linguaggio DDF 0.13
 
-Stato: **normativa** per il linguaggio DDF `0.12`, distribuito dal pacchetto
-canonico `ddf` versione `0.12.3`.
+Stato: **normativa** per il linguaggio DDF `0.13`, distribuito dal pacchetto
+canonico `ddf` versione `0.13.0`.
 
 Questo documento definisce in modo autosufficiente il nucleo del linguaggio
 DDF. Non è necessario consultare bozze storiche, codice dell'editor o altri
-documenti per stabilire se un programma appartiene al nucleo `0.12` e quale
+documenti per stabilire se un programma appartiene al nucleo `0.13` e quale
 comportamento deve avere. I file JSON del pacchetto sono la rappresentazione
 eseguibile dello stesso contratto, non una fonte di semantica alternativa.
 
@@ -15,7 +15,7 @@ Tutto il testo è normativo salvo le sezioni marcate **non normativa**. Le parol
 ## 1. Scopo e conformità
 
 DDF è un linguaggio imperativo, staticamente tipizzato, case-sensitive e
-orientato a programmi modulari. Il linguaggio `0.12` definisce:
+orientato a programmi modulari. Il linguaggio `0.13` definisce:
 
 - testo sorgente e token;
 - unità di compilazione e grammatica canonica;
@@ -69,9 +69,9 @@ Le keyword canoniche sono:
 | Categoria | Keyword |
 | --- | --- |
 | tipi | `int`, `float`, `char`, `bool`, `void`, `string` |
-| dichiarazioni | `struct`, `out` |
+| dichiarazioni | `struct`, `out`, `fixed`, `state` |
 | controllo | `if`, `else`, `while`, `do`, `for` |
-| uscita | `ret`, `brk`, `end` |
+| uscita | `ret`, `brk`, `continue`, `end` |
 | booleani | `true`, `false` |
 
 `dict` non è una keyword né un tipo del nucleo. La punteggiatura è
@@ -124,22 +124,28 @@ dal lessico.
 <!-- ddf-canonical-grammar:start -->
 ```ebnf
 compilation-unit = { library-directive }, { member } ;
-member = struct-declaration | function-declaration | variable-declaration ;
+member = struct-declaration | enum-declaration | function-declaration | variable-declaration ;
 library-directive = <LibraryDirective> ;
 
 struct-declaration = "struct", identifier, block ;
+enum-declaration = "enum", identifier, "{", enum-member, { ",", enum-member }, [ "," ], "}" ;
+enum-member = identifier ;
 function-declaration = identifier, "(", [ parameter-list ], ")",
                        "out", return-type, block ;
 return-type = type ;
 parameter-list = parameter, { ",", parameter } ;
 parameter = type, identifier ;
 
-statement = block | if-statement | while-statement | do-while-statement |
-            for-statement | return-statement | break-statement |
+statement = block | if-statement | select-statement | while-statement | do-while-statement |
+            for-statement | return-statement | break-statement | continue-statement |
             end-statement | variable-declaration | expression-statement ;
 block = "{", { statement }, "}" ;
 if-statement = "if", "(", expression, ")", block,
                [ "else", ( block | if-statement ) ] ;
+select-statement = "select", "(", expression, ")", "{",
+                   { when-clause }, [ otherwise-clause ], "}" ;
+when-clause = "when", expression, block ;
+otherwise-clause = "otherwise", block ;
 while-statement = "while", "(", expression, ")", block ;
 do-while-statement = "do", block, "while", "(", expression, ")", ";" ;
 for-statement = "for", "(",
@@ -147,8 +153,10 @@ for-statement = "for", "(",
                 [ expression ], ";", [ expression ], ")", block ;
 return-statement = "ret", [ expression ], ";" ;
 break-statement = "brk", ";" ;
+continue-statement = "continue", ";" ;
 end-statement = "end", ";" ;
-variable-declaration = type, identifier, [ "<<", expression ], ";" ;
+variable-declaration = [ "fixed" | "state" ], type, identifier,
+                       [ "<<", expression ], ";" ;
 expression-statement = expression, ";" ;
 
 expression = assignment-expression ;
@@ -182,6 +190,10 @@ type = ( <DataTypeKeyword> | identifier ),
        { "[", [ expression ], "]" } ;
 identifier = <Identifier> ;
 ```
+
+La selezione multipla canonica usa `select`, uno o più rami `when` e un
+eventuale ramo finale `otherwise`. Non esiste fall-through implicito: viene
+eseguito al massimo un ramo e il valore selezionato viene valutato una volta.
 <!-- ddf-canonical-grammar:end -->
 
 La grammatica consente al parser di rappresentare suffissi array incompleti o
@@ -189,8 +201,10 @@ ripetuti per produrre diagnostiche precise. Un programma conforme deve però
 rispettare le restrizioni semantiche della sezione 5: una dimensione è
 obbligatoria e può esistere un solo suffisso array.
 
-Al livello principale sono ammesse soltanto direttive, strutture, funzioni e
-globali. Le direttive precedono ogni dichiarazione. Un `;` isolato non è
+Al livello principale sono ammesse soltanto direttive, strutture, `enum`, funzioni e
+globali. Gli enum sono nominali, richiedono almeno un valore e si usano in forma
+qualificata (`Nome.Valore`), senza conversioni implicite numeriche o testuali.
+Le direttive precedono ogni dichiarazione. Un `;` isolato non è
 un'istruzione. I corpi di tutti i costrutti di controllo richiedono le graffe;
 solo `else if (...) { ... }` può seguire direttamente `else`.
 
@@ -199,6 +213,43 @@ solo `else if (...) { ... }` può seguire direttamente `else`.
 Una dichiarazione di valore ha forma `tipo nome;` oppure
 `tipo nome << espressione;`. L'inizializzatore usa l'operatore generale di
 assegnazione ma viene verificato nel contesto del tipo dichiarato.
+
+Una costante tipizzata ha forma `fixed tipo nome << espressione;`. È ammessa
+come valore locale o globale di modulo, richiede sempre l'inizializzatore e
+accetta tipi primitivi scalari oppure enum nominali. L'espressione deve essere
+deterministica e priva di effetti: letterali, valori enum qualificati, altre
+costanti già visibili, parentesi e operatori puri. Chiamate, Output,
+assegnazioni, accessi a campi o indici e operatori di mutazione non sono
+ammessi. Una costante non può
+essere destinazione di `<<`, `++` o `--`.
+
+L'inizializzatore viene valutato e convertito al tipo dichiarato prima dei
+backend. Sono ammesse dipendenze in avanti fra costanti dello stesso modulo e
+costanti esportate da dipendenze dirette; un ciclo produce `DDF318`, mentre
+overflow, divisione per zero e risultato `float` non finito producono `DDF319`.
+VM e backend compilato consumano il medesimo valore materializzato nella IR e
+non rivalutano l'espressione con semantiche proprie.
+Un valore enum materializzato conserva tipo nominale e membro; non viene
+convertito nel numero sottostante scelto dal backend CLR.
+
+La keyword `fixed` introduce esclusivamente questa dichiarazione immutabile.
+
+Uno stato di istanza ha forma `state tipo nome << espressione;`. Nella prima
+verticale è ammesso soltanto a livello di modulo, richiede un inizializzatore e
+accetta tipi primitivi scalari. È mutabile, ma non è globale al processo: ogni
+esecuzione senza store esplicito riceve uno stato effimero isolato; più
+esecuzioni condividono il valore soltanto se l'host passa lo stesso
+`DdfStateStore`. Lo store è process-local, non salva su disco, può essere
+azzerato esplicitamente e rifiuta esecuzioni sovrapposte sulla stessa istanza.
+La persistenza esterna, la migrazione e i tipi composti non fanno parte di
+questa prima verticale.
+
+Durante il debug il valore `state` della transazione sospesa è leggibile in
+Watch e Variabili come categoria distinta, ma non è modificabile. Diventa
+committed soltanto al completamento riuscito dell'esecuzione con effetti host.
+Un host può persistere lo stato committed soltanto attraverso la capability SDK
+esplicita. Il linguaggio non definisce percorsi, file o salvataggi automatici;
+schema o pacchetto incompatibili richiedono una migrazione dichiarata dall'host.
 
 Una struttura dichiara esclusivamente campi. Non può contenere istruzioni,
 funzioni, costruttori o strutture annidate. Una funzione dichiara nome,
@@ -215,7 +266,7 @@ Non esistono overload.
 - un valore non può nascondere un altro valore già visibile;
 - funzioni e strutture devono avere nomi univoci nel modulo.
 
-Variabili, parametri e campi sono mutabili. Una dichiarazione senza
+Variabili, parametri e campi ordinari sono mutabili. Una dichiarazione senza
 inizializzatore riceve sempre il valore iniziale deterministico del proprio tipo.
 
 ## 5. Sistema dei tipi
@@ -235,6 +286,13 @@ inizializzatore riceve sempre il valore iniziale deterministico del proprio tipo
 variabili, campi, parametri o elementi di array. `char` non è numerico. `float`
 DDF corrisponde a `double` C#, non a `System.Single`.
 
+I numerici estesi non appartengono ancora al contratto eseguibile. Il disegno
+accettato in `DDF-0034` e in `ddf-extended-numerics-design.json` punta a DDF
+`0.19`: `long` sarà un intero signed 64 bit checked con letterali `i64`, mentre
+`decimal` sarà un decimale esatto base 10 con letterali `dec`. Le regole sono
+definite da DDF e non da Roslyn; nella `0.13` entrambi i nomi restano
+identificatori ordinari.
+
 ### 5.2 Array
 
 Un tipo array ha forma `T[n]`, con una sola dimensione `int` non negativa. La
@@ -245,6 +303,13 @@ valore iniziale di `T`. Lettura e scrittura richiedono un indice `int` compreso
 fra zero incluso e lunghezza esclusa. Assegnazione e passaggio a funzione
 condividono la stessa identità dell'array. Array jagged o multidimensionali non
 sono validi.
+
+Le collezioni dinamiche non appartengono ancora al contratto eseguibile. Il
+disegno accettato in `DDF-0033` e in
+`ddf-typed-collections-design.json` punta a DDF `0.18` con le famiglie chiuse
+`sequence<T>`, `map<K,V>`, `view<T>` ed `entry<K,V>`. Non introduce generici
+universali né tipi di collezione CLR nella IR; nel DDF `0.13` questi nomi
+restano identificatori ordinari.
 
 ### 5.3 Strutture
 
@@ -330,6 +395,27 @@ I confronti ordinati accettano numeri e promuovono `int` a `float` quando serve.
 `int`/`float`. Le stringhe sono confrontate ordinalmente per code unit UTF-16.
 Array e strutture non supportano uguaglianza o disuguaglianza.
 
+Il disegno futuro `DDF-0035`, non ancora attivo, estende le stringhe in DDF
+`0.20` senza cambiare questo modello: `+` accetterà soltanto due `string` e la
+libreria standard fornirà operazioni ordinali, Unicode `15.1` versionato,
+ricerca tramite `maybe int`, split/join tipizzati e formato posizionale sicuro.
+Non sono previste conversioni implicite, dipendenze dalla cultura o primitive
+CLR nella IR. Il contratto è `ddf-string-library-design.json`.
+
+Il disegno futuro `DDF-0036`, non ancora attivo, aggiunge in DDF `0.21` una
+libreria matematica pura con famiglie tipizzate, domini espliciti,
+arrotondamento tie-to-even e trigonometria in radianti. Le trascendenti usano
+un algoritmo DDF versionato e devono coincidere bit per bit in VM, Roslyn e
+futura VM; NaN e infinito restano errori. Il contratto è
+`ddf-math-library-design.json`.
+
+Il disegno futuro `DDF-0037`, non ancora attivo, separa in DDF `0.22` data,
+ora civile, data-ora senza fuso, istante UTC e durata. Usa tick da 100 ns,
+offset UTC espliciti e testo invariant; timezone IANA richiedono dati versionati.
+Ora corrente e casualità dipendono da provider espliciti, revocabili e
+sostituibili, mai da stato globale del processo. Il contratto è
+`ddf-temporal-random-design.json`.
+
 ## 7. Controllo di flusso
 
 `if`, `while`, `do ... while` e la condizione di `for` richiedono `bool`.
@@ -337,16 +423,35 @@ L'assenza della condizione nel `for` equivale a una condizione sempre vera.
 Inizializzazione, condizione e incremento del `for` vengono eseguiti nel consueto
 ordine: inizializzazione una volta, poi condizione, corpo e incremento.
 
-`brk;` termina il ciclo più interno e non è valido fuori da un ciclo. `ret;` o
+`brk;` termina il ciclo più interno e non è valido fuori da un ciclo.
+`continue;` salta il resto dell'iterazione del ciclo più interno: in `while` e
+`do ... while` passa alla verifica della condizione, mentre nel `for` esegue
+prima l'incremento e poi rivaluta la condizione. Non è valido fuori da un ciclo. `ret;` o
 `ret espressione;` termina la funzione corrente. `end;` termina l'intero
 programma. Ogni funzione non `void` deve restituire su tutti i percorsi
 raggiungibili; una funzione `void` può usare soltanto `ret;`.
+
+L'iterazione tipizzata non appartiene ancora al contratto eseguibile corrente.
+Il disegno accettato in `DDF-0032` e in
+`ddf-typed-iteration-design.json` punta a DDF `0.17` con
+`each(T elemento in raccolta)`, valutazione singola, binding non riassegnabile,
+snapshot superficiale e ordine deterministico. Nel DDF `0.13`, `each` e `in`
+restano identificatori ordinari.
 
 ## 8. Funzioni
 
 Una firma comprende nome, parametri nell'ordine dichiarato e tipo restituito.
 Ogni chiamata fornisce esattamente un argomento per parametro. Gli argomenti
 sono valutati da sinistra a destra e convertiti prima dell'ingresso.
+
+Ogni funzione è dichiarata top-level e appartiene al modulo che contiene il
+sorgente, non a un file, a una struttura o a un'istanza. È quindi invocabile
+senza ricevitore dalle altre funzioni dello stesso modulo e, quando esportata,
+dai moduli dipendenti diretti. Questa semantica corrisponde al ruolo pratico di
+una funzione statica, ma `static` non è una keyword né un modificatore DDF:
+aggiungerlo non renderebbe la funzione più condivisa e importerebbe un modello
+OOP che il linguaggio non possiede. Le strutture continuano a contenere soltanto
+campi.
 
 Primitivi e stringhe sono passati per valore. Array e strutture condividono il
 riferimento gestito. Riassegnare un parametro non riassegna la variabile del
@@ -369,6 +474,12 @@ funzioni, strutture e globali. I percorsi non creano namespace. Il runtime
 qualifica internamente ogni dichiarazione con `module.id@module.version`, così
 moduli distinti possono avere nomi privati uguali.
 
+Le funzioni top-level sono funzioni di modulo: non vengono duplicate per file o
+per esecuzione e non catturano un'istanza implicita. Il loro stato locale nasce
+a ogni chiamata; l'eventuale stato conservato fra invocazioni deve essere
+dichiarato separatamente con `state` e associato allo store esplicito
+dell'istanza di esecuzione.
+
 ### 9.2 Esportazioni e dipendenze
 
 Ogni nome in `exports` è unico e deve corrispondere a una funzione, struttura o
@@ -384,6 +495,15 @@ riferimento è ambiguo e non viene scelto in base all'ordine.
 Lo store predefinito è `.ddf/modules/<id>/<version>`, ma il percorso non ha
 significato semantico. Un archivio `.ddfmod` distribuisce sorgenti e manifesto;
 installarlo non esegue codice e non concede capacità.
+
+La qualificazione esplicita degli export non appartiene ancora al contratto
+eseguibile corrente. Il disegno accettato in `DDF-0031` e nel contratto
+`ddf-module-qualification-design.json` punta a DDF `0.16` e al manifesto `1.3`:
+ogni dipendenza diretta avrà un alias confermato dal consumatore e i riferimenti
+useranno `alias::simbolo`. Non saranno introdotti namespace derivati dai
+percorsi, import wildcard o visibilità transitiva. Nel DDF `0.13` gli export
+diretti continuano temporaneamente a essere risolti secondo il modello piatto
+documentato in questa sezione e `::` non appartiene alla grammatica.
 
 ### 9.3 Inizializzazione globale
 
@@ -408,7 +528,7 @@ ingresso e backend. I buffer non salvati partecipano soltanto se l'opzione
     "exports": [ "main" ]
   },
   "languageId": "ddf",
-  "languagePackageVersion": "0.12.3",
+  "languagePackageVersion": "0.13.0",
   "sources": [ "**/*.ddf" ],
   "entrySource": "main.ddf",
   "entryPoint": "main",
@@ -435,19 +555,60 @@ intervallo sorgente e applica un limite di istruzioni configurabile.
 Gli errori runtime sono diagnostiche DDF, non eccezioni CLR esposte allo script.
 Devono includere posizione e stack DDF quando disponibili. Sono stabili almeno:
 
-| Codice | Condizione |
-| --- | --- |
-| `DDF401` | funzione di ingresso assente |
-| `DDF402` | funzione o arità runtime non valida |
-| `DDF403` | controllo di flusso o valore runtime non valido |
-| `DDF404` | divisione per zero |
-| `DDF405` | indice, membro o destinazione non validi |
-| `DDF407` | limite di istruzioni superato |
-| `DDF408` | input o conversione standard fallita |
-| `DDF409` | capacità host mancante |
-| `DDF417` | overflow `int` checked |
-| `DDF418` | risultato `float` non finito |
-| `DDF419` | esponente intero negativo |
+| Codice | Classe | Condizione |
+| --- | --- | --- |
+| `DDF401` | fault | funzione di ingresso assente dopo la validazione |
+| `DDF402` | fault | funzione, binding o arità runtime non coerenti |
+| `DDF403` | fault | controllo di flusso o valore runtime interno non valido |
+| `DDF404` | recuperabile | divisione per zero |
+| `DDF405` | recuperabile | indice, membro o destinazione non validi |
+| `DDF406` | fault | simbolo validato non disponibile a runtime |
+| `DDF407` | fault | limite di istruzioni superato |
+| `DDF408` | recuperabile | input o conversione standard fallita |
+| `DDF409` | fault | capability host assente, revocata o non autorizzata |
+| `DDF410` | fault | adapter host fallito senza errore DDF dichiarato |
+| `DDF411` | fault | scrittura host non autorizzata |
+| `DDF412` | fault | simulazione richiesta ma non disponibile |
+| `DDF413` | fault | budget di chiamate o risorse esaurito |
+| `DDF414` | fault | timeout di una capability host |
+| `DDF415` | fault | cleanup di una risorsa fallito |
+| `DDF416` | fault | contratto degli argomenti host non rispettato |
+| `DDF417` | recuperabile | overflow `int` checked |
+| `DDF418` | recuperabile | risultato `float` non finito |
+| `DDF419` | recuperabile | esponente intero negativo |
+| `DDF420` | fault | lifecycle della transazione capability fallito |
+| `DDF423` | fault | store `state` usato concorrentemente |
+| `DDF424` | fault | esecuzione annullata dall'host |
+| `DDF425` | fault | violazione di sicurezza o isolamento |
+| `DDF426` | fault | artefatto runtime corrotto o incompatibile |
+| `DDF499` | fault | errore interno non previsto del motore |
+
+Un errore DDF possiede un'identità di tipo stabile distinta dal codice
+diagnostico, oltre a messaggio, documento, intervallo sorgente e stack DDF. Gli
+errori recuperabili possono essere dichiarati nel contratto di una funzione
+standard o di una API host. I fault del motore, come esaurimento del budget di
+istruzioni o revoca di una capability, non possono essere dichiarati
+recuperabili né nascosti dallo script. La prima superficie normativa di questi
+metadati è backend-neutral. La sintassi di recupero, propagazione e cleanup non
+appartiene ancora al contratto eseguibile corrente e nessun costrutto implicito
+di tipo `try/catch` è ammesso.
+
+Il disegno futuro è stato accettato in `DDF-0029` e nel contratto
+`ddf-error-handling-design.json`: punta a DDF `0.14` con
+`attempt`/`recover`/`always`, dichiarazioni `raises` e ripropagazione `raise`.
+Queste forme non appartengono al presente DDF `0.13` e devono restare
+identificatori ordinari finché la verticale completa non verrà attivata.
+`DDF424`–`DDF426` sono identità di normalizzazione riservate: cancellazione,
+violazioni di sicurezza e rifiuto di artefatti possono oggi essere osservati da
+canali host o diagnostiche backend specifiche, ma dovranno convergere su questi
+fault quando attraverseranno il futuro modello unificato degli esiti.
+
+Anche i valori opzionali sono esclusi dal contratto eseguibile corrente. Il
+disegno accettato in `DDF-0030` e in `ddf-optional-values-design.json` punta a
+DDF `0.15`: `maybe T` distingue presenza e assenza tramite `some(...)` e
+`none`, con accesso soltanto attraverso una selezione esaustiva. Non introduce
+`null`, conversioni implicite o tipi Roslyn nella IR. Nel DDF `0.13`, `maybe`,
+`some` e `none` restano identificatori ordinari.
 
 Breakpoint, stepping, Watch e stack devono usare gli stessi moduli, tipi e
 regole di risoluzione dell'esecuzione normale. Le Watch sono in sola lettura:
@@ -458,6 +619,28 @@ non ammettono assegnazione, output o mutazioni postfix.
 Il catalogo normativo è `ddf.standard@0.12.3`. È parte del pacchetto linguaggio,
 non è un modulo installabile e non abilita API host.
 
+I futuri dialoghi `DDF-0039` non appartengono alla libreria standard: sono una
+capability host opzionale, negata per impostazione predefinita nell'embedded e
+priva di tipi UI nella IR. Il contratto è `ddf-host-dialog-design.json`.
+
+La futura libreria `ddf.testing@1` di `DDF-0040` è disponibile soltanto durante
+i test di progetto e non appartiene a `ddf.standard`. Funzioni e sorgenti test
+non vengono esportati o pubblicati con il programma. Il contratto è
+`ddf-project-testing-design.json`.
+
+La gestione deterministica delle risorse di `DDF-0041` è destinata a DDF
+`0.23`. La forma futura `use tipo nome << acquisizione { ... }` limiterà un
+handle nominale opaco a uno scope e ne garantirà il cleanup LIFO. Non introduce
+un `defer` generico né tipi CLR nella IR. Nel DDF `0.13`, `use` resta un
+identificatore ordinario. Il contratto è `ddf-resource-lifetime-design.json`.
+
+L'asincronia cooperativa di `DDF-0042` è destinata a DDF `0.24` e non aggiunge
+keyword: una normale chiamata marcata sospensiva nel descrittore potrà rilasciare
+il thread e riprendere la stessa continuazione. Ogni istanza manterrà una sola
+esecuzione e sospensione pendente, senza concorrenza implicita su `state` e senza
+esporre task, thread o eccezioni CLR. `async` e `await` restano identificatori
+ordinari. Il contratto è `ddf-cooperative-async-design.json`.
+
 | Funzione | Effetto | Comportamento | Errori |
 | --- | --- | --- | --- |
 | `print(string) out void` | output | invia al canale Output; se assente scarta il testo | nessuno |
@@ -465,6 +648,12 @@ non è un modulo installabile e non abilita API host.
 | `length(string) out int` | puro | restituisce il numero di code unit UTF-16 | nessuno |
 | `toInt(string) out int` | puro | parsing invariant in `System.Int32`, con segno e spazi esterni | `DDF408` |
 | `toFloat(string) out float` | puro | parsing invariant in `System.Double`, risultato finito | `DDF408` |
+
+Il futuro contratto `DDF-0038`, non ancora attivo, sostituirà i descrittori
+minimi con lo schema `2.0`: ogni funzione avrà identità stabile, firma, effetti,
+errori, determinismo, portabilità, costo e binding backend-neutral in un unico
+snapshot fingerprintato. Parser e UI non potranno riconoscere funzioni tramite
+nomi hardcoded. Il disegno è `ddf-standard-library-binding-design.json`.
 
 Una funzione DDF top-level con lo stesso nome ha precedenza nel proprio modulo.
 In assenza di essa viene risolta la funzione standard. Non esistono overload,

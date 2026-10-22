@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace DDFLanguageEditor.Core
@@ -87,6 +88,12 @@ namespace DDFLanguageEditor.Core
             public Dictionary<string, DdfTypeSymbol> Fields;
         }
 
+        private sealed class EnumInfo
+        {
+            public string Name;
+            public HashSet<string> Members;
+        }
+
         private sealed class Checker
         {
             private readonly string source;
@@ -98,14 +105,18 @@ namespace DDFLanguageEditor.Core
             private readonly DdfHostCatalogSnapshot hostCatalog;
             private readonly Dictionary<string, FunctionInfo> functions = new Dictionary<string, FunctionInfo>(StringComparer.Ordinal);
             private readonly Dictionary<string, StructureInfo> structures = new Dictionary<string, StructureInfo>(StringComparer.Ordinal);
+            private readonly Dictionary<string, EnumInfo> enums = new Dictionary<string, EnumInfo>(StringComparer.Ordinal);
             private readonly HashSet<string> ddfStructures = new HashSet<string>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfTypeSymbol> globals = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal);
+            private readonly HashSet<string> fixedGlobals = new HashSet<string>(StringComparer.Ordinal);
             private readonly Dictionary<string, DdfHostObjectDefinition> hostObjects = new Dictionary<string, DdfHostObjectDefinition>(StringComparer.Ordinal);
             private readonly List<Dictionary<string, DdfTypeSymbol>> scopes = new List<Dictionary<string, DdfTypeSymbol>>();
+            private readonly List<HashSet<string>> fixedScopes = new List<HashSet<string>>();
             private readonly List<DdfDiagnostic> diagnostics = new List<DdfDiagnostic>();
             private readonly List<DdfTypedSpan> spans = new List<DdfTypedSpan>();
             private readonly Dictionary<ExpressionSyntax, DdfTypeSymbol> expressionTypes = new Dictionary<ExpressionSyntax, DdfTypeSymbol>();
             private DdfTypeSymbol currentReturnType = DdfTypeSymbol.Error;
+            private int loopDepth;
 
             public Checker(string source, CompilationUnitSyntax root, IEnumerable<CompilationUnitSyntax> externalRoots,
                 DdfTypeSystemDefinition typeSystem, DdfStandardLibraryDefinition standardLibrary,
@@ -131,7 +142,13 @@ namespace DDFLanguageEditor.Core
                 {
                     if (member is FunctionDeclarationSyntax function) CheckFunction(function);
                     else if (member is StructDeclarationSyntax structure) CheckStructure(structure);
-                    else if (member is GlobalStatementSyntax global) CheckStatement(global.Statement);
+                    else if (member is EnumDeclarationSyntax enumeration) CheckEnum(enumeration);
+                    else if (member is GlobalStatementSyntax global)
+                    {
+                        if (global.Statement is VariableDeclarationStatementSyntax variable)
+                            CheckVariable(variable, allowState: true);
+                        else CheckStatement(global.Statement);
+                    }
                 }
                 diagnostics.Sort((left, right) => left.Start.CompareTo(right.Start));
                 spans.Sort((left, right) => left.Start.CompareTo(right.Start));
@@ -148,6 +165,15 @@ namespace DDFLanguageEditor.Core
                             structures.Add(structure.Name, new StructureInfo { Name = structure.Name, Fields = new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal) });
                         ddfStructures.Add(structure.Name);
                     }
+                    foreach (EnumDeclarationSyntax enumeration in unit.Members.OfType<EnumDeclarationSyntax>())
+                    {
+                        if (!enums.ContainsKey(enumeration.Name))
+                            enums.Add(enumeration.Name, new EnumInfo
+                            {
+                                Name = enumeration.Name,
+                                Members = new HashSet<string>(StringComparer.Ordinal)
+                            });
+                    }
                 }
                 foreach (CompilationUnitSyntax unit in roots)
                 {
@@ -157,6 +183,12 @@ namespace DDFLanguageEditor.Core
                         {
                             foreach (VariableDeclarationStatementSyntax field in structure.Fields)
                                 if (!string.IsNullOrEmpty(field.Name) && !info.Fields.ContainsKey(field.Name)) info.Fields.Add(field.Name, ResolveType(field.Type, false));
+                        }
+                        else if (member is EnumDeclarationSyntax enumeration &&
+                                 enums.TryGetValue(enumeration.Name, out EnumInfo enumInfo))
+                        {
+                            foreach (EnumMemberSyntax value in enumeration.Members)
+                                if (!string.IsNullOrEmpty(value.Name)) enumInfo.Members.Add(value.Name);
                         }
                         else if (member is FunctionDeclarationSyntax function && !functions.ContainsKey(function.Name))
                         {
@@ -170,6 +202,7 @@ namespace DDFLanguageEditor.Core
                         else if (member is GlobalStatementSyntax global && global.Statement is VariableDeclarationStatementSyntax variable && !globals.ContainsKey(variable.Name))
                         {
                             globals.Add(variable.Name, ResolveType(variable.Type, false));
+                            if (variable.IsFixed) fixedGlobals.Add(variable.Name);
                         }
                     }
                 }
@@ -228,8 +261,29 @@ namespace DDFLanguageEditor.Core
             private void CheckStructure(StructDeclarationSyntax structure)
             {
                 PushScope();
-                foreach (VariableDeclarationStatementSyntax field in structure.Fields) CheckVariable(field);
+                foreach (VariableDeclarationStatementSyntax field in structure.Fields)
+                {
+                    if (field.IsFixed)
+                        Report("DDF317", "fixed è consentito soltanto per valori locali o di modulo.", field);
+                    CheckVariable(field);
+                }
                 PopScope();
+            }
+
+            private void CheckEnum(EnumDeclarationSyntax enumeration)
+            {
+                if (enumeration.Members.Count == 0)
+                    Report("DDF324", "Un enum deve dichiarare almeno un valore.",
+                        enumeration.NameStart, Math.Max(1, enumeration.NameLength));
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                foreach (EnumMemberSyntax value in enumeration.Members)
+                {
+                    if (!names.Add(value.Name))
+                        Report("DDF325", "Il valore enum '" + value.Name +
+                            "' è già dichiarato.", value.Start, Math.Max(1, value.Length));
+                    AddSpan(value.Start, value.Length,
+                        new DdfTypeSymbol(enumeration.Name));
+                }
             }
 
             private void CheckFunction(FunctionDeclarationSyntax function)
@@ -270,14 +324,22 @@ namespace DDFLanguageEditor.Core
                     CheckStatement(conditional.Body);
                     CheckStatement(conditional.ElseBody);
                 }
+                else if (statement is SelectStatementSyntax selection)
+                {
+                    CheckSelect(selection);
+                }
                 else if (statement is WhileStatementSyntax loop)
                 {
                     RequireBoolean(CheckExpression(loop.Condition), loop.Condition);
-                    CheckStatement(loop.Body);
+                    loopDepth++;
+                    try { CheckStatement(loop.Body); }
+                    finally { loopDepth--; }
                 }
                 else if (statement is DoWhileStatementSyntax doLoop)
                 {
-                    CheckStatement(doLoop.Body);
+                    loopDepth++;
+                    try { CheckStatement(doLoop.Body); }
+                    finally { loopDepth--; }
                     RequireBoolean(CheckExpression(doLoop.Condition), doLoop.Condition);
                 }
                 else if (statement is ForStatementSyntax forLoop)
@@ -286,7 +348,9 @@ namespace DDFLanguageEditor.Core
                     CheckStatement(forLoop.Initializer);
                     if (forLoop.Condition != null) RequireBoolean(CheckExpression(forLoop.Condition), forLoop.Condition);
                     CheckExpression(forLoop.Increment);
-                    CheckStatement(forLoop.Body);
+                    loopDepth++;
+                    try { CheckStatement(forLoop.Body); }
+                    finally { loopDepth--; }
                     PopScope();
                 }
                 else if (statement is ReturnStatementSyntax returnStatement)
@@ -296,15 +360,127 @@ namespace DDFLanguageEditor.Core
                         : CheckExpression(returnStatement.Expression);
                     if (!CanAssign(currentReturnType, actual)) Report("DDF304", "Il valore restituito è " + actual + ", ma la funzione richiede " + currentReturnType + ".", returnStatement);
                 }
+                else if ((statement is BreakStatementSyntax || statement is ContinueStatementSyntax) && loopDepth == 0)
+                    Report("DDF323", "L'istruzione può essere usata soltanto all'interno di un ciclo.", statement);
                 else if (statement is ExpressionStatementSyntax expressionStatement) CheckExpression(expressionStatement.Expression);
             }
 
-            private void CheckVariable(VariableDeclarationStatementSyntax variable)
+            private void CheckSelect(SelectStatementSyntax selection)
+            {
+                DdfTypeSymbol selectedType = CheckExpression(selection.Expression);
+                var seenCases = new HashSet<string>(StringComparer.Ordinal);
+                var coveredEnumMembers = new HashSet<string>(StringComparer.Ordinal);
+                var coveredBooleans = new HashSet<bool>();
+                int otherwiseCount = 0;
+                for (int index = 0; index < selection.Clauses.Count; index++)
+                {
+                    SelectClauseSyntax clause = selection.Clauses[index];
+                    if (clause.IsOtherwise)
+                    {
+                        otherwiseCount++;
+                        if (otherwiseCount > 1)
+                            Report("DDF329", "select può dichiarare un solo ramo otherwise.", clause);
+                        if (index != selection.Clauses.Count - 1)
+                            Report("DDF329", "Il ramo otherwise deve essere l'ultimo ramo di select.", clause);
+                    }
+                    else
+                    {
+                        DdfTypeSymbol caseType = CheckExpression(clause.Value);
+                        if (!CanCompareEquality(selectedType, caseType))
+                            Report("DDF326", "Il caso when di tipo " + caseType +
+                                " non è compatibile con il valore select di tipo " +
+                                selectedType + ".", clause.Value);
+                        if (!IsFixedInitializer(clause.Value))
+                            Report("DDF326", "Un caso when deve essere un valore costante deterministico.",
+                                clause.Value);
+                        string key = GetSelectCaseKey(clause.Value);
+                        if (!string.IsNullOrEmpty(key) && !seenCases.Add(key))
+                            Report("DDF327", "Il caso when è già dichiarato in questo select.",
+                                clause.Value);
+                        if (TryGetEnumMember(clause.Value, out string enumName,
+                                out string memberName) && enumName == selectedType.Name)
+                            coveredEnumMembers.Add(memberName);
+                        if (clause.Value is LiteralExpressionSyntax literal &&
+                            literal.Kind == DdfLiteralKind.Boolean && literal.BooleanValue.HasValue)
+                            coveredBooleans.Add(literal.BooleanValue.Value);
+                    }
+                    CheckStatement(clause.Body);
+                }
+
+                bool exhaustive = otherwiseCount == 1 ||
+                    selectedType.IsBoolean && coveredBooleans.Count == 2 ||
+                    enums.TryGetValue(selectedType.Name, out EnumInfo selectedEnumeration) &&
+                    selectedEnumeration.Members.Count > 0 &&
+                    selectedEnumeration.Members.SetEquals(coveredEnumMembers);
+                if (!exhaustive)
+                    Report("DDF328", "select deve essere esaustivo o terminare con un ramo otherwise.",
+                        selection);
+            }
+
+            private string GetSelectCaseKey(ExpressionSyntax expression)
+            {
+                while (expression is ParenthesizedExpressionSyntax group)
+                    expression = group.Expression;
+                if (TryGetEnumMember(expression, out string enumName, out string memberName))
+                    return "enum:" + enumName + "." + memberName;
+                if (expression is LiteralExpressionSyntax literal)
+                {
+                    if (literal.Kind == DdfLiteralKind.Boolean)
+                        return "bool:" + literal.BooleanValue.GetValueOrDefault();
+                    if (literal.Kind == DdfLiteralKind.Number)
+                    {
+                        if (int.TryParse(literal.Text, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int integer))
+                            return "number:" + integer.ToString(CultureInfo.InvariantCulture);
+                        if (double.TryParse(literal.Text, NumberStyles.Float,
+                                CultureInfo.InvariantCulture, out double floating))
+                            return "number:" + floating.ToString("R",
+                                CultureInfo.InvariantCulture);
+                    }
+                    return literal.Kind + ":" + literal.Text;
+                }
+                if (expression == null || expression.Length <= 0) return string.Empty;
+                return "constant:" + new string(source.Substring(expression.Start,
+                    Math.Min(expression.Length, source.Length - expression.Start))
+                    .Where(character => !char.IsWhiteSpace(character)).ToArray());
+            }
+
+            private bool TryGetEnumMember(ExpressionSyntax expression,
+                out string enumName, out string memberName)
+            {
+                while (expression is ParenthesizedExpressionSyntax group)
+                    expression = group.Expression;
+                if (expression is MemberAccessExpressionSyntax member &&
+                    member.Target is NameExpressionSyntax name &&
+                    enums.TryGetValue(name.Name, out EnumInfo enumeration) &&
+                    enumeration.Members.Contains(member.Name))
+                {
+                    enumName = name.Name;
+                    memberName = member.Name;
+                    return true;
+                }
+                enumName = string.Empty;
+                memberName = string.Empty;
+                return false;
+            }
+
+            private void CheckVariable(VariableDeclarationStatementSyntax variable, bool allowState = false)
             {
                 DdfTypeSymbol declared = ResolveType(variable.Type, true);
                 AddSpan(variable.Type, declared);
-                if (!declared.IsError && !structures.ContainsKey(declared.Name) && !typeSystem.CanDeclareVariable(declared.Name))
+                if (!declared.IsError && !structures.ContainsKey(declared.Name) &&
+                    !enums.ContainsKey(declared.Name) && !typeSystem.CanDeclareVariable(declared.Name))
                     Report("DDF305", "Una variabile non può avere tipo " + declared.Name + ".", variable.Type);
+                if (variable.IsFixed && variable.Initializer == null)
+                    Report("DDF314", "Una dichiarazione fixed richiede un inizializzatore.", variable);
+                if (variable.IsFixed && (declared.ArrayRank != 0 || structures.ContainsKey(declared.Name)))
+                    Report("DDF317", "fixed accetta soltanto tipi primitivi scalari o enum nominali.", variable.Type);
+                if (variable.IsState && !allowState)
+                    Report("DDF320", "state è consentito soltanto per valori di modulo.", variable);
+                if (variable.IsState && variable.Initializer == null)
+                    Report("DDF321", "Una dichiarazione state richiede un inizializzatore.", variable);
+                if (variable.IsState && (declared.ArrayRank != 0 || structures.ContainsKey(declared.Name)))
+                    Report("DDF322", "La prima versione di state accetta soltanto tipi primitivi scalari.", variable.Type);
                 if (variable.Initializer != null)
                 {
                     DdfTypeSymbol actual = CheckExpression(variable.Initializer);
@@ -313,8 +489,10 @@ namespace DDFLanguageEditor.Core
                         : DdfConversionContext.General;
                     if (!CanAssign(declared, actual, context))
                         Report("DDF301", "Impossibile inizializzare " + declared + " con " + actual + ".", variable.Initializer);
+                    if (variable.IsFixed && !IsFixedInitializer(variable.Initializer))
+                        Report("DDF315", "L'inizializzatore fixed deve essere un'espressione pura composta da letterali, altre costanti e operatori deterministici.", variable.Initializer);
                 }
-                Declare(variable.Name, declared, variable.NameStart, variable.NameLength);
+                Declare(variable.Name, declared, variable.NameStart, variable.NameLength, variable.IsFixed);
                 AddSpan(variable.NameStart, variable.NameLength, declared);
                 foreach (ExpressionSyntax length in variable.Type.ArrayLengths)
                 {
@@ -351,9 +529,13 @@ namespace DDFLanguageEditor.Core
                 else if (expression is PostfixExpressionSyntax postfix)
                 {
                     DdfTypeSymbol operand = CheckExpression(postfix.Operand);
-                    if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(postfix.Operand)) ||
+                    if (IsFixedTarget(postfix.Operand))
+                        Report("DDF316", "Un valore fixed non può essere incrementato o decrementato.", postfix.Operand);
+                    else if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(postfix.Operand)) ||
                         IsReadOnlyStringIndex(postfix.Operand))
                         Report("DDF308", "La destinazione dell'operatore '" + postfix.OperatorText + "' non è modificabile.", postfix.Operand);
+                    else if (IsEnumMemberAccess(postfix.Operand))
+                        Report("DDF308", "Un valore enum simbolico non è modificabile.", postfix.Operand);
                     ReportReadOnlyHostTarget(postfix.Operand);
                     result = runtime.TryGetPostfixOperation(postfix.OperatorText, out string operation) &&
                         (operation == DdfVmExpressionOperations.Increment || operation == DdfVmExpressionOperations.Decrement) &&
@@ -392,8 +574,12 @@ namespace DDFLanguageEditor.Core
                 DdfTypeSymbol right = CheckExpression(binary.Right);
                 if (operation == DdfVmExpressionOperations.Assign)
                 {
-                    if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
+                    if (IsFixedTarget(binary.Left))
+                        Report("DDF316", "Un valore fixed non può essere assegnato.", binary.Left);
+                    else if (!typeSystem.Mutability.AllowsAssignmentTarget(GetAssignmentTargetKind(binary.Left)))
                         Report("DDF308", "La destinazione dell'assegnazione non è modificabile.", binary.Left);
+                    else if (IsEnumMemberAccess(binary.Left))
+                        Report("DDF308", "Un valore enum simbolico non è modificabile.", binary.Left);
                     else if (IsReadOnlyStringIndex(binary.Left))
                         Report("DDF308", "Un carattere di stringa non è una destinazione modificabile.", binary.Left);
                     ReportReadOnlyHostTarget(binary.Left);
@@ -455,6 +641,20 @@ namespace DDFLanguageEditor.Core
 
             private DdfTypeSymbol CheckMember(MemberAccessExpressionSyntax member)
             {
+                if (member.Target is NameExpressionSyntax enumName &&
+                    enums.TryGetValue(enumName.Name, out EnumInfo enumeration))
+                {
+                    DdfTypeSymbol enumType = new DdfTypeSymbol(enumeration.Name);
+                    AddSpan(enumName.Start, enumName.Length, enumType);
+                    if (enumeration.Members.Contains(member.Name))
+                    {
+                        AddSpan(member.NameStart, member.NameLength, enumType);
+                        return enumType;
+                    }
+                    Report("DDF305", "Il valore '" + member.Name + "' non esiste nell'enum " +
+                        enumeration.Name + ".", member.NameStart, Math.Max(1, member.NameLength));
+                    return DdfTypeSymbol.Error;
+                }
                 DdfTypeSymbol target = CheckExpression(member.Target);
                 if (target.ArrayRank == 0 && structures.TryGetValue(target.Name, out StructureInfo structure) && structure.Fields.TryGetValue(member.Name, out DdfTypeSymbol fieldType))
                 {
@@ -473,7 +673,8 @@ namespace DDFLanguageEditor.Core
                     Report("DDF310", "Gli array DDF possono avere un solo suffisso di dimensione.", type);
                     return DdfTypeSymbol.Error;
                 }
-                bool known = typeSystem.IsKnownPrimitive(type.Name) || structures.ContainsKey(type.Name);
+                bool known = typeSystem.IsKnownPrimitive(type.Name) || structures.ContainsKey(type.Name) ||
+                    enums.ContainsKey(type.Name);
                 if (!known)
                 {
                     if (reportUnknown) Report("DDF305", "Tipo sconosciuto: '" + type.Name + "'.", type.Start, Math.Max(1, type.Name.Length));
@@ -489,7 +690,8 @@ namespace DDFLanguageEditor.Core
                 return globals.TryGetValue(name, out DdfTypeSymbol global) ? global : DdfTypeSymbol.Error;
             }
 
-            private void Declare(string name, DdfTypeSymbol type, int start, int length)
+            private void Declare(string name, DdfTypeSymbol type, int start, int length,
+                bool isFixed = false)
             {
                 if (string.IsNullOrEmpty(name)) return;
                 if (scopes.Count == 0) return;
@@ -505,10 +707,69 @@ namespace DDFLanguageEditor.Core
                     return;
                 }
                 current.Add(name, type);
+                if (isFixed) fixedScopes[fixedScopes.Count - 1].Add(name);
             }
 
-            private void PushScope() => scopes.Add(new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal));
-            private void PopScope() => scopes.RemoveAt(scopes.Count - 1);
+            private void PushScope()
+            {
+                scopes.Add(new Dictionary<string, DdfTypeSymbol>(StringComparer.Ordinal));
+                fixedScopes.Add(new HashSet<string>(StringComparer.Ordinal));
+            }
+
+            private void PopScope()
+            {
+                scopes.RemoveAt(scopes.Count - 1);
+                fixedScopes.RemoveAt(fixedScopes.Count - 1);
+            }
+
+            private bool IsFixedName(string name)
+            {
+                for (int index = scopes.Count - 1; index >= 0; index--)
+                {
+                    if (scopes[index].ContainsKey(name)) return fixedScopes[index].Contains(name);
+                }
+                return fixedGlobals.Contains(name);
+            }
+
+            private bool IsFixedTarget(ExpressionSyntax expression)
+            {
+                while (expression is ParenthesizedExpressionSyntax group) expression = group.Expression;
+                if (expression is NameExpressionSyntax name) return IsFixedName(name.Name);
+                if (expression is IndexExpressionSyntax index) return IsFixedTarget(index.Target);
+                if (expression is MemberAccessExpressionSyntax member) return IsFixedTarget(member.Target);
+                return false;
+            }
+
+            private bool IsFixedInitializer(ExpressionSyntax expression)
+            {
+                if (expression == null || expression is MissingExpressionSyntax) return false;
+                if (expression is LiteralExpressionSyntax) return true;
+                if (expression is NameExpressionSyntax name) return IsFixedName(name.Name);
+                if (expression is ParenthesizedExpressionSyntax group)
+                    return IsFixedInitializer(group.Expression);
+                if (expression is UnaryExpressionSyntax unary)
+                    return runtime.TryGetUnaryOperation(unary.OperatorText, out _) &&
+                           IsFixedInitializer(unary.Operand);
+                if (expression is BinaryExpressionSyntax binary)
+                {
+                    if (!runtime.TryGetBinaryOperation(binary.OperatorText, out string operation) ||
+                        operation == DdfVmExpressionOperations.Assign ||
+                        operation == DdfVmExpressionOperations.Output) return false;
+                    return IsFixedInitializer(binary.Left) && IsFixedInitializer(binary.Right);
+                }
+                if (IsEnumMemberAccess(expression)) return true;
+                return false;
+            }
+
+            private bool IsEnumMemberAccess(ExpressionSyntax expression)
+            {
+                while (expression is ParenthesizedExpressionSyntax group)
+                    expression = group.Expression;
+                return expression is MemberAccessExpressionSyntax member &&
+                    member.Target is NameExpressionSyntax name &&
+                    enums.TryGetValue(name.Name, out EnumInfo enumeration) &&
+                    enumeration.Members.Contains(member.Name);
+            }
 
             private void RequireBoolean(DdfTypeSymbol type, DdfSyntaxNode node)
             {
@@ -631,6 +892,19 @@ namespace DDFLanguageEditor.Core
 
             private void ValidateTopLevelDeclarations()
             {
+                var ambiguousExternalNames = allRoots.Skip(1)
+                    .SelectMany(unit => unit.Members.Select(GetTopLevelName))
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .GroupBy(name => name, StringComparer.Ordinal)
+                    .Where(group => group.Count() > 1)
+                    .Select(group => group.Key)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
+                foreach (string name in ambiguousExternalNames)
+                    Report("DDF311", "La dichiarazione esterna '" + name +
+                        "' è esportata da più dipendenze dirette e non può essere " +
+                        "risolta in modo univoco.", 0, Math.Min(1, source.Length));
+
                 foreach (MemberSyntax member in root.Members)
                 {
                     string name;
@@ -643,6 +917,14 @@ namespace DDFLanguageEditor.Core
                         start = structure.NameStart;
                         length = structure.NameLength;
                         count = allRoots.Sum(unit => unit.Members.OfType<StructDeclarationSyntax>()
+                            .Count(item => item.Name == name));
+                    }
+                    else if (member is EnumDeclarationSyntax enumeration)
+                    {
+                        name = enumeration.Name;
+                        start = enumeration.NameStart;
+                        length = enumeration.NameLength;
+                        count = allRoots.Sum(unit => unit.Members.OfType<EnumDeclarationSyntax>()
                             .Count(item => item.Name == name));
                     }
                     else if (member is FunctionDeclarationSyntax function)
@@ -665,10 +947,25 @@ namespace DDFLanguageEditor.Core
                     }
                     else continue;
 
+                    count = allRoots.Sum(unit => unit.Members.Count(item =>
+                        string.Equals(GetTopLevelName(item), name,
+                            StringComparison.Ordinal)));
+
                     if (!string.IsNullOrEmpty(name) && count > 1)
                         Report("DDF311", "La dichiarazione '" + name +
                             "' deve avere un nome univoco nel progetto.", start, Math.Max(1, length));
                 }
+            }
+
+            private static string GetTopLevelName(MemberSyntax member)
+            {
+                if (member is StructDeclarationSyntax structure) return structure.Name;
+                if (member is EnumDeclarationSyntax enumeration) return enumeration.Name;
+                if (member is FunctionDeclarationSyntax function) return function.Name;
+                if (member is GlobalStatementSyntax global &&
+                    global.Statement is VariableDeclarationStatementSyntax variable)
+                    return variable.Name;
+                return string.Empty;
             }
 
             private bool HasContainmentPath(string current, string target, HashSet<string> visited)
@@ -683,7 +980,7 @@ namespace DDFLanguageEditor.Core
                 return false;
             }
 
-            private static bool AlwaysReturns(StatementSyntax statement)
+            private bool AlwaysReturns(StatementSyntax statement)
             {
                 if (statement == null) return false;
                 if (statement is ReturnStatementSyntax) return true;
@@ -691,8 +988,33 @@ namespace DDFLanguageEditor.Core
                     return block.Statements.Any(AlwaysReturns);
                 if (statement is IfStatementSyntax conditional)
                     return conditional.ElseBody != null && AlwaysReturns(conditional.Body) && AlwaysReturns(conditional.ElseBody);
+                if (statement is SelectStatementSyntax selection)
+                    return IsSelectExhaustive(selection) &&
+                        selection.Clauses.All(clause => AlwaysReturns(clause.Body));
                 if (statement is DoWhileStatementSyntax doLoop) return AlwaysReturns(doLoop.Body);
                 return false;
+            }
+
+            private bool IsSelectExhaustive(SelectStatementSyntax selection)
+            {
+                if (selection.Clauses.Any(clause => clause.IsOtherwise)) return true;
+                if (!expressionTypes.TryGetValue(selection.Expression,
+                        out DdfTypeSymbol selectedType) || selectedType.IsError) return false;
+                if (selectedType.IsBoolean)
+                    return selection.Clauses.Where(clause => !clause.IsOtherwise)
+                        .Select(clause => clause.Value as LiteralExpressionSyntax)
+                        .Where(literal => literal?.Kind == DdfLiteralKind.Boolean &&
+                            literal.BooleanValue.HasValue)
+                        .Select(literal => literal.BooleanValue.Value).Distinct().Count() == 2;
+                if (!enums.TryGetValue(selectedType.Name, out EnumInfo enumeration))
+                    return false;
+                var covered = new HashSet<string>(StringComparer.Ordinal);
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    if (TryGetEnumMember(clause.Value, out string enumName,
+                            out string memberName) && enumName == selectedType.Name)
+                        covered.Add(memberName);
+                return enumeration.Members.Count > 0 &&
+                    enumeration.Members.SetEquals(covered);
             }
 
             private bool IsSingleCharacterLiteral(ExpressionSyntax expression)

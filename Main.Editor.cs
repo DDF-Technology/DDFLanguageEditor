@@ -528,7 +528,8 @@ namespace DDF___Program_Language_Editor
                 signature.Append((int)symbol.Kind).Append(':').Append(symbol.Start).Append(':')
                     .Append(symbol.Length).Append(':').Append(symbol.SelectionStart).Append(':')
                     .Append(symbol.SelectionLength).Append(':').Append(symbol.Name).Append(':')
-                    .Append(symbol.Detail).Append('|');
+                    .Append(symbol.Detail).Append(':').Append(symbol.IsReadOnly).Append(':')
+                    .Append(symbol.IsFixed).Append('|');
                 appendOutlineRenderSignature(signature, symbol.Children);
                 signature.Append(';');
             }
@@ -536,7 +537,10 @@ namespace DDF___Program_Language_Editor
 
         private static TreeNode createOutlineNode(DdfDocumentSymbol symbol)
         {
-            var node = new TreeNode(getSymbolPrefix(symbol.Kind) + " " + symbol)
+            string mutability = symbol.IsFixed ? "  [fixed]" :
+                symbol.IsReadOnly ? "  [sola lettura]" : string.Empty;
+            var node = new TreeNode(getSymbolPrefix(symbol.Kind) + " " + symbol +
+                mutability)
             {
                 Tag = symbol
             };

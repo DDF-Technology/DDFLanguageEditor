@@ -6,6 +6,7 @@ namespace DDFLanguageEditor.Core
     public enum DdfFoldingKind
     {
         Structure,
+        Enumeration,
         Function,
         Block
     }
@@ -56,6 +57,12 @@ namespace DDFLanguageEditor.Core
                         AddRange(ranges, DdfFoldingKind.Structure, structure.OpenBraceStart, structure.CloseBraceStart, text);
                     }
                 }
+                else if (member is EnumDeclarationSyntax enumeration)
+                {
+                    if (enumeration.HasCloseBrace)
+                        AddRange(ranges, DdfFoldingKind.Enumeration,
+                            enumeration.OpenBraceStart, enumeration.CloseBraceStart, text);
+                }
                 else if (member is FunctionDeclarationSyntax function)
                 {
                     AddBlock(ranges, function.Body, DdfFoldingKind.Function, text);
@@ -85,6 +92,11 @@ namespace DDFLanguageEditor.Core
             {
                 VisitStatement(ranges, ifStatement.Body, text);
                 VisitStatement(ranges, ifStatement.ElseBody, text);
+            }
+            else if (statement is SelectStatementSyntax selection)
+            {
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    VisitStatement(ranges, clause.Body, text);
             }
             else if (statement is WhileStatementSyntax whileStatement)
             {

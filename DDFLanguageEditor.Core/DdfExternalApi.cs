@@ -82,6 +82,22 @@ namespace DDFLanguageEditor.Core
             RequiredPermissions = DdfHostCatalogValidation.PermissionIds(
                 requiredPermissions, nameof(requiredPermissions));
             Effect = effect;
+            RecoverableErrors = Array.Empty<DdfErrorDefinition>();
+        }
+
+        private DdfExternalApiFunctionDefinition(
+            DdfExternalApiFunctionDefinition source,
+            IEnumerable<DdfErrorDefinition> recoverableErrors)
+        {
+            Name = source.Name;
+            BindingId = source.BindingId;
+            ReturnType = source.ReturnType;
+            Parameters = source.Parameters;
+            Documentation = source.Documentation;
+            RequiredPermissions = source.RequiredPermissions;
+            Effect = source.Effect;
+            RecoverableErrors = DdfErrorCatalog.ValidateRecoverable(
+                recoverableErrors, nameof(recoverableErrors));
         }
 
         public string Name { get; }
@@ -93,6 +109,10 @@ namespace DDFLanguageEditor.Core
         public string Documentation { get; }
         public IReadOnlyList<string> RequiredPermissions { get; }
         public DdfHostFunctionEffect Effect { get; }
+        public IReadOnlyList<DdfErrorDefinition> RecoverableErrors { get; }
+
+        public DdfExternalApiFunctionDefinition DeclaresRecoverableErrors(
+            params DdfErrorDefinition[] errors) => new(this, errors);
     }
 
     /// <summary>
@@ -102,7 +122,7 @@ namespace DDFLanguageEditor.Core
     /// </summary>
     public sealed class DdfExternalApiDefinition
     {
-        public const string FormatVersion = "1.0";
+        public const string FormatVersion = "1.1";
 
         public DdfExternalApiDefinition(string referenceId,
             string referenceVersion,
@@ -247,6 +267,11 @@ namespace DDFLanguageEditor.Core
                     .Append(function.Effect).Append(':')
                     .Append(string.Join(",", function.RequiredPermissions))
                     .Append(':').Append(function.Documentation).Append('\n');
+                foreach (DdfErrorDefinition error in function.RecoverableErrors
+                             .OrderBy(item => item.TypeId, StringComparer.Ordinal))
+                    text.Append("error:").Append(error.TypeId).Append(':')
+                        .Append(error.Code).Append(':').Append(error.Kind)
+                        .Append(':').Append(error.Documentation).Append('\n');
                 foreach (DdfExternalApiParameterDefinition parameter in
                          function.Parameters)
                     text.Append("parameter:").Append(parameter.Name).Append(':')
@@ -446,7 +471,8 @@ namespace DDFLanguageEditor.Core
                     value.Lifetime));
             foreach (DdfExternalApiFunctionDefinition function in
                      definition.Functions)
-                catalog.RegisterFunction(new DdfHostFunctionDefinition(
+            {
+                DdfHostFunctionDefinition projected = new DdfHostFunctionDefinition(
                     function.Name, function.ReturnType,
                     function.Parameters.Select(item =>
                         new DdfHostParameterDefinition(item.Name,
@@ -457,7 +483,10 @@ namespace DDFLanguageEditor.Core
                         ? (context, arguments) => adapter.InvokeAsync(context,
                             function.BindingId, arguments)
                         : (context, arguments) => ValueTask.FromException<object>(
-                            Unavailable(definition.ReferenceId))));
+                            Unavailable(definition.ReferenceId)));
+                catalog.RegisterFunction(projected.DeclaresRecoverableErrors(
+                    function.RecoverableErrors.ToArray()));
+            }
             foreach (string permission in grantedPermissions ??
                      Array.Empty<string>())
                 catalog.SetPermission(permission, true);

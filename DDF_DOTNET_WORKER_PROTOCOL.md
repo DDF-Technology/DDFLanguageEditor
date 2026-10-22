@@ -1,7 +1,7 @@
 # Protocollo worker DDF .NET
 
-Stato: protocollo `1.9`, separazione di processo e policy di accesso `1.3` della
-milestone `0.13.2`.
+Stato: protocollo worker `2.0`, framing duplex `1.1`, separazione di processo e
+policy di accesso `1.3` della milestone `0.13.2`.
 
 ## Confine
 
@@ -10,7 +10,7 @@ una richiesta monouso oppure una sessione JSONL duplex su standard input/output
 e termina. Nessun assembly compilato viene caricato nel processo
 dell'editor quando si usa `DdfDotNetWorkerClient`.
 
-La richiesta `ddf-dotnet-worker-request` `1.9` contiene:
+La richiesta `ddf-dotnet-worker-request` `2.0` contiene:
 
 - correlation ID obbligatorio;
 - manifest package canonico;
@@ -36,7 +36,7 @@ ricostruisce gli artefatti, ricollega il grafo, rigenera il bundle e richiede la
 corrispondenza byte-per-byte del manifest package. Il normale loader ripete poi
 compatibilità e verifica PE/IL prima del caricamento.
 
-La risposta `ddf-dotnet-worker-response` `1.9` ripete il correlation ID e
+La risposta `ddf-dotnet-worker-response` `2.0` ripete il correlation ID e
 restituisce soltanto valori scalari DDF, stato `end`, istruzioni, output catturato
 o codice/messaggio di errore. Dopo un'esecuzione riuscita può includere scritture
 file staged con nome logico, hash originale, testo e hash finale e attesta il
@@ -94,7 +94,7 @@ oppure richieste live verso nomi logici autorizzati; il worker non riceve endpoi
 credenziali e non apre connessioni. Le altre modalità vengono
 rifiutate con `DDFC536`.
 
-Il protocollo `1.9` non concede accesso diretto alla console o al debugger CLR;
+Il protocollo `2.0` non concede accesso diretto alla console o al debugger CLR;
 non inoltra capability host diverse
 dai broker file/rete o risultati composti. Un
 input deve essere fornito integralmente prima dell'avvio. Un bundle che richiede
@@ -172,7 +172,7 @@ media type, dimensione e hash del contenuto: query, header e credenziali non
 entrano né nella ricevuta né nello snapshot IPC. Violazioni e fallimenti di
 acquisizione producono `DDFC545`.
 
-Con `brokerFetchResponse(nome)` il protocollo `1.9` consente anche
+Con `brokerFetchResponse(nome)` il protocollo `2.0` consente anche
 l'acquisizione durante l'esecuzione. La richiesta iniziale contiene al massimo
 32 nomi in `LiveNetworkResources`; endpoint e credenziali restano esclusivamente
 nell'handler host `DdfDotNetWorkerNetworkCapabilityHandler`. Il worker invia una
@@ -265,9 +265,14 @@ usare la VM in-process; l'host embedded non può attivare questo adapter.
 
 ## Framing duplex
 
-`DdfDotNetWorkerDuplexProtocol` definisce l'involucro JSONL `1.0` del canale
-bidirezionale opzionale, separato dal payload worker `1.9`. I frame ammessi
+`DdfDotNetWorkerDuplexProtocol` definisce l'involucro JSONL `1.1` del canale
+bidirezionale opzionale, separato dal payload worker `2.0`. I frame ammessi
 sono `Start`, `CapabilityRequest`, `CapabilityResponse`, `Complete` e `Abort`;
+il Runner usa ora un gate asincrono cancellabile per mantenere una sola
+richiesta pendente, scrive e legge i frame senza occupare il chiamante e valida
+sempre sequence, correlation ID e request ID prima della ripresa. La Runtime ABI
+`1.9.0`, la sessione standalone e gli assembly Roslyn attendono ora l'intera
+catena asincrona fino alla capability host.
 ognuno porta correlation ID e sequenza monotona. Una richiesta capability ha un
 ID monouso e argomenti JSON limitati, mentre la risposta deve riferirsi
 esattamente all'unica richiesta pendente.
@@ -279,9 +284,25 @@ Frame multilinea, payload estranei al tipo, JSON non valido, sequenze saltate o
 correlazioni differenti producono `DDFC546`. I frame ordinari sono limitati a
 4 MiB; soltanto `Start` usa il limite della richiesta iniziale di 64 MiB.
 
+Durante un debug interattivo una richiesta capability ordinaria può contenere
+`cooperativeDebugSnapshot`: è l'ultimo sequence point DDF prodotto prima della
+chiamata e comprende soltanto posizione, contatore, frame e valori DDF già
+validati entro quote. Non viene mai allegato a `worker.debug.nextCommand`, che
+resta una vera pausa del debugger distinta. Il client notifica a un observer
+opzionale l'ingresso in `AwaitingCapability` prima di invocare l'handler host e
+la ripresa in `finally`, usando correlation ID e request ID dello stesso frame.
+Nessun `Task`, thread, nome generato C# o frame del provider attraversa l'IPC.
+
 `ExecuteDuplexAsync` e il runner usano effettivamente questa macchina a stati:
 `Start` trasporta la richiesta, il runner può emettere richieste capability e
 `Complete` restituisce la risposta finale. Il percorso legacy monouso resta
 disponibile e chiude stdin dopo la richiesta. La prima capability live collegata
 sono `brokerFetchResponse`, l'input console brokerizzato e il controllo debug
 interattivo esclusivamente in termini DDF.
+
+Timeout e cancellazione terminano l'albero del worker e cancellano il token del
+callback host. Dopo il kill il client attende gli stream soltanto per un
+intervallo limitato: se un handler ignora il token, la chiamata torna comunque
+al chiamante e la completion tardiva viene osservata senza scrivere una
+`CapabilityResponse` né modificare un risultato già chiuso. Il gate reale copre
+sia timeout sia Stop con un handler deliberatamente non cooperativo.

@@ -1,0 +1,49 @@
+{
+  "$schema": "./ddf-extended-numerics-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0034",
+  "targetLanguageVersion": "0.19",
+  "keywords": [ "long", "decimal" ],
+  "types": {
+    "long": {
+      "minimum": "-9223372036854775808",
+      "maximum": "9223372036854775807",
+      "literalSuffix": "i64",
+      "checkedArithmetic": true
+    },
+    "decimal": {
+      "coefficientBits": 96,
+      "minimumScale": 0,
+      "maximumScale": 28,
+      "literalSuffix": "dec",
+      "rounding": "nearest-ties-to-even",
+      "checkedArithmetic": true
+    }
+  },
+  "implicitConversions": [ "int->long", "int->decimal", "long->decimal" ],
+  "forbiddenImplicitConversions": [ "long->int", "long->float", "float->long", "float->decimal", "decimal->float", "decimal->long", "decimal->int" ],
+  "conversionFunctions": [ "toLong", "toDecimal", "longToInt", "decimalToInt", "decimalToLong", "floatToDecimal", "decimalToFloat" ],
+  "rules": {
+    "plainIntegerLiteralRemainsInt": true,
+    "plainFractionLiteralRemainsFloat": true,
+    "literalSuffixesAreLowercase": true,
+    "mixedFloatLongRequiresExplicitConversion": true,
+    "mixedFloatDecimalRequiresExplicitConversion": true,
+    "decimalToIntegerRequiresZeroFraction": true,
+    "fixedUsesCommonCheckedEvaluator": true,
+    "stateRequiresVersionedPersistenceSchema": true,
+    "longMayBeMapKey": true,
+    "decimalInitiallyForbiddenAsMapKey": true,
+    "irMustNotExposeClrTypes": true
+  },
+  "diagnostics": [ "DDF348", "DDF349", "DDF350", "DDF351", "DDF352" ],
+  "integration": {
+    "irLongKind": "Int64",
+    "irDecimalKind": "Decimal96",
+    "roslynLongType": "System.Int64",
+    "roslynDecimalType": "System.Decimal",
+    "invariantFormatting": true,
+    "vmAndRoslynMustBeEquivalent": true
+  }
+}

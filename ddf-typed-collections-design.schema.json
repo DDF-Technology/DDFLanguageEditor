@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/typed-collections-design-1.0.json",
+  "title": "DDF typed collections design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "keywords", "typeForms", "rules", "sequenceMembers", "mapMembers", "viewMembers", "mapKeyKinds", "viewContract", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-typed-collections-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0033" },
+    "targetLanguageVersion": { "const": "0.18" },
+    "keywords": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "typeForms": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "sequence", "map", "view", "mapEntry" ],
+      "properties": {
+        "sequence": { "const": "sequence<T>" },
+        "map": { "const": "map<K,V>" },
+        "view": { "const": "view<T>" },
+        "mapEntry": { "const": "entry<K,V>" }
+      }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "closedTypeFamiliesOnly", "universalGenericsForbidden", "collectionsAreTyped", "collectionsAreNonNull", "sequencePreservesInsertionOrder", "mapPreservesFirstInsertionOrder", "mapUpdateDoesNotReorder", "mapReinsertAppends", "iterationUsesShallowSnapshot", "collectionEqualityForbidden", "fixedCollectionsInitiallyForbidden", "stateCollectionsInitiallyDeferred", "clrCollectionTypesForbiddenInIr" ],
+      "properties": {
+        "closedTypeFamiliesOnly": { "const": true },
+        "universalGenericsForbidden": { "const": true },
+        "collectionsAreTyped": { "const": true },
+        "collectionsAreNonNull": { "const": true },
+        "sequencePreservesInsertionOrder": { "const": true },
+        "mapPreservesFirstInsertionOrder": { "const": true },
+        "mapUpdateDoesNotReorder": { "const": true },
+        "mapReinsertAppends": { "const": true },
+        "iterationUsesShallowSnapshot": { "const": true },
+        "collectionEqualityForbidden": { "const": true },
+        "fixedCollectionsInitiallyForbidden": { "const": true },
+        "stateCollectionsInitiallyDeferred": { "const": true },
+        "clrCollectionTypesForbiddenInIr": { "const": true }
+      }
+    },
+    "sequenceMembers": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "mapMembers": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "viewMembers": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "mapKeyKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "viewContract": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "ordered", "readonly", "boundedSnapshot", "requiresCapability", "neverExposesHostObject", "failureIsAtomic" ],
+      "properties": {
+        "ordered": { "const": true },
+        "readonly": { "const": true },
+        "boundedSnapshot": { "const": true },
+        "requiresCapability": { "const": true },
+        "neverExposesHostObject": { "const": true },
+        "failureIsAtomic": { "const": true }
+      }
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "mapFindReturnsMaybe", "mapIterationUsesImmutableEntry", "vmAndRoslynMustBeEquivalent", "debuggerExpansionIsBounded", "languageProfilesOwnPresentation" ],
+      "properties": {
+        "mapFindReturnsMaybe": { "const": true },
+        "mapIterationUsesImmutableEntry": { "const": true },
+        "vmAndRoslynMustBeEquivalent": { "const": true },
+        "debuggerExpansionIsBounded": { "const": true },
+        "languageProfilesOwnPresentation": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

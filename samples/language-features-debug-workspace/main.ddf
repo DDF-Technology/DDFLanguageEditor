@@ -1,0 +1,58 @@
+main() out int
+{
+    completedRuns++;
+
+    int runNumber << completedRuns;
+    fixed int localOffset << 2;
+    bool enabled << true;
+    bool disabled << false;
+    bool exclusiveFlag << enabled ^^ disabled;
+    char initial;
+    string title << "DDF language features workspace";
+    float mean << average(8, 12);
+
+    OperationResult division;
+    int quotient << safeDivide(division, 84, ExpectedDivisor);
+
+    OperationResult conversion;
+    int parsed << parseKnownNumber(conversion, "7");
+
+    SampleRecord record;
+    int recordId << fillRecord(record, 11, "debug");
+
+    int series << calculateSeries(MaximumSamples);
+    int upward << countUpWithWhile(3);
+    int downward << countDownWithDoWhile(3);
+    int arrayTotal << fillValues(4);
+    int priority << priorityWeight(DefaultPriority);
+    int selection << describeNumber(2);
+
+    if(enabled && exclusiveFlag && !disabled)
+    {
+        writeSummary(title, quotient);
+    }
+
+    bool validIndex << isIndexValid(3, 4);
+    if(!validIndex)
+    {
+        ret 0;
+    }
+
+    int guardedStatus << statusCode(division.status) + statusCode(conversion.status);
+
+    bool enableRuntimeErrorLab << false;
+    int errorScenario << 1;
+    if(enableRuntimeErrorLab)
+    {
+        int errorValue << runRuntimeErrorScenario(errorScenario);
+        errorValue >> Console;
+    }
+
+    mean >> Console;
+    record.label >> Console;
+
+    int result << runNumber + localOffset + quotient + parsed + recordId +
+        series + upward + downward + arrayTotal + priority + selection +
+        guardedStatus;
+    ret clamp(result, 0, 1000);
+}

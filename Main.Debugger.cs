@@ -26,6 +26,8 @@ namespace DDF___Program_Language_Editor
             panelEditor.ExecutionOutputReceived += executionService_OutputReceived;
             panelEditor.ExecutionCompleted += executionService_ExecutionCompleted;
             panelEditor.DebugStateChanged += debugService_StateChanged;
+            panelEditor.CooperativeDebugStateChanged +=
+                debugService_CooperativeStateChanged;
             panelEditor.DebugPaused += onDebuggerPaused;
             panelEditor.DebugOutputReceived += executionService_OutputReceived;
             panelEditor.DebugCompleted += debugService_DebugCompleted;
@@ -288,12 +290,23 @@ namespace DDF___Program_Language_Editor
             }
 
             DdfEditorDebugLocation pause = e.Location;
+            string pausePath = resolveDebugDocumentPath(pause);
 
-            if (!string.IsNullOrEmpty(pause.FilePath) && File.Exists(pause.FilePath))
+            if (!string.IsNullOrEmpty(pause.DocumentId) &&
+                documentViews.TryGetValue(pause.DocumentId,
+                    out DocumentView pauseView))
             {
-                if (!openDocument(pause.FilePath)) return;
+                activateDocument(pauseView);
+                runtimeDocumentId = pause.DocumentId;
+                runtimeDocumentPath = pauseView.Buffer.Session.HasPath
+                    ? pauseView.Buffer.Session.CurrentPath
+                    : null;
+            }
+            else if (!string.IsNullOrEmpty(pausePath))
+            {
+                if (!openDocument(pausePath)) return;
                 runtimeDocumentId = openDocuments.ActiveDocument?.Id;
-                runtimeDocumentPath = pause.FilePath;
+                runtimeDocumentPath = pausePath;
             }
             else if (!string.IsNullOrEmpty(runtimeDocumentId) && documentViews.TryGetValue(runtimeDocumentId, out DocumentView runtimeView))
                 activateDocument(runtimeView);
@@ -302,11 +315,86 @@ namespace DDF___Program_Language_Editor
             if (panelEditor.DebugService?.IsPaused != true) return;
             watchSnapshot = e.Snapshot;
             selectedCallStackFrameIndex = 0;
-            navigateToRuntimeSpan(!string.IsNullOrEmpty(pause.FilePath) && File.Exists(pause.FilePath)
-                ? pause.FilePath : null, pause.Start, pause.Length);
+            navigateToRuntimeSpan(pause.DocumentId, pausePath, pause.Start,
+                pause.Length);
             showDebugExecutionLine(pause.Line);
             showFlowchartDebugLocation(e.Snapshot);
             updateExecutionCommands(true);
+        }
+
+        private void debugService_CooperativeStateChanged(object sender,
+            DdfEditorCooperativeStateChangedEventArgs e)
+        {
+            if (IsDisposed || Disposing) return;
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<object,
+                    DdfEditorCooperativeStateChangedEventArgs>(
+                    debugService_CooperativeStateChanged), sender, e);
+                return;
+            }
+
+            if (e.Snapshot.State ==
+                DdfEditorCooperativeExecutionState.AwaitingCapability)
+            {
+                DdfEditorDebugSnapshot snapshot =
+                    panelEditor.DebugService?.CurrentSnapshot;
+                if (snapshot == null) return;
+                watchSnapshot = snapshot;
+                selectedCallStackFrameIndex = 0;
+                DdfEditorDebugLocation location = snapshot.Location;
+                string path = resolveDebugDocumentPath(location);
+                if (!string.IsNullOrEmpty(location.DocumentId) &&
+                    documentViews.TryGetValue(location.DocumentId,
+                        out DocumentView view))
+                    activateDocument(view);
+                navigateToRuntimeSpan(location.DocumentId, path,
+                    location.Start, location.Length);
+                showDebugExecutionLine(location.Line);
+                showFlowchartDebugLocation(snapshot);
+                appendOutput("In attesa della capability '" +
+                    e.Snapshot.PendingSuspension.OperationId + "'.");
+                updateExecutionCommands(true);
+            }
+            else if (e.PreviousSnapshot.State ==
+                DdfEditorCooperativeExecutionState.AwaitingCapability &&
+                e.Snapshot.State == DdfEditorCooperativeExecutionState.Running)
+            {
+                clearDebugExecutionLine();
+                watchSnapshot = null;
+                updateExecutionCommands(true);
+            }
+        }
+
+        private string resolveDebugDocumentPath(DdfEditorDebugLocation pause)
+        {
+            if (pause == null || string.IsNullOrWhiteSpace(pause.FilePath))
+                return null;
+            if (Path.IsPathRooted(pause.FilePath) && File.Exists(pause.FilePath))
+                return Path.GetFullPath(pause.FilePath);
+
+            if (workspaceIndex != null)
+            {
+                string workspacePath = Path.GetFullPath(Path.Combine(
+                    workspaceIndex.RootPath, pause.FilePath.Replace('/',
+                        Path.DirectorySeparatorChar)));
+                if (isPathInside(workspaceIndex.RootPath, workspacePath) &&
+                    File.Exists(workspacePath))
+                    return workspacePath;
+            }
+
+            string relative = pause.FilePath.Replace('\\', '/');
+            string[] modulePaths = debugRuntimeModules.Where(module =>
+                    string.Equals(module.RelativePath, relative,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Path.GetFileName(module.RelativePath),
+                        Path.GetFileName(relative),
+                        StringComparison.OrdinalIgnoreCase))
+                .Select(module => module.DocumentPath)
+                .Where(path => !string.IsNullOrWhiteSpace(path) &&
+                    Path.IsPathRooted(path) && File.Exists(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            return modulePaths.Length == 1 ? Path.GetFullPath(modulePaths[0]) : null;
         }
 
         private void showDebugExecutionLine(int oneBasedLine)

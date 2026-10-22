@@ -69,7 +69,7 @@ namespace DDFLanguageEditor.Runner
                         issue.Message);
                 }
                 else
-                    response = Execute(request, imported.Package,
+                    response = await ExecuteAsync(request, imported.Package,
                         reducedUserTokenApplied, duplexChannel);
             }
             catch (Exception exception)
@@ -86,7 +86,7 @@ namespace DDFLanguageEditor.Runner
             return 0;
         }
 
-        private static DdfDotNetWorkerResponse Execute(
+        private static async Task<DdfDotNetWorkerResponse> ExecuteAsync(
             DdfDotNetWorkerRequest request, DdfDotNetWorkerPackage package,
             bool reducedUserTokenApplied,
             DdfDotNetWorkerDuplexChannel duplexChannel)
@@ -157,13 +157,14 @@ namespace DDFLanguageEditor.Runner
                 DdfRuntimeExecutionResult result;
                 if (package.DebugPlan == null)
                 {
-                    result = session.Execute(new DdfRuntimeContext(
+                    result = await session.ExecuteAsync(new DdfRuntimeContext(
                         package.MaxInstructions, cancellation.Token,
                         writeOutput, readInput, brokerProvider));
                 }
                 else
                 {
-                    result = ExecuteDebugPlan(session, package.DebugPlan,
+                    result = await ExecuteDebugPlanAsync(session,
+                        package.DebugPlan,
                         package.MaxInstructions, cancellation, writeOutput,
                         readInput, brokerProvider, debugTrace, duplexChannel);
                 }
@@ -189,12 +190,12 @@ namespace DDFLanguageEditor.Runner
             }
             catch (DdfRuntimeException exception)
             {
-                return Failure(request.CorrelationId, exception.Code,
-                    exception.Message);
+                return Failure(request.CorrelationId, exception);
             }
         }
 
-        private static DdfRuntimeExecutionResult ExecuteDebugPlan(
+        private static async Task<DdfRuntimeExecutionResult>
+            ExecuteDebugPlanAsync(
             DdfDotNetStandaloneSession session,
             DdfDotNetWorkerDebugPlan plan, int maxInstructions,
             CancellationTokenSource cancellation, Action<string> output,
@@ -211,18 +212,23 @@ namespace DDFLanguageEditor.Runner
             debugger.SetBreakpoints(plan.Breakpoints.Select(value =>
                 new DdfDotNetSourceBreakpoint(value.SourcePath, value.Start,
                     value.Length)));
+            duplexChannel?.SetCooperativeDebugSnapshotProvider(() =>
+            {
+                DdfDotNetCompiledPause snapshot = debugger.LatestSnapshot;
+                return snapshot == null ? null : ProjectPause(snapshot);
+            });
             var context = new DdfRuntimeContext(maxInstructions,
                 cancellation.Token, output, input, capabilities,
                 debugObserver: debugger);
             IReadOnlyList<DdfDotNetDebugCommand> commands = plan.Commands is null
                 ? Array.Empty<DdfDotNetDebugCommand>()
                 : plan.Commands;
-            Task<DdfRuntimeExecutionResult> execution = Task.Run(() =>
-                session.Execute(context), cancellation.Token);
+            Task<DdfRuntimeExecutionResult> execution = Task.Run(async () =>
+                await session.ExecuteAsync(context), cancellation.Token);
             var wait = Stopwatch.StartNew();
             while (!execution.IsCompleted)
             {
-                if (debugger.WaitForPause(TimeSpan.FromMilliseconds(20)))
+                if (debugger.WaitForPause(TimeSpan.Zero))
                 {
                     DdfDotNetCompiledPause pause = debugger.CurrentPause;
                     if (pause == null) continue;
@@ -258,17 +264,21 @@ namespace DDFLanguageEditor.Runner
                     continue;
                 }
                 if (wait.ElapsedMilliseconds <=
-                    plan.PauseTimeoutMilliseconds) continue;
+                    plan.PauseTimeoutMilliseconds)
+                {
+                    await Task.Delay(20);
+                    continue;
+                }
                 cancellation.Cancel();
                 debugger.Dispose();
-                try { execution.GetAwaiter().GetResult(); }
+                try { await execution; }
                 catch (Exception) { }
                 throw new DdfRuntimeException("DDFC543",
                     "Timeout durante l'esecuzione del piano debug worker.",
                     default);
             }
             DdfRuntimeExecutionResult result;
-            try { result = execution.GetAwaiter().GetResult(); }
+            try { result = await execution; }
             catch (OperationCanceledException) when (plan.Interactive)
             {
                 throw new DdfRuntimeException("DDFC550",
@@ -314,7 +324,9 @@ namespace DDFLanguageEditor.Runner
             Kind = value.Kind,
             DisplayValue = value.DisplayValue,
             Children = value.Children.Select(ProjectVariable).ToList(),
-            IsTruncated = value.IsTruncated
+            IsTruncated = value.IsTruncated,
+            IsReadOnly = value.IsReadOnly,
+            IsFixed = value.IsFixed
         };
 
         private static bool SupportedResult(object value) => value == null ||
@@ -353,6 +365,32 @@ namespace DDFLanguageEditor.Runner
             Success = false,
             ErrorCode = code ?? "DDFC533",
             ErrorMessage = message ?? "Esecuzione worker fallita."
+        };
+
+        private static DdfDotNetWorkerResponse Failure(string correlationId,
+            DdfRuntimeException exception)
+        {
+            DdfDotNetWorkerResponse response = Failure(correlationId,
+                exception?.Code, exception?.Message);
+            if (exception == null) return response;
+            response.ErrorLocation = Location(exception.Location);
+            response.ErrorStack = exception.Frames.Select(frame =>
+                new DdfDotNetWorkerErrorFrame
+                {
+                    SymbolId = frame.FunctionSymbolId,
+                    Declaration = Location(frame.Declaration),
+                    Location = Location(frame.Location)
+                }).ToList();
+            return response;
+        }
+
+        private static DdfDotNetWorkerSourceLocation Location(
+            DdfRuntimeSourceLocation location) => new()
+        {
+            DocumentPath = location.DocumentPath,
+            Start = location.Start,
+            Length = location.Length,
+            SymbolId = location.SymbolId
         };
     }
 }

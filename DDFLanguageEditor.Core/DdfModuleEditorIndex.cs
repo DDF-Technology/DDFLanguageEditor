@@ -195,12 +195,14 @@ namespace DDFLanguageEditor.Core
         {
             FunctionDeclarationSyntax function => function.Name,
             StructDeclarationSyntax structure => structure.Name,
+            EnumDeclarationSyntax enumeration => enumeration.Name,
             GlobalStatementSyntax global when global.Statement is VariableDeclarationStatementSyntax variable => variable.Name,
             _ => string.Empty
         };
 
         private static bool IsVisible(DdfSymbolKind kind) =>
             kind == DdfSymbolKind.Library || kind == DdfSymbolKind.Structure ||
+            kind == DdfSymbolKind.Enumeration ||
             kind == DdfSymbolKind.Function || kind == DdfSymbolKind.Variable;
 
         private static bool SamePath(string left, string right) =>

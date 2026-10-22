@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/optional-values-design-1.0.json",
+  "title": "DDF optional values design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "keywords", "grammar", "rules", "initialRestrictions", "equality", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-optional-values-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0030" },
+    "targetLanguageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "keywords": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" }
+    },
+    "grammar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "optionalType", "presentExpression", "absentExpression", "optionalSelection", "whenSomeClause", "whenNoneClause" ],
+      "properties": {
+        "optionalType": { "type": "string", "minLength": 1 },
+        "presentExpression": { "type": "string", "minLength": 1 },
+        "absentExpression": { "type": "string", "minLength": 1 },
+        "optionalSelection": { "type": "string", "minLength": 1 },
+        "whenSomeClause": { "type": "string", "minLength": 1 },
+        "whenNoneClause": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "nullIsNeverAValue", "implicitWrapForbidden", "implicitUnwrapForbidden", "unsafePayloadAccessForbidden", "presenceAndAbsenceMustBothBeHandled", "otherwiseForbiddenForOptionalSelection", "someBindingImmutableAndScoped", "noneIsContextuallyTyped", "uninitializedOptionalDefaultsToNone", "absenceIsNotAnError", "clrNullConversionForbidden", "backendNeutralRepresentationRequired" ],
+      "properties": {
+        "nullIsNeverAValue": { "const": true },
+        "implicitWrapForbidden": { "const": true },
+        "implicitUnwrapForbidden": { "const": true },
+        "unsafePayloadAccessForbidden": { "const": true },
+        "presenceAndAbsenceMustBothBeHandled": { "const": true },
+        "otherwiseForbiddenForOptionalSelection": { "const": true },
+        "someBindingImmutableAndScoped": { "const": true },
+        "noneIsContextuallyTyped": { "const": true },
+        "uninitializedOptionalDefaultsToNone": { "const": true },
+        "absenceIsNotAnError": { "const": true },
+        "clrNullConversionForbidden": { "const": true },
+        "backendNeutralRepresentationRequired": { "const": true }
+      }
+    },
+    "initialRestrictions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "nestedOptional", "voidPayload", "errorPayload", "stateOptional" ],
+      "properties": {
+        "nestedOptional": { "const": "forbidden" },
+        "voidPayload": { "const": "forbidden" },
+        "errorPayload": { "const": "forbidden" },
+        "stateOptional": { "const": "deferred-until-persistence-schema-support" }
+      }
+    },
+    "equality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "requiresSameOptionalType", "payloadMustSupportEquality", "noneEqualsNone", "presenceDiffersFromAbsence" ],
+      "properties": {
+        "requiresSameOptionalType": { "const": true },
+        "payloadMustSupportEquality": { "const": true },
+        "noneEqualsNone": { "const": true },
+        "presenceDiffersFromAbsence": { "const": true }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "irRepresentation", "debuggerDisplay", "flowchartBranches", "hostBoundary", "fingerprintsIncludeOptionalShape" ],
+      "properties": {
+        "irRepresentation": { "type": "string", "minLength": 1 },
+        "debuggerDisplay": { "type": "string", "minLength": 1 },
+        "flowchartBranches": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "hostBoundary": { "type": "string", "minLength": 1 },
+        "fingerprintsIncludeOptionalShape": { "const": true }
+      }
+    }
+  }
+}

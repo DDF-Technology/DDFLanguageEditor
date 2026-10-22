@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
@@ -28,23 +29,40 @@ namespace DDF___Program_Language_Editor
 
         public static HotExitSnapshot Parse(string value)
         {
-            if (string.IsNullOrWhiteSpace(value)) return null;
+            return ParseVersioned(value).Value;
+        }
+
+        public static DdfPersistenceReadResult<HotExitSnapshot> ParseVersioned(
+            string value)
+        {
+            DdfPersistencePreparation preparation =
+                DdfPersistenceSerialization.PrepareJson(
+                    DdfPersistenceArtifactKind.HotExitSession, value);
+            if (!preparation.Succeeded)
+                return DdfPersistenceReadResult<HotExitSnapshot>.Failed(value,
+                    preparation, preparation.Failure);
             try
             {
-                HotExitSnapshot snapshot = JsonSerializer.Deserialize<HotExitSnapshot>(value);
+                HotExitSnapshot snapshot = JsonSerializer.Deserialize<HotExitSnapshot>(
+                    preparation.PreparedArtifact.Payload);
                 if (snapshot == null || snapshot.FormatVersion != 1 || snapshot.Documents == null || snapshot.Documents.Count == 0)
-                    return null;
+                    return DdfPersistenceReadResult<HotExitSnapshot>.Failed(value,
+                        preparation, "Hot Exit non contiene documenti validi.");
                 snapshot.Documents = snapshot.Documents
                     .Where(document => document != null && document.Source != null)
                     .Select(sanitize)
                     .ToList();
-                if (snapshot.Documents.Count == 0) return null;
+                if (snapshot.Documents.Count == 0)
+                    return DdfPersistenceReadResult<HotExitSnapshot>.Failed(value,
+                        preparation, "Hot Exit non contiene buffer leggibili.");
                 snapshot.ActiveDocumentIndex = Math.Max(0, Math.Min(snapshot.Documents.Count - 1, snapshot.ActiveDocumentIndex));
-                return snapshot;
+                return DdfPersistenceReadResult<HotExitSnapshot>.Success(value,
+                    preparation, snapshot);
             }
-            catch (JsonException)
+            catch (JsonException exception)
             {
-                return null;
+                return DdfPersistenceReadResult<HotExitSnapshot>.Failed(value,
+                    preparation, "Hot Exit non valido: " + exception.Message);
             }
         }
 

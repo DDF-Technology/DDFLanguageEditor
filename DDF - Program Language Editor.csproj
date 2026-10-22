@@ -8,10 +8,14 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Version>0.12.5</Version>
+    <FileVersion>0.12.5.0</FileVersion>
+    <AssemblyVersion>0.12.5.0</AssemblyVersion>
+    <InformationalVersion>0.12.5</InformationalVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Cli\**;DDFLanguageEditor.Compiler\**;DDFLanguageEditor.Core\**;DDFLanguageEditor.Data\**;DDFLanguageEditor.Network\**;DDFLanguageEditor.Storage\**;DDFLanguageEditor.Hardware\**;DDFLanguageEditor.Runtime\**;DDFLanguageEditor.Runner\**;tests\**;samples\**</DefaultItemExcludes>
     <IsPackable>true</IsPackable>
     <PackageId>DDFLanguageEditor.WinForms</PackageId>
-    <PackageVersion>0.11.2-beta</PackageVersion>
+    <PackageVersion>0.12.5-beta</PackageVersion>
     <Authors>Fabio De Deo</Authors>
     <Company>DDF.Technology</Company>
     <Description>WinForms controls and full embeddable shell for DDFLanguageEditor.</Description>
@@ -28,6 +32,10 @@
   <ItemGroup>
     <None Update="LICENSE" Pack="true" PackagePath="" />
     <None Update="EDITOR_SDK.md" Pack="true" PackagePath="" />
+    <None Update="ddf-version-matrix.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Update="ddf-version-matrix.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Update="DDF_LANGUAGE_INTEGRATION.md" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Update="DDF_BACKEND_EQUIVALENCE.md" Pack="true" PackagePath="contentFiles\any\any\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,6 +47,10 @@
     <Content Include="language-semantics.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="language-runtime.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="language-standard-library.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="ddf-language-integration.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
+    <Content Include="ddf-language-integration.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
+    <Content Include="ddf-backend-equivalence.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
+    <Content Include="ddf-backend-equivalence.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
     <Content Include="language-build.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="language-tests.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="type-system-corpus.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -76,6 +88,7 @@
     <Compile Update="Main.Accessibility.cs" DependentUpon="Main.cs" />
     <Compile Update="TextBoxEditingSupport.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Palettes.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.PaletteClipboard.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Documents.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.ContextMenu.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Selection.cs" DependentUpon="Main.cs" />

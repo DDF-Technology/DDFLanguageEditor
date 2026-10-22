@@ -1,0 +1,43 @@
+{
+  "$schema": "./ddf-module-qualification-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0031",
+  "targetLanguageVersion": "0.16",
+  "targetProjectManifestVersion": "1.3",
+  "qualificationToken": "::",
+  "manifest": {
+    "dependencyAliasProperty": "alias",
+    "aliasRequired": true,
+    "aliasScope": "consumer-module",
+    "migrationRequiresConfirmation": true
+  },
+  "grammar": {
+    "qualifiedName": "dependency-alias '::' exported-name",
+    "qualifiedType": "dependency-alias '::' exported-type",
+    "qualifiedEnumMember": "dependency-alias '::' exported-enum '.' member"
+  },
+  "rules": {
+    "directDependenciesOnly": true,
+    "exportsOnly": true,
+    "unqualifiedExternalLookupForbidden": true,
+    "transitiveLookupForbidden": true,
+    "privateLookupForbidden": true,
+    "wildcardImportsForbidden": true,
+    "individualSymbolAliasesForbidden": true,
+    "implicitReExportsForbidden": true,
+    "pathDerivedNamespacesForbidden": true,
+    "aliasInferenceForbidden": true,
+    "duplicateAliasesRejected": true,
+    "aliasesCannotBeKeywords": true,
+    "bindingUsesStableSymbolIdentity": true
+  },
+  "diagnostics": [ "DDF330", "DDF331", "DDF332", "DDF333", "DDF334", "DDF335", "DDF336" ],
+  "integration": {
+    "fingerprintsIncludeAliasTable": true,
+    "artifactsIncludeAliasTable": true,
+    "sourceMapsPreserveQualifiedNames": true,
+    "renameUpdatesManifestAndConsumerSources": true,
+    "installedModuleSourcesRemainReadOnly": true
+  }
+}

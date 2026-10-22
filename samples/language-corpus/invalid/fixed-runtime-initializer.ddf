@@ -1,0 +1,11 @@
+seed() out int
+{
+    ret 42;
+}
+
+fixed int answer << seed();
+
+main() out int
+{
+    ret answer;
+}

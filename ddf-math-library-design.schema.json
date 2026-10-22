@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/math-library-design-1.0.json",
+  "title": "DDF math library design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "targetStandardLibraryVersion", "transcendentalAlgorithm", "angleUnit", "functions", "domains", "rules", "constants", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-math-library-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0036" },
+    "targetLanguageVersion": { "const": "0.21" },
+    "targetStandardLibraryVersion": { "const": "0.21.0" },
+    "transcendentalAlgorithm": { "const": "ddf.math.transcendental.v1" },
+    "angleUnit": { "const": "radian" },
+    "functions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "domains": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "sqrt", "log", "log10", "asin", "acos", "powerFloat", "roundFloatDigits", "roundDecimalDigits" ],
+      "properties": {
+        "sqrt": { "const": "x>=0" },
+        "log": { "const": "x>0" },
+        "log10": { "const": "x>0" },
+        "asin": { "const": "-1<=x<=1" },
+        "acos": { "const": "-1<=x<=1" },
+        "powerFloat": { "const": "base>=0 || exponent-is-exact-integer" },
+        "roundFloatDigits": { "const": "0..15" },
+        "roundDecimalDigits": { "const": "0..28" }
+      }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "overloadsForbidden", "functionsArePure", "argumentsEvaluateLeftToRightOnce", "integerAbsoluteValueIsChecked", "signedZeroRulesAreExplicit", "clampRequiresOrderedBounds", "roundingIsNearestTiesToEven", "zeroPowerZeroIsOne", "nonFiniteInputsForbidden", "nonFiniteResultsForbidden", "fixedCallsInitiallyForbidden", "randomnessAndTimeExcluded", "directPlatformMathForbidden" ],
+      "properties": {
+        "overloadsForbidden": { "const": true },
+        "functionsArePure": { "const": true },
+        "argumentsEvaluateLeftToRightOnce": { "const": true },
+        "integerAbsoluteValueIsChecked": { "const": true },
+        "signedZeroRulesAreExplicit": { "const": true },
+        "clampRequiresOrderedBounds": { "const": true },
+        "roundingIsNearestTiesToEven": { "const": true },
+        "zeroPowerZeroIsOne": { "const": true },
+        "nonFiniteInputsForbidden": { "const": true },
+        "nonFiniteResultsForbidden": { "const": true },
+        "fixedCallsInitiallyForbidden": { "const": true },
+        "randomnessAndTimeExcluded": { "const": true },
+        "directPlatformMathForbidden": { "const": true }
+      }
+    },
+    "constants": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "piBinary64Hex", "eBinary64Hex" ],
+      "properties": {
+        "piBinary64Hex": { "const": "400921fb54442d18" },
+        "eBinary64Hex": { "const": "4005bf0a8b145769" }
+      }
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "extendedNumericsRequired", "irUsesDdfMathOperations", "referenceVectorsRequired", "binary64ResultsMustMatch", "vmRoslynAndFutureVmMustBeEquivalent" ],
+      "properties": {
+        "extendedNumericsRequired": { "const": true },
+        "irUsesDdfMathOperations": { "const": true },
+        "referenceVectorsRequired": { "const": true },
+        "binary64ResultsMustMatch": { "const": true },
+        "vmRoslynAndFutureVmMustBeEquivalent": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

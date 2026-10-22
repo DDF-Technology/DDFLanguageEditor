@@ -1,0 +1,7 @@
+state int counter << 0;
+
+main() out int
+{
+    counter++;
+    ret counter;
+}

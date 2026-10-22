@@ -1,0 +1,54 @@
+{
+  "$schema": "./ddf-temporal-random-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0037",
+  "targetLanguageVersion": "0.22",
+  "targetStandardLibraryVersion": "0.22.0",
+  "types": [ "date", "time", "datetime", "instant", "duration" ],
+  "resolutionNanoseconds": 100,
+  "calendar": "proleptic-gregorian",
+  "yearRange": "0001..9999",
+  "instantEpoch": "1970-01-01T00:00:00.0000000Z",
+  "utcOffsetMinutesRange": "-840..840",
+  "functions": [ "dateFromParts", "dateYear", "dateMonth", "dateDay", "dateAddDays", "dateDaysBetween", "timeFromParts", "timeHour", "timeMinute", "timeSecond", "timeSubsecondTicks", "datetimeFromParts", "datetimeDate", "datetimeTime", "datetimeAdd", "datetimeDifference", "durationFromTicks", "durationFromMilliseconds", "durationTicks", "durationAdd", "durationSubtract", "durationNegate", "instantFromDatetime", "datetimeFromInstant", "instantAdd", "instantDifference", "dateText", "timeText", "datetimeText", "instantText", "durationText", "parseDate", "parseTime", "parseDatetime", "parseInstant", "parseDuration", "currentInstant", "randomInt", "randomLong", "randomFloat" ],
+  "providers": {
+    "clock": "ddf.clock.v1",
+    "random": "ddf.random.v1"
+  },
+  "canonicalFormats": {
+    "date": "yyyy-MM-dd",
+    "time": "HH:mm:ss.fffffff",
+    "datetime": "yyyy-MM-ddTHH:mm:ss.fffffff",
+    "instant": "yyyy-MM-ddTHH:mm:ss.fffffffZ",
+    "duration": "signed-ticks+ticks"
+  },
+  "rules": {
+    "valuesAreNonNull": true,
+    "leapSecondsExcluded": true,
+    "implicitDatetimeToInstantForbidden": true,
+    "systemTimezoneForbidden": true,
+    "ianaTimezoneRequiresVersionedModule": true,
+    "temporalArithmeticIsChecked": true,
+    "temporalOperatorsInitiallyForbidden": true,
+    "canonicalParsingIsCultureIndependent": true,
+    "currentInstantRequiresProvider": true,
+    "randomRequiresProvider": true,
+    "randomIntegerUpperBoundIsExclusive": true,
+    "randomFloatIsZeroInclusiveOneExclusive": true,
+    "moduloBiasedRandomForbidden": true,
+    "globalRandomStateForbidden": true,
+    "sleepAndTimersInitiallyExcluded": true,
+    "fixedCallsInitiallyForbidden": true,
+    "clrTemporalTypesForbiddenInIr": true
+  },
+  "diagnostics": [ "DDF363", "DDF364", "DDF365", "DDF366", "DDF367", "DDF368", "DDF369" ],
+  "integration": {
+    "maybeAndStringLibrariesRequired": true,
+    "extendedNumericsRequired": true,
+    "stateRequiresVersionedSchema": true,
+    "providersAreRevocableAndQuotaBound": true,
+    "deterministicSnapshotsSupported": true,
+    "vmRoslynAndFutureVmMustBeEquivalent": true
+  }
+}

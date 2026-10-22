@@ -56,6 +56,7 @@ namespace DDFLanguageEditor.Core
                 [DdfFlowchartNodeKind.LoopDecision] = "Controllo di ciclo {code}: la condizione decide se eseguire o ripetere il corpo del ciclo oppure proseguire dopo di esso.",
                 [DdfFlowchartNodeKind.Return] = "Ritorno {code}: termina la funzione e restituisce il valore al chiamante.",
                 [DdfFlowchartNodeKind.Break] = "Interruzione del ciclo: il flusso esce immediatamente dal ciclo più vicino.",
+                [DdfFlowchartNodeKind.Continue] = "Continuazione del ciclo: il flusso salta il resto dell'iterazione e passa alla verifica successiva.",
                 [DdfFlowchartNodeKind.Terminate] = "Terminazione esplicita: l'esecuzione del percorso corrente viene conclusa.",
                 [DdfFlowchartNodeKind.Partial] = "Nodo parziale: il codice è ancora incompleto e questa rappresentazione potrebbe cambiare durante la correzione.",
                 [DdfFlowchartNodeKind.Group] = "Gruppo compatto: raccoglie più istruzioni sequenziali. Un doppio clic mostra i singoli passaggi."
@@ -173,7 +174,9 @@ namespace DDFLanguageEditor.Core
             {
                 new DdfSymbolPresentation(DdfSymbolKind.Library, "libreria", "Direttiva di libreria DDF."),
                 new DdfSymbolPresentation(DdfSymbolKind.Structure, "struttura", "Struttura dati dichiarata nel sorgente DDF."),
-                new DdfSymbolPresentation(DdfSymbolKind.Function, "funzione", "Funzione dichiarata nel sorgente DDF."),
+                new DdfSymbolPresentation(DdfSymbolKind.Enumeration, "enum", "Insieme nominale di valori simbolici tipizzati."),
+                new DdfSymbolPresentation(DdfSymbolKind.EnumerationMember, "valore enum", "Valore simbolico appartenente a un enum DDF."),
+                new DdfSymbolPresentation(DdfSymbolKind.Function, "funzione di modulo", "Funzione top-level appartenente al modulo DDF; non richiede né ammette il modificatore static."),
                 new DdfSymbolPresentation(DdfSymbolKind.Parameter, "parametro", "Parametro della funzione corrente."),
                 new DdfSymbolPresentation(DdfSymbolKind.Field, "campo", "Campo di una struttura DDF."),
                 new DdfSymbolPresentation(DdfSymbolKind.Variable, "variabile", "Variabile visibile nel relativo ambito DDF.")

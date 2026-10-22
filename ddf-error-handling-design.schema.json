@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/error-handling-design-1.0.json",
+  "title": "DDF error handling design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "keywords", "grammar", "rules", "errorValueMembers", "cleanupPrecedence", "guarantees" ],
+  "properties": {
+    "$schema": { "const": "./ddf-error-handling-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0029" },
+    "targetLanguageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "keywords": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" }
+    },
+    "grammar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "protectedStatement", "recoverClause", "alwaysClause", "functionErrors", "raiseStatement", "errorSelector" ],
+      "properties": {
+        "protectedStatement": { "type": "string", "minLength": 1 },
+        "recoverClause": { "type": "string", "minLength": 1 },
+        "alwaysClause": { "type": "string", "minLength": 1 },
+        "functionErrors": { "type": "string", "minLength": 1 },
+        "raiseStatement": { "type": "string", "minLength": 1 },
+        "errorSelector": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "requiresRecoverOrAlways", "exactTypedMatching", "genericRecoverMustBeLast", "duplicateRecoverRejected", "handlerValueImmutable", "functionDeclarationsRequired", "engineFaultsBypassRecover", "alwaysRunsExactlyOnce", "raisePreservesIdentityAndStack", "stateCommitsOnlyAfterSuccessfulCompletion" ],
+      "properties": {
+        "requiresRecoverOrAlways": { "const": true },
+        "exactTypedMatching": { "const": true },
+        "genericRecoverMustBeLast": { "const": true },
+        "duplicateRecoverRejected": { "const": true },
+        "handlerValueImmutable": { "const": true },
+        "functionDeclarationsRequired": { "const": true },
+        "engineFaultsBypassRecover": { "const": true },
+        "alwaysRunsExactlyOnce": { "const": true },
+        "raisePreservesIdentityAndStack": { "const": true },
+        "stateCommitsOnlyAfterSuccessfulCompletion": { "const": true }
+      }
+    },
+    "errorValueMembers": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" }
+    },
+    "cleanupPrecedence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "normalOrHandled", "recoverablePending", "engineFaultPending" ],
+      "properties": {
+        "normalOrHandled": { "type": "string", "minLength": 1 },
+        "recoverablePending": { "type": "string", "minLength": 1 },
+        "engineFaultPending": { "type": "string", "minLength": 1 }
+      }
+    },
+    "guarantees": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "cooperativeRuntime", "processTermination" ],
+      "properties": {
+        "cooperativeRuntime": { "type": "string", "minLength": 1 },
+        "processTermination": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

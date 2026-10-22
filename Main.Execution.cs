@@ -407,14 +407,17 @@ namespace DDF___Program_Language_Editor
         private void updateExecutionCommands(bool running)
         {
             bool paused = running && panelEditor.DebugService?.IsPaused == true;
+            bool awaitingCapability = running && panelEditor.DebugService?.State ==
+                DdfEditorDebugState.AwaitingCapability;
+            bool inspectable = paused || awaitingCapability;
             bool busy = running || compiledBuildRunning;
             bool compiledRunCancellable = compiledBuildRunning &&
                 compiledBuildCancellation != null;
             bool runtimeControlsVisible = !embeddedHostMode || busy;
             setDebugUiLock(busy);
-            updateWatchExecutionState(running, paused);
-            updateVariablesExecutionState(running, paused);
-            updateCallStackExecutionState(running, paused);
+            updateWatchExecutionState(running, inspectable);
+            updateVariablesExecutionState(running, inspectable);
+            updateCallStackExecutionState(running, inspectable);
             runProgramMenuItem.Enabled = !compiledBuildRunning &&
                 (!running || paused);
             runProgramMenuItem.Text = paused ? "&Continua" : "Avvia &debug";
@@ -497,7 +500,7 @@ namespace DDF___Program_Language_Editor
             bool canStepOut = paused && watchSnapshot?.CallStack != null && watchSnapshot.CallStack.Count > 1;
             if (stepOutMenuItem != null) stepOutMenuItem.Enabled = canStepOut;
             if (toolbarStepOutButton != null) toolbarStepOutButton.Enabled = canStepOut;
-            updateDebugStatus(running, paused);
+            updateDebugStatus(running, paused, awaitingCapability);
             refreshEditorCommandCatalog();
         }
 
@@ -527,7 +530,8 @@ namespace DDF___Program_Language_Editor
                 if (DebugUnsafeMenuCommands.Contains(item.Name)) item.Enabled = false;
         }
 
-        private void updateDebugStatus(bool running, bool paused)
+        private void updateDebugStatus(bool running, bool paused,
+            bool awaitingCapability = false)
         {
             if (statusDebugLabel == null) return;
             if (!debugUiLocked) { running = false; paused = false; }
@@ -543,11 +547,22 @@ namespace DDF___Program_Language_Editor
                 setToolbarsBackColor(AppTheme.Chrome);
                 return;
             }
-            statusDebugLabel.Text = paused ? "⏸ DEBUG IN PAUSA" : "● DEBUG IN ESECUZIONE";
-            statusDebugLabel.BackColor = paused ? Color.FromArgb(255, 193, 7) : AppTheme.Run;
-            statusDebugLabel.ForeColor = paused ? Color.FromArgb(32, 32, 32) : Color.White;
-            setToolbarsBackColor(paused ? Color.FromArgb(255, 248, 225) : Color.FromArgb(232, 245, 233));
-            Text = (debugBaseWindowTitle ?? Text) + (paused ? " — [DEBUG IN PAUSA]" : " — [DEBUG IN ESECUZIONE]");
+            statusDebugLabel.Text = awaitingCapability
+                ? "⌛ DEBUG IN ATTESA"
+                : paused ? "⏸ DEBUG IN PAUSA" : "● DEBUG IN ESECUZIONE";
+            statusDebugLabel.BackColor = awaitingCapability
+                ? Color.FromArgb(2, 119, 189)
+                : paused ? Color.FromArgb(255, 193, 7) : AppTheme.Run;
+            statusDebugLabel.ForeColor = paused && !awaitingCapability
+                ? Color.FromArgb(32, 32, 32) : Color.White;
+            setToolbarsBackColor(awaitingCapability
+                ? Color.FromArgb(227, 242, 253)
+                : paused ? Color.FromArgb(255, 248, 225) :
+                    Color.FromArgb(232, 245, 233));
+            Text = (debugBaseWindowTitle ?? Text) + (awaitingCapability
+                ? " — [DEBUG IN ATTESA CAPABILITY]"
+                : paused ? " — [DEBUG IN PAUSA]" :
+                    " — [DEBUG IN ESECUZIONE]");
         }
 
         private void finishExecution(DdfEditorExecutionCompletion completion)
@@ -580,6 +595,19 @@ namespace DDF___Program_Language_Editor
             {
                 DdfExecutionResult result = completion.ExecutionResult;
                 LastEmbeddedExecutionResult = result;
+                if (result.Error != null)
+                {
+                    string errorText = (result.Error.Kind == DdfErrorKind.Recoverable
+                            ? "Errore DDF recuperabile: "
+                            : "Fault DDF: ") + result.Error.TypeId + " (" +
+                        result.Error.Code + ") — " + result.Error.Message;
+                    lines.Add(!string.IsNullOrEmpty(result.Error.DocumentPath) &&
+                              File.Exists(result.Error.DocumentPath)
+                        ? new OutputLine(errorText, result.Error.DocumentPath,
+                            result.Error.Start, result.Error.Length)
+                        : new OutputLine(errorText, result.Error.Start,
+                            result.Error.Length));
+                }
                 foreach (DdfDiagnostic diagnostic in result.Diagnostics)
                     lines.Add(!string.IsNullOrEmpty(diagnostic.DocumentPath) && File.Exists(diagnostic.DocumentPath)
                         ? new OutputLine(diagnostic.ToString(), diagnostic.DocumentPath, diagnostic.Start, diagnostic.Length)
@@ -719,9 +747,19 @@ namespace DDF___Program_Language_Editor
 
         private void navigateToRuntimeSpan(string documentPath, int start, int length)
         {
+            navigateToRuntimeSpan(null, documentPath, start, length);
+        }
+
+        private void navigateToRuntimeSpan(string documentId,
+            string documentPath, int start, int length)
+        {
             navigateWithHistory(() =>
             {
-                if (!string.IsNullOrEmpty(documentPath))
+                if (!string.IsNullOrEmpty(documentId) &&
+                    documentViews.TryGetValue(documentId,
+                        out DocumentView targetView))
+                    activateDocument(targetView);
+                else if (!string.IsNullOrEmpty(documentPath))
                 {
                     if (!openDocument(documentPath)) return false;
                 }

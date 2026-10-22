@@ -34,6 +34,7 @@ String: string tagName
 Array: dataType[n] tagName
 Dizionario: dict dataType tagName{ID tagName, Value}
 Strutture: struct dataType tagName{dataType tagName_1, dataType tagName_2, ...} 
+Enumerazioni nominali: enum tagName{value_1, value_2, ...}; uso qualificato tagName.value_1, senza conversione implicita a intero o stringa
 
 OPERATORI DI BASE:
 ----------------------------------------------------
@@ -75,6 +76,8 @@ OPERATORI DI FUNZIONE:
 ----------------------------------------------------
 Return: ret
 Break: brk
+Continue: continue
+Selezione multipla: select(value){when constant{...} otherwise{...}}; nessun fall-through, casi univoci, otherwise unico e ultimo
 End: end
 
 CONTROLLO FLUSSO:

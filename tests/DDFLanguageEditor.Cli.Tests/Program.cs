@@ -42,8 +42,8 @@ namespace DDFLanguageEditor.Cli.Tests
                 Result tested = Invoke("test", root, "--diagnostics", "json");
                 Require(tested.ExitCode == 0 &&
                     tested.Output.Contains("\"state\": \"passed\"") &&
-                    tested.Output.Contains("\"total\": 7") &&
-                    tested.Output.Contains("\"passed\": 7") &&
+                    tested.Output.Contains("\"total\": 13") &&
+                    tested.Output.Contains("\"passed\": 13") &&
                     tested.Output.Contains("\"failed\": 0") &&
                     tested.Output.Contains(
                         "\"name\": \"corpus:control-flow\""),

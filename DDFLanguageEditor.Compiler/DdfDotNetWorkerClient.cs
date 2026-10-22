@@ -73,7 +73,7 @@ namespace DDFLanguageEditor.Compiler
         {
             return await ExecuteCoreAsync(workerPath, request, limits,
                 Array.Empty<DdfDotNetWorkerFileCommitTarget>(),
-                null, cancellationToken);
+                null, null, cancellationToken);
         }
 
         public static async Task<DdfDotNetWorkerExecutionResult> ExecuteAsync(
@@ -83,7 +83,7 @@ namespace DDFLanguageEditor.Compiler
             CancellationToken cancellationToken = default)
         {
             return await ExecuteCoreAsync(workerPath, request, limits,
-                commitTargets, null, cancellationToken);
+                commitTargets, null, null, cancellationToken);
         }
 
         public static async Task<DdfDotNetWorkerExecutionResult>
@@ -97,7 +97,23 @@ namespace DDFLanguageEditor.Compiler
                 nameof(capabilityHandler));
             return await ExecuteCoreAsync(workerPath, request, limits,
                 Array.Empty<DdfDotNetWorkerFileCommitTarget>(),
-                capabilityHandler, cancellationToken);
+                capabilityHandler, null, cancellationToken);
+        }
+
+        public static async Task<DdfDotNetWorkerExecutionResult>
+            ExecuteDuplexAsync(string workerPath,
+                DdfDotNetWorkerRequest request,
+                DdfDotNetWorkerResourceLimits limits,
+                IDdfDotNetWorkerDuplexCapabilityHandler capabilityHandler,
+                IDdfDotNetWorkerCooperativeExecutionObserver
+                    cooperativeObserver,
+                CancellationToken cancellationToken = default)
+        {
+            if (capabilityHandler == null) throw new ArgumentNullException(
+                nameof(capabilityHandler));
+            return await ExecuteCoreAsync(workerPath, request, limits,
+                Array.Empty<DdfDotNetWorkerFileCommitTarget>(),
+                capabilityHandler, cooperativeObserver, cancellationToken);
         }
 
         private static async Task<DdfDotNetWorkerExecutionResult>
@@ -105,6 +121,7 @@ namespace DDFLanguageEditor.Compiler
                 DdfDotNetWorkerResourceLimits limits,
                 IEnumerable<DdfDotNetWorkerFileCommitTarget> commitTargets,
                 IDdfDotNetWorkerDuplexCapabilityHandler capabilityHandler,
+                IDdfDotNetWorkerCooperativeExecutionObserver cooperativeObserver,
                 CancellationToken cancellationToken)
         {
             var issues = new List<DdfDotNetContractIssue>();
@@ -227,7 +244,7 @@ namespace DDFLanguageEditor.Compiler
                 }
                 else
                     outputTask = ExchangeDuplexAsync(process, request,
-                        capabilityHandler, linked.Token);
+                        capabilityHandler, cooperativeObserver, linked.Token);
                 try
                 {
                     Task exitTask = process.WaitForExitAsync(linked.Token);
@@ -364,6 +381,7 @@ namespace DDFLanguageEditor.Compiler
         private static async Task<string> ExchangeDuplexAsync(Process process,
             DdfDotNetWorkerRequest request,
             IDdfDotNetWorkerDuplexCapabilityHandler capabilityHandler,
+            IDdfDotNetWorkerCooperativeExecutionObserver cooperativeObserver,
             CancellationToken cancellationToken)
         {
             var transcript = new DdfDotNetWorkerDuplexTranscript();
@@ -408,7 +426,8 @@ namespace DDFLanguageEditor.Compiler
                 {
                     DdfDotNetWorkerDuplexCapabilityResult result =
                         await InvokeLiveCapability(request, frame,
-                            capabilityHandler, cancellationToken);
+                            capabilityHandler, cooperativeObserver,
+                            cancellationToken);
                     var response = new DdfDotNetWorkerDuplexFrame
                     {
                         Kind = DdfDotNetWorkerDuplexFrameKind.CapabilityResponse,
@@ -466,6 +485,7 @@ namespace DDFLanguageEditor.Compiler
                 DdfDotNetWorkerRequest request,
                 DdfDotNetWorkerDuplexFrame frame,
                 IDdfDotNetWorkerDuplexCapabilityHandler capabilityHandler,
+                IDdfDotNetWorkerCooperativeExecutionObserver cooperativeObserver,
                 CancellationToken cancellationToken)
         {
             bool network = frame.CapabilityId ==
@@ -495,6 +515,11 @@ namespace DDFLanguageEditor.Compiler
                     "Capability live o risorsa non autorizzata.");
             try
             {
+                DdfDotNetWorkerCooperativeSuspension suspension =
+                    frame.CooperativeDebugSnapshot == null ? null :
+                        new DdfDotNetWorkerCooperativeSuspension(frame);
+                if (suspension != null)
+                    TryNotifyAwaiting(cooperativeObserver, suspension);
                 DdfDotNetWorkerDuplexCapabilityResult result =
                     await capabilityHandler.InvokeAsync(frame.CapabilityId,
                         frame.ArgumentsJson, cancellationToken);
@@ -527,6 +552,30 @@ namespace DDFLanguageEditor.Compiler
                     "Handler capability live fallito: " +
                     exception.Message);
             }
+            finally
+            {
+                if (frame.CooperativeDebugSnapshot != null)
+                    TryNotifyResumed(cooperativeObserver,
+                        new DdfDotNetWorkerCooperativeSuspension(frame));
+            }
+        }
+
+        private static void TryNotifyAwaiting(
+            IDdfDotNetWorkerCooperativeExecutionObserver observer,
+            DdfDotNetWorkerCooperativeSuspension suspension)
+        {
+            if (observer == null) return;
+            try { observer.OnAwaitingCapability(suspension); }
+            catch (Exception) { }
+        }
+
+        private static void TryNotifyResumed(
+            IDdfDotNetWorkerCooperativeExecutionObserver observer,
+            DdfDotNetWorkerCooperativeSuspension suspension)
+        {
+            if (observer == null) return;
+            try { observer.OnCapabilityResumed(suspension); }
+            catch (Exception) { }
         }
 
         private static bool TryReadDebugPause(string json)
@@ -569,16 +618,34 @@ namespace DDFLanguageEditor.Compiler
         private static async Task DrainAfterTermination(Task<string> outputTask,
             Task<string> errorTask)
         {
-            try { await outputTask; }
+            await DrainBounded(outputTask);
+            await DrainBounded(errorTask);
+        }
+
+        private static async Task DrainBounded(Task task)
+        {
+            if (task == null) return;
+            try { await task.WaitAsync(TimeSpan.FromMilliseconds(500)); }
+            catch (TimeoutException)
+            {
+                ObserveLateTask(task);
+            }
             catch (Exception exception) when (exception is IOException ||
                                                exception is InvalidDataException ||
                                                exception is OperationCanceledException ||
                                                exception is InvalidOperationException)
             { }
-            try { await errorTask; }
-            catch (Exception exception) when (exception is IOException ||
-                                               exception is InvalidOperationException)
-            { }
+        }
+
+        private static void ObserveLateTask(Task task)
+        {
+            _ = task.ContinueWith(completed =>
+                {
+                    _ = completed.Exception;
+                }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted |
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
 
         private static void ConfigureSanitizedEnvironment(ProcessStartInfo start,

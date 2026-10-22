@@ -8,13 +8,18 @@ namespace DDFLanguageEditor.Core
     {
         None,
         Structure,
+        Enumeration,
         ReturnTypeMarker,
         If,
+        Select,
+        When,
+        Otherwise,
         While,
         Do,
         For,
         Return,
         Break,
+        Continue,
         End
     }
 
@@ -22,14 +27,21 @@ namespace DDFLanguageEditor.Core
     {
         public const string None = "None";
         public const string Structure = "Structure";
+        public const string Enumeration = "Enumeration";
+        public const string Fixed = "Fixed";
+        public const string State = "State";
         public const string ReturnTypeMarker = "ReturnTypeMarker";
         public const string If = "If";
         public const string Else = "Else";
+        public const string Select = "Select";
+        public const string When = "When";
+        public const string Otherwise = "Otherwise";
         public const string While = "While";
         public const string Do = "Do";
         public const string For = "For";
         public const string Return = "Return";
         public const string Break = "Break";
+        public const string Continue = "Continue";
         public const string End = "End";
     }
 

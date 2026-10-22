@@ -31,8 +31,9 @@
                 "id": {
                   "enum": [
                     "VisitCompilationUnit", "ImportLibrary", "DeclareStructure", "DeclareFunction",
-                    "DeclareParameter", "Branch", "PreconditionLoop", "PostconditionLoop",
-                    "CountedLoop", "CreateScope", "DeclareVariable", "Return",
+                    "DeclareParameter", "DeclareEnumeration", "Branch", "Select",
+                    "PreconditionLoop", "PostconditionLoop", "CountedLoop", "Break",
+                    "Continue", "Terminate", "CreateScope", "DeclareVariable", "Return",
                     "EvaluateStatement", "InferExpression"
                   ]
                 },

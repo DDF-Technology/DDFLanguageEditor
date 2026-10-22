@@ -121,10 +121,22 @@ namespace DDFLanguageEditor.Core
                 function.ReturnType,
                 function.Signature,
                 "libreria standard",
-                function.Documentation,
+                DdfErrorPresentation.AppendDeclarations(
+                    function.Documentation, function.ErrorDefinitions),
                 0,
                 0,
                 new List<DdfHoverReference>().AsReadOnly());
+        }
+
+        public static DdfHoverInfo CreateForHostFunction(
+            DdfHostFunctionDefinition function)
+        {
+            if (function == null) throw new ArgumentNullException(nameof(function));
+            return new DdfHoverInfo(function.Name, "funzione host",
+                function.ReturnType, function.Signature, "Host",
+                DdfErrorPresentation.AppendDeclarations(
+                    function.Documentation, function.RecoverableErrors),
+                0, 0, new List<DdfHoverReference>().AsReadOnly());
         }
 
         public static DdfHoverInfo CreateForType(string typeName)
@@ -162,7 +174,8 @@ namespace DDFLanguageEditor.Core
 
         private static string GetTypeName(DdfDocumentSymbol symbol)
         {
-            if (symbol.Kind == DdfSymbolKind.Structure) return symbol.Name;
+            if (symbol.Kind == DdfSymbolKind.Structure ||
+                symbol.Kind == DdfSymbolKind.Enumeration) return symbol.Name;
             if (symbol.Kind != DdfSymbolKind.Function) return symbol.Detail;
             int arrow = symbol.Detail.LastIndexOf('→');
             return arrow < 0 ? string.Empty : symbol.Detail.Substring(arrow + 1).Trim();

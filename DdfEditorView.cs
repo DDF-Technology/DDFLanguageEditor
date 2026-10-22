@@ -12,7 +12,8 @@ namespace DDF___Program_Language_Editor
     /// Reusable host-facing editing surface. The standalone shell binds its active
     /// document editor to this control; an embedding host can also use it directly.
     /// </summary>
-    public sealed class DdfEditorView : UserControl, IDdfEditorSurface
+    public sealed class DdfEditorView : UserControl, IDdfEditorSurface,
+        IDdfEditorCapabilityProvider
     {
         private RichTextBox activeEditor;
         private bool settingSourceText;
@@ -38,6 +39,7 @@ namespace DDF___Program_Language_Editor
         private bool ownsExecutionService;
         private IDdfEditorDebugService debugService;
         private bool ownsDebugService;
+        private readonly IDdfEditorEventDispatcher eventDispatcher;
 
         public DdfEditorView() : this(true)
         {
@@ -53,6 +55,7 @@ namespace DDF___Program_Language_Editor
             AccessibleName = "Editor di codice DDF";
             AccessibleDescription = "Superficie editor incorporabile con testo e selezione controllabili dall'applicazione host.";
             manageHostEditingPreferences = createDefaultEditor;
+            eventDispatcher = new DdfWinFormsEventDispatcher(this);
 
             if (createDefaultEditor)
             {
@@ -79,18 +82,25 @@ namespace DDF___Program_Language_Editor
             AttachPreparationService(new DdfEditorPreparationService(
                 () => documentService, () => languageSession,
                 () => hostCatalog?.Snapshot));
+            var scriptStateStore = new DdfStateStore();
             AttachExecutionService(new DdfEditorExecutionService(
                 () => documentService, () => languageSession,
-                () => hostCatalog?.Snapshot), true);
+                () => hostCatalog?.Snapshot, scriptStateStore: scriptStateStore,
+                eventDispatcher: eventDispatcher), true);
             AttachDebugService(new DdfEditorDebugService(
                 () => documentService, () => languageSession,
-                () => hostCatalog?.Snapshot), true);
+                () => hostCatalog?.Snapshot, scriptStateStore: scriptStateStore,
+                eventDispatcher: eventDispatcher), true);
             AttachCommandService(new DdfEditorCommandCatalog());
         }
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public string ContractVersion => DdfEditorSdkContract.CurrentVersion;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IDdfEditorEventDispatcher EventDispatcher => eventDispatcher;
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -147,6 +157,36 @@ namespace DDF___Program_Language_Editor
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IDdfLanguagePackageSession LanguageSession => languageSession;
 
+        /// <summary>
+        /// Inspects every supplied editor buffer before a package switch. The
+        /// returned plan is read-only and never changes text or active language.
+        /// </summary>
+        public DdfLanguageMigrationPlan AnalyzeLanguageMigration(
+            DdfLanguagePackage targetPackage)
+        {
+            if (targetPackage == null)
+                throw new ArgumentNullException(nameof(targetPackage));
+            DdfLanguagePackage sourcePackage = languageSession?.ActivePackage ??
+                throw new InvalidOperationException(
+                    "Nessun pacchetto linguaggio è associato alla superficie.");
+            IReadOnlyList<IDdfEditorDocument> available = GetAvailableDocuments();
+            IEnumerable<DdfLanguageMigrationDocument> documents =
+                available.Count == 0
+                    ? new[]
+                    {
+                        new DdfLanguageMigrationDocument(string.Empty,
+                            SourceText)
+                    }
+                    : available.Select(document =>
+                        new DdfLanguageMigrationDocument(
+                            string.IsNullOrWhiteSpace(document.FilePath)
+                                ? document.Id
+                                : document.FilePath,
+                            document.SourceText));
+            return DdfLanguageMigrationAnalyzer.Analyze(documents,
+                sourcePackage, targetPackage);
+        }
+
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IDdfHostCatalog HostCatalog => hostCatalog;
@@ -192,7 +232,43 @@ namespace DDF___Program_Language_Editor
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IDdfEditorScriptStateService ScriptStateService =>
+            executionService as IDdfEditorScriptStateService;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IDdfEditorScriptStatePersistenceService ScriptStatePersistenceService =>
+            executionService as IDdfEditorScriptStatePersistenceService;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IDdfEditorDebugService DebugService => debugService;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IReadOnlyList<DdfEditorCapabilityDescriptor> KnownCapabilities =>
+            DdfEditorCapabilityCatalog.Known;
+
+        public DdfEditorCapabilityResult InspectCapability(string capabilityId)
+        {
+            object service = capabilityId switch
+            {
+                DdfEditorCapabilityIds.ScriptState =>
+                    executionService as IDdfEditorScriptStateService,
+                DdfEditorCapabilityIds.ScriptStatePersistence =>
+                    executionService as IDdfEditorScriptStatePersistenceService,
+                DdfEditorCapabilityIds.CooperativeExecution =>
+                    executionService as IDdfEditorCooperativeExecutionService,
+                DdfEditorCapabilityIds.AsyncLifecycle =>
+                    executionService as IDdfEditorAsyncLifecycleService,
+                _ => null
+            };
+            return DdfEditorCapabilityCatalog.Find(capabilityId) == null
+                ? DdfEditorCapabilityCatalog.Unknown(capabilityId)
+                : service == null
+                    ? DdfEditorCapabilityCatalog.Unavailable(capabilityId)
+                    : DdfEditorCapabilityCatalog.Available(capabilityId, service);
+        }
 
         [DefaultValue(false)]
         public bool EditorReadOnly
@@ -234,9 +310,13 @@ namespace DDF___Program_Language_Editor
         public event EventHandler<DdfEditorPreparationStateChangedEventArgs> PreparationStateChanged;
         public event EventHandler<DdfEditorPreparationCompletedEventArgs> PreparationCompleted;
         public event EventHandler<DdfEditorExecutionStateChangedEventArgs> ExecutionStateChanged;
+        public event EventHandler<DdfEditorCooperativeStateChangedEventArgs>
+            CooperativeExecutionStateChanged;
         public event EventHandler<DdfEditorExecutionOutputEventArgs> ExecutionOutputReceived;
         public event EventHandler<DdfEditorExecutionCompletedEventArgs> ExecutionCompleted;
         public event EventHandler<DdfEditorDebugStateChangedEventArgs> DebugStateChanged;
+        public event EventHandler<DdfEditorCooperativeStateChangedEventArgs>
+            CooperativeDebugStateChanged;
         public event EventHandler<DdfEditorDebugPausedEventArgs> DebugPaused;
         public event EventHandler<DdfEditorExecutionOutputEventArgs> DebugOutputReceived;
         public event EventHandler<DdfEditorExecutionCompletedEventArgs> DebugCompleted;
@@ -355,6 +435,13 @@ namespace DDF___Program_Language_Editor
         public void ApplyPersistenceState(DdfEditorPersistedState state)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
+            if (!string.Equals(state.SchemaVersion,
+                    DdfEditorPersistedState.CurrentSchemaVersion,
+                    StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "Lo snapshot editor usa lo schema '" +
+                    state.SchemaVersion + "', ma questa superficie richiede '" +
+                    DdfEditorPersistedState.CurrentSchemaVersion + "'.");
             if (HasActiveOperation())
                 throw new InvalidOperationException(
                     "Lo stato non può essere ripristinato durante un'esecuzione o una sessione di debug.");
@@ -435,6 +522,8 @@ namespace DDF___Program_Language_Editor
                 throw new InvalidOperationException("Nessuna strategia di persistenza è associata alla superficie.");
             DdfEditorPersistedState state = persistenceProvider.Load();
             if (state == null) return false;
+            state = PreparePersistenceState(state,
+                persistenceProvider as IDdfEditorPersistenceMigrationProvider);
             ApplyPersistenceState(state);
             return true;
         }
@@ -485,11 +574,44 @@ namespace DDF___Program_Language_Editor
                     "Il progetto richiede il pacchetto linguaggio '" +
                     project.LanguagePackageId + "' versione " +
                     project.LanguagePackageVersion + ". L'host deve attivarlo prima dell'apertura.");
-            ApplyPersistenceState(project.EditorState);
+            DdfEditorPersistedState editorState = PreparePersistenceState(
+                project.EditorState,
+                projectContainer as IDdfEditorPersistenceMigrationProvider);
+            ApplyPersistenceState(editorState);
             currentProject = project;
             ProjectOpened?.Invoke(this, new DdfEditorProjectEventArgs(project));
             RefreshCommands();
             return true;
+        }
+
+        private static DdfEditorPersistedState PreparePersistenceState(
+            DdfEditorPersistedState state,
+            IDdfEditorPersistenceMigrationProvider migrationProvider)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (string.Equals(state.SchemaVersion,
+                    DdfEditorPersistedState.CurrentSchemaVersion,
+                    StringComparison.Ordinal))
+                return state;
+            DdfPersistenceSchemaContract contract =
+                DdfPersistenceSchemaCatalog.Get(
+                    DdfPersistenceArtifactKind.EditorState);
+            DdfPersistenceInspection inspection = contract.Inspect(
+                new DdfPersistenceArtifact(
+                    DdfPersistenceArtifactKind.EditorState,
+                    state.SchemaVersion, string.Empty));
+            if (!inspection.CanMigrate || migrationProvider == null)
+                throw new InvalidOperationException(inspection.Message +
+                    " Lo snapshot originale non è stato applicato né modificato.");
+            DdfEditorPersistedState migrated = migrationProvider.Migrate(state,
+                DdfEditorPersistedState.CurrentSchemaVersion);
+            if (migrated == null || !string.Equals(migrated.SchemaVersion,
+                    DdfEditorPersistedState.CurrentSchemaVersion,
+                    StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "Il provider non ha prodotto uno snapshot editor con lo schema richiesto; " +
+                    "lo snapshot originale non è stato applicato né modificato.");
+            return migrated;
         }
 
         public void AttachDocumentService(IDdfEditorDocumentService service)
@@ -553,6 +675,48 @@ namespace DDF___Program_Language_Editor
         {
             persistenceProvider = provider ?? throw new ArgumentNullException(nameof(provider));
             RefreshCommands();
+        }
+
+        public void AttachScriptStatePersistenceProvider(
+            IDdfEditorScriptStatePersistenceProvider provider)
+        {
+            EnsureNoActiveOperation("collegare il provider di persistenza state");
+            IDdfEditorScriptStatePersistenceService service =
+                RequireCapability<IDdfEditorScriptStatePersistenceService>(
+                    DdfEditorCapabilityIds.ScriptStatePersistence);
+            service.AttachScriptStatePersistenceProvider(provider);
+        }
+
+        public bool DetachScriptStatePersistenceProvider()
+        {
+            EnsureNoActiveOperation("revocare il provider di persistenza state");
+            return RequireCapability<IDdfEditorScriptStatePersistenceService>(
+                    DdfEditorCapabilityIds.ScriptStatePersistence)
+                .DetachScriptStatePersistenceProvider();
+        }
+
+        public void SaveScriptState()
+        {
+            EnsureNoActiveOperation("salvare lo state");
+            RequireCapability<IDdfEditorScriptStatePersistenceService>(
+                    DdfEditorCapabilityIds.ScriptStatePersistence)
+                .SavePersistedScriptState();
+        }
+
+        public bool RestoreScriptState()
+        {
+            EnsureNoActiveOperation("ripristinare lo state");
+            return RequireCapability<IDdfEditorScriptStatePersistenceService>(
+                    DdfEditorCapabilityIds.ScriptStatePersistence)
+                .RestorePersistedScriptState();
+        }
+
+        public void ResetPersistedScriptState()
+        {
+            EnsureNoActiveOperation("azzerare lo state persistito");
+            RequireCapability<IDdfEditorScriptStatePersistenceService>(
+                    DdfEditorCapabilityIds.ScriptStatePersistence)
+                .ResetPersistedScriptState();
         }
 
         public void AttachProjectContainer(IDdfEditorProjectContainer container)
@@ -1039,6 +1203,9 @@ namespace DDF___Program_Language_Editor
             executionService = service;
             ownsExecutionService = ownsService;
             executionService.StateChanged += executionService_StateChanged;
+            if (executionService is IDdfEditorCooperativeExecutionService cooperative)
+                cooperative.CooperativeStateChanged +=
+                    executionService_CooperativeStateChanged;
             executionService.OutputReceived += executionService_OutputReceived;
             executionService.ExecutionCompleted += executionService_ExecutionCompleted;
             RefreshCommands();
@@ -1049,6 +1216,9 @@ namespace DDF___Program_Language_Editor
             if (executionService != null)
             {
                 executionService.StateChanged -= executionService_StateChanged;
+                if (executionService is IDdfEditorCooperativeExecutionService cooperative)
+                    cooperative.CooperativeStateChanged -=
+                        executionService_CooperativeStateChanged;
                 executionService.OutputReceived -= executionService_OutputReceived;
                 executionService.ExecutionCompleted -= executionService_ExecutionCompleted;
                 if (ownsExecutionService) executionService.Dispose();
@@ -1073,6 +1243,9 @@ namespace DDF___Program_Language_Editor
             debugService = service;
             ownsDebugService = ownsService;
             debugService.StateChanged += debugService_StateChanged;
+            if (debugService is IDdfEditorCooperativeExecutionService cooperative)
+                cooperative.CooperativeStateChanged +=
+                    debugService_CooperativeStateChanged;
             debugService.Paused += debugService_Paused;
             debugService.OutputReceived += debugService_OutputReceived;
             debugService.DebugCompleted += debugService_DebugCompleted;
@@ -1084,6 +1257,9 @@ namespace DDF___Program_Language_Editor
             if (debugService != null)
             {
                 debugService.StateChanged -= debugService_StateChanged;
+                if (debugService is IDdfEditorCooperativeExecutionService cooperative)
+                    cooperative.CooperativeStateChanged -=
+                        debugService_CooperativeStateChanged;
                 debugService.Paused -= debugService_Paused;
                 debugService.OutputReceived -= debugService_OutputReceived;
                 debugService.DebugCompleted -= debugService_DebugCompleted;
@@ -1106,6 +1282,12 @@ namespace DDF___Program_Language_Editor
             RefreshCommands();
         }
 
+        private void debugService_CooperativeStateChanged(object sender,
+            DdfEditorCooperativeStateChangedEventArgs e)
+        {
+            CooperativeDebugStateChanged?.Invoke(this, e);
+        }
+
         private void executionService_StateChanged(object sender,
             DdfEditorExecutionStateChangedEventArgs e)
         {
@@ -1117,6 +1299,12 @@ namespace DDF___Program_Language_Editor
                 return;
             }
             RefreshCommands();
+        }
+
+        private void executionService_CooperativeStateChanged(object sender,
+            DdfEditorCooperativeStateChangedEventArgs e)
+        {
+            CooperativeExecutionStateChanged?.Invoke(this, e);
         }
 
         private void preparationService_StateChanged(object sender,
@@ -1160,6 +1348,14 @@ namespace DDF___Program_Language_Editor
             DdfEditorExecutionCompletedEventArgs e)
         {
             DebugCompleted?.Invoke(this, e);
+        }
+
+        private TService RequireCapability<TService>(string capabilityId)
+            where TService : class
+        {
+            DdfEditorCapabilityResult result = InspectCapability(capabilityId);
+            if (result.TryGetService(out TService service)) return service;
+            throw new DdfEditorCapabilityUnavailableException(result);
         }
 
         private void DetachHostConfiguration()

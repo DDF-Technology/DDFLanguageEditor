@@ -21,7 +21,14 @@ namespace DDF___Program_Language_Editor
         {
             loadWatchExpressionsSetting = AppSettingsStore.LoadWatchExpressions;
             saveWatchExpressionsSetting = AppSettingsStore.SaveWatchExpressions;
-            watchExpressionSettings = WatchExpressionSettings.Parse(loadWatchExpressionsSetting());
+            string persistedWatch = loadWatchExpressionsSetting();
+            DdfPersistenceReadResult<WatchExpressionSettings> watchRead =
+                WatchExpressionSettings.ParseVersioned(persistedWatch);
+            watchExpressionSettings = watchRead.Value ?? new WatchExpressionSettings();
+            if (!watchRead.Succeeded && !string.IsNullOrWhiteSpace(persistedWatch))
+                statusFileLabel.ToolTipText =
+                    "Watch persistite non applicate; i dati originali sono stati conservati. " +
+                    watchRead.Failure;
             var page = new TabPage("Espressioni di controllo") { Name = "tabPageWatch" };
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 3 };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -93,7 +100,10 @@ namespace DDF___Program_Language_Editor
                 DdfEditorWatchResult result = watchSnapshot == null ? null :
                     panelEditor.DebugService.EvaluateWatch(row.Text,
                         selectedCallStackFrameIndex);
-                row.SubItems[1].Text = result?.Value?.TypeName ?? "—";
+                row.SubItems[1].Text = result?.Value == null ? "—" :
+                    result.Value.TypeName + (result.Value.IsTransactionalState
+                        ? " · state" : result.Value.IsFixed ? " · fixed" :
+                        result.Value.IsReadOnly ? " · sola lettura" : string.Empty);
                 row.SubItems[2].Text = result?.Value?.DisplayValue ?? "—";
                 row.SubItems[3].Text = result?.Message ??
                     "In attesa di una pausa del debugger.";

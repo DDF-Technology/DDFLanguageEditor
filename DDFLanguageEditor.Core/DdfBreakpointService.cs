@@ -93,6 +93,9 @@ namespace DDFLanguageEditor.Core
                 VisitStatement(source, conditional.Body, lines);
                 VisitStatement(source, conditional.ElseBody, lines);
             }
+            else if (statement is SelectStatementSyntax selection)
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    VisitStatement(source, clause.Body, lines);
             else if (statement is WhileStatementSyntax loop) VisitStatement(source, loop.Body, lines);
             else if (statement is DoWhileStatementSyntax doLoop) VisitStatement(source, doLoop.Body, lines);
             else if (statement is ForStatementSyntax forLoop)

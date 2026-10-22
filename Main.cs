@@ -35,6 +35,7 @@ namespace DDF___Program_Language_Editor
         private DdfDocumentSymbol hoveredSymbol;
         private DdfTypedSpan hoveredTypedSpan;
         private DdfStandardFunction hoveredStandardFunction;
+        private DdfHostFunctionDefinition hoveredHostFunction;
         private DdfDiagnostic hoveredDiagnostic;
         private DdfHoverInfo activeHoverInfo;
         private IReadOnlyList<DdfDiagnostic> activeDiagnostics = new List<DdfDiagnostic>();
@@ -66,16 +67,33 @@ namespace DDF___Program_Language_Editor
             this.embeddedHostMode = embeddedHostMode;
             documentViews = new DdfDocumentViewCoordinator(openDocuments);
             installShippedUserLanguagePackages();
-            restoreActiveLanguagePackage();
+            DdfLanguagePackage initialLanguagePackage;
+            IReadOnlyList<DdfLanguagePackageDiagnostic> initialLanguageDiagnostics;
+            if (embeddedHostMode)
+            {
+                // An embedded instance belongs to its host and must not inherit
+                // the standalone user's global package preference (or another
+                // editor instance's process-wide catalog selection).
+                DdfLanguagePackageLoadResult embeddedLanguage =
+                    DdfLanguagePackageLoader.LoadEmbeddedDefault();
+                initialLanguagePackage = embeddedLanguage.Package;
+                initialLanguageDiagnostics = embeddedLanguage.Diagnostics;
+            }
+            else
+            {
+                restoreActiveLanguagePackage();
+                initialLanguagePackage = DdfLanguageCatalog.DefaultPackage;
+                initialLanguageDiagnostics = DdfLanguageCatalog.LoadDiagnostics;
+            }
             editorLanguageSession = new DdfLanguagePackageSession(
-                DdfLanguageCatalog.DefaultPackage,
-                DdfLanguageCatalog.LoadDiagnostics);
+                initialLanguagePackage, initialLanguageDiagnostics);
             recreateLanguageServices();
             InitializeComponent();
             panelEditor.BindEditor(richTextBoxMainEditor);
             initializeDocuments();
             panelEditor.AttachDocumentService(openDocuments, false);
             initializeEditingExperience();
+            initializePaletteClipboardCommands();
             initializeMainToolbar();
             initializeStandaloneBuildCommands();
             initializeLanguagePackageCommands();
@@ -85,16 +103,21 @@ namespace DDF___Program_Language_Editor
                 () => editorLanguageSession,
                 () => panelEditor.HostCatalog?.Snapshot,
                 executeStandalonePreparation));
+            var scriptStateStore = new DdfStateStore();
             standaloneExecutionService = new DdfEditorExecutionService(
                 () => openDocuments,
                 () => editorLanguageSession,
                 () => panelEditor.HostCatalog?.Snapshot,
-                prepareStandaloneExecution);
+                prepareStandaloneExecution,
+                scriptStateStore,
+                panelEditor.EventDispatcher);
             standaloneDebugService = new DdfEditorDebugService(
                 () => openDocuments,
                 () => editorLanguageSession,
                 () => panelEditor.HostCatalog?.Snapshot,
-                prepareStandaloneExecution);
+                prepareStandaloneExecution,
+                scriptStateStore,
+                panelEditor.EventDispatcher);
             panelEditor.AttachExecutionService(standaloneExecutionService);
             panelEditor.AttachDebugService(standaloneDebugService);
             initializeDebugger();
@@ -250,6 +273,22 @@ namespace DDF___Program_Language_Editor
         {
             if (!embeddedHostMode) return false;
             return saveEmbeddedDocument();
+        }
+
+        /// <summary>
+        /// Reapplies the visual projection after the complete embedded shell has
+        /// been parented, shown or recreated by the host window.
+        /// </summary>
+        public void RefreshEmbeddedEditorPresentation()
+        {
+            if (!embeddedHostMode || IsDisposed || Disposing ||
+                richTextBoxMainEditor == null || richTextBoxMainEditor.IsDisposed)
+                return;
+            diagnosticsFormatStart = 0;
+            incrementalLexer.Reset();
+            applyHighlighting();
+            updateLineNumbers();
+            refreshEditorOverview();
         }
 
         private void applyApplicationTheme()

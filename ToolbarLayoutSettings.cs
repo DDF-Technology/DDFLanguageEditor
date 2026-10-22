@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
@@ -17,10 +18,23 @@ namespace DDF___Program_Language_Editor
         public static ToolbarLayoutSettings Parse(string value, IEnumerable<string> groupIds)
         {
             string[] ids = groupIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            return ParseVersioned(value, ids).Value ?? CreateDefault(ids);
+        }
+
+        internal static DdfPersistenceReadResult<ToolbarLayoutSettings>
+            ParseVersioned(string value, IEnumerable<string> groupIds)
+        {
+            string[] ids = groupIds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            DdfPersistencePreparation preparation =
+                DdfPersistenceSerialization.PrepareKeyValue(
+                    DdfPersistenceArtifactKind.ToolbarLayout, value);
+            if (!preparation.Succeeded)
+                return DdfPersistenceReadResult<ToolbarLayoutSettings>.Failed(
+                    value, preparation, preparation.Failure);
             var placements = ids.ToDictionary(id => id,
                 id => new ToolbarPlacement(true, null, null, null), StringComparer.OrdinalIgnoreCase);
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string line in (value ?? string.Empty).Split(
+            foreach (string line in preparation.PreparedArtifact.Payload.Split(
                 new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 int separator = line.IndexOf('=');
@@ -44,7 +58,8 @@ namespace DDF___Program_Language_Editor
             }
 
             migrateCoordinateOnlyLayout(placements, ids);
-            return new ToolbarLayoutSettings(placements);
+            return DdfPersistenceReadResult<ToolbarLayoutSettings>.Success(
+                value, preparation, new ToolbarLayoutSettings(placements));
         }
 
         public bool IsVisible(string groupId) =>
@@ -76,7 +91,10 @@ namespace DDF___Program_Language_Editor
 
         public string Serialize()
         {
-            var lines = new List<string>();
+            var lines = new List<string>
+            {
+                "schemaVersion=" + DdfPersistenceSchemaCatalog.ToolbarLayoutVersion
+            };
             foreach (KeyValuePair<string, ToolbarPlacement> pair in placements
                 .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
             {
@@ -89,6 +107,12 @@ namespace DDF___Program_Language_Editor
             }
             return string.Join(Environment.NewLine, lines);
         }
+
+        private static ToolbarLayoutSettings CreateDefault(IEnumerable<string> ids) =>
+            new ToolbarLayoutSettings(ids.Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(id => id,
+                    id => new ToolbarPlacement(true, null, null, null),
+                    StringComparer.OrdinalIgnoreCase));
 
         private static bool readBool(IReadOnlyDictionary<string, string> values, string key, bool fallback) =>
             values.TryGetValue(key, out string value) && bool.TryParse(value, out bool parsed) ? parsed : fallback;

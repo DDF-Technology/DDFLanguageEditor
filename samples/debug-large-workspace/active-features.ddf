@@ -1,0 +1,48 @@
+enum StressMode
+{
+    Warmup,
+    Active,
+    Complete
+}
+
+fixed int StressArrayLength << 8;
+state int stressRuns << 0;
+
+applyActiveStress(int seed) out int
+{
+    stressRuns++;
+    StressMode mode << StressMode.Active;
+    int[8] values;
+    int total << seed;
+
+    for(int index << 0; index < StressArrayLength; index++)
+    {
+        if(index == 3)
+        {
+            continue;
+        }
+
+        values[index] << index + 1;
+        total << total + values[index];
+    }
+
+    select(mode)
+    {
+        when StressMode.Warmup
+        {
+            total << total + 1;
+        }
+
+        when StressMode.Active
+        {
+            total << total + 10;
+        }
+
+        when StressMode.Complete
+        {
+            total << total + 100;
+        }
+    }
+
+    ret total + stressRuns;
+}

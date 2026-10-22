@@ -40,6 +40,38 @@ namespace DDFLanguageEditor.Compiler
     }
 
     /// <summary>
+    /// Receives correlated worker suspension notifications without exposing the
+    /// worker task, thread or generated C# state machine to the host.
+    /// </summary>
+    public interface IDdfDotNetWorkerCooperativeExecutionObserver
+    {
+        void OnAwaitingCapability(
+            DdfDotNetWorkerCooperativeSuspension suspension);
+        void OnCapabilityResumed(
+            DdfDotNetWorkerCooperativeSuspension suspension);
+    }
+
+    public sealed class DdfDotNetWorkerCooperativeSuspension
+    {
+        internal DdfDotNetWorkerCooperativeSuspension(
+            DdfDotNetWorkerDuplexFrame frame)
+        {
+            CorrelationId = frame.CorrelationId;
+            RequestId = frame.RequestId;
+            CapabilityId = frame.CapabilityId;
+            ArgumentsJson = (frame.ArgumentsJson ?? new List<string>())
+                .ToList().AsReadOnly();
+            DebugSnapshot = frame.CooperativeDebugSnapshot;
+        }
+
+        public string CorrelationId { get; }
+        public string RequestId { get; }
+        public string CapabilityId { get; }
+        public IReadOnlyList<string> ArgumentsJson { get; }
+        public DdfDotNetWorkerDebugPause DebugSnapshot { get; }
+    }
+
+    /// <summary>
     /// Routes the single duplex channel to explicitly registered host-side
     /// capabilities. Registrations are exact and deny-by-default so an editor can
     /// combine interactive debug, console input and governed network access
@@ -109,7 +141,7 @@ namespace DDFLanguageEditor.Compiler
     public sealed class DdfDotNetWorkerDuplexFrame
     {
         public const string FormatValue = "ddf-dotnet-worker-frame";
-        public const string FrameVersionValue = "1.0";
+        public const string FrameVersionValue = "1.1";
 
         [JsonRequired]
         public string Format { get; set; } = FormatValue;
@@ -127,6 +159,7 @@ namespace DDFLanguageEditor.Compiler
         public string ErrorCode { get; set; }
         public string ErrorMessage { get; set; }
         public DdfDotNetWorkerResponse FinalResponse { get; set; }
+        public DdfDotNetWorkerDebugPause CooperativeDebugSnapshot { get; set; }
     }
 
     public static class DdfDotNetWorkerDuplexProtocol
@@ -201,10 +234,15 @@ namespace DDFLanguageEditor.Compiler
                     !frame.CapabilitySucceeded && frame.ResultJson == null &&
                     frame.ErrorCode == null && frame.ErrorMessage == null &&
                     (frame.ArgumentsJson?.Count ?? 0) <= 64 &&
-                    (frame.ArgumentsJson ?? new List<string>()).All(IsJsonValue),
+                    (frame.ArgumentsJson ?? new List<string>()).All(IsJsonValue) &&
+                    (frame.CooperativeDebugSnapshot == null ||
+                     frame.CapabilityId !=
+                        DdfDotNetWorkerBrokerCapabilities.NextDebugCommand &&
+                     ValidDebugSnapshot(frame.CooperativeDebugSnapshot)),
                 DdfDotNetWorkerDuplexFrameKind.CapabilityResponse =>
                     frame.StartRequest == null && hasRequestId &&
                     !hasCapability && frame.FinalResponse == null &&
+                    frame.CooperativeDebugSnapshot == null &&
                     (frame.ArgumentsJson?.Count ?? 0) == 0 &&
                     (frame.CapabilitySucceeded
                         ? IsJsonValue(frame.ResultJson) &&
@@ -221,6 +259,7 @@ namespace DDFLanguageEditor.Compiler
                 DdfDotNetWorkerDuplexFrameKind.Abort =>
                     frame.StartRequest == null && !hasRequestId &&
                     !hasCapability && frame.FinalResponse == null &&
+                    frame.CooperativeDebugSnapshot == null &&
                     !frame.CapabilitySucceeded && frame.ResultJson == null &&
                     (frame.ArgumentsJson?.Count ?? 0) == 0 &&
                     !string.IsNullOrWhiteSpace(frame.ErrorCode) &&
@@ -244,6 +283,39 @@ namespace DDFLanguageEditor.Compiler
             catch (JsonException) { return false; }
         }
 
+        private static bool ValidDebugSnapshot(
+            DdfDotNetWorkerDebugPause snapshot)
+        {
+            if (snapshot?.Location == null || snapshot.Instructions < 0 ||
+                !ValidLocation(snapshot.Location) ||
+                (snapshot.Frames?.Count ?? 0) > 128)
+                return false;
+            return (snapshot.Frames ?? new List<DdfDotNetWorkerDebugFrame>())
+                .All(frame => frame != null && ValidLocation(frame.Location) &&
+                    (frame.SymbolId?.Length ?? 0) <= 512 &&
+                    (frame.Name?.Length ?? 0) <= 512 &&
+                    ValidVariables(frame.Variables, 0));
+        }
+
+        private static bool ValidVariables(
+            IReadOnlyList<DdfDotNetWorkerDebugVariable> variables, int depth)
+        {
+            if (depth > 8 || (variables?.Count ?? 0) > 512) return false;
+            return (variables ?? Array.Empty<DdfDotNetWorkerDebugVariable>())
+                .All(value => value != null &&
+                    (value.SymbolId?.Length ?? 0) <= 512 &&
+                    (value.Name?.Length ?? 0) <= 512 &&
+                    (value.TypeName?.Length ?? 0) <= 512 &&
+                    (value.DisplayValue?.Length ?? 0) <= 4096 &&
+                    ValidVariables(value.Children, depth + 1));
+        }
+
+        private static bool ValidLocation(
+            DdfDotNetWorkerSourceLocation location) => location != null &&
+            (location.DocumentPath?.Length ?? 0) <= 4096 &&
+            (location.SymbolId?.Length ?? 0) <= 512 &&
+            location.Start >= 0 && location.Length >= 0;
+
         private static bool ValidStart(DdfDotNetWorkerDuplexFrame frame) =>
             frame.StartRequest != null && frame.StartRequest.Format ==
                 DdfDotNetWorkerRequest.FormatValue &&
@@ -264,7 +336,8 @@ namespace DDFLanguageEditor.Compiler
             DdfDotNetWorkerDuplexFrame frame) =>
             !frame.CapabilitySucceeded && frame.ResultJson == null &&
             frame.ErrorCode == null && frame.ErrorMessage == null &&
-            (frame.ArgumentsJson?.Count ?? 0) == 0;
+            (frame.ArgumentsJson?.Count ?? 0) == 0 &&
+            frame.CooperativeDebugSnapshot == null;
 
         private static DdfDotNetContractIssue Issue(string message) =>
             new("DDFC546", message);

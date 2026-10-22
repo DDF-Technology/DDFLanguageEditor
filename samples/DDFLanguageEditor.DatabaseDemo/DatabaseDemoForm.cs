@@ -176,7 +176,11 @@ extractSelectedCustomer() out CustomerRow
             EditorHost.AddDocument("API host - documentazione.ddf",
                 HostApiDocumentation);
             RefreshCustomers();
-            Shown += (sender, args) => RestoreLayout();
+            Shown += (sender, args) =>
+            {
+                RestoreLayout();
+                EditorHost.RefreshEditorPresentation();
+            };
         }
 
         public DdfEmbeddedEditorControl EditorHost { get; }
@@ -719,6 +723,8 @@ extractSelectedCustomer() out CustomerRow
                     EditorHost.SetPrimaryDocument(
                         "customer-actions.ddf", state.ScriptSource);
                 }
+                if (!string.IsNullOrWhiteSpace(state.ToolbarLayout))
+                    EditorHost.RestoreToolbarLayout(state.ToolbarLayout);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -740,7 +746,8 @@ extractSelectedCustomer() out CustomerRow
                 File.WriteAllText(path, JsonSerializer.Serialize(new DemoLayoutState
                 {
                     ApplicationAreaHeight = applicationEditorSplit.SplitterDistance,
-                    ScriptSource = persistedSource
+                    ScriptSource = persistedSource,
+                    ToolbarLayout = EditorHost.CaptureToolbarLayout()
                 }, new JsonSerializerOptions { WriteIndented = true }));
                 return true;
             }
@@ -765,6 +772,7 @@ extractSelectedCustomer() out CustomerRow
         {
             public int ApplicationAreaHeight { get; set; } = 225;
             public string ScriptSource { get; set; }
+            public string ToolbarLayout { get; set; }
         }
     }
 }

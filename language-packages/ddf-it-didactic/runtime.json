@@ -8,8 +8,8 @@
   "outputTarget": "Console",
   "vmOperations": [
     "value.declare", "value.load", "value.store", "scope.create", "call.invoke",
-    "flow.branch", "flow.while", "flow.do-while", "flow.for", "flow.return",
-    "flow.break", "flow.end", "array.create", "array.index", "structure.create",
+    "flow.branch", "flow.select", "flow.while", "flow.do-while", "flow.for", "flow.return",
+    "flow.break", "flow.continue", "flow.end", "array.create", "array.index", "structure.create",
     "structure.member", "host.call"
   ],
   "expressionOperations": {

@@ -21,6 +21,7 @@ Il contratto dei token è definito in `DDF_LEXICAL_SPEC.md`.
 compilation-unit = { library-directive }, { member } ;
 
 member = struct-declaration
+       | enum-declaration
        | function-declaration
        | variable-declaration ;
 
@@ -28,6 +29,10 @@ library-directive = "@@'" identifier "'" ;
 
 struct-declaration = "struct", identifier, "{",
                      { variable-declaration }, "}" ;
+
+enum-declaration = "enum", identifier, "{", enum-member,
+                   { ",", enum-member }, [ "," ], "}" ;
+enum-member = identifier ;
 
 function-declaration = identifier, "(", [ parameter-list ], ")",
                        "out", type, block ;
@@ -63,11 +68,13 @@ risoluzione del simbolo verrà introdotta con l'analisi semantica.
 statement = block
           | variable-declaration
           | if-statement
+          | select-statement
           | while-statement
           | do-while-statement
           | for-statement
           | return-statement
           | break-statement
+          | continue-statement
           | end-statement
           | expression-statement ;
 
@@ -75,6 +82,11 @@ block = "{", { statement }, "}" ;
 
 if-statement = "if", "(", expression, ")", block,
                [ "else", ( block | if-statement ) ] ;
+
+select-statement = "select", "(", expression, ")", "{",
+                   { when-clause }, [ otherwise-clause ], "}" ;
+when-clause = "when", expression, block ;
+otherwise-clause = "otherwise", block ;
 
 while-statement = "while", "(", expression, ")", block ;
 
@@ -88,6 +100,7 @@ for-statement = "for", "(",
 
 return-statement = "ret", [ expression ], ";" ;
 break-statement = "brk", ";" ;
+continue-statement = "continue", ";" ;
 end-statement = "end", ";" ;
 expression-statement = expression, ";" ;
 ```

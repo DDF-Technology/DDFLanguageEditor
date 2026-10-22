@@ -2,8 +2,8 @@
   "$schema": "./ddf-language-version-policy.schema.json",
   "schemaVersion": "1.0",
   "languageId": "ddf",
-  "languageVersion": "0.12",
-  "packageVersion": "0.12.3",
+  "languageVersion": "0.13",
+  "packageVersion": "0.13.0",
   "stability": "beta",
   "versionDomains": [
     { "id": "productVersion", "owner": "applicazione standalone e SDK", "format": "MAJOR.MINOR.PATCH[-prerelease]", "compatibility": "segue il ciclo di rilascio del prodotto e non determina la semantica DDF" },

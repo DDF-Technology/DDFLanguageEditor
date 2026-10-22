@@ -1,0 +1,21 @@
+enum Color
+{
+    Red
+}
+
+enum State
+{
+    Red
+}
+
+main() out int
+{
+    Color color << State.Red;
+
+    if(color == State.Red)
+    {
+        ret 1;
+    }
+
+    ret 0;
+}

@@ -27,6 +27,20 @@ prima dell'attivazione del pacchetto e una regressione ne impedisce la divergenz
 Versionamento, compatibilità, deprecazioni e confini delle future migrazioni sono
 definiti in [DDF_LANGUAGE_VERSIONING.md](DDF_LANGUAGE_VERSIONING.md) e nella
 policy macchina `ddf-language-version-policy.json`.
+Il processo che rende attivo un nuovo costrutto è governato dal
+[contratto di integrazione dichiarativa](DDF_LANGUAGE_INTEGRATION.md) e dal suo
+inventario `ddf-language-integration.json`: ogni incremento deve attraversare
+tutti i livelli del linguaggio e tutti i profili, senza introdurre elenchi di
+keyword paralleli nell'interfaccia.
+L'equivalenza osservabile fra VM e Roslyn è governata dal
+[contratto dei backend](DDF_BACKEND_EQUIVALENCE.md) e dall'inventario
+`ddf-backend-equivalence.json`: valore, output, errori, effetti host, cleanup e
+debug sono già bloccanti, mentre lo stato persistibile resta esplicitamente
+parziale finché non viene chiuso il relativo gap.
+Il perimetro di incorporamento fino alla 1.0 è definito separatamente nella
+[policy degli host SDK](DDF_HOST_SUPPORT_POLICY.md): C#/.NET 10/WinForms è
+l'unico riferimento beta; VB.NET, F#, WPF e host non-.NET restano pianificati
+post-1.0 e dovranno riusare gli stessi contratti senza duplicare la semantica.
 Il ciclo di valutazione `0.12.5` è descritto in
 [DDF_LANGUAGE_CANDIDATE.md](DDF_LANGUAGE_CANDIDATE.md); la baseline macchina
 `ddf-language-candidate-baseline.json` impedisce modifiche involontarie ai 17
@@ -61,7 +75,7 @@ artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 - ricevuta di build deterministica e buffer non salvati opzionali senza salvataggi impliciti;
 - lexer dichiarativo per caratteri, identificatori, numeri, stringhe, escape, commenti e direttive, condiviso da colori e completamento;
 - grammatica EBNF caricabile con metadati JSON, AST generico e ruoli keyword estensibili;
-- menu `Help > Linguaggio` per cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
+- menu principale `Linguaggio` per aprire il Playground, cambiare o ripristinare il pacchetto e consultarne versione, origine, sorgente e diagnostiche;
 - DDF come unico linguaggio incluso e fallback incorporato; italiano didattico, sintassi familiare C e futuri profili passano dal catalogo dei pacchetti utente;
 - gestione persistente di installazione, aggiornamento, selezione e disattivazione dei pacchetti di linguaggio;
 - playground isolato per token, albero sintattico, diagnostiche e anteprima del formatter;
@@ -346,6 +360,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/project/`: workspace con `ddf-project.json` pronto per Convalida, Build, Run e Debug;
 - `samples/flowchart-workspace/`: workspace multi-file per provare navigazione tra funzioni, gruppi comprimibili, Flowchart e debug attraversando tutti i principali costrutti di controllo;
 - `samples/debug-large-workspace/`: stress test del debugger con 41 sorgenti, 41 frame di stack, breakpoint profondi e Watch su array;
+- `samples/language-features-debug-workspace/`: workspace multifile eseguibile con tipi, strutture, enum, `fixed`, `state`, array, selezione multipla, tutti i cicli e un laboratorio opt-in per gli errori runtime tipizzati;
 - `samples/module-workspace/`: applicazione con una libreria DDF versionata installata nello store locale e API limitata agli export;
 - `samples/DDFLanguageEditor.HostDemo/`: applicazione WinForms separata con due istanze isolate del controllo incorporabile;
 - `samples/DDFLanguageEditor.DatabaseDemo/`: integrazione completa con database di prova, regola personalizzata, transazione, debug e flowchart;
@@ -388,6 +403,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_SYNTAX_SPEC.md`: contratto normativo di unità, dichiarazioni, blocchi, funzioni e controllo di flusso;
 - `DDF_TYPE_SYSTEM_SPEC.md`: contratto normativo di tipi, conversioni, valori, scope, chiamate ed errori DDF 0.12;
 - `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
+- `DDF_BACKEND_EQUIVALENCE.md`: contratto versionato delle osservazioni che devono coincidere tra VM e Roslyn e dei gap ancora aperti;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: procedura completa e checklist per migrare sorgenti, progetti, moduli e pacchetti beta a DDF 0.12;
 - `DDF_STANDARD_LIBRARY_SPEC.md`: contratto normativo di firme, effetti, canali I/O, conversioni ed errori della libreria minima;

@@ -7,6 +7,8 @@ namespace DDFLanguageEditor.Core
     {
         Library,
         Structure,
+        Enumeration,
+        EnumerationMember,
         Function,
         Parameter,
         Field,
@@ -24,6 +26,22 @@ namespace DDFLanguageEditor.Core
             int selectionStart,
             int selectionLength,
             IReadOnlyList<DdfDocumentSymbol> children)
+            : this(name, kind, detail, start, length, selectionStart,
+                selectionLength, children, false, false)
+        {
+        }
+
+        public DdfDocumentSymbol(
+            string name,
+            DdfSymbolKind kind,
+            string detail,
+            int start,
+            int length,
+            int selectionStart,
+            int selectionLength,
+            IReadOnlyList<DdfDocumentSymbol> children,
+            bool isReadOnly,
+            bool isFixed)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A symbol name is required.", nameof(name));
             if (start < 0 || length < 0 || selectionStart < 0 || selectionLength < 0)
@@ -39,6 +57,8 @@ namespace DDFLanguageEditor.Core
             SelectionStart = selectionStart;
             SelectionLength = selectionLength;
             Children = children ?? throw new ArgumentNullException(nameof(children));
+            IsReadOnly = isReadOnly;
+            IsFixed = isFixed;
         }
 
         public string Name { get; }
@@ -50,6 +70,8 @@ namespace DDFLanguageEditor.Core
         public int SelectionStart { get; }
         public int SelectionLength { get; }
         public IReadOnlyList<DdfDocumentSymbol> Children { get; }
+        public bool IsReadOnly { get; }
+        public bool IsFixed { get; }
 
         public override string ToString()
         {

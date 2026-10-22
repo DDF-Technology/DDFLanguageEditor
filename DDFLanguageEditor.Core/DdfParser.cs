@@ -83,6 +83,11 @@ namespace DDFLanguageEditor.Core
                 return ParseStructDeclaration();
             }
 
+            if (IsKeyword(DdfKeywordRole.Enumeration))
+            {
+                return ParseEnumDeclaration();
+            }
+
             if (Current.Kind == DdfTokenKind.Identifier && IsText(Peek(1), "("))
             {
                 return ParseFunctionDeclaration();
@@ -120,6 +125,40 @@ namespace DDFLanguageEditor.Core
             int end = MatchClosingBrace(openBraceStart, hasOpenBrace, out int closeBraceStart, out bool hasCloseBrace);
             if (hasOpenBrace) activeBraceDepth--;
             return new StructDeclarationSyntax(name, nameStart, nameLength, openBraceStart, closeBraceStart, hasCloseBrace, fields.AsReadOnly(), start, Math.Max(0, end - start));
+        }
+
+        private EnumDeclarationSyntax ParseEnumDeclaration()
+        {
+            int start = Current.Start;
+            NextToken();
+            string name = MatchIdentifier(out int nameStart, out int nameLength);
+            int openBraceStart = CurrentStart;
+            bool hasOpenBrace = IsText("{");
+            MatchText("{", start);
+            if (hasOpenBrace) activeBraceDepth++;
+            var members = new List<EnumMemberSyntax>();
+            while (Current != null && !IsText("}"))
+            {
+                int before = position;
+                string memberName = MatchIdentifier(out int memberStart, out int memberLength);
+                if (!string.IsNullOrEmpty(memberName))
+                    members.Add(new EnumMemberSyntax(memberName, memberStart, memberLength));
+                if (IsText("}")) break;
+                if (!TryMatchText(","))
+                {
+                    Report("DDF101", "Tra due valori enum è attesa una virgola.");
+                    while (Current != null && !IsText(",") && !IsText("}")) NextToken();
+                    TryMatchText(",");
+                }
+                EnsureProgress(before);
+            }
+
+            int end = MatchClosingBrace(openBraceStart, hasOpenBrace,
+                out int closeBraceStart, out bool hasCloseBrace);
+            if (hasOpenBrace) activeBraceDepth--;
+            return new EnumDeclarationSyntax(name, nameStart, nameLength,
+                openBraceStart, closeBraceStart, hasCloseBrace, members.AsReadOnly(),
+                start, Math.Max(0, end - start));
         }
 
         private FunctionDeclarationSyntax ParseFunctionDeclaration()
@@ -174,12 +213,14 @@ namespace DDFLanguageEditor.Core
         {
             if (IsText("{")) return ParseBlockStatement();
             if (IsKeyword(DdfKeywordRole.If)) return ParseIfStatement();
+            if (IsKeyword(DdfKeywordRole.Select)) return ParseSelectStatement();
             if (IsKeyword(DdfKeywordRole.While)) return ParseWhileStatement();
             if (IsKeyword(DdfKeywordRole.Do)) return ParseDoWhileStatement();
             if (IsKeyword(DdfKeywordRole.For)) return ParseForStatement();
             if (IsKeyword(DdfKeywordRole.Return)) return ParseReturnStatement();
-            if (IsKeyword(DdfKeywordRole.Break)) return ParseSimpleStatement(true);
-            if (IsKeyword(DdfKeywordRole.End)) return ParseSimpleStatement(false);
+            if (IsKeyword(DdfKeywordRole.Break)) return ParseSimpleStatement(DdfKeywordRole.Break);
+            if (IsKeyword(DdfKeywordRole.Continue)) return ParseSimpleStatement(DdfKeywordRole.Continue);
+            if (IsKeyword(DdfKeywordRole.End)) return ParseSimpleStatement(DdfKeywordRole.End);
             if (LooksLikeVariableDeclaration()) return ParseVariableDeclaration(true);
             return ParseExpressionStatement(true);
         }
@@ -207,12 +248,17 @@ namespace DDFLanguageEditor.Core
         private VariableDeclarationStatementSyntax ParseVariableDeclaration(bool consumeSemicolon)
         {
             int start = CurrentStart;
+            bool isFixed = IsKeyword(DdfSyntaxRoles.Fixed);
+            bool isState = IsKeyword(DdfSyntaxRoles.State);
+            if (isFixed || isState) NextToken();
             TypeReferenceSyntax type = ParseType();
             string name = MatchIdentifier(out int nameStart, out int nameLength);
             ExpressionSyntax initializer = null;
             if (TryMatchOperator(DdfOperatorRole.DeclarationInitializer)) initializer = ParseExpression();
+            else if (isFixed) Report("DDF106", "Una dichiarazione fixed richiede un inizializzatore.", nameStart, start);
+            else if (isState) Report("DDF107", "Una dichiarazione state richiede un inizializzatore.", nameStart, start);
             int end = consumeSemicolon ? MatchText(";") : PreviousEnd;
-            return new VariableDeclarationStatementSyntax(type, name, nameStart, nameLength, initializer, start, Math.Max(0, end - start));
+            return new VariableDeclarationStatementSyntax(type, name, nameStart, nameLength, initializer, start, Math.Max(0, end - start), isFixed, isState);
         }
 
         private IfStatementSyntax ParseIfStatement()
@@ -230,6 +276,49 @@ namespace DDFLanguageEditor.Core
             }
             int end = elseBody?.End ?? body.End;
             return new IfStatementSyntax(condition, body, elseBody, start, Math.Max(0, end - start));
+        }
+
+        private SelectStatementSyntax ParseSelectStatement()
+        {
+            int start = NextToken().Start;
+            MatchText("(");
+            ExpressionSyntax expression = ParseExpression();
+            MatchText(")");
+            int openBraceStart = CurrentStart;
+            bool hasOpenBrace = IsText("{");
+            MatchText("{", start);
+            if (hasOpenBrace) activeBraceDepth++;
+            var clauses = new List<SelectClauseSyntax>();
+            while (Current != null && !IsText("}"))
+            {
+                int before = position;
+                if (IsKeyword(DdfKeywordRole.When))
+                {
+                    int clauseStart = NextToken().Start;
+                    ExpressionSyntax value = ParseExpression();
+                    StatementSyntax body = ParseStatement();
+                    clauses.Add(new SelectClauseSyntax(value, body, false, clauseStart,
+                        Math.Max(0, body.End - clauseStart)));
+                }
+                else if (IsKeyword(DdfKeywordRole.Otherwise))
+                {
+                    int clauseStart = NextToken().Start;
+                    StatementSyntax body = ParseStatement();
+                    clauses.Add(new SelectClauseSyntax(null, body, true, clauseStart,
+                        Math.Max(0, body.End - clauseStart)));
+                }
+                else
+                {
+                    Report("DDF108", "In select è atteso un ramo when o otherwise.");
+                    SynchronizeStatement();
+                }
+                EnsureProgress(before);
+            }
+            int end = MatchClosingBrace(openBraceStart, hasOpenBrace,
+                out _, out _);
+            if (hasOpenBrace) activeBraceDepth--;
+            return new SelectStatementSyntax(expression, clauses.AsReadOnly(), start,
+                Math.Max(0, end - start));
         }
 
         private WhileStatementSyntax ParseWhileStatement()
@@ -286,13 +375,14 @@ namespace DDFLanguageEditor.Core
             return new ReturnStatementSyntax(expression, start, Math.Max(0, end - start));
         }
 
-        private StatementSyntax ParseSimpleStatement(bool isBreak)
+        private StatementSyntax ParseSimpleStatement(DdfKeywordRole role)
         {
             int start = NextToken().Start;
             int end = MatchText(";");
-            return isBreak
-                ? (StatementSyntax)new BreakStatementSyntax(start, Math.Max(0, end - start))
-                : new EndStatementSyntax(start, Math.Max(0, end - start));
+            int length = Math.Max(0, end - start);
+            if (role == DdfKeywordRole.Break) return new BreakStatementSyntax(start, length);
+            if (role == DdfKeywordRole.Continue) return new ContinueStatementSyntax(start, length);
+            return new EndStatementSyntax(start, length);
         }
 
         private ExpressionStatementSyntax ParseExpressionStatement(bool consumeSemicolon)
@@ -434,10 +524,17 @@ namespace DDFLanguageEditor.Core
         private bool LooksLikeVariableDeclaration()
         {
             if (Current == null) return false;
-            if (Current.Kind == DdfTokenKind.DataTypeKeyword && !IsKeyword(DdfKeywordRole.Structure)) return true;
-            if (Current.Kind != DdfTokenKind.Identifier) return false;
+            int lookahead = 0;
+            if (IsKeyword(DdfSyntaxRoles.Fixed) || IsKeyword(DdfSyntaxRoles.State)) lookahead++;
+            DdfToken typeToken = Peek(lookahead);
+            if (typeToken == null) return false;
+            bool primitiveType = typeToken.Kind == DdfTokenKind.DataTypeKeyword &&
+                !string.Equals(language.TryGetKeyword(TokenText(typeToken), out DdfKeywordDefinition typeKeyword)
+                    ? typeKeyword.RoleId : DdfSyntaxRoles.None, DdfSyntaxRoles.Structure,
+                    StringComparison.OrdinalIgnoreCase);
+            if (!primitiveType && typeToken.Kind != DdfTokenKind.Identifier) return false;
 
-            int lookahead = 1;
+            lookahead++;
             while (IsText(Peek(lookahead), "["))
             {
                 int depth = 0;

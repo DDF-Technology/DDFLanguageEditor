@@ -11,7 +11,7 @@ namespace DDFLanguageEditor.Runtime
 {
     public static class DdfRuntimeAbi
     {
-        public const string Version = "1.6.0";
+        public const string Version = "1.11.0";
     }
 
     public enum DdfRuntimeDebugVariableKind
@@ -20,7 +20,8 @@ namespace DDFLanguageEditor.Runtime
         Local,
         Global,
         Field,
-        Element
+        Element,
+        State
     }
 
     public sealed class DdfRuntimeDebugMember
@@ -53,7 +54,8 @@ namespace DDFLanguageEditor.Runtime
     {
         internal DdfRuntimeDebugValue(string symbolId, string typeName,
             DdfRuntimeDebugVariableKind kind, string displayValue,
-            IReadOnlyList<DdfRuntimeDebugValue> children, bool isTruncated)
+            IReadOnlyList<DdfRuntimeDebugValue> children, bool isTruncated,
+            bool isReadOnly = false, bool isFixed = false)
         {
             SymbolId = symbolId;
             TypeName = typeName;
@@ -61,6 +63,8 @@ namespace DDFLanguageEditor.Runtime
             DisplayValue = displayValue;
             Children = children;
             IsTruncated = isTruncated;
+            IsReadOnly = isReadOnly;
+            IsFixed = isFixed;
         }
 
         public string SymbolId { get; }
@@ -69,6 +73,8 @@ namespace DDFLanguageEditor.Runtime
         public string DisplayValue { get; }
         public IReadOnlyList<DdfRuntimeDebugValue> Children { get; }
         public bool IsTruncated { get; }
+        public bool IsReadOnly { get; }
+        public bool IsFixed { get; }
     }
 
     public sealed class DdfRuntimeDebugFrame
@@ -139,15 +145,53 @@ namespace DDFLanguageEditor.Runtime
     {
         public DdfRuntimeException(string code, string message,
             DdfRuntimeSourceLocation location, Exception innerException = null)
+            : this(code, message, location,
+                Array.Empty<DdfRuntimeErrorFrame>(), innerException)
+        {
+        }
+
+        public DdfRuntimeException(string code, string message,
+            DdfRuntimeSourceLocation location,
+            IReadOnlyList<DdfRuntimeErrorFrame> frames,
+            Exception innerException = null)
             : base(message ?? string.Empty, innerException)
         {
             if (string.IsNullOrWhiteSpace(code))
                 throw new ArgumentException("Runtime error code is required.", nameof(code));
             Code = code;
             Location = location;
+            Frames = (frames ?? Array.Empty<DdfRuntimeErrorFrame>()).ToList()
+                .AsReadOnly();
         }
 
         public string Code { get; }
+        public DdfRuntimeSourceLocation Location { get; }
+        public IReadOnlyList<DdfRuntimeErrorFrame> Frames { get; private set; }
+
+        internal void CaptureFrames(IEnumerable<DdfRuntimeErrorFrame> frames)
+        {
+            if (Frames.Count != 0) return;
+            Frames = (frames ?? Array.Empty<DdfRuntimeErrorFrame>()).ToList()
+                .AsReadOnly();
+        }
+    }
+
+    public sealed class DdfRuntimeErrorFrame
+    {
+        public DdfRuntimeErrorFrame(string functionSymbolId,
+            DdfRuntimeSourceLocation declaration,
+            DdfRuntimeSourceLocation location)
+        {
+            if (string.IsNullOrWhiteSpace(functionSymbolId))
+                throw new ArgumentException("Function symbol id is required.",
+                    nameof(functionSymbolId));
+            FunctionSymbolId = functionSymbolId;
+            Declaration = declaration;
+            Location = location;
+        }
+
+        public string FunctionSymbolId { get; }
+        public DdfRuntimeSourceLocation Declaration { get; }
         public DdfRuntimeSourceLocation Location { get; }
     }
 
@@ -365,7 +409,7 @@ namespace DDFLanguageEditor.Runtime
             new(StringComparer.Ordinal);
         private long instructions;
         private int capabilityCalls;
-        private bool executing;
+        private int executing;
         private bool capabilityResourcesClosed = true;
         private Guid executionId;
         private DateTimeOffset executionStartedAt;
@@ -436,9 +480,9 @@ namespace DDFLanguageEditor.Runtime
         public DdfRuntimeExecutionResult Execute(Func<DdfRuntimeContext, object> entryPoint)
         {
             if (entryPoint == null) throw new ArgumentNullException(nameof(entryPoint));
-            if (executing) throw new InvalidOperationException(
-                "A runtime context cannot execute nested entry points.");
-            executing = true;
+            if (Interlocked.CompareExchange(ref executing, 1, 0) != 0)
+                throw new InvalidOperationException(
+                    "A runtime context cannot execute nested entry points.");
             instructions = 0;
             capabilityCalls = 0;
             executionId = Guid.NewGuid();
@@ -473,11 +517,78 @@ namespace DDFLanguageEditor.Runtime
             {
                 debugFrames.Clear();
                 debugGlobals.Clear();
-                executing = false;
             }
-            DdfRuntimeException cleanupFailure = ReleaseCapabilityResources();
-            DdfRuntimeException lifecycleFailure = FinalizeCapabilityEffects(
-                executionFailure == null && cleanupFailure == null);
+            DdfRuntimeException cleanupFailure;
+            DdfRuntimeException lifecycleFailure;
+            try
+            {
+                cleanupFailure = ReleaseCapabilityResources();
+                lifecycleFailure = FinalizeCapabilityEffects(
+                    executionFailure == null && cleanupFailure == null);
+            }
+            finally { Volatile.Write(ref executing, 0); }
+            if (result != null)
+                result.CapabilityEffects = LastCapabilityEffects;
+            if (executionFailure != null)
+                ExceptionDispatchInfo.Capture(executionFailure).Throw();
+            if (cleanupFailure != null) throw cleanupFailure;
+            if (lifecycleFailure != null) throw lifecycleFailure;
+            return result;
+        }
+
+        public async ValueTask<DdfRuntimeExecutionResult> ExecuteAsync(
+            Func<DdfRuntimeContext, ValueTask<object>> entryPoint)
+        {
+            if (entryPoint == null) throw new ArgumentNullException(nameof(entryPoint));
+            if (Interlocked.CompareExchange(ref executing, 1, 0) != 0)
+                throw new InvalidOperationException(
+                    "A runtime context cannot execute nested entry points.");
+            instructions = 0;
+            capabilityCalls = 0;
+            executionId = Guid.NewGuid();
+            executionStartedAt = DateTimeOffset.UtcNow;
+            lastCapabilityLocation = default;
+            capabilityEffects.Clear();
+            capabilityTransaction = null;
+            capabilityTransactionBeginAttempted = false;
+            capabilityTransactionBeginError = string.Empty;
+            LastCapabilityEffects = EmptyCapabilityEffects();
+            lock (capabilityResourcesSync)
+            {
+                capabilityResources.Clear();
+                capabilityResourcesClosed = false;
+            }
+            DdfRuntimeExecutionResult result = null;
+            Exception executionFailure = null;
+            try
+            {
+                CancellationToken.ThrowIfCancellationRequested();
+                await BeginCapabilityTransactionAsync().ConfigureAwait(false);
+                object value = await entryPoint(this).ConfigureAwait(false);
+                result = new DdfRuntimeExecutionResult(value, false, instructions);
+            }
+            catch (EndSignal signal)
+            {
+                result = new DdfRuntimeExecutionResult(signal.Value, true,
+                    instructions);
+            }
+            catch (Exception exception) { executionFailure = exception; }
+            finally
+            {
+                debugFrames.Clear();
+                debugGlobals.Clear();
+            }
+            DdfRuntimeException cleanupFailure;
+            DdfRuntimeException lifecycleFailure;
+            try
+            {
+                cleanupFailure = await ReleaseCapabilityResourcesAsync()
+                    .ConfigureAwait(false);
+                lifecycleFailure = await FinalizeCapabilityEffectsAsync(
+                        executionFailure == null && cleanupFailure == null)
+                    .ConfigureAwait(false);
+            }
+            finally { Volatile.Write(ref executing, 0); }
             if (result != null)
                 result.CapabilityEffects = LastCapabilityEffects;
             if (executionFailure != null)
@@ -505,6 +616,15 @@ namespace DDFLanguageEditor.Runtime
             debugFrames.RemoveAt(debugFrames.Count - 1);
         }
 
+        public void CaptureError(DdfRuntimeException exception)
+        {
+            if (exception == null) throw new ArgumentNullException(nameof(exception));
+            exception.CaptureFrames(debugFrames.AsEnumerable().Reverse()
+                .Select(frame => new DdfRuntimeErrorFrame(
+                    frame.FunctionSymbolId, frame.Declaration,
+                    frame.Location)));
+        }
+
         public void EnterDebugScope()
         {
             RequireDebugFrame().Scopes.Add(new Dictionary<string,
@@ -523,22 +643,48 @@ namespace DDFLanguageEditor.Runtime
         public void RegisterDebugParameter(string symbolId, string typeName,
             Func<object> reader) => RequireDebugFrame().Parameters[symbolId] =
             Registration(symbolId, typeName,
-                DdfRuntimeDebugVariableKind.Parameter, reader);
+                DdfRuntimeDebugVariableKind.Parameter, reader, false, false);
+
+        public void RegisterDebugParameter(string symbolId, string typeName,
+            Func<object> reader, bool isReadOnly, bool isFixed) =>
+            RequireDebugFrame().Parameters[symbolId] = Registration(symbolId,
+                typeName, DdfRuntimeDebugVariableKind.Parameter, reader,
+                isReadOnly, isFixed);
 
         public void RegisterDebugLocal(string symbolId, string typeName,
             Func<object> reader)
+            => RegisterDebugLocal(symbolId, typeName, reader, false, false);
+
+        public void RegisterDebugLocal(string symbolId, string typeName,
+            Func<object> reader, bool isReadOnly, bool isFixed)
         {
             MutableDebugFrame frame = RequireDebugFrame();
             if (frame.Scopes.Count == 0)
                 throw new InvalidOperationException(
                     "A debug scope is required before registering a local.");
             frame.Scopes[^1][symbolId] = Registration(symbolId, typeName,
-                DdfRuntimeDebugVariableKind.Local, reader);
+                DdfRuntimeDebugVariableKind.Local, reader, isReadOnly, isFixed);
         }
 
         public void RegisterDebugGlobal(string symbolId, string typeName,
             Func<object> reader) => debugGlobals[symbolId] = Registration(
-            symbolId, typeName, DdfRuntimeDebugVariableKind.Global, reader);
+            symbolId, typeName, DdfRuntimeDebugVariableKind.Global, reader,
+            false, false);
+
+        public void RegisterDebugGlobal(string symbolId, string typeName,
+            Func<object> reader, bool isReadOnly, bool isFixed) =>
+            debugGlobals[symbolId] = Registration(symbolId, typeName,
+                DdfRuntimeDebugVariableKind.Global, reader, isReadOnly, isFixed);
+
+        public void RegisterDebugState(string symbolId, string typeName,
+            Func<object> reader) => debugGlobals[symbolId] = Registration(
+            symbolId, typeName, DdfRuntimeDebugVariableKind.State, reader,
+            false, false);
+
+        public void RegisterDebugState(string symbolId, string typeName,
+            Func<object> reader, bool isReadOnly, bool isFixed) =>
+            debugGlobals[symbolId] = Registration(symbolId, typeName,
+                DdfRuntimeDebugVariableKind.State, reader, isReadOnly, isFixed);
 
         public T AtCall<T>(DdfRuntimeSourceLocation location,
             Func<T> invocation)
@@ -564,6 +710,35 @@ namespace DDFLanguageEditor.Runtime
             DdfRuntimeSourceLocation previous = frame.Location;
             frame.Location = location;
             try { invocation(); }
+            finally { frame.Location = previous; }
+        }
+
+        public async Task<T> AtCallAsync<T>(DdfRuntimeSourceLocation location,
+            Func<Task<T>> invocation)
+        {
+            if (invocation == null) throw new ArgumentNullException(nameof(invocation));
+            if (debugFrames.Count == 0)
+                return await invocation().ConfigureAwait(false);
+            MutableDebugFrame frame = debugFrames[^1];
+            DdfRuntimeSourceLocation previous = frame.Location;
+            frame.Location = location;
+            try { return await invocation().ConfigureAwait(false); }
+            finally { frame.Location = previous; }
+        }
+
+        public async Task AtCallAsync(DdfRuntimeSourceLocation location,
+            Func<Task> invocation)
+        {
+            if (invocation == null) throw new ArgumentNullException(nameof(invocation));
+            if (debugFrames.Count == 0)
+            {
+                await invocation().ConfigureAwait(false);
+                return;
+            }
+            MutableDebugFrame frame = debugFrames[^1];
+            DdfRuntimeSourceLocation previous = frame.Location;
+            frame.Location = location;
+            try { await invocation().ConfigureAwait(false); }
             finally { frame.Location = previous; }
         }
 
@@ -643,10 +818,11 @@ namespace DDFLanguageEditor.Runtime
             var context = new DdfRuntimeCapabilityInvocationContext(executionId,
                 callCancellation.Token, executionStartedAt, ExecutionDeadline,
                 RegisterCapabilityResource, capabilityTransaction?.Id);
+            Task<object> operation = null;
             try
             {
                 IReadOnlyList<object> values = arguments ?? Array.Empty<object>();
-                Task<object> operation = capabilityProvider is
+                operation = capabilityProvider is
                     IDdfRuntimeAsyncCapabilityProvider asyncProvider
                     ? asyncProvider.InvokeAsync(capabilityId, values, context)
                         .AsTask()
@@ -659,6 +835,83 @@ namespace DDFLanguageEditor.Runtime
             }
             catch (OperationCanceledException exception)
             {
+                ObserveLateCapabilityOperation(operation);
+                FailCapabilityEffect(effect, exception);
+                if (CancellationToken.IsCancellationRequested) throw;
+                throw Error("DDF414", "Timeout della capability '" +
+                    capabilityId + "' dopo " +
+                    CapabilityTimeout.TotalMilliseconds.ToString(
+                        CultureInfo.InvariantCulture) + " ms.", location);
+            }
+            catch (DdfRuntimeException exception)
+            {
+                FailCapabilityEffect(effect, exception);
+                throw;
+            }
+            catch (CapabilityResourceLimitException exception)
+            {
+                FailCapabilityEffect(effect, exception);
+                throw Error("DDF413", exception.Message, location, exception);
+            }
+            catch (Exception exception)
+            {
+                FailCapabilityEffect(effect, exception);
+                throw Error("DDF409", "La capacità runtime '" + capabilityId +
+                    "' non è riuscita.", location, exception);
+            }
+        }
+
+        public ValueTask<object> InvokeCapabilityAsync(string capabilityId,
+            IReadOnlyList<object> arguments, DdfRuntimeSourceLocation location)
+            => InvokeCapabilityCoreAsync(capabilityId, arguments, location,
+                null);
+
+        public ValueTask<object> InvokeCapabilityAsync(string capabilityId,
+            IReadOnlyList<object> arguments, DdfRuntimeSourceLocation location,
+            DdfRuntimeCapabilityEffectKind effectKind)
+            => InvokeCapabilityCoreAsync(capabilityId, arguments, location,
+                effectKind);
+
+        private async ValueTask<object> InvokeCapabilityCoreAsync(
+            string capabilityId, IReadOnlyList<object> arguments,
+            DdfRuntimeSourceLocation location,
+            DdfRuntimeCapabilityEffectKind? effectKind)
+        {
+            CancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(capabilityId) || capabilityProvider == null)
+                throw Error("DDF409", "Capacità runtime non disponibile: '" +
+                    (capabilityId ?? string.Empty) + "'.", location);
+            capabilityCalls++;
+            if (capabilityCalls > MaxCapabilityCalls)
+                throw Error("DDF413", "Limite di " + MaxCapabilityCalls +
+                    " chiamate capability superato.", location);
+            lastCapabilityLocation = location;
+            CapabilityEffectEntry effect = effectKind.HasValue
+                ? BeginCapabilityEffect(capabilityId, effectKind.Value) : null;
+            using var callCancellation = CancellationTokenSource
+                .CreateLinkedTokenSource(CancellationToken);
+            callCancellation.CancelAfter(CapabilityTimeout);
+            var context = new DdfRuntimeCapabilityInvocationContext(executionId,
+                callCancellation.Token, executionStartedAt, ExecutionDeadline,
+                RegisterCapabilityResource, capabilityTransaction?.Id);
+            Task<object> operation = null;
+            try
+            {
+                IReadOnlyList<object> values = arguments ?? Array.Empty<object>();
+                operation = capabilityProvider is
+                    IDdfRuntimeAsyncCapabilityProvider asyncProvider
+                    ? asyncProvider.InvokeAsync(capabilityId, values, context)
+                        .AsTask()
+                    : Task.Run(() => capabilityProvider.Invoke(capabilityId,
+                        values, callCancellation.Token), callCancellation.Token);
+                object result = await operation.WaitAsync(callCancellation.Token)
+                    .ConfigureAwait(false);
+                CompleteCapabilityEffect(effect);
+                return result;
+            }
+            catch (OperationCanceledException exception)
+            {
+                ObserveLateCapabilityOperation(operation);
                 FailCapabilityEffect(effect, exception);
                 if (CancellationToken.IsCancellationRequested) throw;
                 throw Error("DDF414", "Timeout della capability '" +
@@ -691,6 +944,25 @@ namespace DDFLanguageEditor.Runtime
             return ConvertCapabilityValue<T>(capabilityId, value, location);
         }
 
+        public async ValueTask<T> InvokeCapabilityValueAsync<T>(
+            string capabilityId, IReadOnlyList<object> arguments,
+            DdfRuntimeSourceLocation location)
+        {
+            object value = await InvokeCapabilityAsync(capabilityId, arguments,
+                location).ConfigureAwait(false);
+            return ConvertCapabilityValue<T>(capabilityId, value, location);
+        }
+
+        public async ValueTask<T> InvokeCapabilityValueAsync<T>(
+            string capabilityId, IReadOnlyList<object> arguments,
+            DdfRuntimeSourceLocation location,
+            DdfRuntimeCapabilityEffectKind effectKind)
+        {
+            object value = await InvokeCapabilityAsync(capabilityId, arguments,
+                location, effectKind).ConfigureAwait(false);
+            return ConvertCapabilityValue<T>(capabilityId, value, location);
+        }
+
         public T InvokeCapabilityValue<T>(string capabilityId,
             IReadOnlyList<object> arguments, DdfRuntimeSourceLocation location,
             DdfRuntimeCapabilityEffectKind effectKind)
@@ -717,6 +989,17 @@ namespace DDFLanguageEditor.Runtime
             return value;
         }
 
+        public async ValueTask<T> WriteCapabilityValueAsync<T>(
+            string capabilityId, T value,
+            DdfRuntimeSourceLocation location)
+        {
+            await InvokeCapabilityAsync(capabilityId,
+                new object[] { value }, location,
+                DdfRuntimeCapabilityEffectKind.ObjectWrite)
+                .ConfigureAwait(false);
+            return value;
+        }
+
         public T ReadCapabilityElement<T>(string capabilityId, int index,
             DdfRuntimeSourceLocation location)
         {
@@ -733,6 +1016,23 @@ namespace DDFLanguageEditor.Runtime
             }
         }
 
+        public async ValueTask<T> ReadCapabilityElementAsync<T>(
+            string capabilityId, int index,
+            DdfRuntimeSourceLocation location)
+        {
+            try
+            {
+                return await InvokeCapabilityValueAsync<T>(capabilityId,
+                    new object[] { index }, location).ConfigureAwait(false);
+            }
+            catch (DdfRuntimeException exception) when (
+                IsCapabilityIndexFailure(exception))
+            {
+                throw Error("DDF405", "Indice array fuori intervallo: " +
+                    index + ".", location, exception.InnerException);
+            }
+        }
+
         public T WriteCapabilityElement<T>(string capabilityId, int index,
             T value, DdfRuntimeSourceLocation location)
         {
@@ -740,6 +1040,26 @@ namespace DDFLanguageEditor.Runtime
             {
                 InvokeCapability(capabilityId, new object[] { index, value },
                     location, DdfRuntimeCapabilityEffectKind.ObjectWrite);
+                return value;
+            }
+            catch (DdfRuntimeException exception) when (
+                IsCapabilityIndexFailure(exception))
+            {
+                throw Error("DDF405", "Indice array fuori intervallo: " +
+                    index + ".", location, exception.InnerException);
+            }
+        }
+
+        public async ValueTask<T> WriteCapabilityElementAsync<T>(
+            string capabilityId, int index, T value,
+            DdfRuntimeSourceLocation location)
+        {
+            try
+            {
+                await InvokeCapabilityAsync(capabilityId,
+                    new object[] { index, value }, location,
+                    DdfRuntimeCapabilityEffectKind.ObjectWrite)
+                    .ConfigureAwait(false);
                 return value;
             }
             catch (DdfRuntimeException exception) when (
@@ -810,6 +1130,40 @@ namespace DDFLanguageEditor.Runtime
                 capabilityTransaction = capabilityTransactionFactory
                     .BeginAsync(context).AsTask().WaitAsync(CapabilityTimeout,
                         CancellationToken).GetAwaiter().GetResult();
+                if (capabilityTransaction == null)
+                    throw new InvalidOperationException(
+                        "La factory ha restituito una transazione nulla.");
+                if (string.IsNullOrWhiteSpace(capabilityTransaction.Id))
+                    throw new InvalidOperationException(
+                        "La transazione deve avere un identificatore.");
+            }
+            catch (OperationCanceledException) when
+                (CancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                capabilityTransactionBeginError = exception.Message;
+                throw Error("DDF420",
+                    "Avvio della transazione capability non riuscito: " +
+                    exception.Message, lastCapabilityLocation, exception);
+            }
+        }
+
+        private async ValueTask BeginCapabilityTransactionAsync()
+        {
+            if (CapabilityEffectPolicy !=
+                DdfRuntimeCapabilityEffectPolicy.RollbackOnFailure) return;
+            capabilityTransactionBeginAttempted = true;
+            try
+            {
+                var context = new DdfRuntimeCapabilityTransactionContext(
+                    executionId, executionStartedAt, ExecutionDeadline,
+                    CancellationToken);
+                capabilityTransaction = await capabilityTransactionFactory
+                    .BeginAsync(context).AsTask().WaitAsync(CapabilityTimeout,
+                        CancellationToken).ConfigureAwait(false);
                 if (capabilityTransaction == null)
                     throw new InvalidOperationException(
                         "La factory ha restituito una transazione nulla.");
@@ -925,10 +1279,117 @@ namespace DDFLanguageEditor.Runtime
                 lifecycleFailure);
         }
 
+        private async ValueTask<DdfRuntimeException>
+            FinalizeCapabilityEffectsAsync(bool succeeded)
+        {
+            IReadOnlyList<DdfRuntimeCapabilityEffectRecord> effects =
+                SnapshotCapabilityEffects();
+            if (CapabilityEffectPolicy ==
+                DdfRuntimeCapabilityEffectPolicy.Immediate)
+            {
+                LastCapabilityEffects = new DdfRuntimeCapabilityEffectReceipt(
+                    CapabilityEffectPolicy,
+                    effects.Count == 0
+                        ? DdfRuntimeCapabilityEffectDisposition.None
+                        : succeeded
+                            ? DdfRuntimeCapabilityEffectDisposition.Applied
+                            : DdfRuntimeCapabilityEffectDisposition
+                                .PartiallyApplied,
+                    effects);
+                return null;
+            }
+
+            if (capabilityTransaction == null)
+            {
+                LastCapabilityEffects = new DdfRuntimeCapabilityEffectReceipt(
+                    CapabilityEffectPolicy,
+                    capabilityTransactionBeginAttempted
+                        ? DdfRuntimeCapabilityEffectDisposition.BeginFailed
+                        : DdfRuntimeCapabilityEffectDisposition.None,
+                    effects, error: capabilityTransactionBeginError);
+                return null;
+            }
+
+            string transactionId = capabilityTransaction.Id;
+            DdfRuntimeCapabilityEffectDisposition disposition;
+            Exception lifecycleFailure = null;
+            string lifecycleError = string.Empty;
+            try
+            {
+                using var operationCancellation =
+                    new CancellationTokenSource(CapabilityTimeout);
+                if (succeeded)
+                {
+                    await capabilityTransaction.CommitAsync(
+                            operationCancellation.Token).AsTask()
+                        .WaitAsync(operationCancellation.Token)
+                        .ConfigureAwait(false);
+                    disposition =
+                        DdfRuntimeCapabilityEffectDisposition.Committed;
+                }
+                else
+                {
+                    await capabilityTransaction.RollbackAsync(
+                            operationCancellation.Token).AsTask()
+                        .WaitAsync(operationCancellation.Token)
+                        .ConfigureAwait(false);
+                    disposition =
+                        DdfRuntimeCapabilityEffectDisposition.RolledBack;
+                }
+            }
+            catch (Exception exception)
+            {
+                lifecycleFailure = exception;
+                lifecycleError = exception.Message;
+                disposition = succeeded
+                    ? DdfRuntimeCapabilityEffectDisposition.CommitFailed
+                    : DdfRuntimeCapabilityEffectDisposition.RollbackFailed;
+            }
+            finally
+            {
+                try
+                {
+                    await capabilityTransaction.DisposeAsync().AsTask()
+                        .WaitAsync(CapabilityTimeout).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    lifecycleError = AppendCapabilityError(lifecycleError,
+                        exception.Message);
+                    lifecycleFailure ??= exception;
+                }
+                capabilityTransaction = null;
+            }
+            LastCapabilityEffects = new DdfRuntimeCapabilityEffectReceipt(
+                CapabilityEffectPolicy, disposition, effects, transactionId,
+                lifecycleError);
+            if (lifecycleFailure == null) return null;
+            string code = disposition ==
+                DdfRuntimeCapabilityEffectDisposition.CommitFailed ||
+                disposition ==
+                    DdfRuntimeCapabilityEffectDisposition.RollbackFailed
+                ? "DDF420" : "DDF415";
+            return Error(code, "Finalizzazione della transazione capability " +
+                "non riuscita: " + lifecycleError, lastCapabilityLocation,
+                lifecycleFailure);
+        }
+
         private static string AppendCapabilityError(string current,
             string additional) => string.IsNullOrEmpty(current)
             ? additional ?? string.Empty
             : current + "; " + (additional ?? string.Empty);
+
+        private static void ObserveLateCapabilityOperation(Task operation)
+        {
+            if (operation == null || operation.IsCompletedSuccessfully) return;
+            _ = operation.ContinueWith(completed =>
+                {
+                    _ = completed.Exception;
+                }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted |
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
 
         private sealed class CapabilityResourceLimitException : Exception
         {
@@ -974,6 +1435,39 @@ namespace DDFLanguageEditor.Runtime
             foreach (object resource in resources)
             {
                 try { DisposeCapabilityResource(resource); }
+                catch (Exception exception)
+                {
+                    firstFailure ??= exception;
+                }
+            }
+            return firstFailure == null ? null : Error("DDF415",
+                "Errore durante il rilascio di una risorsa capability: " +
+                firstFailure.Message, lastCapabilityLocation, firstFailure);
+        }
+
+        private async ValueTask<DdfRuntimeException>
+            ReleaseCapabilityResourcesAsync()
+        {
+            List<object> resources;
+            lock (capabilityResourcesSync)
+            {
+                capabilityResourcesClosed = true;
+                resources = capabilityResources.ToList();
+                capabilityResources.Clear();
+            }
+            resources.Reverse();
+            Exception firstFailure = null;
+            foreach (object resource in resources)
+            {
+                try
+                {
+                    if (resource is IAsyncDisposable asyncResource)
+                        await asyncResource.DisposeAsync().AsTask()
+                            .WaitAsync(CapabilityTimeout).ConfigureAwait(false);
+                    else if (resource is IDisposable disposable)
+                        await Task.Run(disposable.Dispose)
+                            .WaitAsync(CapabilityTimeout).ConfigureAwait(false);
+                }
                 catch (Exception exception)
                 {
                     firstFailure ??= exception;
@@ -1035,6 +1529,8 @@ namespace DDFLanguageEditor.Runtime
             internal string TypeName { get; init; }
             internal DdfRuntimeDebugVariableKind Kind { get; init; }
             internal Func<object> Reader { get; init; }
+            internal bool IsReadOnly { get; init; }
+            internal bool IsFixed { get; init; }
         }
 
         private MutableDebugFrame RequireDebugFrame() => debugFrames.Count == 0
@@ -1044,7 +1540,7 @@ namespace DDFLanguageEditor.Runtime
 
         private static DebugRegistration Registration(string symbolId,
             string typeName, DdfRuntimeDebugVariableKind kind,
-            Func<object> reader)
+            Func<object> reader, bool isReadOnly, bool isFixed)
         {
             if (string.IsNullOrWhiteSpace(symbolId))
                 throw new ArgumentException("Symbol id is required.",
@@ -1057,7 +1553,9 @@ namespace DDFLanguageEditor.Runtime
                 SymbolId = symbolId,
                 TypeName = typeName,
                 Kind = kind,
-                Reader = reader ?? throw new ArgumentNullException(nameof(reader))
+                Reader = reader ?? throw new ArgumentNullException(nameof(reader)),
+                IsReadOnly = isReadOnly,
+                IsFixed = isFixed
             };
         }
 
@@ -1081,12 +1579,14 @@ namespace DDFLanguageEditor.Runtime
             DebugRegistration registration)
         {
             return CaptureValue(registration.SymbolId, registration.TypeName,
-                registration.Kind, registration.Reader(), new DebugCaptureState(), 0);
+                registration.Kind, registration.Reader(), new DebugCaptureState(), 0,
+                registration.IsReadOnly, registration.IsFixed);
         }
 
         private static DdfRuntimeDebugValue CaptureValue(string symbolId,
             string typeName, DdfRuntimeDebugVariableKind kind, object value,
-            DebugCaptureState state, int depth)
+            DebugCaptureState state, int depth, bool isReadOnly = false,
+            bool isFixed = false)
         {
             state.Values++;
             var children = new List<DdfRuntimeDebugValue>();
@@ -1140,7 +1640,8 @@ namespace DDFLanguageEditor.Runtime
             }
             if (tracked) state.Active.Remove(value);
             return new DdfRuntimeDebugValue(symbolId, typeName, kind,
-                FormatDebugValue(value, typeName), children.AsReadOnly(), truncated);
+                FormatDebugValue(value, typeName), children.AsReadOnly(), truncated,
+                isReadOnly, isFixed);
         }
 
         private sealed class DebugCaptureState
@@ -1166,6 +1667,12 @@ namespace DDFLanguageEditor.Runtime
 
         private static string FormatDebugValue(object value, string typeName)
         {
+            if (value is Enum enumeration)
+            {
+                string member = Enum.GetName(value.GetType(), value);
+                if (!string.IsNullOrEmpty(member))
+                    return (typeName ?? value.GetType().Name) + "." + member;
+            }
             if (value == null || value is bool || value is byte ||
                 value is sbyte || value is short || value is ushort ||
                 value is int || value is uint || value is long ||
@@ -1208,6 +1715,16 @@ namespace DDFLanguageEditor.Runtime
             int checkedIndex = DdfRuntimeNumeric.CheckedIndex(index, value.Length,
                 location);
             return ref value[checkedIndex];
+        }
+
+        public static T SetArrayElement<T>(T[] value, int index, T element,
+            DdfRuntimeSourceLocation location)
+        {
+            RequireNonNull(value, location);
+            int checkedIndex = DdfRuntimeNumeric.CheckedIndex(index, value.Length,
+                location);
+            value[checkedIndex] = element;
+            return element;
         }
 
         public static char StringCharacterAt(string value, int index,

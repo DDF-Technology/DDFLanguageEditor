@@ -1,0 +1,19 @@
+main() out int
+{
+    int value << 1;
+
+    select(value)
+    {
+        when 1
+        {
+            value << 2;
+        }
+
+        when 1
+        {
+            value << 3;
+        }
+    }
+
+    ret value;
+}

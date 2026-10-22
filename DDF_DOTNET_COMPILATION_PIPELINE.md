@@ -42,7 +42,7 @@ La sequenza effettiva della `0.13.1` è:
 
 1. pianificazione per unità dalla pipeline condivisa — completata;
 2. IR bound `2.1` con simboli, tipi, conversioni, l-value, chiamate risolte ed effetti host — completata;
-3. runtime ABI `1.6.0` e name map deterministico `1.0` — completati;
+3. runtime ABI `1.9.0` e name map deterministico `1.0` — completati;
 4. slice chiuso di alberi C# con controllo semantico in memoria — completato per funzioni, controllo di flusso, postfix e array;
 5. risoluzione esplicita del reference pack autorizzato e collegamento al piano — completata;
 6. strutture, globali, standard library e chiamate inter-modulo con validazione topologica in memoria — completati;
@@ -60,9 +60,16 @@ La sequenza effettiva della `0.13.1` è:
    proprietà host, percorsi annidati ed elementi di array usati sono ora
    capability esplicite del runner
    standalone e vengono confrontati con la VM per risultato, stato finale e
-   cardinalità dell'effetto. Provider asincroni, timeout, budget e cleanup LIFO
-   sono governati dalla ABI; ricevute e transazioni commit/rollback distinguono
-   gli effetti reali dalle letture. Resta l'ampliamento futuro del corpus.
+   cardinalità dell'effetto. Funzioni, inizializzatori, factory delle strutture
+   e chiamate inter-modulo vengono emessi come state machine C#; le capability
+   usano la ABI asincrona e un gate su assembly reale verifica sospensione e
+   ripresa senza fallback sincrono. Anche una chiamata DDF usata come argomento
+   di un'altra chiamata viene attesa dentro una lambda `async` tipizzata per
+   `AtCallAsync`, così nessun `await` può finire in una lambda sincrona generata.
+   Timeout, budget e cleanup LIFO sono governati
+   dalla ABI; ricevute e transazioni commit/rollback distinguono gli effetti
+   reali dalle letture. Restano il confronto worker su Stop/timeout/risposte
+   tardive e l'ampliamento futuro del corpus.
 
 Non verranno emessi assembly placeholder o stub che simulino falsamente la
 semantica DDF. La prima DLL prodotta dovrà già rispettare la IR bound e i gate di
@@ -156,7 +163,7 @@ sia per programma. Il bundle incorpora ora i byte canonici del manifest package
 dimensione e classificazione `packaged`/`platform` di ogni reference
 autorizzata, non i percorsi della macchina di build, e lega l'allowlist agli
 hash degli artefatti. Le sole DLL esterne risolte vengono copiate nel bundle;
-il worker `1.9` ne ricostruisce identità e reference set dai byte e il loader le
+il worker `2.0` ne ricostruisce identità e reference set dai byte e il loader le
 risolve in memoria nell'`AssemblyLoadContext` collezionabile.
 
 La pubblicazione EXE usa gli stessi byte packaged e non riapre le DLL dalla
@@ -189,6 +196,14 @@ map verificata. Ogni sessione è monouso e rimuove i riferimenti forti prima di
 L'API vive soltanto nell'assembly Compiler e rifiuta esplicitamente l'embedded.
 Package non fidati richiederanno il completamento del worker con una sandbox del
 sistema operativo: il loader in-process non è un confine di sicurezza.
+
+La Runtime ABI `1.11.0` aggiunge un confine state backend-neutral. Ogni modulo
+emette helper di cattura/applicazione per i soli globali dichiarati `state`, con
+la stessa chiave stabile della VM. Una nuova sessione può importare lo snapshot
+prima di `main`; dopo il successo può esportarne uno nuovo. Identità linguaggio,
+versione, chiavi e tipi sono verificati fail-closed e un fallimento non produce
+stato committibile. Il contratto non serializza nomi CLR, reflection o tipi
+Roslyn.
 
 Il primo `DDFLanguageEditor.Runner` separa già il caricamento dal processo
 dell'editor. `DdfDotNetWorkerClient` invia su pipe una richiesta JSON `1.1`

@@ -1,0 +1,18 @@
+enum Color
+{
+    Red,
+    Green,
+    Blue
+}
+
+main() out int
+{
+    Color selected << Color.Green;
+
+    if(selected == Color.Green)
+    {
+        ret 42;
+    }
+
+    ret 0;
+}

@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/version-matrix-1.0.json",
+  "title": "DDFLanguageEditor authoritative version matrix 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "product", "language", "editorSdk", "hostSupport", "embeddedBoundary", "components", "runtime", "worker", "formats", "schemas", "persistence" ],
+  "properties": {
+    "$schema": { "const": "./ddf-version-matrix.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "version", "stability", "displayVersion", "assemblyVersion", "fileVersion", "informationalVersion" ],
+      "properties": {
+        "version": { "$ref": "#/$defs/semver" },
+        "stability": { "enum": [ "alpha", "beta", "stable" ] },
+        "displayVersion": { "type": "string", "minLength": 1 },
+        "assemblyVersion": { "$ref": "#/$defs/assemblyVersion" },
+        "fileVersion": { "$ref": "#/$defs/assemblyVersion" },
+        "informationalVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "id", "languageVersion", "packageVersion", "engineApi", "integrationContractVersion", "integrationContract", "backendEquivalenceContractVersion", "backendEquivalenceContract" ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "languageVersion": { "$ref": "#/$defs/majorMinor" },
+        "packageVersion": { "$ref": "#/$defs/semver" },
+        "engineApi": { "$ref": "#/$defs/majorMinor" },
+        "integrationContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "integrationContract": { "const": "ddf-language-integration.json" },
+        "backendEquivalenceContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "backendEquivalenceContract": { "const": "ddf-backend-equivalence.json" }
+      }
+    },
+    "editorSdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "contractVersion", "legacyContractVersion", "legacyBaselineCommit", "sourceCompatibility", "binaryCompatibility", "persistenceCompatibility", "apiLifecyclePolicyVersion", "earliestBreakingContractVersion", "minimumDocumentedSuccessorContracts" ],
+      "properties": {
+        "contractVersion": { "$ref": "#/$defs/majorMinor" },
+        "legacyContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "legacyBaselineCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceCompatibility": { "type": "string", "minLength": 1 },
+        "binaryCompatibility": { "type": "string", "minLength": 1 },
+        "persistenceCompatibility": { "type": "string", "minLength": 1 },
+        "apiLifecyclePolicyVersion": { "$ref": "#/$defs/majorMinor" },
+        "earliestBreakingContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "minimumDocumentedSuccessorContracts": { "type": "integer", "minimum": 2 }
+      }
+    },
+    "hostSupport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "policyVersion", "reference", "planned" ],
+      "properties": {
+        "policyVersion": { "$ref": "#/$defs/majorMinor" },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [ "language", "runtime", "uiFramework", "status", "projects" ],
+          "properties": {
+            "language": { "const": "C#" },
+            "runtime": { "const": ".NET 10" },
+            "uiFramework": { "const": "WinForms" },
+            "status": { "const": "reference-beta" },
+            "projects": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+          }
+        },
+        "planned": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "id", "kind", "availability", "strategy" ],
+            "properties": {
+              "id": { "enum": [ "vbnet", "fsharp", "wpf", "non-dotnet" ] },
+              "kind": { "enum": [ "managed-language-host", "managed-ui-host", "interop-host" ] },
+              "availability": { "const": "post-1.0" },
+              "strategy": { "const": "reuse-versioned-sdk-contracts" }
+            }
+          }
+        }
+      }
+    },
+    "embeddedBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "projects", "sourceScopes", "forbiddenProjectSuffixes", "forbiddenPackagePrefixes", "forbiddenAssemblyPrefixes", "forbiddenSourcePatterns" ],
+      "properties": {
+        "projects": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "sourceScopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "path", "recursive", "exclude" ],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "recursive": { "type": "boolean" },
+              "exclude": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "forbiddenProjectSuffixes": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "forbiddenPackagePrefixes": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "forbiddenAssemblyPrefixes": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "forbiddenSourcePatterns": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+      }
+    },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/component" }
+    },
+    "runtime": { "$ref": "#/$defs/versionMap" },
+    "worker": { "$ref": "#/$defs/versionMap" },
+    "formats": { "$ref": "#/$defs/versionMap" },
+    "schemas": { "$ref": "#/$defs/versionMap" },
+    "persistence": { "$ref": "#/$defs/versionMap" }
+  },
+  "$defs": {
+    "majorMinor": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "semver": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "assemblyVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "versionMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" }
+    },
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "id", "project", "version", "assemblyVersion", "fileVersion", "informationalVersion" ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "project": { "type": "string", "pattern": "\\.csproj$" },
+        "version": { "$ref": "#/$defs/semver" },
+        "assemblyVersion": { "$ref": "#/$defs/assemblyVersion" },
+        "fileVersion": { "$ref": "#/$defs/assemblyVersion" },
+        "informationalVersion": { "type": "string", "minLength": 1 },
+        "packageId": { "type": "string", "minLength": 1 },
+        "packageVersion": { "$ref": "#/$defs/semver" }
+      },
+      "dependentRequired": {
+        "packageId": [ "packageVersion" ],
+        "packageVersion": [ "packageId" ]
+      }
+    }
+  }
+}

@@ -200,9 +200,21 @@ namespace DDF___Program_Language_Editor
             menuStripMain.SizeChanged += toolbarChrome_SizeChanged;
             PerformLayout();
 
-            toolbarLayoutSettings = ToolbarLayoutSettings.Parse(
-                AppSettingsStore.LoadToolbarLayout(), ToolbarGroupDefinitions.Select(definition => definition.Id));
-            saveToolbarLayoutSetting = AppSettingsStore.SaveToolbarLayout;
+            string persistedToolbar = embeddedHostMode
+                ? string.Empty
+                : AppSettingsStore.LoadToolbarLayout();
+            DdfPersistenceReadResult<ToolbarLayoutSettings> toolbarRead =
+                ToolbarLayoutSettings.ParseVersioned(persistedToolbar,
+                    ToolbarGroupDefinitions.Select(definition => definition.Id));
+            toolbarLayoutSettings = toolbarRead.Value ?? ToolbarLayoutSettings.Parse(
+                string.Empty, ToolbarGroupDefinitions.Select(definition => definition.Id));
+            if (!toolbarRead.Succeeded && !string.IsNullOrWhiteSpace(persistedToolbar))
+                statusFileLabel.ToolTipText =
+                    "Layout toolbar non applicato; i dati originali sono stati conservati. " +
+                    toolbarRead.Failure;
+            saveToolbarLayoutSetting = embeddedHostMode
+                ? null
+                : AppSettingsStore.SaveToolbarLayout;
 
             foreach (ToolbarGroupDefinition definition in ToolbarGroupDefinitions
                 .OrderBy(item => getInitialToolbarRow(item.Id)))
@@ -399,7 +411,21 @@ namespace DDF___Program_Language_Editor
 
         private void persistToolbarLayout()
         {
-            if (saveToolbarLayoutSetting == null || toolbarLayoutSettings == null) return;
+            string serialized = captureToolbarLayout();
+            if (saveToolbarLayoutSetting == null || serialized.Length == 0) return;
+            try
+            {
+                saveToolbarLayoutSetting(serialized);
+            }
+            catch (Exception exception) when (exception is System.IO.IOException || exception is UnauthorizedAccessException)
+            {
+                statusFileLabel.ToolTipText = "Impossibile memorizzare le barre degli strumenti: " + exception.Message;
+            }
+        }
+
+        private string captureToolbarLayout()
+        {
+            if (toolbarLayoutSettings == null) return string.Empty;
             ToolbarGroup[] visibleGroups = toolbarGroups.Where(group => group.Strip.Visible)
                 .OrderBy(group => group.Strip.Top).ThenBy(group => group.Strip.Left).ToArray();
             int[] rowTops = visibleGroups.Select(group => group.Strip.Top).Distinct().OrderBy(value => value).ToArray();
@@ -418,14 +444,32 @@ namespace DDF___Program_Language_Editor
             }
             foreach (ToolbarGroup group in toolbarGroups.Where(group => !group.Strip.Visible))
                 toolbarLayoutSettings.SetVisible(group.Id, false);
-            try
-            {
-                saveToolbarLayoutSetting(toolbarLayoutSettings.Serialize());
-            }
-            catch (Exception exception) when (exception is System.IO.IOException || exception is UnauthorizedAccessException)
-            {
-                statusFileLabel.ToolTipText = "Impossibile memorizzare le barre degli strumenti: " + exception.Message;
-            }
+            return toolbarLayoutSettings.Serialize();
+        }
+
+        public string CaptureEmbeddedToolbarLayout()
+        {
+            if (!embeddedHostMode)
+                throw new InvalidOperationException(
+                    "La persistenza delegata delle toolbar è disponibile soltanto in modalità embedded.");
+            return captureToolbarLayout();
+        }
+
+        public bool RestoreEmbeddedToolbarLayout(string serialized)
+        {
+            if (!embeddedHostMode)
+                throw new InvalidOperationException(
+                    "La persistenza delegata delle toolbar è disponibile soltanto in modalità embedded.");
+            DdfPersistenceReadResult<ToolbarLayoutSettings> parsed =
+                ToolbarLayoutSettings.ParseVersioned(serialized,
+                    ToolbarGroupDefinitions.Select(definition => definition.Id));
+            if (!parsed.Succeeded || parsed.Value == null) return false;
+            toolbarLayoutSettings = parsed.Value;
+            toolbarLayoutReady = false;
+            toolbarInitialLayoutApplied = false;
+            applyInitialToolbarPositions();
+            updateToolbarVisibilityMenu();
+            return true;
         }
 
         private void disposeFloatingToolbars()

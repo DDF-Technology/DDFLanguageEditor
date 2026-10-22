@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/standard-library-binding-design-1.0.json",
+  "title": "DDF standard library binding design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "futureSectionSchemaVersion", "futureAdapter", "activationBeforeLanguageVersion", "currentContract", "functionIdentityPattern", "requiredFunctionFields", "effectKinds", "determinismKinds", "portabilityKinds", "constantEvaluationKinds", "bindingFields", "fingerprintedFields", "rules", "loaderDiagnostics", "consumers" ],
+  "properties": {
+    "$schema": { "const": "./ddf-standard-library-binding-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0038" },
+    "futureSectionSchemaVersion": { "const": "2.0" },
+    "futureAdapter": { "const": "ddf-standard-library-v4" },
+    "activationBeforeLanguageVersion": { "const": "0.20" },
+    "currentContract": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "sectionSchemaVersion", "adapter", "libraryVersion" ],
+      "properties": {
+        "sectionSchemaVersion": { "const": "1.1" },
+        "adapter": { "const": "ddf-standard-library-v3" },
+        "libraryVersion": { "const": "0.12.3" }
+      }
+    },
+    "functionIdentityPattern": { "type": "string", "minLength": 1 },
+    "requiredFunctionFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "effectKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "determinismKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "portabilityKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "constantEvaluationKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "bindingFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "fingerprintedFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "functionNamesAreUniqueWithoutOverloads", "unknownFieldsRejected", "loadingIsAtomic", "catalogSnapshotIsImmutable", "emptyEffectsMeansPure", "pureFunctionsCannotRequireCapabilities", "recoverableErrorsUseTypedIdentities", "undeclaredRecoverableErrorsForbidden", "platformBoundFunctionsExcluded", "clrAndNativeBindingsForbidden", "constantEvaluationDefaultsForbidden", "constantEvaluationUsesSharedEvaluator", "semanticMetadataIsFingerprinted", "artifactWorkerNegotiationIsFailClosed", "parserAndUiNameSwitchesForbidden", "syntaxProfilesPreserveSemanticIdentity" ],
+      "properties": {
+        "functionNamesAreUniqueWithoutOverloads": { "const": true },
+        "unknownFieldsRejected": { "const": true },
+        "loadingIsAtomic": { "const": true },
+        "catalogSnapshotIsImmutable": { "const": true },
+        "emptyEffectsMeansPure": { "const": true },
+        "pureFunctionsCannotRequireCapabilities": { "const": true },
+        "recoverableErrorsUseTypedIdentities": { "const": true },
+        "undeclaredRecoverableErrorsForbidden": { "const": true },
+        "platformBoundFunctionsExcluded": { "const": true },
+        "clrAndNativeBindingsForbidden": { "const": true },
+        "constantEvaluationDefaultsForbidden": { "const": true },
+        "constantEvaluationUsesSharedEvaluator": { "const": true },
+        "semanticMetadataIsFingerprinted": { "const": true },
+        "artifactWorkerNegotiationIsFailClosed": { "const": true },
+        "parserAndUiNameSwitchesForbidden": { "const": true },
+        "syntaxProfilesPreserveSemanticIdentity": { "const": true }
+      }
+    },
+    "loaderDiagnostics": {
+      "type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDFL[0-9]{3}$" }
+    },
+    "consumers": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

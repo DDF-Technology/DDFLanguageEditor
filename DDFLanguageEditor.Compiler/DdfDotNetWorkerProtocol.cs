@@ -186,6 +186,8 @@ namespace DDFLanguageEditor.Compiler
         public string DisplayValue { get; set; }
         public List<DdfDotNetWorkerDebugVariable> Children { get; set; } = new();
         public bool IsTruncated { get; set; }
+        public bool IsReadOnly { get; set; }
+        public bool IsFixed { get; set; }
     }
 
     public sealed class DdfDotNetWorkerSourceLocation
@@ -214,7 +216,7 @@ namespace DDFLanguageEditor.Compiler
     public sealed class DdfDotNetWorkerRequest
     {
         public const string FormatValue = "ddf-dotnet-worker-request";
-        public const string ProtocolVersionValue = "1.9";
+        public const string ProtocolVersionValue = "2.0";
 
         public string Format { get; set; } = FormatValue;
         public string ProtocolVersion { get; set; } = ProtocolVersionValue;
@@ -250,7 +252,7 @@ namespace DDFLanguageEditor.Compiler
     public sealed class DdfDotNetWorkerResponse
     {
         public const string FormatValue = "ddf-dotnet-worker-response";
-        public const string ProtocolVersionValue = "1.9";
+        public const string ProtocolVersionValue = "2.0";
 
         public string Format { get; set; } = FormatValue;
         public string ProtocolVersion { get; set; } = ProtocolVersionValue;
@@ -266,7 +268,16 @@ namespace DDFLanguageEditor.Compiler
         public List<DdfDotNetWorkerDebugPause> DebugTrace { get; set; } = new();
         public string ErrorCode { get; set; }
         public string ErrorMessage { get; set; }
+        public DdfDotNetWorkerSourceLocation ErrorLocation { get; set; }
+        public List<DdfDotNetWorkerErrorFrame> ErrorStack { get; set; } = new();
         public bool ReducedUserTokenApplied { get; set; }
+    }
+
+    public sealed class DdfDotNetWorkerErrorFrame
+    {
+        public string SymbolId { get; set; }
+        public DdfDotNetWorkerSourceLocation Declaration { get; set; }
+        public DdfDotNetWorkerSourceLocation Location { get; set; }
     }
 
     public sealed class DdfDotNetWorkerPackage

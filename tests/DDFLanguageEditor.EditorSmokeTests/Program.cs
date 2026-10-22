@@ -14,9 +14,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDF___Program_Language_Editor;
+using DDFLanguageEditor.Compiler;
 using DDFLanguageEditor.Core;
 using DDFLanguageEditor.DatabaseDemo;
 using DDFLanguageEditor.HostDemo;
+using DDFLanguageEditor.MinimalHost;
 
 namespace DDFLanguageEditor.EditorSmokeTests
 {
@@ -50,6 +52,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertDatabaseIntegrationDemo(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument,
+                        "--host-contracts-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertMinimalHostDemo(visible);
+                    AssertEmbeddableHostDemo(visible);
+                    AssertDatabaseIntegrationDemo(visible);
+                    AssertSdkInstanceIsolation();
+                    return 0;
+                }
                 if (args.Any(argument => string.Equals(argument, "--execution-only",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -57,6 +69,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         AssertProgramExecution(executionForm,
                             FindControl<RichTextBox>(executionForm, "richTextBoxMainEditor"));
                     Console.WriteLine("PASS smoke mirato esecuzione/debug");
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--compiled-workspace-debug-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertCompiledLanguageFeaturesWorkspaceDebug(visible);
                     return 0;
                 }
                 if (args.Any(argument => string.Equals(argument, "--language-profile-only",
@@ -83,15 +102,69 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertLargeDocumentAndWorkspaceResponsiveness(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument,
+                        "--embedded-reactivity-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertExtendedEmbeddedReactivity(visible);
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--persistence-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertVersionedPersistenceContracts();
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--capability-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertOptionalCapabilityNegotiation();
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--sdk-contract-matrix-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertVersionedPersistenceContracts();
+                    AssertOptionalCapabilityNegotiation();
+                    AssertSdkInstanceIsolation();
+                    AssertSdkFailureRecovery();
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--flowchart-geometry-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertFlowchartGeometryOnly(visible);
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--flowchart-runtime-sync-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    using (var executionForm = ShowSmokeForm(visible))
+                        AssertProgramExecution(executionForm,
+                            FindControl<RichTextBox>(executionForm, "richTextBoxMainEditor"));
+                    Console.WriteLine("PASS matrice sincronizzazione runtime editor/Flowchart");
+                    return 0;
+                }
                 if (!args.Any(argument => string.Equals(argument, "--skip-host-demo",
                         StringComparison.OrdinalIgnoreCase)))
                 {
                     AssertEmbeddableHostDemo(visible);
                     AssertDatabaseIntegrationDemo(visible);
+                    AssertMinimalHostDemo(visible);
                     AssertEmbeddedModuleStoreCapability(visible);
                     AssertSdkInstanceIsolation();
                 }
+                AssertExtendedEmbeddedReactivity(visible);
+                AssertVersionedPersistenceContracts();
+                AssertOptionalCapabilityNegotiation();
+                AssertSdkFailureRecovery();
                 RunEditorScenarios(visible);
+                AssertCompiledLanguageFeaturesWorkspaceDebug(visible);
                 AssertDocumentViewportPersistence(visible);
                 AssertRestoredMultiFileGutter(visible);
                 AssertPerformanceBudgets(visible);
@@ -115,6 +188,538 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Console.Error.WriteLine("FAIL smoke dinamico WinForms: " + exception);
                 return 1;
             }
+        }
+
+        private static void AssertExtendedEmbeddedReactivity(bool visible)
+        {
+            using var host = new Form
+            {
+                ShowInTaskbar = visible,
+                StartPosition = FormStartPosition.Manual,
+                Location = visible ? new Point(80, 80) : new Point(-32000, -32000),
+                Size = new Size(900, 650)
+            };
+            using var first = new DdfEditorView { Dock = DockStyle.Left, Width = 440 };
+            using var second = new DdfEditorView { Dock = DockStyle.Fill };
+            host.Controls.Add(second);
+            host.Controls.Add(first);
+            host.Show();
+            PumpMessages(100);
+            int uiThread = Environment.CurrentManagedThreadId;
+
+            var firstDocuments = new OpenDocumentCollection();
+            IDdfEditorDocument firstDocument = firstDocuments.CreateVirtual(
+                "reactivity.ddf", "main() out int { int value << 0; while(true) { value++; } ret value; }");
+            first.AttachDocumentService(firstDocuments);
+            var secondDocuments = new OpenDocumentCollection();
+            secondDocuments.CreateVirtual("parallel.ddf",
+                "main() out int { int value << 0; while(true) { value++; } ret value; }");
+            second.AttachDocumentService(secondDocuments);
+
+            Task<DdfEditorExecutionCompletion> cpuRun = first.ExecutionService.RunAsync(
+                new DdfEditorExecutionRequest(maxInstructions: int.MaxValue));
+            PumpUntil(() => first.ExecutionService.IsRunning, 2000,
+                "Lo script CPU-bound embedded non entra in esecuzione.");
+            AssertUiHeartbeat(first,
+                "Il thread UI si blocca durante uno script CPU-bound.");
+            Task<DdfEditorLifecycleResult> cpuStop =
+                ((IDdfEditorAsyncLifecycleService)first.ExecutionService)
+                .StopAsync(TimeSpan.FromSeconds(5));
+            PumpUntil(() => cpuStop.IsCompleted && cpuRun.IsCompleted, 6000,
+                "StopAsync non termina lo script CPU-bound.");
+            Require(cpuStop.Result.Succeeded && cpuRun.Result.WasCancelled,
+                "StopAsync non osserva la cancellazione dello script CPU-bound.");
+
+            var popupEntered = new ManualResetEventSlim();
+            var popupRelease = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            int popupThread = 0;
+            var popupCatalog = new DdfEditorHostCatalog();
+            popupCatalog.RegisterPermission(new DdfHostPermissionDefinition(
+                "ui.smoke", "Smoke UI"));
+            popupCatalog.SetPermission("ui.smoke", true);
+            popupCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "popupProbe", "int", Array.Empty<DdfHostParameterDefinition>(),
+                invoke: null, requiredPermissions: new[] { "ui.smoke" },
+                invokeAsync: (context, arguments) =>
+                {
+                    popupThread = Environment.CurrentManagedThreadId;
+                    popupEntered.Set();
+                    return new ValueTask<object>(popupRelease.Task);
+                }, dispatchTarget: DdfHostFunctionDispatchTarget.Ui));
+            first.AttachHostCatalog(popupCatalog);
+            firstDocuments.UpdateDocument(firstDocument.Id,
+                "main() out int { ret popupProbe() + 1; }");
+            Task<DdfEditorExecutionCompletion> popupRun =
+                first.ExecutionService.RunAsync();
+            PumpUntil(() => popupEntered.IsSet &&
+                    ((IDdfEditorCooperativeExecutionService)first.ExecutionService)
+                    .CooperativeSnapshot.IsSuspended,
+                3000, "La capability popup non sospende il runtime embedded.");
+            AssertUiHeartbeat(first,
+                "La capability popup sospesa blocca l'heartbeat UI.");
+            Require(popupThread == uiThread,
+                "La presentazione popup non viene eseguita sul dispatcher UI.");
+            popupRelease.SetResult(41);
+            PumpUntil(() => popupRun.IsCompleted, 5000,
+                "La capability popup non riprende il runtime.");
+            Require(popupRun.Result.Succeeded && Convert.ToInt64(
+                    popupRun.Result.ExecutionResult.ReturnValue) == 42L,
+                "La ripresa dalla capability popup produce un risultato errato.");
+
+            var slowEntered = new ManualResetEventSlim();
+            popupCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "slowProbe", "int", Array.Empty<DdfHostParameterDefinition>(),
+                arguments =>
+                {
+                    slowEntered.Set();
+                    Thread.Sleep(250);
+                    return 7;
+                }));
+            firstDocuments.UpdateDocument(firstDocument.Id,
+                "main() out int { ret slowProbe(); }");
+            Task<DdfEditorExecutionCompletion> slowRun =
+                first.ExecutionService.RunAsync();
+            PumpUntil(() => slowEntered.IsSet, 2000,
+                "Il provider host lento non viene invocato.");
+            AssertUiHeartbeat(first,
+                "Un provider host lento blocca il thread UI.");
+            PumpUntil(() => slowRun.IsCompleted, 3000,
+                "Il provider host lento non completa.");
+            Require(slowRun.Result.Succeeded,
+                "Il provider host lento fallisce nello smoke di reattività.");
+
+            firstDocuments.UpdateDocument(firstDocument.Id, string.Join("\n", new[]
+            {
+                "main() out int",
+                "{",
+                "    int value << 0;",
+                "    while(value < 10)",
+                "    {",
+                "        value++;",
+                "    }",
+                "    ret value;",
+                "}"
+            }));
+            first.DebugService.SetBreakpoints(new[]
+                { new DdfEditorBreakpoint(firstDocument.Id, 6) });
+            Task<DdfEditorExecutionCompletion> debugRun =
+                first.DebugService.RunAsync();
+            PumpUntil(() => first.DebugService.IsPaused, 5000,
+                "Il debugger embedded non raggiunge il breakpoint nello smoke di reattività.");
+            AssertUiHeartbeat(first,
+                "Un breakpoint embedded blocca l'heartbeat UI.");
+            Task<DdfEditorLifecycleResult> debugStop =
+                ((IDdfEditorAsyncLifecycleService)first.DebugService)
+                .StopAsync(TimeSpan.FromSeconds(5));
+            PumpUntil(() => debugStop.IsCompleted && debugRun.IsCompleted, 6000,
+                "StopAsync non chiude il debugger fermo a un breakpoint.");
+            Require(debugStop.Result.Succeeded && debugRun.Result.WasCancelled,
+                "Il lifecycle asincrono del debugger non restituisce la cancellazione.");
+
+            firstDocuments.UpdateDocument(firstDocument.Id,
+                "main() out int { int value << 0; while(true) { value++; } ret value; }");
+            Task<DdfEditorExecutionCompletion> firstParallel =
+                first.ExecutionService.RunAsync(new DdfEditorExecutionRequest(
+                    maxInstructions: int.MaxValue));
+            Task<DdfEditorExecutionCompletion> secondParallel =
+                second.ExecutionService.RunAsync(new DdfEditorExecutionRequest(
+                    maxInstructions: int.MaxValue));
+            PumpUntil(() => first.ExecutionService.IsRunning &&
+                    second.ExecutionService.IsRunning, 3000,
+                "Le due istanze embedded non avanzano in parallelo.");
+            AssertUiHeartbeat(second,
+                "Due istanze embedded simultanee bloccano il thread UI.");
+            Task<DdfEditorLifecycleResult> firstStop =
+                ((IDdfEditorAsyncLifecycleService)first.ExecutionService)
+                .StopAsync(TimeSpan.FromSeconds(5));
+            Task<DdfEditorLifecycleResult> secondStop =
+                ((IDdfEditorAsyncLifecycleService)second.ExecutionService)
+                .StopAsync(TimeSpan.FromSeconds(5));
+            PumpUntil(() => firstStop.IsCompleted && secondStop.IsCompleted &&
+                    firstParallel.IsCompleted && secondParallel.IsCompleted,
+                7000, "Le istanze embedded simultanee entrano in deadlock durante Stop.");
+            Require(firstStop.Result.Succeeded && secondStop.Result.Succeeded &&
+                    firstParallel.Result.WasCancelled &&
+                    secondParallel.Result.WasCancelled,
+                "Le istanze embedded simultanee non restano isolate durante Stop.");
+
+            using (var disposable = new DdfEditorView())
+            using (var disposeEntered = new ManualResetEventSlim())
+            {
+                disposable.CreateControl();
+                var disposeDocuments = new OpenDocumentCollection();
+                disposeDocuments.CreateVirtual("dispose.ddf",
+                    "main() out int { ret cancellableProbe(); }");
+                disposable.AttachDocumentService(disposeDocuments);
+                var disposeCatalog = new DdfEditorHostCatalog();
+                disposeCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                    "cancellableProbe", "int",
+                    Array.Empty<DdfHostParameterDefinition>(), invoke: null,
+                    invokeAsync: async (context, arguments) =>
+                    {
+                        disposeEntered.Set();
+                        await Task.Delay(TimeSpan.FromMinutes(1),
+                            context.CancellationToken);
+                        return 1;
+                    }));
+                disposable.AttachHostCatalog(disposeCatalog);
+                int callbacks = 0;
+                disposable.ExecutionStateChanged += (sender, args) => callbacks++;
+                disposable.ExecutionCompleted += (sender, args) => callbacks++;
+                _ = disposable.ExecutionService.RunAsync();
+                PumpUntil(() => disposeEntered.IsSet, 3000,
+                    "Il provider da cancellare durante dispose non viene invocato.");
+                Task<DdfEditorLifecycleResult> disposing =
+                    ((IDdfEditorAsyncLifecycleService)disposable.ExecutionService)
+                    .DisposeAsync(TimeSpan.FromSeconds(5));
+                PumpUntil(() => disposing.IsCompleted, 6000,
+                    "DisposeAsync embedded non osserva il cleanup.");
+                int callbacksAfterDispose = callbacks;
+                PumpMessages(150);
+                Require(disposing.Result.Succeeded &&
+                        callbacks == callbacksAfterDispose,
+                    "Sono stati consegnati callback embedded dopo DisposeAsync.");
+            }
+
+            Console.WriteLine(
+                "PASS matrice reattività embedded: CPU, capability UI, provider lento, breakpoint, dispose e multi-istanza");
+        }
+
+        private static void AssertVersionedPersistenceContracts()
+        {
+            var workspace = new WorkspaceSessionSnapshot
+            {
+                WorkspacePath = "C:\\workspace",
+                Documents = new List<WorkspaceSessionDocumentSnapshot>
+                {
+                    new WorkspaceSessionDocumentSnapshot { Path = "main.ddf" }
+                }
+            };
+            DdfPersistenceReadResult<WorkspaceSessionSnapshot> currentWorkspace =
+                WorkspaceSessionSnapshot.ParseVersioned(workspace.Serialize());
+            Require(currentWorkspace.Succeeded && !currentWorkspace.WasMigrated &&
+                    currentWorkspace.Inspection.Status ==
+                    DdfPersistenceInspectionStatus.Current,
+                "La sessione workspace corrente non viene riconosciuta.");
+
+            const string legacyWorkspace =
+                "{\"WorkspacePath\":\"C:\\\\workspace\",\"ActiveDocumentIndex\":0," +
+                "\"Documents\":[{\"Path\":\"main.ddf\"}]}";
+            DdfPersistenceReadResult<WorkspaceSessionSnapshot> migratedWorkspace =
+                WorkspaceSessionSnapshot.ParseVersioned(legacyWorkspace);
+            Require(migratedWorkspace.Succeeded && migratedWorkspace.WasMigrated &&
+                    migratedWorkspace.OriginalPayload == legacyWorkspace,
+                "La sessione workspace legacy non viene migrata preservando l'originale.");
+
+            const string futureWorkspace =
+                "{\"FormatVersion\":9,\"Documents\":[{\"Path\":\"main.ddf\"}]}";
+            DdfPersistenceReadResult<WorkspaceSessionSnapshot> rejectedWorkspace =
+                WorkspaceSessionSnapshot.ParseVersioned(futureWorkspace);
+            Require(!rejectedWorkspace.Succeeded &&
+                    rejectedWorkspace.OriginalPayload == futureWorkspace &&
+                    rejectedWorkspace.Inspection.Status ==
+                    DdfPersistenceInspectionStatus.UnsupportedVersion,
+                "Una sessione futura non viene rifiutata conservando il payload.");
+
+            var hotExit = new HotExitSnapshot
+            {
+                Documents = new List<HotExitDocumentSnapshot>
+                {
+                    new HotExitDocumentSnapshot { Source = "main() out int { ret 1; }" }
+                }
+            };
+            Require(HotExitSnapshot.ParseVersioned(hotExit.Serialize()).Succeeded,
+                "Hot Exit corrente non supera il contratto versionato.");
+            var recovery = new CrashRecoverySnapshot
+            {
+                Documents = hotExit.Documents
+            };
+            Require(CrashRecoverySnapshot.ParseVersioned(recovery.Serialize()).Succeeded,
+                "Crash Recovery corrente non supera il contratto versionato.");
+
+            var watch = new WatchExpressionSettings();
+            Require(WatchExpressionSettings.ParseVersioned(watch.Serialize()).Succeeded,
+                "Watch corrente non supera il contratto versionato.");
+            const string futureWatch = "{\"FormatVersion\":8,\"Projects\":[]}";
+            DdfPersistenceReadResult<WatchExpressionSettings> rejectedWatch =
+                WatchExpressionSettings.ParseVersioned(futureWatch);
+            Require(!rejectedWatch.Succeeded &&
+                    rejectedWatch.OriginalPayload == futureWatch,
+                "Watch futura non viene rifiutata preservando il payload.");
+
+            const string legacyPalette =
+                "outlineWidth=340\ndiagnosticsHeight=210\noutlinePinned=True";
+            DdfPersistenceReadResult<PaletteLayoutSettings> migratedPalette =
+                PaletteLayoutSettings.ParseVersioned(legacyPalette);
+            Require(migratedPalette.Succeeded && migratedPalette.WasMigrated &&
+                    migratedPalette.Value.Serialize().StartsWith(
+                        "schemaVersion=1.0", StringComparison.Ordinal),
+                "Il layout palette legacy non viene migrato allo schema 1.0.");
+            const string futurePalette =
+                "schemaVersion=9.0\noutlineWidth=999";
+            Require(!PaletteLayoutSettings.ParseVersioned(futurePalette).Succeeded,
+                "Un layout palette futuro viene applicato silenziosamente.");
+
+            Type toolbarType = typeof(MainForm).Assembly.GetType(
+                "DDF___Program_Language_Editor.ToolbarLayoutSettings", true);
+            MethodInfo parseToolbar = toolbarType.GetMethod("ParseVersioned",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            object toolbarResult = parseToolbar.Invoke(null,
+                new object[] { "file.visible=True", new[] { "file" } });
+            Require(GetPropertyValue<bool>(toolbarResult, "Succeeded") &&
+                    GetPropertyValue<bool>(toolbarResult, "WasMigrated"),
+                "Il layout toolbar legacy non viene migrato esplicitamente.");
+            object toolbar = GetPropertyValue<object>(toolbarResult, "Value");
+            string toolbarPayload = (string)toolbarType.GetMethod("Serialize")
+                .Invoke(toolbar, null);
+            Require(toolbarPayload.StartsWith("schemaVersion=1.0",
+                    StringComparison.Ordinal),
+                "Il layout toolbar non salva la versione dello schema.");
+
+            var preferences = new DdfEditorPersistedPreferences(
+                new DdfEditorHostOptions(),
+                Array.Empty<KeyValuePair<string, Keys>>(), false);
+            var legacyEditorState = new DdfEditorPersistedState("legacy",
+                new[]
+                {
+                    new DdfEditorPersistedDocument("legacy.ddf", string.Empty,
+                        "main() out int { ret 7; }", true)
+                }, 0, preferences);
+            using (var rejectingView = new DdfEditorView())
+            {
+                var rejectingDocuments = new OpenDocumentCollection();
+                rejectingView.AttachDocumentService(rejectingDocuments);
+                var rejectingProvider = new DdfInMemoryEditorPersistenceProvider();
+                rejectingProvider.Save(legacyEditorState);
+                rejectingView.AttachPersistenceProvider(rejectingProvider);
+                bool rejected = false;
+                try { rejectingView.RestoreState(); }
+                catch (InvalidOperationException) { rejected = true; }
+                Require(rejected && rejectingDocuments.OpenDocuments.Count == 0 &&
+                        ReferenceEquals(rejectingProvider.State, legacyEditorState),
+                    "Uno snapshot SDK legacy senza migratore viene applicato o modificato.");
+            }
+
+            using (var migratingView = new DdfEditorView())
+            {
+                var migratingDocuments = new OpenDocumentCollection();
+                migratingView.AttachDocumentService(migratingDocuments);
+                var migratingProvider = new MigratingEditorPersistenceProvider(
+                    legacyEditorState);
+                migratingView.AttachPersistenceProvider(migratingProvider);
+                Require(migratingView.RestoreState() &&
+                        migratingProvider.MigrationCount == 1 &&
+                        migratingDocuments.OpenDocuments.Single().SourceText
+                            .Contains("ret 7", StringComparison.Ordinal) &&
+                        ReferenceEquals(migratingProvider.State,
+                            legacyEditorState),
+                    "Il provider SDK non migra atomicamente lo snapshot legacy.");
+            }
+
+            Console.WriteLine("PASS persistenza versionata, migrazione legacy e rifiuto atomico degli snapshot futuri");
+        }
+
+        private static void AssertOptionalCapabilityNegotiation()
+        {
+            Require(typeof(IDdfEditorSurface).GetProperty("KnownCapabilities") == null &&
+                    !typeof(IDdfEditorSurface).GetInterfaces().Contains(
+                        typeof(IDdfEditorCapabilityProvider)),
+                "La capability discovery è stata aggiunta al contratto obbligatorio legacy.");
+
+            using (var view = new DdfEditorView())
+            {
+                var provider = (IDdfEditorCapabilityProvider)view;
+                Require(provider.KnownCapabilities.Count == 4 &&
+                        provider.KnownCapabilities.Select(item => item.Id)
+                            .Distinct(StringComparer.Ordinal).Count() == 4,
+                    "Il catalogo capability SDK non è stabile o contiene duplicati.");
+                foreach (DdfEditorCapabilityDescriptor descriptor in
+                    provider.KnownCapabilities)
+                {
+                    DdfEditorCapabilityResult available =
+                        provider.InspectCapability(descriptor.Id);
+                    Require(available.IsAvailable && available.Issue == null,
+                        "La superficie predefinita non espone " + descriptor.Id + ".");
+                }
+
+                DdfEditorCapabilityResult unknown = provider.InspectCapability(
+                    "editor.capability.unknown");
+                Require(!unknown.IsAvailable && unknown.Descriptor == null &&
+                        unknown.Issue?.Code ==
+                        DdfEditorCapabilityCatalog.UnknownDiagnosticCode,
+                    "Una capability sconosciuta non produce DDFH007.");
+
+                var legacyService = new LegacyExecutionService();
+                view.AttachExecutionService(legacyService);
+                DdfEditorCapabilityResult unavailable = provider.InspectCapability(
+                    DdfEditorCapabilityIds.ScriptStatePersistence);
+                Require(!unavailable.IsAvailable && unavailable.Descriptor != null &&
+                        unavailable.Issue?.Code ==
+                        DdfEditorCapabilityCatalog.UnavailableDiagnosticCode &&
+                        unavailable.Issue.Domain ==
+                        DdfDiagnosticDomain.EngineCapability,
+                    "Un servizio legacy senza capability non produce DDFH006.");
+
+                bool typedFailure = false;
+                try { view.SaveScriptState(); }
+                catch (DdfEditorCapabilityUnavailableException exception)
+                {
+                    typedFailure = exception.Code ==
+                        DdfEditorCapabilityCatalog.UnavailableDiagnosticCode &&
+                        exception.CapabilityId ==
+                        DdfEditorCapabilityIds.ScriptStatePersistence;
+                }
+                Require(typedFailure,
+                    "La chiamata imperativa legacy non espone l'errore capability tipizzato.");
+            }
+
+            MemberInfo[] compatibilityMembers =
+            {
+                typeof(IDdfEditorExecutionService).GetMethod("Stop"),
+                typeof(IDdfEditorDebugService).GetMethod("Stop"),
+                typeof(DdfHostValueAdapter).GetConstructor(new[]
+                {
+                    typeof(Func<object, object>), typeof(Func<object, object>)
+                }),
+                typeof(DdfEditorPersistedState).GetConstructor(new[]
+                {
+                    typeof(IEnumerable<DdfEditorPersistedDocument>), typeof(int),
+                    typeof(DdfEditorPersistedPreferences),
+                    typeof(DdfEditorPersistedDebugState)
+                })
+            };
+            var lifecycleIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (MemberInfo member in compatibilityMembers)
+            {
+                Require(member != null,
+                    "Un membro SDK mantenuto per compatibilità è stato rimosso.");
+                DdfEditorDeprecatedApiAttribute lifecycle =
+                    member.GetCustomAttribute<DdfEditorDeprecatedApiAttribute>();
+                Require(lifecycle != null && lifecycleIds.Add(lifecycle.ApiId),
+                    "Un membro sostituito non dichiara lifecycle univoco.");
+                DdfEditorApiLifecycleEntry entry =
+                    DdfEditorApiLifecycleCatalog.Find(lifecycle.ApiId);
+                Require(entry != null &&
+                        entry.DeprecatedInContractVersion ==
+                        lifecycle.DeprecatedInContractVersion &&
+                        entry.EarliestRemovalContractVersion ==
+                        lifecycle.EarliestRemovalContractVersion &&
+                        entry.ReplacementApiId == lifecycle.ReplacementApiId &&
+                        !string.IsNullOrWhiteSpace(entry.MigrationGuide),
+                    "Attributo e catalogo lifecycle SDK non coincidono.");
+            }
+            Require(lifecycleIds.SetEquals(
+                    DdfEditorApiLifecycleCatalog.Entries.Select(item => item.ApiId)) &&
+                    DdfEditorApiLifecycleCatalog.PolicyVersion == "1.0" &&
+                    DdfEditorApiLifecycleCatalog.EarliestBreakingContractVersion ==
+                    "2.0" &&
+                    DdfEditorApiLifecycleCatalog.MinimumDocumentedSuccessorContracts >= 2,
+                "Il catalogo lifecycle contiene API non verificate o una finestra insufficiente.");
+
+            Console.WriteLine(
+                "PASS capability SDK additive e lifecycle 1.0: discovery, DDFH006/DDFH007, host legacy e migrazioni fino a 2.0");
+        }
+
+        private static void AssertSdkFailureRecovery()
+        {
+            var preferences = new DdfEditorPersistedPreferences(
+                new DdfEditorHostOptions(),
+                Array.Empty<KeyValuePair<string, Keys>>(), false);
+            var rejectedState = new DdfEditorPersistedState("99.0", new[]
+            {
+                new DdfEditorPersistedDocument("future.ddf", string.Empty,
+                    "main() out int { ret 99; }", true)
+            }, 0, preferences);
+            var validState = new DdfEditorPersistedState(new[]
+            {
+                new DdfEditorPersistedDocument("recovered.ddf", string.Empty,
+                    "main() out int { ret 42; }", true)
+            }, 0, preferences);
+
+            using (var view = new DdfEditorView())
+            {
+                var documents = new OpenDocumentCollection();
+                var provider = new DdfInMemoryEditorPersistenceProvider();
+                view.AttachDocumentService(documents);
+                view.AttachPersistenceProvider(provider);
+                provider.Save(rejectedState);
+
+                bool rejected = false;
+                try { view.RestoreState(); }
+                catch (InvalidOperationException) { rejected = true; }
+                Require(rejected && documents.OpenDocuments.Count == 0 &&
+                        ReferenceEquals(provider.State, rejectedState),
+                    "Uno snapshot non migrabile ha lasciato stato parziale nell'host SDK.");
+
+                provider.Save(validState);
+                Require(view.RestoreState() &&
+                        documents.OpenDocuments.Count == 1 &&
+                        documents.ActiveDocumentInfo.DisplayName == "recovered.ddf" &&
+                        view.AnalyzeDocument().Diagnostics.Count == 0,
+                    "L'host SDK non è riutilizzabile dopo il rifiuto di uno snapshot.");
+            }
+
+            var executionDocuments = new OpenDocumentCollection();
+            executionDocuments.CreateVirtual("main.ddf",
+                "main() out int { ret 42; }");
+            var language = new DdfLanguagePackageSession();
+            var recoveredExecution = new DdfEditorExecutionService(
+                executionDocuments, language);
+            try
+            {
+                using (var view = new DdfEditorView())
+                {
+                    view.AttachDocumentService(executionDocuments);
+                    view.AttachLanguageSession(language);
+                    view.AttachExecutionService(new LegacyExecutionService());
+                    var capabilities = (IDdfEditorCapabilityProvider)view;
+                    Require(!capabilities.InspectCapability(
+                            DdfEditorCapabilityIds.ScriptStatePersistence).IsAvailable,
+                        "La revoca della capability state persistence non è osservabile.");
+
+                    bool revoked = false;
+                    try { view.SaveScriptState(); }
+                    catch (DdfEditorCapabilityUnavailableException exception)
+                    {
+                        revoked = exception.Code ==
+                            DdfEditorCapabilityCatalog.UnavailableDiagnosticCode;
+                    }
+                    Require(revoked,
+                        "La capability revocata non produce il fallimento tipizzato atteso.");
+
+                    view.AttachExecutionService(recoveredExecution);
+                    var stateProvider =
+                        new DdfInMemoryEditorScriptStatePersistenceProvider();
+                    view.AttachScriptStatePersistenceProvider(stateProvider);
+                    view.SaveScriptState();
+                    Task<DdfEditorExecutionCompletion> run =
+                        view.ExecutionService.RunAsync();
+                    PumpUntil(() => run.IsCompleted, 5000,
+                        "L'esecuzione non termina dopo il ripristino della capability.");
+                    Require(capabilities.InspectCapability(
+                                DdfEditorCapabilityIds.ScriptStatePersistence)
+                            .IsAvailable &&
+                            stateProvider.Load() != null &&
+                            run.Result.Succeeded &&
+                            Convert.ToInt64(run.Result.ExecutionResult.ReturnValue) == 42L,
+                        "L'host SDK non è riutilizzabile dopo la revoca di una capability.");
+                }
+            }
+            finally
+            {
+                recoveredExecution.Dispose();
+            }
+
+            Console.WriteLine(
+                "PASS recupero SDK atomico dopo snapshot non migrabile e capability revocata");
+        }
+
+        private static void AssertUiHeartbeat(Control owner, string message)
+        {
+            bool heartbeat = false;
+            owner.BeginInvoke(new Action(() => heartbeat = true));
+            PumpUntil(() => heartbeat, 1000, message);
         }
 
         private static void AssertEmbeddableHostDemo(bool visible)
@@ -259,14 +864,71 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpMessages(80);
         }
 
+        private static void AssertMinimalHostDemo(bool visible)
+        {
+            using (var form = new MinimalHostForm())
+            {
+                form.ShowInTaskbar = visible;
+                form.StartPosition = FormStartPosition.Manual;
+                form.Location = visible ? new Point(120, 120) :
+                    new Point(-32000, -32000);
+                form.Show();
+                PumpMessages(160);
+
+                DdfEditorAnalysisSnapshot analysis = form.Editor.AnalyzeDocument();
+                Require(form.EditorHost.ContractVersion ==
+                            DdfEditorSdkContract.CurrentVersion &&
+                        form.Editor.DocumentService.OpenDocuments.Count == 1 &&
+                        form.Editor.DocumentService.ActiveDocumentInfo.Id ==
+                            form.ScriptDocumentId &&
+                        analysis.Diagnostics.Count == 0 &&
+                        form.Editor is IDdfEditorCapabilityProvider &&
+                        form.Editor.CommandService.Find(
+                            DdfEditorCommandIds.PrepareScript)?.IsVisible == false &&
+                        form.Editor.CommandService.Find(
+                            DdfEditorCommandIds.RunWithoutDebug)?.IsVisible == false,
+                    "MinimalHost non rappresenta più l'integrazione embedded minima compatibile.");
+
+                const string savedMarker = "// salvato dal minimal host";
+                form.Editor.SourceText += Environment.NewLine + savedMarker;
+                Require(form.EditorHost.SaveActiveDocument() &&
+                        form.SavedScript.Contains(savedMarker,
+                            StringComparison.Ordinal),
+                    "MinimalHost non conserva lo script tramite il callback dell'host.");
+
+                form.Editor.SourceText = form.Editor.SourceText.Replace(
+                    "ret value;", "ret value + 1;");
+                Require(form.ExecuteLinkedScript(),
+                    "MinimalHost non avvia lo script dal controllo applicativo.");
+                PumpUntil(() => !form.EditorHost.IsExecutionRunning &&
+                        form.EditorHost.LastExecutionResult != null, 5000,
+                    "L'esecuzione di MinimalHost non termina.");
+                Require(form.EditorHost.LastExecutionResult.Succeeded &&
+                        Convert.ToInt64(
+                            form.EditorHost.LastExecutionResult.ReturnValue) == 43L &&
+                        form.StatusLabel.Text.Contains("43",
+                            StringComparison.Ordinal),
+                    "MinimalHost non consegna risultato e stato all'applicazione host.");
+            }
+            PumpMessages(80);
+            Console.WriteLine(
+                "PASS MinimalHost: un documento, persistenza delegata, esecuzione da evento e capability additive");
+        }
+
         private static void AssertDatabaseIntegrationDemo(bool visible)
         {
             string layoutDirectory = Path.Combine(Path.GetTempPath(),
                 "ddf-database-demo-" + Guid.NewGuid().ToString("N"));
             string layoutPath = Path.Combine(layoutDirectory, "layout.json");
+            DdfLanguagePackageLoadResult alternateGlobalLanguage =
+                DdfLanguageCatalog.TryActivate(Path.Combine(
+                    AppContext.BaseDirectory, "language-package-seeds",
+                    "ddf-it-didactic"));
+            Require(alternateGlobalLanguage.Success,
+                "Lo smoke non riesce a predisporre il profilo globale alternativo.");
+            try
             {
                 var form = new DatabaseDemoForm();
-                form.EditorHost.UseEmbeddedLanguage();
                 form.LayoutPersistencePath = layoutPath;
                 form.ShowInTaskbar = visible;
                 form.StartPosition = FormStartPosition.Manual;
@@ -275,7 +937,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 form.Show();
                 PumpMessages(250);
                 DdfEditorAnalysisSnapshot analysis = form.Editor.AnalyzeDocument();
+                RichTextBox embeddedEditor = FindControl<RichTextBox>(form,
+                    "richTextBoxMainEditor");
+                int returnKeyword = embeddedEditor.Text.IndexOf("ret",
+                    StringComparison.Ordinal);
+                int stringKeyword = embeddedEditor.Text.IndexOf("string",
+                    StringComparison.Ordinal);
+                embeddedEditor.Select(returnKeyword, "ret".Length);
+                Color returnColor = embeddedEditor.SelectionColor;
+                embeddedEditor.Select(stringKeyword, "string".Length);
+                Color stringColor = embeddedEditor.SelectionColor;
+                Require(returnKeyword >= 0 && stringKeyword >= 0 &&
+                        returnColor != embeddedEditor.ForeColor &&
+                        stringColor != embeddedEditor.ForeColor &&
+                        returnColor != stringColor,
+                    "La DatabaseDemo ha perso la colorazione sintattica embedded: " +
+                    "ret=" + returnColor + ", string=" + stringColor +
+                    ", default=" + embeddedEditor.ForeColor + ".");
                 Require(analysis.Diagnostics.Count == 0 &&
+                        form.Editor.LanguageSession.ActivePackage.Id == "ddf" &&
                         form.Editor.HostCatalog.Snapshot.Databases.Count == 1 &&
                         form.Editor.HostCatalog.Snapshot.Objects.Any(item =>
                             item.Name == "firstNameTextBox" && item.TypeName == "HostTextBox") &&
@@ -398,6 +1078,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     form.EditorHost.LastExecutionResult?.ReturnValue?.GetType().FullName +
                     ", valore='" + form.EditorHost.LastExecutionResult?.ReturnValue + "'.");
                 form.ApplicationEditorSplit.SplitterDistance = 280;
+                ToolStripPanel embeddedToolbarPanel = FindControl<ToolStripPanel>(
+                    form, "toolStripPanelMain");
+                ToolStrip navigationToolbar = FindControl<ToolStrip>(form,
+                    "toolStripNavigation");
+                ToolStrip viewToolbar = FindControl<ToolStrip>(form,
+                    "toolStripView");
+                ToolStrip fileToolbar = FindControl<ToolStrip>(form,
+                    "toolStripMain");
+                embeddedToolbarPanel.Join(navigationToolbar, new Point(0,
+                    fileToolbar.Top + Math.Max(1, fileToolbar.Height / 2)));
+                viewToolbar.Visible = false;
+                embeddedToolbarPanel.PerformLayout();
+                PumpMessages(80);
+                string expectedToolbarLayout =
+                    form.EditorHost.CaptureToolbarLayout();
                 const string persistedMarker = "// script personalizzato persistente";
                 form.Editor.SourceText += Environment.NewLine + persistedMarker;
                 Require(form.EditorHost.SaveActiveDocument(),
@@ -413,14 +1108,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 restored.Show();
                 PumpMessages(160);
                 Require(restored.ApplicationEditorSplit.SplitterDistance == 280 &&
-                        restored.Editor.SourceText.Contains("// script personalizzato persistente"),
-                    "Dimensione della palette o script associato non vengono ripristinati tra gli avvii.");
+                        restored.Editor.SourceText.Contains("// script personalizzato persistente") &&
+                        restored.EditorHost.CaptureToolbarLayout() ==
+                            expectedToolbarLayout &&
+                        !FindControl<ToolStrip>(restored,
+                            "toolStripView").Visible,
+                    "Dimensione della palette, script o disposizione delle toolbar " +
+                    "non vengono ripristinati tra gli avvii.");
                 restored.Close();
                 PumpMessages(80);
                 form.Close();
                 PumpMessages(80);
             }
-            if (Directory.Exists(layoutDirectory)) Directory.Delete(layoutDirectory, true);
+            finally
+            {
+                DdfLanguageCatalog.ActivateEmbedded();
+                if (Directory.Exists(layoutDirectory))
+                    Directory.Delete(layoutDirectory, true);
+            }
             Console.WriteLine("PASS demo applicativa con form, shell IDE completa, database virtuale e debug");
         }
 
@@ -700,6 +1405,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
         }
 
+        private static void AssertFlowchartGeometryOnly(bool visible)
+        {
+            using (var form = ShowSmokeForm(visible))
+            {
+                DdfLanguageCatalog.ActivateEmbedded();
+                Require(form.EmbeddedEditor.LanguageSession.UseEmbedded().Success,
+                    "Il gate geometrico non riesce ad attivare il linguaggio DDF incorporato.");
+                RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+                SetSource(editor);
+                AssertFlowchartPalette(form, editor);
+                PumpMessages(100);
+            }
+            Require(UiExceptions.Count == 0,
+                "Il gate geometrico Flowchart ha intercettato eccezioni UI: " +
+                string.Join(" | ", UiExceptions.Select(exception => exception.Message)));
+            Console.WriteLine("PASS matrice geometrica Flowchart semplice/complessa e deterministica");
+        }
+
         private static void AssertFlowchartPalette(MainForm form, RichTextBox editor)
         {
             PumpMessages(450);
@@ -824,42 +1547,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             object routedResult = canvas.GetType().GetMethod("BuildRoutes",
                 BindingFlags.Instance | BindingFlags.NonPublic).Invoke(canvas, new[] { routeMap });
             IEnumerable routed = (IEnumerable)routedResult;
-            var routes = new List<Tuple<DdfFlowchartEdge, PointF[]>>();
-            foreach (object item in routed)
-            {
-                Type itemType = item.GetType();
-                routes.Add(Tuple.Create((DdfFlowchartEdge)itemType.GetProperty("Edge").GetValue(item),
-                    (PointF[])itemType.GetProperty("Points").GetValue(item)));
-            }
-            Require(routes.SelectMany(item => item.Item2.Zip(item.Item2.Skip(1),
-                    (left, right) => Math.Abs(left.X - right.X) < 0.01F ||
-                        Math.Abs(left.Y - right.Y) < 0.01F)).All(value => value),
-                "Il router Flowchart produce ancora segmenti diagonali.");
-            Require(routes.Where(item => !item.Item1.IsBackEdge).All(item => item.Item2.Length >= 2 &&
-                    Math.Abs(item.Item2[0].X - item.Item2[1].X) < 0.01F),
-                "Un collegamento Flowchart non esce prima verticalmente dal proprio modulo.");
-            Require(routes.SelectMany(item => item.Item2).All(point =>
-                    point.X >= 0 && point.X <= routingDiagram.Width),
-                "Il router Flowchart allunga ancora i collegamenti oltre l'area utile.");
-            var solidSegments = routes.Where(item => !item.Item1.IsBackEdge)
-                .SelectMany(item => RouteSegments(item.Item2)).ToList();
-            Require(!routes.Where(item => item.Item1.IsBackEdge).SelectMany(item => RouteSegments(item.Item2))
-                    .Any(dashed => solidSegments.Any(solid => CollinearOverlap(dashed, solid))),
-                "Una linea tratteggiata condivide ancora un tratto con una linea continua.");
-            bool crossing = false;
-            for (int left = 0; left < routes.Count && !crossing; left++)
-                for (int right = left + 1; right < routes.Count && !crossing; right++)
-                    crossing = RouteSegments(routes[left].Item2).Any(leftSegment =>
-                        RouteSegments(routes[right].Item2).Any(rightSegment =>
-                            PerpendicularCross(leftSegment, rightSegment)));
-            Require(!crossing,
-                "Due collegamenti Flowchart si intersecano ancora senza una giunzione logica.");
-            bool alignedMerge = routes.Where(item => !item.Item1.IsBackEdge)
-                .GroupBy(item => item.Item1.To).Where(group => group.Count() > 1)
-                .Any(group => group.Where(item => item.Item2.Length > 2)
-                    .Select(item => item.Item2[item.Item2.Length - 2]).Distinct().Count() == 1);
-            Require(alignedMerge,
-                "Gli archi convergenti non condividono il medesimo gomito di ricongiungimento.");
+            List<FlowchartRouteSnapshot> routes = ReadFlowchartRoutes(routed);
+            AssertFlowchartRouteGeometry(routingDiagram, routes, "diagramma combinato");
             IEnumerable mergeArrows = (IEnumerable)canvas.GetType().GetMethod("BuildMergeArrows",
                     BindingFlags.Static | BindingFlags.NonPublic)
                 .Invoke(null, new[] { routedResult });
@@ -867,6 +1556,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 (bool)item.GetType().GetProperty("BackEdge").GetValue(item)).ToList();
             Require(mergeArrowKinds.Any(kind => !kind) && mergeArrowKinds.Any(kind => kind),
                 "Le frecce di direzione prima dei ricongiungimenti non coprono linee continue e tratteggiate.");
+
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            string complexSource = File.ReadAllText(Path.Combine(projectRoot, "samples",
+                "flowchart-complex-smoke-test.ddf"));
+            DdfFlowchartLayout complexDiagram = DdfFlowchartLayouter.Layout(
+                DdfFlowchartBuilder.Build(complexSource, "main",
+                    form.EmbeddedEditor.LanguageSession.ActivePackage.Language).Flowchart);
+            List<FlowchartRouteSnapshot> firstComplexRoutes = BuildFlowchartRoutes(canvas, complexDiagram);
+            List<FlowchartRouteSnapshot> secondComplexRoutes = BuildFlowchartRoutes(canvas, complexDiagram);
+            AssertFlowchartRouteGeometry(complexDiagram, firstComplexRoutes, "diagramma complesso");
+            Require(SerializeFlowchartRoutes(firstComplexRoutes) == SerializeFlowchartRoutes(secondComplexRoutes),
+                "Il routing del diagramma complesso non e' deterministico a parita' di input.");
+            canvas.GetType().GetMethod("SetDiagram", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(canvas, new object[] { routingDiagram });
             string svgPath = Path.Combine(Path.GetTempPath(), "ddf-flowchart-" +
                 Guid.NewGuid().ToString("N") + ".svg");
             try
@@ -1136,7 +1840,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             DdfEditorView shellSurface = FindControl<DdfEditorView>(form, "panelEditor");
             Require(shellSurface.ContractVersion == DdfEditorSdkContract.CurrentVersion &&
-                    shellSurface.ContractVersion == "0.34" &&
+                    shellSurface.ContractVersion == "0.41" &&
                     ReferenceEquals(shellSurface.DocumentService,
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments")) &&
                     shellSurface.SourceText == editor.Text &&
@@ -1252,14 +1956,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         isolated.AnalysisService.IsCurrent(analysis),
                     "Il servizio di analisi pubblico non restituisce uno snapshot coerente con il documento host.");
                 IDdfEditorCommandService commands = isolated.CommandService;
-                Require(DdfEditorSdkContract.CurrentVersion == "0.34" &&
+                Require(DdfEditorSdkContract.CurrentVersion == "0.41" &&
                         typeof(DdfEditorView).GetProperty("PreparationService") != null &&
+                        typeof(DdfEditorView).GetProperty("EventDispatcher") != null &&
+                         typeof(DdfEditorView).GetProperty(
+                             "ScriptStatePersistenceService") != null &&
                         typeof(DdfEditorView).GetMethod("ValidateScript") != null &&
                         typeof(DdfEditorView).GetMethod("PrepareScript") != null &&
+                         typeof(DdfEditorView).GetMethod(
+                             "AttachScriptStatePersistenceProvider") != null &&
+                         typeof(DdfEditorView).GetMethod(
+                             "DetachScriptStatePersistenceProvider") != null &&
+                         typeof(DdfEditorView).GetMethod("SaveScriptState") != null &&
+                         typeof(DdfEditorView).GetMethod("RestoreScriptState") != null &&
+                         typeof(DdfEditorView).GetMethod(
+                             "ResetPersistedScriptState") != null &&
                         typeof(DdfEditorView).GetProperty("BuildService") == null &&
                         typeof(DdfEditorView).GetMethod("BuildProject") == null &&
                         typeof(DdfEditorView).GetMethod("AttachBuildService") == null,
-                    "Il contratto SDK espone ancora il servizio storico Build o non pubblica la preparazione script 0.34.");
+                    "Il contratto SDK espone ancora il servizio storico Build o non pubblica la preparazione script 0.37.");
                 bool commandEnabled = false;
                 int commandExecutions = 0;
                 int commandEvents = 0;
@@ -1364,7 +2079,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(commands.Find(DdfEditorCommandIds.RunWithoutDebug).CanExecute &&
                         commands.TryExecute(DdfEditorCommandIds.RunWithoutDebug),
                     "Il comando Run incorporabile non avvia i buffer virtuali dell'host.");
-                PumpUntil(() => isolated.ExecutionService.LastCompletion != null, 5000,
+                PumpUntil(() => isolated.ExecutionService.LastCompletion != null &&
+                        executionEvents == 1 && surfaceExecutionEvents == 1 &&
+                        surfaceExecutionStateEvents >= 2, 5000,
                     "Il servizio di esecuzione incorporabile non completa la sessione.");
                 Require(isolated.ExecutionService.LastCompletion.Succeeded &&
                         Convert.ToInt64(isolated.ExecutionService.LastCompletion.ExecutionResult.ReturnValue) == 2L &&
@@ -1373,6 +2090,45 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         isolated.ExecutionService.State == DdfEditorExecutionState.Idle &&
                         !commands.Find(DdfEditorCommandIds.StopExecution).CanExecute,
                     "Risultato, evento o stato del servizio di esecuzione host non sono coerenti.");
+                using (var responsive = new DdfEditorView())
+                using (var inputStarted = new ManualResetEventSlim(false))
+                {
+                    responsive.CreateControl();
+                    var responsiveDocuments = new OpenDocumentCollection();
+                    responsive.AttachDocumentService(responsiveDocuments);
+                    responsiveDocuments.CreateVirtual("Heartbeat.ddf",
+                        "main() out int { string text << readLine(); ret toInt(text) + 1; }");
+                    int uiThread = Environment.CurrentManagedThreadId;
+                    int scriptThread = 0;
+                    bool heartbeat = false;
+                    var callbackThreads = new List<int>();
+                    responsive.ExecutionStateChanged += (sender, args) =>
+                        callbackThreads.Add(Environment.CurrentManagedThreadId);
+                    responsive.ExecutionCompleted += (sender, args) =>
+                        callbackThreads.Add(Environment.CurrentManagedThreadId);
+                    Task<DdfEditorExecutionCompletion> responsiveRun =
+                        responsive.ExecutionService.RunAsync(
+                            new DdfEditorExecutionRequest(input: () =>
+                            {
+                                scriptThread = Environment.CurrentManagedThreadId;
+                                inputStarted.Set();
+                                Thread.Sleep(250);
+                                return "41";
+                            }));
+                    PumpUntil(() => inputStarted.IsSet, 2000,
+                        "Lo script embedded non raggiunge il lavoro bloccante sul worker.");
+                    responsive.BeginInvoke(new Action(() => heartbeat = true));
+                    PumpUntil(() => heartbeat, 1000,
+                        "L'heartbeat UI si blocca durante l'esecuzione embedded.");
+                    PumpUntil(() => responsiveRun.IsCompleted &&
+                            callbackThreads.Count >= 3, 5000,
+                        "L'esecuzione embedded non completa o perde i callback dispatchati.");
+                    Require(responsiveRun.Result.Succeeded &&
+                            Convert.ToInt64(responsiveRun.Result.ExecutionResult.ReturnValue) == 42L &&
+                            scriptThread != 0 && scriptThread != uiThread &&
+                            callbackThreads.All(thread => thread == uiThread),
+                        "Script e callback embedded non rispettano worker e dispatcher UI separati.");
+                }
                 var persistence = new DdfInMemoryEditorPersistenceProvider();
                 var projectContainer = new DdfInMemoryEditorProjectContainer();
                 int projectSavedEvents = 0;
@@ -1625,8 +2381,97 @@ namespace DDFLanguageEditor.EditorSmokeTests
             shellSurface.SetSelection(0, 0);
             Require(shellSurface.PersistenceProvider == null,
                 "La shell associa implicitamente una persistenza SDK al profilo applicativo.");
-            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.34, preparazione script separata dalla compilazione, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
+            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.41, snapshot cooperativi opzionali, errori recuperabili tipizzati, preparazione script separata dalla compilazione, state persistibile opt-in per istanza, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
         }
+
+        private static List<FlowchartRouteSnapshot> BuildFlowchartRoutes(Control canvas,
+            DdfFlowchartLayout diagram)
+        {
+            canvas.GetType().GetMethod("SetDiagram", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(canvas, new object[] { diagram });
+            object routeMap = diagram.Nodes.ToDictionary(item => item.Node.Id,
+                item => item, StringComparer.Ordinal);
+            object routed = canvas.GetType().GetMethod("BuildRoutes",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(canvas, new[] { routeMap });
+            return ReadFlowchartRoutes((IEnumerable)routed);
+        }
+
+        private static List<FlowchartRouteSnapshot> ReadFlowchartRoutes(IEnumerable routed)
+        {
+            var routes = new List<FlowchartRouteSnapshot>();
+            foreach (object item in routed)
+            {
+                Type itemType = item.GetType();
+                routes.Add(new FlowchartRouteSnapshot(
+                    (DdfFlowchartEdge)itemType.GetProperty("Edge").GetValue(item),
+                    (PointF[])itemType.GetProperty("Points").GetValue(item),
+                    (PointF)itemType.GetProperty("LabelPoint").GetValue(item)));
+            }
+            return routes;
+        }
+
+        private static void AssertFlowchartRouteGeometry(DdfFlowchartLayout diagram,
+            IReadOnlyList<FlowchartRouteSnapshot> routes, string scenario)
+        {
+            Require(routes.Count == diagram.Flowchart.Edges.Count,
+                scenario + ": non tutti gli archi semantici sono stati instradati.");
+            Require(routes.All(route => route.Points.Length >= 2),
+                scenario + ": un collegamento non contiene un percorso visibile.");
+            Require(routes.SelectMany(route => route.Points.Zip(route.Points.Skip(1),
+                    (left, right) => Math.Abs(left.X - right.X) < 0.01F ||
+                        Math.Abs(left.Y - right.Y) < 0.01F)).All(value => value),
+                scenario + ": il router produce segmenti diagonali.");
+            Require(routes.All(route => Math.Abs(route.Points[0].X - route.Points[1].X) < 0.01F),
+                scenario + ": un collegamento non esce prima verticalmente dal proprio modulo.");
+            Require(routes.All(route => !route.Points.Skip(2).Select((point, index) =>
+                    FlowchartPointsAreCollinear(route.Points[index], route.Points[index + 1], point)).Any(value => value)),
+                scenario + ": sono presenti due gomiti consecutivi superflui sullo stesso asse.");
+            Require(routes.SelectMany(route => route.Points).All(point =>
+                    point.X >= 0 && point.X <= diagram.Width &&
+                    point.Y >= 0 && point.Y <= diagram.Height),
+                scenario + ": un collegamento si allunga oltre l'area utile del diagramma.");
+            Require(routes.All(route => route.LabelPoint.X >= 0 && route.LabelPoint.X <= diagram.Width &&
+                    route.LabelPoint.Y >= 0 && route.LabelPoint.Y <= diagram.Height),
+                scenario + ": un'etichetta Si/No cade fuori dall'area utile.");
+
+            List<Tuple<PointF, PointF>> solidSegments = routes.Where(route => !route.Edge.IsBackEdge)
+                .SelectMany(route => RouteSegments(route.Points)).ToList();
+            List<Tuple<PointF, PointF>> dashedSegments = routes.Where(route => route.Edge.IsBackEdge)
+                .SelectMany(route => RouteSegments(route.Points)).ToList();
+            Require(!dashedSegments.Any(dashed => solidSegments.Any(solid =>
+                    CollinearOverlap(dashed, solid) || PerpendicularCross(dashed, solid))),
+                scenario + ": una linea tratteggiata si sovrappone o interseca una linea continua.");
+
+            bool crossing = false;
+            for (int left = 0; left < routes.Count && !crossing; left++)
+                for (int right = left + 1; right < routes.Count && !crossing; right++)
+                    crossing = RouteSegments(routes[left].Points).Any(leftSegment =>
+                        RouteSegments(routes[right].Points).Any(rightSegment =>
+                            PerpendicularCross(leftSegment, rightSegment)));
+            Require(!crossing,
+                scenario + ": due collegamenti si intersecano senza una giunzione logica.");
+
+            List<IGrouping<string, FlowchartRouteSnapshot>> merges = routes
+                .Where(route => !route.Edge.IsBackEdge).GroupBy(route => route.Edge.To)
+                .Where(group => group.Count() > 1).ToList();
+            if (merges.Count > 0)
+                Require(merges.Any(group => group.Where(route => route.Points.Length > 2)
+                        .Select(route => route.Points[route.Points.Length - 2]).Distinct().Count() == 1),
+                    scenario + ": gli archi convergenti non condividono i gomiti quando possibile.");
+        }
+
+        private static bool FlowchartPointsAreCollinear(PointF first, PointF second, PointF third) =>
+            (Math.Abs(first.X - second.X) < 0.01F && Math.Abs(second.X - third.X) < 0.01F) ||
+            (Math.Abs(first.Y - second.Y) < 0.01F && Math.Abs(second.Y - third.Y) < 0.01F);
+
+        private static string SerializeFlowchartRoutes(IEnumerable<FlowchartRouteSnapshot> routes) =>
+            string.Join("|", routes.Select(route => route.Edge.From + ">" + route.Edge.To + ":" +
+                route.Edge.Kind + ":" + route.Edge.IsBackEdge + ":" +
+                string.Join(";", route.Points.Select(point =>
+                    point.X.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "," +
+                    point.Y.ToString("R", System.Globalization.CultureInfo.InvariantCulture))) + ":" +
+                route.LabelPoint.X.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "," +
+                route.LabelPoint.Y.ToString("R", System.Globalization.CultureInfo.InvariantCulture)));
 
         private static IEnumerable<Tuple<PointF, PointF>> RouteSegments(IReadOnlyList<PointF> points)
         {
@@ -1667,6 +2512,35 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 x < Math.Max(horizontal.Item1.X, horizontal.Item2.X) - tolerance &&
                 y > Math.Min(vertical.Item1.Y, vertical.Item2.Y) + tolerance &&
                 y < Math.Max(vertical.Item1.Y, vertical.Item2.Y) - tolerance;
+        }
+
+        private sealed class FlowchartRouteSnapshot
+        {
+            public FlowchartRouteSnapshot(DdfFlowchartEdge edge, PointF[] points, PointF labelPoint)
+            {
+                Edge = edge;
+                Points = points;
+                LabelPoint = labelPoint;
+            }
+
+            public DdfFlowchartEdge Edge { get; }
+            public PointF[] Points { get; }
+            public PointF LabelPoint { get; }
+        }
+
+        private sealed class CallbackDisposable : IDisposable
+        {
+            private Action callback;
+
+            public CallbackDisposable(Action callback)
+            {
+                this.callback = callback ?? throw new ArgumentNullException(nameof(callback));
+            }
+
+            public void Dispose()
+            {
+                Interlocked.Exchange(ref callback, null)?.Invoke();
+            }
         }
 
         private static void AssertRestoredMultiFileGutter(bool visible)
@@ -2462,14 +3336,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     Require(compiledBuildRejected,
                         "La shell embedded ha accettato un backend di compilazione standalone.");
                     embedded.SetEmbeddedPrimaryDocument("embedded.ddfc",
-                        "main() returns int { return 2; }");
+                        "main() out int { ret 2; }");
                     RichTextBox embeddedEditor = FindControl<RichTextBox>(embedded, "richTextBoxMainEditor");
 
                     DdfLanguagePackageLoadResult italianResult =
                         embedded.EmbeddedEditor.LanguageSession.TryActivate(italianPath);
                     PumpUntil(() => embeddedEditor.Text ==
                             "main() restituisce int { restituisci 2; }",
-                        5000, "Il cambio linguaggio via API non converte il buffer embedded.");
+                        5000, "Il cambio linguaggio via API non converte il buffer embedded. " +
+                        "successo=" + italianResult.Success + ", attivo=" +
+                        embedded.EmbeddedEditor.LanguageSession.ActivePackage.Id +
+                        ", testo='" + embeddedEditor.Text + "'.");
                     Require(italianResult.Success &&
                             GetPropertyValue<string>(FindControl<Control>(embedded, "flowchartCanvas"),
                                 "TrueLabel") == "Sì",
@@ -2889,8 +3766,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         item.ToolTipText.Contains("DDF")),
                     "La barra strumenti non espone il selettore del linguaggio attivo.");
                 ToolStripMenuItem languageMenu = FindMenuItem(form, "languagePackageInfoMenuItem");
-                Require(languageMenu.DropDownItems.Count > 0,
-                    "La voce Linguaggio deve essere soltanto il contenitore dei relativi comandi.");
+                Require(form.MainMenuStrip.Items.Contains(languageMenu) &&
+                        languageMenu.DropDownItems.Contains(
+                            FindMenuItem(form, "languagePlaygroundMenuItem")) &&
+                        languageMenu.DropDownItems.Count > 0,
+                    "Il menu principale Linguaggio non espone direttamente il Playground e gli altri comandi del pacchetto.");
+                Require(!FindMenuItem(form, "helpMenuItem").DropDownItems.Contains(languageMenu),
+                    "Il menu Linguaggio è ancora nascosto dentro Help.");
                 Require(form.Text.Contains("DDFLanguageEditor 0.12.5 Beta", StringComparison.Ordinal),
                     "La shell standalone non espone la versione prodotto candidata.");
                 languageMenu.PerformClick();
@@ -2945,9 +3827,15 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il Playground non è stato aperto come finestra chiara e centrata.");
                 Require(FindControl<RichTextBox>(playground, "languagePlaygroundTokensTextBox").Text.Contains("Identifier") &&
                         FindControl<RichTextBox>(playground, "languagePlaygroundTreeTextBox").Text.Contains("Compilation") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundTypesTextBox").Text.Contains("int") &&
                         FindControl<RichTextBox>(playground, "languagePlaygroundDiagnosticsTextBox").Text.Contains("Nessuna") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundErrorsTextBox").Text.Contains("DDF408") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundLoweringTextBox").Text.Contains("Function main") &&
+                        FindControl<RichTextBox>(playground, "languagePlaygroundLoweringTextBox").Text.Contains("Return") &&
+                        FindControl<Label>(playground, "languagePlaygroundPackageLabel").Text.Contains(activePackage.Id) &&
+                        FindControl<Label>(playground, "languagePlaygroundStatusLabel").Text.Contains("IR disponibile") &&
                         FindControl<RichTextBox>(playground, "languagePlaygroundFormattedTextBox").Text.Contains("0;"),
-                    "Il Playground non espone token, albero, diagnostiche e formattazione.");
+                    "Il Playground non espone pacchetto, token, albero, tipi, errori dichiarati, diagnostiche, IR e formattazione.");
                 DdfLanguagePackage canonicalPackage = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
                 FindControl<RichTextBox>(playground, "languagePlaygroundSourceTextBox").Text =
                     DdfSyntaxProfileConverter.Convert("main() out int { ret ; }",
@@ -5455,6 +6343,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
             return null;
         }
 
+        private static IEnumerable<TreeNode> FlattenTreeNodes(TreeNode root)
+        {
+            yield return root;
+            foreach (TreeNode child in root.Nodes)
+                foreach (TreeNode descendant in FlattenTreeNodes(child))
+                    yield return descendant;
+        }
+
         private static T FindControl<T>(Control root, string name) where T : Control
         {
             T control = root.Controls.Find(name, true).OfType<T>().SingleOrDefault();
@@ -5464,6 +6360,345 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             return control;
+        }
+
+        private static void AssertCompiledLanguageFeaturesWorkspaceDebug(bool visible)
+        {
+            string workspaceRoot = Path.GetFullPath(Path.Combine(
+                Environment.CurrentDirectory, "samples",
+                "language-features-debug-workspace"));
+            string mainPath = Path.Combine(workspaceRoot, "main.ddf");
+            string classificationPath = Path.Combine(workspaceRoot,
+                "classification.ddf");
+            Require(File.Exists(mainPath) && File.Exists(classificationPath),
+                "Il workspace language-features-debug non è disponibile da " +
+                Environment.CurrentDirectory + ".");
+
+            IDataObject originalClipboard = null;
+            try
+            {
+                originalClipboard = Clipboard.GetDataObject();
+            }
+            catch (ExternalException)
+            {
+            }
+
+            using (var form = ShowSmokeForm(visible))
+            {
+                form.AttachStandaloneCompiledBuildService(
+                    new DdfDotNetEditorBuildService());
+                form.AttachStandaloneDebugService(
+                    new DdfDotNetEditorDebugService(
+                        () => form.EmbeddedEditor.DocumentService,
+                        () => form.EmbeddedEditor.LanguageSession,
+                        form.PrepareStandaloneBackendExecution,
+                        eventDispatcher: form.EmbeddedEditor.EventDispatcher));
+                DdfLanguagePackageLoadResult language =
+                    form.EmbeddedEditor.LanguageSession.UseEmbedded();
+                Require(language.Success,
+                    "Il DDF incorporato non può essere attivato per lo smoke compilato.");
+                Require((bool)InvokePrivate(form, "openWorkspace", workspaceRoot),
+                    "Il workspace language-features-debug non viene aperto dalla UI.");
+                PumpUntil(() =>
+                        GetPrivateField<DdfWorkspaceIndex>(form, "workspaceIndex")
+                            ?.Documents.Count == 8,
+                    5000, "Il workspace completo non viene indicizzato dalla UI.");
+                Require((bool)InvokePrivate(form, "openDocument", mainPath),
+                    "main.ddf non viene aperto dalla UI.");
+                PumpMessages(900);
+
+                IReadOnlyList<DdfDiagnostic> diagnostics =
+                    GetPrivateField<IReadOnlyList<DdfDiagnostic>>(form,
+                        "activeDiagnostics");
+                DdfDiagnostic falsePositive = diagnostics.FirstOrDefault(item =>
+                    item.Code == "DDF201" && item.Line == 27);
+                Require(falsePositive == null,
+                    "DefaultPriority produce ancora DDF201 alla riga 27: " +
+                    falsePositive?.Message);
+                Require(!diagnostics.Any(item =>
+                        item.Severity == DdfDiagnosticSeverity.Error),
+                    "Il workspace di riferimento non è semanticamente valido: " +
+                    string.Join(" | ", diagnostics.Select(item => item.ToString())));
+
+                RichTextBox editor = FindControl<RichTextBox>(form,
+                    "richTextBoxMainEditor");
+                RichTextBox output = FindControl<RichTextBox>(form,
+                    "richTextBoxOutput");
+                ListBox diagnosticRows = FindControl<ListBox>(form,
+                    "listBoxDiagnostics");
+                TreeView variables = FindControl<TreeView>(form,
+                    "treeViewVariables");
+                ListView callStack = FindControl<ListView>(form,
+                    "callStackListView");
+                TextBox watchInput = FindControl<TextBox>(form,
+                    "watchExpressionTextBox");
+                ListView watchRows = FindControl<ListView>(form,
+                    "watchListView");
+                watchRows.Items.Clear();
+                SetPrivateField(form, "watchExpressionSettings",
+                    new WatchExpressionSettings());
+                SetPrivateField(form, "saveWatchExpressionsSetting",
+                    new Action<string>(value => { }));
+                InvokePrivate(form, "switchWatchProject", workspaceRoot);
+                InvokePrivate(form, "clearBreakpoints");
+
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() =>
+                        form.EmbeddedEditor.DebugService.State ==
+                            DdfEditorDebugState.Idle &&
+                        output.Text.Contains("Valore restituito: 419",
+                            StringComparison.Ordinal),
+                    30000,
+                    "Il debugger compilato senza breakpoint non completa il workspace. Output: " +
+                    output.Text);
+                Require(!output.Text.Contains("Piano debug worker non valido",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !output.Text.Contains("Errore interno",
+                        StringComparison.OrdinalIgnoreCase),
+                    "Il percorso senza breakpoint espone ancora un errore interno. Output: " +
+                    output.Text);
+
+                int resultStart = output.Text.IndexOf("Valore restituito: 419",
+                    StringComparison.Ordinal);
+                output.Select(resultStart, 0);
+                SetClipboardTextWithRetry("sentinella-output");
+                var outputCopy = new KeyEventArgs(Keys.Control | Keys.C);
+                InvokeHandler(form, "richTextBoxOutput_KeyDown", output,
+                    outputCopy);
+                Require(outputCopy.Handled && outputCopy.SuppressKeyPress &&
+                        ClipboardTextEqualsWithRetry("Valore restituito: 419"),
+                    "Ctrl+C non copia la riga corrente dalla palette Output.");
+
+                diagnosticRows.Items.Clear();
+                diagnosticRows.Items.Add("Riga 27 — DDF201 di prova");
+                diagnosticRows.Items.Add("Riga 28 — DDF202 di prova");
+                diagnosticRows.SetSelected(0, true);
+                diagnosticRows.SetSelected(1, true);
+                SetClipboardTextWithRetry("sentinella-diagnostica");
+                var diagnosticsCopy = new KeyEventArgs(Keys.Control | Keys.C);
+                InvokeHandler(form, "listBoxDiagnostics_KeyDown",
+                    diagnosticRows, diagnosticsCopy);
+                Require(diagnosticsCopy.Handled &&
+                        diagnosticsCopy.SuppressKeyPress &&
+                        ClipboardTextEqualsWithRetry(
+                            "Riga 27 — DDF201 di prova" + Environment.NewLine +
+                            "Riga 28 — DDF202 di prova"),
+                    "Ctrl+C non copia più righe selezionate dalla palette Diagnostica.");
+                InvokePrivate(form, "updateDiagnostics", diagnostics);
+
+                editor = FindControl<RichTextBox>(form,
+                    "richTextBoxMainEditor");
+                editor.Select(editor.GetFirstCharIndexFromLine(26), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() =>
+                        form.EmbeddedEditor.DebugService.State ==
+                            DdfEditorDebugState.Paused &&
+                        string.Equals(
+                            GetPrivateField<OpenDocumentCollection>(form,
+                                "openDocuments").ActiveDocument?.Session.CurrentPath,
+                            mainPath, StringComparison.OrdinalIgnoreCase) &&
+                        FindControl<RichTextBox>(form,
+                            "richTextBoxMainEditor").SelectedText.Contains(
+                                "priorityWeight", StringComparison.Ordinal),
+                    30000,
+                    "Il debugger compilato non si ferma sulla chiamata alla riga 27. Output: " +
+                    output.Text);
+                Require(FindControl<RichTextBox>(form,
+                        "richTextBoxMainEditor").SelectedText.Contains(
+                            "priorityWeight", StringComparison.Ordinal),
+                    "La pausa compilata non evidenzia la chiamata priorityWeight.");
+                Require(variables.Nodes.Find("completedRuns", true)
+                            .FirstOrDefault()?.Text.Contains(
+                                "int = 1", StringComparison.Ordinal) == true &&
+                        variables.Nodes.Find("localOffset", true)
+                            .FirstOrDefault()?.Text.Contains(
+                                "fixed · sola lettura", StringComparison.Ordinal) == true &&
+                        variables.Nodes.Find("DefaultPriority", true)
+                            .FirstOrDefault()?.Text.Contains(
+                                "Priority.High", StringComparison.Ordinal) == true &&
+                        variables.Nodes["states"] != null,
+                    "Variabili non distingue state, fixed o enum alla pausa compilata.");
+                Require(callStack.Items.Count == 1 &&
+                        callStack.Items[0].SubItems[1].Text == "main()" &&
+                        callStack.Items[0].SubItems[3].Text == "main.ddf",
+                    "Call Stack non mostra il frame DDF principale compilato.");
+                FindControl<TabControl>(form, "tabControlBottom").SelectedTab =
+                    FindControl<TabPage>(form, "tabPageWatch");
+                foreach (string expression in new[]
+                         {
+                             "completedRuns", "localOffset",
+                             "DefaultPriority", "priority"
+                         })
+                {
+                    watchInput.Text = expression;
+                    FindControl<Button>(form, "watchAddButton").PerformClick();
+                }
+                ListViewItem stateWatch = watchRows.Items.Cast<ListViewItem>()
+                    .Single(item => item.Text == "completedRuns");
+                ListViewItem fixedWatch = watchRows.Items.Cast<ListViewItem>()
+                    .Single(item => item.Text == "localOffset");
+                ListViewItem globalEnumWatch = watchRows.Items.Cast<ListViewItem>()
+                    .Single(item => item.Text == "DefaultPriority");
+                Require(stateWatch.SubItems[1].Text == "int · state" &&
+                        stateWatch.SubItems[2].Text == "1" &&
+                        fixedWatch.SubItems[1].Text == "int · fixed" &&
+                        fixedWatch.SubItems[2].Text == "2" &&
+                        globalEnumWatch.SubItems[1].Text == "Priority · fixed" &&
+                        globalEnumWatch.SubItems[2].Text == "Priority.High",
+                    "Watch non rende leggibili state, fixed ed enum globali compilati.");
+
+                FindToolbarButton(form, "toolbarStepIntoButton").PerformClick();
+                PumpUntil(() =>
+                        form.EmbeddedEditor.DebugService.State ==
+                            DdfEditorDebugState.Paused &&
+                        string.Equals(
+                            GetPrivateField<OpenDocumentCollection>(form,
+                                "openDocuments").ActiveDocument?.Session.CurrentPath,
+                            classificationPath,
+                            StringComparison.OrdinalIgnoreCase) &&
+                        FindControl<RichTextBox>(form,
+                            "richTextBoxMainEditor").SelectedText.Contains(
+                                "select", StringComparison.Ordinal),
+                    15000,
+                    "Step Into compilato non attiva classification.ddf.");
+                Require(FindControl<RichTextBox>(form,
+                        "richTextBoxMainEditor").SelectedText.Contains(
+                            "select", StringComparison.Ordinal),
+                    "Step Into compilato non evidenzia la prima istruzione della funzione esterna.");
+                TreeNode priorityVariable = variables.Nodes.Find("priority", true)
+                    .FirstOrDefault();
+                ListViewItem priorityWatch = watchRows.Items.Cast<ListViewItem>()
+                    .Single(item => item.Text == "priority");
+                Require(priorityVariable != null &&
+                        priorityVariable.Text.Contains(
+                            "Priority = Priority.High", StringComparison.Ordinal) &&
+                        priorityWatch.SubItems[1].Text == "Priority" &&
+                        priorityWatch.SubItems[2].Text == "Priority.High",
+                    "Watch o Variabili non mostrano l'enum nominale nel frame esterno.");
+                Require(callStack.Items.Count == 2 &&
+                        callStack.Items[0].SubItems[1].Text == "priorityWeight()" &&
+                        callStack.Items[0].SubItems[3].Text ==
+                            "classification.ddf" &&
+                        callStack.Items[1].SubItems[1].Text == "main()" &&
+                        callStack.Items[1].SubItems[3].Text == "main.ddf",
+                    "Call Stack compilato non mostra funzione esterna e chiamante DDF.");
+                TabControl bottomTabs = FindControl<TabControl>(form,
+                    "tabControlBottom");
+                bottomTabs.SelectedTab = FindControl<TabPage>(form,
+                    "tabPageCallStack");
+                callStack.Focus();
+                callStack.Items[0].Selected = false;
+                callStack.Items[1].Selected = true;
+                callStack.Items[1].Focused = true;
+                PumpMessages(100);
+                Require(variables.Nodes.Find("localOffset", true)
+                            .FirstOrDefault()?.Text.Contains(
+                                "int = 2", StringComparison.Ordinal) == true &&
+                        variables.Nodes.Find("priority", true).Length == 0 &&
+                        fixedWatch.SubItems[2].Text == "2" &&
+                        priorityWatch.SubItems[2].Text == "—",
+                    "La selezione del frame chiamante non aggiorna insieme Variabili e Watch. " +
+                    "Frame=" + string.Join(",", callStack.SelectedItems
+                        .Cast<ListViewItem>().Select(item => item.Tag)) +
+                    "; variabili=" + string.Join(" | ", variables.Nodes
+                        .Cast<TreeNode>().SelectMany(FlattenTreeNodes)
+                        .Select(node => node.Text)) +
+                    "; watch=" + string.Join(" | ", watchRows.Items
+                        .Cast<ListViewItem>().Select(item => item.Text + "=" +
+                            item.SubItems[2].Text)));
+                string projectedDebuggerText = string.Join("\n",
+                    variables.Nodes.Cast<TreeNode>()
+                        .SelectMany(FlattenTreeNodes)
+                        .Select(node => node.Text)
+                        .Concat(callStack.Items.Cast<ListViewItem>()
+                            .SelectMany(item => item.SubItems.Cast<
+                                ListViewItem.ListViewSubItem>())
+                            .Select(item => item.Text))
+                        .Concat(watchRows.Items.Cast<ListViewItem>()
+                            .SelectMany(item => item.SubItems.Cast<
+                                ListViewItem.ListViewSubItem>())
+                            .Select(item => item.Text)));
+                Require(!projectedDebuggerText.Contains("DdfGenerated_",
+                            StringComparison.Ordinal) &&
+                        !projectedDebuggerText.Contains("Microsoft.CodeAnalysis",
+                            StringComparison.Ordinal),
+                    "Le palette debugger fanno trapelare nomi CLR o dettagli Roslyn.");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() =>
+                        form.EmbeddedEditor.DebugService.State ==
+                            DdfEditorDebugState.Idle &&
+                        output.Text.Contains("Valore restituito: 419",
+                            StringComparison.Ordinal),
+                    30000,
+                    "Il debug compilato multifile non termina dopo Continua. Output: " +
+                    output.Text);
+                InvokePrivate(form, "clearBreakpoints");
+                PumpMessages(200);
+            }
+
+            try
+            {
+                if (originalClipboard == null) Clipboard.Clear();
+                else Clipboard.SetDataObject(originalClipboard, true);
+            }
+            catch (ExternalException)
+            {
+                Console.Error.WriteLine(
+                    "WARN impossibile ripristinare gli appunti dopo lo smoke compilato.");
+            }
+
+            Console.WriteLine(
+                "PASS workspace UI compilato: diagnostica, clipboard, Watch/Variabili/Call Stack DDF e Step Into multifile");
+        }
+
+        private static void RequireRuntimeEditorFlowchartSynchronization(MainForm form,
+            string expectedFunction, string expectedSourceFragment, string scenario,
+            string expectedPath = null)
+        {
+            IDdfEditorDebugService debug = form.EmbeddedEditor.DebugService;
+            DdfEditorDebugSnapshot snapshot = debug?.CurrentSnapshot;
+            Require(snapshot != null && (debug.State == DdfEditorDebugState.Paused ||
+                    debug.State == DdfEditorDebugState.AwaitingCapability),
+                scenario + ": manca uno snapshot runtime sospeso.");
+            DdfEditorDebugLocation location = snapshot.Location;
+            RichTextBox editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
+            OpenDocumentBuffer active = GetPrivateField<OpenDocumentCollection>(form,
+                "openDocuments").ActiveDocument;
+            Control canvas = FindControl<Control>(form, "flowchartCanvas");
+            DdfFlowchartLayout layout = GetPropertyValue<DdfFlowchartLayout>(canvas, "Diagram");
+            DdfFlowchartNode executionNode = GetPropertyValue<DdfFlowchartNode>(canvas,
+                "ExecutionNode");
+            int debugLine = (int)editor.GetType().GetProperty("DebugExecutionLine").GetValue(editor);
+            string currentPath = active?.Session.HasPath == true
+                ? Path.GetFullPath(active.Session.CurrentPath)
+                : string.Empty;
+            string normalizedExpectedPath = string.IsNullOrWhiteSpace(expectedPath)
+                ? string.Empty
+                : Path.GetFullPath(expectedPath);
+            bool documentMatches = string.Equals(active?.Id, location.DocumentId,
+                    StringComparison.Ordinal) ||
+                (normalizedExpectedPath.Length > 0 && string.Equals(currentPath,
+                    normalizedExpectedPath, StringComparison.OrdinalIgnoreCase));
+            bool nodeContainsLocation = executionNode != null &&
+                location.Start >= executionNode.Start &&
+                location.Start < executionNode.Start + Math.Max(1, executionNode.Length);
+            Require(documentMatches &&
+                    (normalizedExpectedPath.Length == 0 || string.Equals(currentPath,
+                        normalizedExpectedPath, StringComparison.OrdinalIgnoreCase)) &&
+                    layout != null && string.Equals(layout.Flowchart.FunctionName,
+                        expectedFunction, StringComparison.Ordinal) &&
+                    (normalizedExpectedPath.Length == 0 || string.Equals(
+                        Path.GetFullPath(layout.Flowchart.DocumentPath), normalizedExpectedPath,
+                        StringComparison.OrdinalIgnoreCase)) &&
+                    nodeContainsLocation &&
+                    editor.SelectedText.Contains(expectedSourceFragment, StringComparison.Ordinal) &&
+                    debugLine == location.Line - 1,
+                scenario + ": documento, selezione, riga runtime e nodo Flowchart non sono sincronizzati. " +
+                "Stato=" + debug.State + "; documento='" + currentPath + "'; funzione='" +
+                layout?.Flowchart.FunctionName + "'; selezione='" + editor.SelectedText +
+                "'; rigaEditor=" + debugLine + "; rigaSnapshot=" + location.Line +
+                "; nodo='" + executionNode?.Label + "'.");
         }
 
         private static void AssertProgramExecution(MainForm form, RichTextBox editor)
@@ -5535,6 +6770,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram").Flowchart.FunctionName == "main" &&
                     flowchartStatus.Text.Contains("DEBUG IN PAUSA", StringComparison.Ordinal),
                 "La Flowchart non evidenzia il nodo appartenente allo snapshot realmente in pausa.");
+            RequireRuntimeEditorFlowchartSynchronization(form, "main",
+                "value << value + 1", "pausa sul breakpoint");
             Require(ReferenceEquals(FindControl<TabControl>(form, "navigationTabs").SelectedTab,
                     FindControl<TabPage>(form, "flowchartTabPage")),
                 "La palette Flowchart non viene portata in primo piano durante la pausa.");
@@ -5593,6 +6830,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "F10 non avanza di una singola istruzione fino alla riga successiva.");
             Require(GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode")?.Label.Contains("ret value") == true,
                 "Step Over non sposta l'indicatore di esecuzione sul nodo Flowchart successivo.");
+            RequireRuntimeEditorFlowchartSynchronization(form, "main", "ret value",
+                "Step Over nel documento corrente");
             Require(watchRows.Items[0].SubItems[2].Text == "3" && watchRows.Items[1].SubItems[2].Text == "2",
                 "Watch non aggiorna variabile ed elemento array dopo il passo successivo.");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
@@ -5635,6 +6874,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "helper" &&
                     GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode")?.Label.Contains("int localValue") == true,
                 "Step Into non porta la Flowchart nella funzione chiamata.");
+            RequireRuntimeEditorFlowchartSynchronization(form, "helper", "int localValue",
+                "Step Into nella funzione locale");
             Require(callStack.Items.Count == 2 && callStack.Items[0].SubItems[1].Text == "helper()" &&
                     callStack.Items[1].SubItems[1].Text == "main()",
                 "Step Into non aggiorna il Call Stack con funzione chiamata e chiamante.");
@@ -5677,6 +6918,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Esci dalla funzione non aggiorna il Call Stack al chiamante.");
             Require(variables.Nodes.Find("result", true).FirstOrDefault()?.Text.Contains("int = 3") == true,
                 "Esci dalla funzione non espone lo stato aggiornato del chiamante.");
+            RequireRuntimeEditorFlowchartSynchronization(form, "main", "ret result",
+                "Step Out verso il chiamante locale");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
             PumpUntil(debuggerIsIdle, 4000, "Il debug annidato non termina dopo Esci dalla funzione e Continua.");
             InvokePrivate(form, "clearBreakpoints");
@@ -5693,9 +6936,70 @@ namespace DDFLanguageEditor.EditorSmokeTests
             editor.Text = "main() out int { string text << readLine(); print(text); ret toInt(text) + 1; }";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
-            PumpUntil(debuggerIsIdle, 4000, "L'esecuzione con input non torna allo stato Modifica.");
+            PumpUntil(() => debuggerIsIdle() && output.Text.Contains("41") &&
+                    output.Text.Contains("Valore restituito: 42"), 4000,
+                "L'esecuzione con input non completa tutti i callback UI.");
             Require(output.Text.Contains("41") && output.Text.Contains("Valore restituito: 42"),
-                "Input e funzioni standard non attraversano correttamente la UI.");
+                "Input e funzioni standard non attraversano correttamente la UI. Output: " +
+                output.Text);
+
+            using (var capabilityEntered = new ManualResetEventSlim())
+            {
+                var capabilityRelease = new TaskCompletionSource<object>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                int cleanupCount = 0;
+                var capabilityCatalog = new DdfEditorHostCatalog();
+                capabilityCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                    "awaitProbe", "int", Array.Empty<DdfHostParameterDefinition>(),
+                    invoke: null, invokeAsync: async (context, arguments) =>
+                    {
+                        context.RegisterResource(new CallbackDisposable(
+                            () => Interlocked.Increment(ref cleanupCount)));
+                        capabilityEntered.Set();
+                        return await capabilityRelease.Task.ConfigureAwait(false);
+                    }));
+                form.EmbeddedEditor.AttachHostCatalog(capabilityCatalog);
+                editor.Text = "main() out int\n{\n    int result << awaitProbe();\n    ret result + 1;\n}";
+                PumpMessages(180);
+                editor.Select(editor.GetFirstCharIndexFromLine(2), 0);
+                FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(() => form.EmbeddedEditor.DebugService.State ==
+                        DdfEditorDebugState.Paused &&
+                        editor.SelectedText.Contains("awaitProbe", StringComparison.Ordinal),
+                    5000, "Il debug non raggiunge la capability asincrona.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "main", "awaitProbe",
+                    "pausa prima della capability asincrona");
+
+                FindToolbarButton(form, "toolbarStepOverButton").PerformClick();
+                PumpUntil(() => capabilityEntered.IsSet &&
+                        form.EmbeddedEditor.DebugService.State ==
+                            DdfEditorDebugState.AwaitingCapability,
+                    5000, "Step Over non espone l'attesa cooperativa della capability.");
+                Require(flowchartStatus.Text.Contains("DEBUG IN ATTESA", StringComparison.Ordinal),
+                    "La Flowchart presenta una capability sospesa come una normale pausa.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "main", "awaitProbe",
+                    "sospensione cooperativa sulla capability");
+                Require(cleanupCount == 0,
+                    "Il cleanup della risorsa avviene prima della ripresa della capability.");
+
+                capabilityRelease.SetResult(41);
+                PumpUntil(() => form.EmbeddedEditor.DebugService.State ==
+                        DdfEditorDebugState.Paused &&
+                        editor.SelectedText.Contains("ret result", StringComparison.Ordinal),
+                    5000, "La ripresa cooperativa non raggiunge l'istruzione successiva.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "main", "ret result",
+                    "ripresa dopo capability asincrona");
+                FindToolbarButton(form, "toolbarRunButton").PerformClick();
+                PumpUntil(debuggerIsIdle, 5000,
+                    "Il debug asincrono non termina dopo Continua.");
+                Require(cleanupCount == 1 &&
+                        GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode") == null &&
+                        (int)editor.GetType().GetProperty("DebugExecutionLine").GetValue(editor) == -1,
+                    "Cleanup o rimozione dei marker runtime non avvengono esattamente una volta al termine.");
+                InvokePrivate(form, "clearBreakpoints");
+            }
+
             editor.Text = "fail() out int\n{\n    int zero << 0;\n    ret 10 / zero;\n}\nmiddle() out int\n{\n    ret fail();\n}\nmain() out int\n{\n    ret middle();\n}";
             PumpMessages(180);
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
@@ -5704,16 +7008,23 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "L'errore runtime non mostra diagnostica e intestazione dello stack DDF. Output: " + output.Text);
             Require(output.Text.Contains("in fail()") && output.Text.Contains("in middle()") && output.Text.Contains("in main()"),
                 "Lo stack runtime non contiene tutte le chiamate DDF. Output: " + output.Text);
+            Require(GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode") == null &&
+                    (int)editor.GetType().GetProperty("DebugExecutionLine").GetValue(editor) == -1,
+                "Dopo la propagazione di un errore restano marker runtime non piu' validi.");
 
-            output.SelectionStart = output.Text.IndexOf("DDF404", StringComparison.Ordinal);
+            output.SelectionStart = output.Text.LastIndexOf("DDF404", StringComparison.Ordinal);
             InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
             Require(editor.SelectedText.Contains("10 / zero"),
                 "Il doppio clic sulla diagnostica runtime non seleziona l'istruzione che ha fallito.");
 
-            output.SelectionStart = output.Text.IndexOf("in fail()", StringComparison.Ordinal);
+            output.SelectionStart = output.Text.LastIndexOf("in fail()", StringComparison.Ordinal);
+            InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
+            Require(editor.SelectedText.Contains("10 / zero"),
+                "Il doppio clic sul frame runtime corrente non raggiunge l'istruzione che ha generato il fault. Selezione: '" + editor.SelectedText + "'.");
+            output.SelectionStart = output.Text.LastIndexOf("in middle()", StringComparison.Ordinal);
             InvokeHandler(form, "richTextBoxOutput_DoubleClick", output, EventArgs.Empty);
             Require(editor.SelectedText == "fail",
-                "Il doppio clic su un frame runtime non raggiunge il relativo punto di chiamata. Selezione: '" + editor.SelectedText + "'.");
+                "Il doppio clic sul frame runtime chiamante non raggiunge la chiamata a fail(). Selezione: '" + editor.SelectedText + "'.");
             Require(FindMenuItem(form, "newMenuItem").Enabled,
                 "Il debugger non riabilita i comandi documento dopo un errore runtime.");
             FindMenuItem(form, "closeWorkspaceMenuItem").PerformClick();
@@ -5799,6 +7110,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     4000, "Il debug multifile non raggiunge la chiamata nel file main.");
                 Require(mainEditor.SelectedText.Contains("helper(98)"),
                     "La pausa iniziale non evidenzia la chiamata nel file main.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "main", "helper(98)",
+                    "pausa nel chiamante multi-file", mainPath);
                 Require(InvokeProcessCmdKey(form, Keys.F11),
                     "La scorciatoia F11 non viene intercettata durante la pausa multifile.");
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
@@ -5818,6 +7131,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "helper" &&
                         GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode")?.Label.Contains("int localValue") == true,
                     "La Flowchart non segue lo snapshot di esecuzione nella funzione multi-file.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "helper", "int localValue",
+                    "Step Into con cambio file", unusedPath);
                 RichTextBox educationalExplanation = FindControl<RichTextBox>(form,
                     "flowchartEducationalExplanationBox");
                 Label educationalTitle = FindControl<Label>(form, "flowchartEducationalTitleLabel");
@@ -5831,6 +7146,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
                     helperEditor.SelectedText.Contains("localValue++"), 4000,
                     "Step Over non percorre istruzione per istruzione la funzione esterna.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "helper", "localValue++",
+                    "Step Over nel file esterno", unusedPath);
                 Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F11),
                     "La scorciatoia Shift+F11 non viene intercettata nella funzione esterna.");
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
@@ -5844,6 +7161,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "main" &&
                         GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode")?.Label.Contains("ret result") == true,
                     "Step Out non riporta la Flowchart al nodo del chiamante.");
+                RequireRuntimeEditorFlowchartSynchronization(form, "main", "ret result",
+                    "Step Out con ritorno al file chiamante", mainPath);
                 FindToolbarButton(form, "toolbarRunButton").PerformClick();
                 PumpUntil(debuggerIsIdle, 4000, "Il debug multifile non termina dopo il ritorno al chiamante.");
                 InvokePrivate(form, "clearBreakpoints");
@@ -6642,6 +7961,54 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 LoadCount++;
                 return State;
+            }
+        }
+
+        private sealed class LegacyExecutionService : IDdfEditorExecutionService
+        {
+            public DdfEditorExecutionState State => DdfEditorExecutionState.Idle;
+            public bool IsRunning => false;
+            public long Generation => 0;
+            public DdfEditorExecutionCompletion LastCompletion => null;
+            public event EventHandler<DdfEditorExecutionStateChangedEventArgs>
+                StateChanged { add { } remove { } }
+            public event EventHandler<DdfEditorExecutionOutputEventArgs>
+                OutputReceived { add { } remove { } }
+            public event EventHandler<DdfEditorExecutionCompletedEventArgs>
+                ExecutionCompleted { add { } remove { } }
+            public Task<DdfEditorExecutionCompletion> RunAsync(
+                DdfEditorExecutionRequest request = null) =>
+                throw new NotSupportedException();
+            public Task<DdfEditorExecutionCompletion> InvokeAsync(
+                DdfEditorProcedureRequest request) =>
+                throw new NotSupportedException();
+            public bool Stop() => false;
+            public void Dispose() { }
+        }
+
+        private sealed class MigratingEditorPersistenceProvider :
+            IDdfEditorPersistenceProvider,
+            IDdfEditorPersistenceMigrationProvider
+        {
+            public MigratingEditorPersistenceProvider(
+                DdfEditorPersistedState state)
+            {
+                State = state;
+            }
+
+            public DdfEditorPersistedState State { get; private set; }
+            public int MigrationCount { get; private set; }
+            public void Save(DdfEditorPersistedState state) => State = state;
+            public DdfEditorPersistedState Load() => State;
+
+            public DdfEditorPersistedState Migrate(
+                DdfEditorPersistedState snapshot,
+                string targetSchemaVersion)
+            {
+                MigrationCount++;
+                return new DdfEditorPersistedState(targetSchemaVersion,
+                    snapshot.Documents, snapshot.ActiveDocumentIndex,
+                    snapshot.Preferences, snapshot.Debugging);
             }
         }
 

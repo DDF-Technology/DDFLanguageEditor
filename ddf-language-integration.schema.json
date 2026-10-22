@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/language-integration-1.0.json",
+  "title": "DDF declarative language integration contract 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "languageId", "languageVersion", "packageVersion", "layers", "profiles", "activeIncrements" ],
+  "properties": {
+    "$schema": { "const": "./ddf-language-integration.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "languageId": { "const": "ddf" },
+    "languageVersion": { "$ref": "#/$defs/majorMinor" },
+    "packageVersion": { "$ref": "#/$defs/semver" },
+    "layers": {
+      "type": "array",
+      "minItems": 13,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "id", "path" ],
+        "properties": {
+          "id": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+          "path": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "id", "path", "canonical" ],
+        "properties": {
+          "id": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "path": { "type": "string", "minLength": 1 },
+          "canonical": { "type": "boolean" }
+        }
+      }
+    },
+    "activeIncrements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/increment" }
+    }
+  },
+  "$defs": {
+    "majorMinor": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "semver": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "strings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "nonEmptyStrings": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "increment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "id", "sinceLanguageVersion", "keywordRoles", "grammarRules", "semanticOperations", "runtimeOperations", "snippetRoles", "diagnosticCodes", "packageTests", "corpusValid", "corpusInvalid", "corpusIncomplete", "corpusMultiFile", "requiredLayers" ],
+      "properties": {
+        "id": { "pattern": "^[a-z][a-z0-9-]*$" },
+        "sinceLanguageVersion": { "$ref": "#/$defs/majorMinor" },
+        "keywordRoles": { "$ref": "#/$defs/nonEmptyStrings" },
+        "grammarRules": { "$ref": "#/$defs/nonEmptyStrings" },
+        "semanticOperations": { "$ref": "#/$defs/nonEmptyStrings" },
+        "runtimeOperations": { "$ref": "#/$defs/nonEmptyStrings" },
+        "snippetRoles": { "$ref": "#/$defs/nonEmptyStrings" },
+        "diagnosticCodes": { "$ref": "#/$defs/nonEmptyStrings" },
+        "packageTests": { "$ref": "#/$defs/nonEmptyStrings" },
+        "corpusValid": { "$ref": "#/$defs/strings" },
+        "corpusInvalid": { "$ref": "#/$defs/strings" },
+        "corpusIncomplete": { "$ref": "#/$defs/strings" },
+        "corpusMultiFile": { "$ref": "#/$defs/strings" },
+        "requiredLayers": { "$ref": "#/$defs/nonEmptyStrings" }
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ddf.technology/schemas/ddf-backend-equivalence.schema.json",
+  "title": "DDF backend equivalence contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "languageVersion", "backends", "releasePolicy", "dimensions" ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": "1.0" },
+    "languageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "backends": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "releasePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "mode", "requiredDimensions" ],
+      "properties": {
+        "mode": { "const": "block-on-divergence" },
+        "requiredDimensions": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/dimension" }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "id", "status", "evidence", "remainingGap" ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "status": { "enum": [ "enforced", "partial", "planned" ] },
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(core|compiler):[A-Za-z][A-Za-z0-9]*$" }
+        },
+        "remainingGap": { "type": [ "string", "null" ] }
+      }
+    }
+  }
+}

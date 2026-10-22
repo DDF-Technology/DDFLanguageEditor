@@ -1,0 +1,9 @@
+main() out int
+{
+    int value << 1;
+    select(value)
+    {
+        when 1
+        {
+            ret 1;
+        }

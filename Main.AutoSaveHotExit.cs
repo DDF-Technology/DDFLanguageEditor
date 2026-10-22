@@ -150,17 +150,15 @@ namespace DDF___Program_Language_Editor
                 statusFileLabel.ToolTipText = "Impossibile leggere i dati Hot Exit: " + exception.Message;
                 return;
             }
-            HotExitSnapshot snapshot = HotExitSnapshot.Parse(serialized);
+            DdfPersistenceReadResult<HotExitSnapshot> read =
+                HotExitSnapshot.ParseVersioned(serialized);
+            HotExitSnapshot snapshot = read.Value;
             if (snapshot == null)
             {
                 if (!string.IsNullOrWhiteSpace(serialized))
-                {
-                    try { clearHotExitSnapshotSetting?.Invoke(); }
-                    catch (Exception exception) when (isSettingsStorageException(exception))
-                    {
-                        statusFileLabel.ToolTipText = "Impossibile rimuovere dati Hot Exit non validi: " + exception.Message;
-                    }
-                }
+                    statusFileLabel.ToolTipText =
+                        "Hot Exit non applicato; lo snapshot originale è stato conservato. " +
+                        read.Failure;
                 return;
             }
 

@@ -83,13 +83,17 @@ namespace DDF___Program_Language_Editor
             DdfDocumentSymbol symbol = occurrence?.Symbol ?? workspaceSymbol?.Symbol;
             DdfTypedSpan typedSpan = lastTypeCheckResult?.FindTypeAt(position);
             DdfStandardFunction standardFunction = symbol == null ? getStandardFunctionAt(position) : null;
+            DdfHostFunctionDefinition hostFunction = symbol == null &&
+                standardFunction == null ? getHostFunctionAt(position) : null;
             if (ReferenceEquals(symbol, hoveredSymbol) && ReferenceEquals(typedSpan, hoveredTypedSpan) &&
                 ReferenceEquals(standardFunction, hoveredStandardFunction) &&
+                ReferenceEquals(hostFunction, hoveredHostFunction) &&
                 ReferenceEquals(diagnostic, hoveredDiagnostic)) return;
 
             hoveredSymbol = symbol;
             hoveredTypedSpan = typedSpan;
             hoveredStandardFunction = standardFunction;
+            hoveredHostFunction = hostFunction;
             hoveredDiagnostic = diagnostic;
             activeHoverInfo = null;
             symbolToolTip.Hide(richTextBoxMainEditor);
@@ -99,11 +103,16 @@ namespace DDF___Program_Language_Editor
                     richTextBoxMainEditor, e.X + 14, e.Y + 18);
                 return;
             }
-            if (symbol == null && typedSpan == null && standardFunction == null) return;
+            if (symbol == null && typedSpan == null && standardFunction == null &&
+                hostFunction == null) return;
 
             if (standardFunction != null)
             {
                 activeHoverInfo = DdfHoverService.CreateForStandardFunction(standardFunction);
+            }
+            else if (hostFunction != null)
+            {
+                activeHoverInfo = DdfHoverService.CreateForHostFunction(hostFunction);
             }
             else if (symbol != null && workspaceSymbol == null)
             {
@@ -147,11 +156,26 @@ namespace DDF___Program_Language_Editor
                 : null;
         }
 
+        private DdfHostFunctionDefinition getHostFunctionAt(int position)
+        {
+            if (lastLexResult == null) return null;
+            DdfToken token = lastLexResult.Tokens.FirstOrDefault(item =>
+                item.Kind == DdfTokenKind.Identifier && position >= item.Start &&
+                position <= item.End);
+            if (token == null) return null;
+            string name = richTextBoxMainEditor.Text.Substring(token.Start,
+                token.Length);
+            return panelEditor.HostCatalog?.Snapshot.Functions.FirstOrDefault(
+                function => string.Equals(function.Name, name,
+                    StringComparison.Ordinal));
+        }
+
         private void richTextBoxMainEditor_MouseLeave(object sender, EventArgs e)
         {
             hoveredSymbol = null;
             hoveredTypedSpan = null;
             hoveredStandardFunction = null;
+            hoveredHostFunction = null;
             hoveredDiagnostic = null;
             activeHoverInfo = null;
             if (IsDisposed || Disposing || richTextBoxMainEditor.IsDisposed || !symbolToolTip.Active) return;

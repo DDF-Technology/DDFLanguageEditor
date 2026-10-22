@@ -26,7 +26,7 @@ La `0.13.1` dispone ora del piano multi-modulo `1.0`: una work item per unità,
 dipendenze in ordine topologico e output relativi deterministici derivati da una
 preparazione Core già valida. Ogni work item espone la IR bound `2.1` prodotta
 dal Core, con simboli, tipi, conversioni, l-value e chiamate risolte. La runtime ABI standalone
-`1.6.0` è ora isolata in `DDFLanguageEditor.Runtime`; il name map `1.0` deriva
+`1.9.0` è ora isolata in `DDFLanguageEditor.Runtime`; il name map `1.0` deriva
 namespace e identificatori esclusivamente dagli ID bound.
 Il profilo C# 14/Roslyn e le opzioni riproducibili entrano nel fingerprint del
 piano; il reference set esplicito registra identità, hash e dimensione e viene
@@ -72,10 +72,19 @@ nell'allowlist possono essere risolti; l'embedded è rifiutato. Il caricamento
 in-process non è una sandbox: package non fidati richiederanno il worker con
 profilo di sicurezza del sistema operativo.
 
+Dalla Runtime ABI `1.11.0` la sessione può ricevere prima di `Execute` uno
+`DdfPersistedStateSnapshot` del medesimo pacchetto linguaggio. Gli helper generati
+applicano soltanto chiavi `state` note e tipi scalari DDF esatti dopo
+l'inizializzazione dei moduli. `CaptureState` è disponibile esclusivamente dopo
+un completamento riuscito: l'host conserva il vecchio snapshot quando
+esecuzione o cleanup falliscono, ottenendo commit/rollback senza riusare campi
+statici CLR tra sessioni.
+
 `DdfDotNetWorkerClient` e `DDFLanguageEditor.Runner` implementano ora il primo
-confine fuori processo monouso. Il protocollo JSON `1.9` trasferisce il bundle su
+confine fuori processo monouso. Il protocollo JSON `2.0` trasferisce il bundle su
 pipe, lo ricostruisce e riverifica nel figlio e restituisce risultato scalare e
-output con correlation ID. Può inoltre fornire una coda input immutabile e
+output con correlation ID; in caso di errore restituisce anche posizione e stack
+DDF tipizzato catturato prima dell'unwind. Può inoltre fornire una coda input immutabile e
 limitata, consumata in ordine e attestata nella risposta; esaurimento e quote
 producono `DDF408`/`DDFC542`. Un piano debug batch può inoltre predefinire
 breakpoint e comandi Step/Continua e ricevere una traccia limitata con sole
@@ -149,6 +158,12 @@ esclude la lista batch preventiva; avvio legacy, snapshot/comandi non validi e
 Stop controllato producono `DDFC550`. Nomi C#, token IL e oggetti CLR non
 attraversano il canale.
 
+Durante una capability incompleta il frame duplex `1.1` può allegare l'ultimo
+snapshot DDF del debugger. `IDdfDotNetWorkerCooperativeExecutionObserver`
+riceve attesa e ripresa con la stessa correlazione; il servizio debug standalone
+le espone come `AwaitingCapability` tramite l'Editor SDK `0.41`, mantenendo Watch
+e Call Stack senza creare un secondo breakpoint o un frame del provider host.
+
 Il framing JSONL `DdfDotNetWorkerDuplexProtocol` alimenta il loop bidirezionale
 opzionale usato da `ExecuteDuplexAsync`. `Start`, richieste/risposte
 capability e completamento sono correlati e sequenziali; una macchina a stati
@@ -156,11 +171,17 @@ limita a 256 chiamate, impedisce replay, risposte fuori ordine, completamento co
 richieste pendenti e payload incoerenti (`DDFC546`). Il runner resta monouso;
 il percorso legacy senza capability tardive continua a usare una sola
 richiesta/risposta.
+Timeout e Stop terminano il worker e cancellano il callback host. Il drain degli
+stream è limitato: anche un handler che ignora il token non può bloccare il
+client, e una sua completion tardiva viene osservata senza riaprire il transcript
+o produrre una risposta.
 
 `DdfDotNetDebugAdapter` verifica e legge PE/PDB senza eseguirli, traducendo token
 metodo, sequence point e scope IL in frame, breakpoint e simboli DDF. I nomi CLR
 rimangono interni all'adapter; i valori runtime vengono acquisiti dalla ABI
-cooperativa e proiettati tramite identità DDF.
+cooperativa e proiettati tramite identità DDF. Per le funzioni asincrone segue
+la relazione Portable PDB tra `MoveNext` e kickoff method: espone il nome DDF
+originario ma conserva il token della state machine realmente eseguita.
 
 `DdfDotNetCooperativeDebugger` usa l'observer opzionale della ABI per fermare il
 runner di verifica su breakpoint DDF e applicare Continua, Step Into, Step Over,
@@ -190,6 +211,12 @@ timeout e cancellazione cooperativa; chiamate e risorse hanno budget, mentre le
 risorse registrate vengono rilasciate LIFO. La IR bound distingue le funzioni
 mutanti; ricevuta e policy transazionale governano commit/rollback anche per un
 assembly emesso. L'SDK embedded rimane separato e non carica questi artefatti.
+Funzioni DDF, inizializzatori e factory delle strutture sono emessi come
+`async Task`/`Task<T>`; chiamate DDF e capability host vengono attese fino al
+launcher EXE. Le chiamate annidate restano nella stessa catena asincrona:
+`AtCallAsync` riceve una lambda `async` e attende sia gli argomenti sia la
+destinazione, senza generare `await` in lambda sincrone. Il gate dedicato sospende realmente una capability dell'assembly
+e vieta l'uso del fallback sincrono.
 
 Le API esterne descritte da `DdfExternalApiDefinition` usano lo stesso confine:
 `DdfDotNetExternalApiCapabilityProvider` associa le funzioni alle capability

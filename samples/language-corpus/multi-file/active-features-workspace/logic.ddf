@@ -1,0 +1,30 @@
+evaluate(Mode mode) out int
+{
+    int bonus << 0;
+
+    select(mode)
+    {
+        when Mode.Base
+        {
+            bonus << 3;
+        }
+
+        when Mode.Extended
+        {
+            bonus << 4;
+        }
+    }
+
+    for(int index << 0; index < 3; index++)
+    {
+        if(index == 1)
+        {
+            continue;
+        }
+
+        bonus << bonus + 0;
+    }
+
+    calls++;
+    ret baseValue + bonus + calls - 1;
+}

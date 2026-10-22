@@ -12,6 +12,7 @@ using CSharpSyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 using RoslynCompilationUnitSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax;
 using RoslynExpressionStatementSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionStatementSyntax;
 using RoslynExpressionSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax;
+using RoslynEnumDeclarationSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.EnumDeclarationSyntax;
 using RoslynForStatementSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ForStatementSyntax;
 using RoslynParameterSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ParameterSyntax;
 using RoslynStatementSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax;
@@ -50,16 +51,23 @@ namespace DDFLanguageEditor.Compiler
             private readonly Dictionary<string, Queue<DdfBoundExpression>> expressions;
             private readonly string relativePath;
             private readonly string documentInitializerName;
+            private readonly string documentStateCaptureName;
+            private readonly string documentStateApplyName;
             private readonly bool includeModuleInitializer;
             private readonly IReadOnlyList<string> documentInitializerNames;
+            private readonly IReadOnlyList<string> documentStateCaptureNames;
+            private readonly IReadOnlyList<string> documentStateApplyNames;
             private readonly SourceText sourceText;
 
             internal Generator(DdfDotNetCompilationWorkItem workItem,
                 DdfClrTypeMappingDefinition mapping, DdfBoundIrDocument document,
                 List<DdfDotNetContractIssue> issues,
                 DdfDotNetLinkNameTable linkNames, string documentInitializerName,
+                string documentStateCaptureName, string documentStateApplyName,
                 bool includeModuleInitializer,
-                IReadOnlyList<string> documentInitializerNames)
+                IReadOnlyList<string> documentInitializerNames,
+                IReadOnlyList<string> documentStateCaptureNames,
+                IReadOnlyList<string> documentStateApplyNames)
             {
                 this.workItem = workItem;
                 this.mapping = mapping;
@@ -67,8 +75,12 @@ namespace DDFLanguageEditor.Compiler
                 this.linkNames = linkNames;
                 relativePath = document.RelativePath;
                 this.documentInitializerName = documentInitializerName;
+                this.documentStateCaptureName = documentStateCaptureName;
+                this.documentStateApplyName = documentStateApplyName;
                 this.includeModuleInitializer = includeModuleInitializer;
                 this.documentInitializerNames = documentInitializerNames;
+                this.documentStateCaptureNames = documentStateCaptureNames;
+                this.documentStateApplyNames = documentStateApplyNames;
                 sourceText = SourceText.From(workItem.Unit.Sources.Single(item =>
                     string.Equals(item.RelativePath, relativePath,
                         StringComparison.Ordinal)).SourceText, Encoding.UTF8);
@@ -95,6 +107,11 @@ namespace DDFLanguageEditor.Compiler
                         ClassDeclarationSyntax generated = GenerateStructure(structure);
                         if (generated != null) declarations.Add(generated);
                     }
+                    else if (member is DdfIrEnum enumeration)
+                    {
+                        RoslynEnumDeclarationSyntax generated = GenerateEnum(enumeration);
+                        if (generated != null) declarations.Add(generated);
+                    }
                     else if (member is DdfIrGlobal global)
                     {
                         FieldDeclarationSyntax generated = GenerateGlobal(global);
@@ -107,6 +124,8 @@ namespace DDFLanguageEditor.Compiler
                     GenerateDocumentInitializer(program);
                 if (documentInitializer != null)
                     declarations.Add(documentInitializer);
+                declarations.Add(GenerateDocumentStateCapture(program));
+                declarations.Add(GenerateDocumentStateApply(program));
                 if (includeModuleInitializer)
                 {
                     declarations.Add(GenerateInitializationState());
@@ -114,6 +133,8 @@ namespace DDFLanguageEditor.Compiler
                         GenerateModuleInitializer();
                     if (moduleInitializer != null)
                         declarations.Add(moduleInitializer);
+                    declarations.Add(GenerateModuleStateCapture());
+                    declarations.Add(GenerateModuleStateApply());
                 }
                 ClassDeclarationSyntax container = SyntaxFactory.ClassDeclaration(
                         workItem.GeneratedNames.ContainerTypeName)
@@ -132,6 +153,8 @@ namespace DDFLanguageEditor.Compiler
                         SyntaxFactory.UsingDirective(DdfDotNetNameMangler
                             .CreateNamespaceSyntax("System.Collections.Generic")),
                         SyntaxFactory.UsingDirective(DdfDotNetNameMangler
+                            .CreateNamespaceSyntax("System.Threading.Tasks")),
+                        SyntaxFactory.UsingDirective(DdfDotNetNameMangler
                             .CreateNamespaceSyntax("DDFLanguageEditor.Runtime")))
                     .AddMembers(@namespace)
                     .WithLeadingTrivia(
@@ -147,8 +170,11 @@ namespace DDFLanguageEditor.Compiler
                 DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Function,
                     function.NameStart, function.Name);
                 if (symbol == null) return null;
-                TypeSyntax returnType = GenerateType(Type(function.ReturnType), function);
-                if (returnType == null) return null;
+                DdfBoundType boundReturnType = Type(function.ReturnType);
+                TypeSyntax valueReturnType = GenerateType(boundReturnType, function);
+                if (valueReturnType == null) return null;
+                TypeSyntax returnType = AsyncReturnType(boundReturnType,
+                    valueReturnType);
                 var parameters = new List<RoslynParameterSyntax>
                 {
                     RuntimeContextParameter()
@@ -167,6 +193,7 @@ namespace DDFLanguageEditor.Compiler
                 if (body == null) return null;
                 var prologue = new List<RoslynStatementSyntax>
                 {
+                    AwaitCompletedTask(),
                     RuntimeDebugCall("EnterFunction", symbol.Id,
                         Location(function))
                 };
@@ -181,8 +208,15 @@ namespace DDFLanguageEditor.Compiler
                         SyntaxFactory.IdentifierName(workItem.GeneratedNames
                             .GetIdentifier(parameterSymbol.Id))));
                 }
+                CatchClauseSyntax captureRuntimeError = SyntaxFactory.CatchClause()
+                    .WithDeclaration(SyntaxFactory.CatchDeclaration(
+                            SyntaxFactory.IdentifierName("DdfRuntimeException"))
+                        .WithIdentifier(SyntaxFactory.Identifier("exception")))
+                    .WithBlock(SyntaxFactory.Block(
+                        RuntimeCaptureErrorCall(),
+                        SyntaxFactory.ThrowStatement()));
                 prologue.Add(SyntaxFactory.TryStatement(body,
-                        default,
+                        SyntaxFactory.SingletonList(captureRuntimeError),
                         SyntaxFactory.FinallyClause(SyntaxFactory.Block(
                             RuntimeDebugCall("ExitFunction", symbol.Id)))));
                 body = SyntaxFactory.Block(prologue);
@@ -190,7 +224,8 @@ namespace DDFLanguageEditor.Compiler
                         SyntaxFactory.Identifier(workItem.GeneratedNames
                             .GetIdentifier(symbol.Id)))
                     .AddModifiers(SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword),
-                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.AsyncKeyword))
                     .WithParameterList(SyntaxFactory.ParameterList(
                         SyntaxFactory.SeparatedList(parameters)))
                     .WithBody(body);
@@ -241,10 +276,42 @@ namespace DDFLanguageEditor.Compiler
                     SyntaxFactory.ConstructorDeclaration(SyntaxFactory.Identifier(
                             workItem.GeneratedNames.GetIdentifier(symbol.Id)))
                         .AddModifiers(SyntaxFactory.Token(
-                            CSharpSyntaxKind.PublicKeyword))
-                        .AddParameterListParameters(RuntimeContextParameter())
-                        .WithBody(SyntaxFactory.Block(initializers));
+                            CSharpSyntaxKind.PrivateKeyword))
+                        .WithBody(SyntaxFactory.Block());
                 fields.Add(constructor);
+                string typeName = workItem.GeneratedNames.GetIdentifier(symbol.Id);
+                var factoryStatements = new List<RoslynStatementSyntax>
+                {
+                    AwaitCompletedTask(),
+                    SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(
+                                SyntaxFactory.IdentifierName(typeName))
+                            .AddVariables(SyntaxFactory.VariableDeclarator(
+                                    SyntaxFactory.Identifier("DdfRuntime_Value"))
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.ObjectCreationExpression(
+                                            SyntaxFactory.IdentifierName(typeName))
+                                        .WithArgumentList(
+                                            SyntaxFactory.ArgumentList())))))
+                };
+                factoryStatements.AddRange(initializers.Select(statement =>
+                    statement.ReplaceNodes(statement.DescendantNodesAndSelf()
+                            .OfType<ThisExpressionSyntax>(),
+                        (_, _) => SyntaxFactory.IdentifierName(
+                            "DdfRuntime_Value"))));
+                factoryStatements.Add(SyntaxFactory.ReturnStatement(
+                    SyntaxFactory.IdentifierName("DdfRuntime_Value")));
+                fields.Add(SyntaxFactory.MethodDeclaration(
+                            SyntaxFactory.GenericName("Task")
+                                .AddTypeArgumentListArguments(
+                                    SyntaxFactory.IdentifierName(typeName)),
+                            SyntaxFactory.Identifier("CreateAsync"))
+                        .AddModifiers(
+                            SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword),
+                            SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword),
+                            SyntaxFactory.Token(CSharpSyntaxKind.AsyncKeyword))
+                        .AddParameterListParameters(RuntimeContextParameter())
+                        .WithBody(SyntaxFactory.Block(factoryStatements)));
                 fields.Add(GenerateStructureDebugMembers(debugMembers));
                 return SyntaxFactory.ClassDeclaration(SyntaxFactory.Identifier(
                         workItem.GeneratedNames.GetIdentifier(symbol.Id)))
@@ -255,6 +322,27 @@ namespace DDFLanguageEditor.Compiler
                         SyntaxFactory.IdentifierName(
                             "IDdfRuntimeDebugStructure")))
                     .AddMembers(fields.ToArray());
+            }
+
+            private RoslynEnumDeclarationSyntax GenerateEnum(DdfIrEnum enumeration)
+            {
+                DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Enumeration,
+                    enumeration.NameStart, enumeration.Name);
+                if (symbol == null) return null;
+                var members = new List<EnumMemberDeclarationSyntax>();
+                foreach (DdfIrEnumMember value in enumeration.Members)
+                {
+                    DdfBoundSymbol valueSymbol = FindDeclared(
+                        DdfBoundSymbolKind.EnumerationMember, value.Start, value.Name);
+                    if (valueSymbol == null) return null;
+                    members.Add(SyntaxFactory.EnumMemberDeclaration(
+                        SyntaxFactory.Identifier(workItem.GeneratedNames
+                            .GetIdentifier(valueSymbol.Id))));
+                }
+                return SyntaxFactory.EnumDeclaration(SyntaxFactory.Identifier(
+                        workItem.GeneratedNames.GetIdentifier(symbol.Id)))
+                    .AddModifiers(SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword))
+                    .AddMembers(members.ToArray());
             }
 
             private MethodDeclarationSyntax GenerateStructureDebugMembers(
@@ -332,9 +420,11 @@ namespace DDFLanguageEditor.Compiler
                     }
                     DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Global,
                         variable.Start, variable.Name);
-                    RoslynExpressionSyntax initializer = variable.Initializer == null
-                        ? DefaultInitializer(variable)
-                        : GenerateExpression(variable.Initializer);
+                    RoslynExpressionSyntax initializer = variable.ConstantValue != null
+                        ? GenerateConstant(variable.ConstantValue)
+                        : variable.Initializer == null
+                            ? DefaultInitializer(variable)
+                            : GenerateExpression(variable.Initializer);
                     if (symbol == null || issues.Count != 0) return null;
                     statements.Add(Tick(variable));
                     if (initializer != null)
@@ -343,21 +433,214 @@ namespace DDFLanguageEditor.Compiler
                                 CSharpSyntaxKind.SimpleAssignmentExpression,
                                 SyntaxFactory.IdentifierName(workItem.GeneratedNames
                                     .GetIdentifier(symbol.Id)), initializer)));
-                    statements.Add(RegisterDebugValue("RegisterDebugGlobal",
+                    statements.Add(RegisterDebugValue(variable.IsState
+                            ? "RegisterDebugState"
+                            : "RegisterDebugGlobal",
                         symbol, Type(variable.Type).DisplayName,
                         SyntaxFactory.IdentifierName(workItem.GeneratedNames
-                            .GetIdentifier(symbol.Id))));
+                            .GetIdentifier(symbol.Id)), variable.IsFixed,
+                        variable.IsFixed));
+                }
+                statements.Insert(0, AwaitCompletedTask());
+                return SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.IdentifierName("Task"),
+                        SyntaxFactory.Identifier(documentInitializerName))
+                    .AddModifiers(
+                        SyntaxFactory.Token(CSharpSyntaxKind.PrivateKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.AsyncKeyword))
+                    .AddParameterListParameters(RuntimeContextParameter())
+                    .WithBody(SyntaxFactory.Block(statements));
+            }
+
+            private MethodDeclarationSyntax GenerateDocumentStateCapture(
+                DdfIrProgram program)
+            {
+                var statements = new List<RoslynStatementSyntax>();
+                foreach (DdfIrGlobal global in program.Members.OfType<DdfIrGlobal>())
+                {
+                    if (global.Statement is not DdfIrVariableDeclaration variable ||
+                        !variable.IsState) continue;
+                    DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Global,
+                        variable.Start, variable.Name);
+                    if (symbol == null) continue;
+                    statements.Add(SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(
+                                    CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("DdfRuntime_Entries"),
+                                    SyntaxFactory.IdentifierName("Add")))
+                            .AddArgumentListArguments(SyntaxFactory.Argument(
+                                SyntaxFactory.ObjectCreationExpression(
+                                        SyntaxFactory.IdentifierName(
+                                            "DdfPersistedStateEntry"))
+                                    .AddArgumentListArguments(
+                                        StringArgument(StateKey(variable.Name)),
+                                        StringArgument(Type(variable.Type).DisplayName),
+                                        SyntaxFactory.Argument(
+                                            SyntaxFactory.IdentifierName(
+                                                workItem.GeneratedNames
+                                                    .GetIdentifier(symbol.Id))))))));
                 }
                 return SyntaxFactory.MethodDeclaration(
                         SyntaxFactory.PredefinedType(SyntaxFactory.Token(
                             CSharpSyntaxKind.VoidKeyword)),
-                        SyntaxFactory.Identifier(documentInitializerName))
+                        SyntaxFactory.Identifier(documentStateCaptureName))
                     .AddModifiers(
                         SyntaxFactory.Token(CSharpSyntaxKind.PrivateKeyword),
                         SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
-                    .AddParameterListParameters(RuntimeContextParameter())
+                    .AddParameterListParameters(SyntaxFactory.Parameter(
+                            SyntaxFactory.Identifier("DdfRuntime_Entries"))
+                        .WithType(SyntaxFactory.GenericName("ICollection")
+                            .AddTypeArgumentListArguments(
+                                SyntaxFactory.IdentifierName(
+                                    "DdfPersistedStateEntry"))))
                     .WithBody(SyntaxFactory.Block(statements));
             }
+
+            private MethodDeclarationSyntax GenerateDocumentStateApply(
+                DdfIrProgram program)
+            {
+                var statements = new List<RoslynStatementSyntax>();
+                foreach (DdfIrGlobal global in program.Members.OfType<DdfIrGlobal>())
+                {
+                    if (global.Statement is not DdfIrVariableDeclaration variable ||
+                        !variable.IsState) continue;
+                    DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Global,
+                        variable.Start, variable.Name);
+                    TypeSyntax type = GenerateType(Type(variable.Type), variable.Type);
+                    if (symbol == null || type == null) continue;
+                    string entryName = "DdfRuntime_State_" +
+                        workItem.GeneratedNames.GetIdentifier(symbol.Id);
+                    InvocationExpressionSyntax lookup = SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(
+                                CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("DdfRuntime_Entries"),
+                                SyntaxFactory.IdentifierName("TryGetValue")))
+                        .AddArgumentListArguments(
+                            StringArgument(StateKey(variable.Name)),
+                            SyntaxFactory.Argument(SyntaxFactory.DeclarationExpression(
+                                    SyntaxFactory.IdentifierName(
+                                        "DdfPersistedStateEntry"),
+                                    SyntaxFactory.SingleVariableDesignation(
+                                        SyntaxFactory.Identifier(entryName))))
+                                .WithRefOrOutKeyword(SyntaxFactory.Token(
+                                    CSharpSyntaxKind.OutKeyword)));
+                    RoslynExpressionSyntax value = SyntaxFactory.CastExpression(type,
+                        SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(
+                                    CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName(entryName),
+                                    SyntaxFactory.IdentifierName("RequireValue")))
+                            .AddArgumentListArguments(StringArgument(
+                                Type(variable.Type).DisplayName)));
+                    statements.Add(SyntaxFactory.IfStatement(lookup,
+                        SyntaxFactory.ExpressionStatement(
+                            SyntaxFactory.AssignmentExpression(
+                                CSharpSyntaxKind.SimpleAssignmentExpression,
+                                SyntaxFactory.IdentifierName(workItem.GeneratedNames
+                                    .GetIdentifier(symbol.Id)), value))));
+                }
+                return SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.PredefinedType(SyntaxFactory.Token(
+                            CSharpSyntaxKind.VoidKeyword)),
+                        SyntaxFactory.Identifier(documentStateApplyName))
+                    .AddModifiers(
+                        SyntaxFactory.Token(CSharpSyntaxKind.PrivateKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
+                    .AddParameterListParameters(SyntaxFactory.Parameter(
+                            SyntaxFactory.Identifier("DdfRuntime_Entries"))
+                        .WithType(SyntaxFactory.GenericName("IReadOnlyDictionary")
+                            .AddTypeArgumentListArguments(
+                                SyntaxFactory.PredefinedType(SyntaxFactory.Token(
+                                    CSharpSyntaxKind.StringKeyword)),
+                                SyntaxFactory.IdentifierName(
+                                    "DdfPersistedStateEntry"))))
+                    .WithBody(SyntaxFactory.Block(statements));
+            }
+
+            private MethodDeclarationSyntax GenerateModuleStateCapture()
+            {
+                var statements = new List<RoslynStatementSyntax>
+                {
+                    SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(
+                                SyntaxFactory.GenericName("List")
+                                    .AddTypeArgumentListArguments(
+                                        SyntaxFactory.IdentifierName(
+                                            "DdfPersistedStateEntry")))
+                            .AddVariables(SyntaxFactory.VariableDeclarator(
+                                    SyntaxFactory.Identifier("DdfRuntime_Entries"))
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                    SyntaxFactory.ObjectCreationExpression(
+                                            SyntaxFactory.GenericName("List")
+                                                .AddTypeArgumentListArguments(
+                                                    SyntaxFactory.IdentifierName(
+                                                        "DdfPersistedStateEntry")))
+                                        .WithArgumentList(
+                                            SyntaxFactory.ArgumentList())))))
+                };
+                statements.AddRange(documentStateCaptureNames.Select(name =>
+                    (RoslynStatementSyntax)SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.IdentifierName(name))
+                            .AddArgumentListArguments(SyntaxFactory.Argument(
+                                SyntaxFactory.IdentifierName(
+                                    "DdfRuntime_Entries"))))));
+                statements.Add(SyntaxFactory.ReturnStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            CSharpSyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("DdfRuntime_Entries"),
+                            SyntaxFactory.IdentifierName("AsReadOnly")))));
+                return SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.GenericName("IReadOnlyList")
+                            .AddTypeArgumentListArguments(
+                                SyntaxFactory.IdentifierName(
+                                    "DdfPersistedStateEntry")),
+                        SyntaxFactory.Identifier(workItem.GeneratedNames
+                            .StateCaptureName))
+                    .AddModifiers(
+                        SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
+                    .WithBody(SyntaxFactory.Block(statements));
+            }
+
+            private MethodDeclarationSyntax GenerateModuleStateApply()
+            {
+                var statements = documentStateApplyNames.Select(name =>
+                    (RoslynStatementSyntax)SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.IdentifierName(name))
+                            .AddArgumentListArguments(SyntaxFactory.Argument(
+                                SyntaxFactory.IdentifierName(
+                                    "DdfRuntime_Entries"))))).ToList();
+                return SyntaxFactory.MethodDeclaration(
+                        SyntaxFactory.PredefinedType(SyntaxFactory.Token(
+                            CSharpSyntaxKind.VoidKeyword)),
+                        SyntaxFactory.Identifier(workItem.GeneratedNames
+                            .StateApplyName))
+                    .AddModifiers(
+                        SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
+                    .AddParameterListParameters(SyntaxFactory.Parameter(
+                            SyntaxFactory.Identifier("DdfRuntime_Entries"))
+                        .WithType(SyntaxFactory.GenericName("IReadOnlyDictionary")
+                            .AddTypeArgumentListArguments(
+                                SyntaxFactory.PredefinedType(SyntaxFactory.Token(
+                                    CSharpSyntaxKind.StringKeyword)),
+                                SyntaxFactory.IdentifierName(
+                                    "DdfPersistedStateEntry"))))
+                    .WithBody(SyntaxFactory.Block(statements));
+            }
+
+            private static ArgumentSyntax StringArgument(string value) =>
+                SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
+                    CSharpSyntaxKind.StringLiteralExpression,
+                    SyntaxFactory.Literal(value ?? string.Empty)));
+
+            private string StateKey(string name) => workItem.Identity + "::" +
+                (relativePath ?? string.Empty) + "::" + (name ?? string.Empty);
 
             private FieldDeclarationSyntax GenerateInitializationState() =>
                 SyntaxFactory.FieldDeclaration(SyntaxFactory.VariableDeclaration(
@@ -403,18 +686,18 @@ namespace DDFLanguageEditor.Compiler
                                 linked.ModuleInitializerName
                             }).ToArray());
                     statements.Add(SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.InvocationExpression(target)
+                        Await(SyntaxFactory.InvocationExpression(target)
                             .AddArgumentListArguments(SyntaxFactory.Argument(
                                 SyntaxFactory.IdentifierName(
-                                    "DdfRuntime_Context")))));
+                                    "DdfRuntime_Context"))))));
                 }
                 foreach (string initializer in documentInitializerNames)
                     statements.Add(SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.InvocationExpression(
+                        Await(SyntaxFactory.InvocationExpression(
                                 SyntaxFactory.IdentifierName(initializer))
                             .AddArgumentListArguments(SyntaxFactory.Argument(
                                 SyntaxFactory.IdentifierName(
-                                    "DdfRuntime_Context")))));
+                                    "DdfRuntime_Context"))))));
                 statements.Add(SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AssignmentExpression(
                         CSharpSyntaxKind.SimpleAssignmentExpression,
@@ -422,14 +705,15 @@ namespace DDFLanguageEditor.Compiler
                             .InitializationStateName),
                         SyntaxFactory.LiteralExpression(
                             CSharpSyntaxKind.TrueLiteralExpression))));
+                statements.Insert(1, AwaitCompletedTask());
                 return SyntaxFactory.MethodDeclaration(
-                        SyntaxFactory.PredefinedType(SyntaxFactory.Token(
-                            CSharpSyntaxKind.VoidKeyword)),
+                        SyntaxFactory.IdentifierName("Task"),
                         SyntaxFactory.Identifier(workItem.GeneratedNames
                             .ModuleInitializerName))
                     .AddModifiers(
                         SyntaxFactory.Token(CSharpSyntaxKind.PublicKeyword),
-                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword))
+                        SyntaxFactory.Token(CSharpSyntaxKind.StaticKeyword),
+                        SyntaxFactory.Token(CSharpSyntaxKind.AsyncKeyword))
                     .AddParameterListParameters(RuntimeContextParameter())
                     .WithBody(SyntaxFactory.Block(statements));
             }
@@ -465,7 +749,9 @@ namespace DDFLanguageEditor.Compiler
                     DdfBoundSymbol symbol = FindDeclared(DdfBoundSymbolKind.Local,
                         variable.Start, variable.Name);
                     TypeSyntax type = GenerateType(Type(variable.Type), variable);
-                    RoslynExpressionSyntax initializer = GenerateExpression(variable.Initializer);
+                    RoslynExpressionSyntax initializer = variable.ConstantValue != null
+                        ? GenerateConstant(variable.ConstantValue)
+                        : GenerateExpression(variable.Initializer);
                     if (symbol == null || type == null ||
                         (variable.Initializer != null && initializer == null)) return null;
                     VariableDeclaratorSyntax declarator = SyntaxFactory.VariableDeclarator(
@@ -502,6 +788,7 @@ namespace DDFLanguageEditor.Compiler
                         : value == null ? null : SyntaxFactory.ReturnStatement(value);
                 }
                 if (statement is DdfIrBreak) return SyntaxFactory.BreakStatement();
+                if (statement is DdfIrContinue) return SyntaxFactory.ContinueStatement();
                 if (statement is DdfIrEnd)
                     return SyntaxFactory.ExpressionStatement(SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
@@ -519,6 +806,8 @@ namespace DDFLanguageEditor.Compiler
                     return SyntaxFactory.IfStatement(condition, body,
                         elseBody == null ? null : SyntaxFactory.ElseClause(elseBody));
                 }
+                if (statement is DdfIrSelect selection)
+                    return GenerateSelect(selection);
                 if (statement is DdfIrWhile loop)
                 {
                     RoslynExpressionSyntax condition = GenerateExpression(loop.Condition);
@@ -585,6 +874,47 @@ namespace DDFLanguageEditor.Compiler
                 }
                 Unsupported(statement, "Statement non supportato dal primo slice Roslyn.");
                 return null;
+            }
+
+            private RoslynStatementSyntax GenerateSelect(DdfIrSelect selection)
+            {
+                RoslynExpressionSyntax selected = GenerateExpression(selection.Expression);
+                if (selected == null) return null;
+                string temporaryName = "DdfRuntime_Select_" +
+                    selection.Start.ToString(CultureInfo.InvariantCulture);
+                var declaration = SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(
+                            SyntaxFactory.IdentifierName("var"))
+                        .AddVariables(SyntaxFactory.VariableDeclarator(
+                                SyntaxFactory.Identifier(temporaryName))
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(selected))));
+
+                DdfIrSelectClause fallback = selection.Clauses.LastOrDefault(
+                    clause => clause.IsOtherwise);
+                RoslynStatementSyntax chain = fallback == null
+                    ? SyntaxFactory.ThrowStatement(SyntaxFactory.ObjectCreationExpression(
+                            SyntaxFactory.ParseTypeName("System.InvalidOperationException"))
+                        .WithArgumentList(SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(
+                                SyntaxFactory.LiteralExpression(
+                                    CSharpSyntaxKind.StringLiteralExpression,
+                                    SyntaxFactory.Literal(
+                                        "Un select DDF esaustivo non ha trovato un ramo.")))))))
+                    : GenerateEmbedded(fallback.Body);
+                if (chain == null) return null;
+                foreach (DdfIrSelectClause clause in selection.Clauses
+                             .Where(item => !item.IsOtherwise).Reverse())
+                {
+                    RoslynExpressionSyntax value = GenerateExpression(clause.Value);
+                    RoslynStatementSyntax body = GenerateEmbedded(clause.Body);
+                    if (value == null || body == null) return null;
+                    RoslynExpressionSyntax condition = SyntaxFactory.BinaryExpression(
+                        CSharpSyntaxKind.EqualsExpression,
+                        SyntaxFactory.IdentifierName(temporaryName), value);
+                    chain = SyntaxFactory.IfStatement(condition, body,
+                        chain == null ? null : SyntaxFactory.ElseClause(chain));
+                }
+                return SyntaxFactory.Block(declaration, chain);
             }
 
             private RoslynStatementSyntax GenerateEmbedded(DdfIrStatement statement)
@@ -654,11 +984,33 @@ namespace DDFLanguageEditor.Compiler
                     !bound.ContextualConversion.SourceType.Equals(
                         bound.ContextualConversion.TargetType))
                 {
-                    TypeSyntax target = GenerateType(
-                        bound.ContextualConversion.TargetType, expression);
-                    if (target == null) return null;
-                    result = SyntaxFactory.CastExpression(target,
-                        SyntaxFactory.ParenthesizedExpression(result));
+                    if (bound.ContextualConversion.SourceType.ArrayRank == 0 &&
+                        bound.ContextualConversion.SourceType.Name == "string" &&
+                        bound.ContextualConversion.TargetType.ArrayRank == 0 &&
+                        bound.ContextualConversion.TargetType.Name == "char")
+                    {
+                        result = SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(
+                                    CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("DdfRuntimeValues"),
+                                    SyntaxFactory.IdentifierName(
+                                        "StringCharacterAt")))
+                            .AddArgumentListArguments(
+                                SyntaxFactory.Argument(result),
+                                SyntaxFactory.Argument(
+                                    SyntaxFactory.LiteralExpression(
+                                        CSharpSyntaxKind.NumericLiteralExpression,
+                                        SyntaxFactory.Literal(0))),
+                                SyntaxFactory.Argument(Location(expression)));
+                    }
+                    else
+                    {
+                        TypeSyntax target = GenerateType(
+                            bound.ContextualConversion.TargetType, expression);
+                        if (target == null) return null;
+                        result = SyntaxFactory.CastExpression(target,
+                            SyntaxFactory.ParenthesizedExpression(result));
+                    }
                 }
                 return result;
             }
@@ -685,6 +1037,10 @@ namespace DDFLanguageEditor.Compiler
                     TryGenerateHostAssignment(binary,
                         out RoslynExpressionSyntax hostAssignment))
                     return hostAssignment;
+                if (binary.OperationId == DdfVmExpressionOperations.Assign &&
+                    TryGenerateArrayElementAssignment(binary,
+                        out RoslynExpressionSyntax elementAssignment))
+                    return elementAssignment;
                 RoslynExpressionSyntax left = GenerateExpression(binary.Left);
                 if (left == null) return null;
                 if (binary.OperationId == DdfVmExpressionOperations.Output)
@@ -741,6 +1097,35 @@ namespace DDFLanguageEditor.Compiler
                     return SyntaxFactory.BinaryExpression(kind, left, right);
                 Unsupported(binary, "Operatore binario non supportato dal primo slice Roslyn.");
                 return null;
+            }
+
+            private bool TryGenerateArrayElementAssignment(DdfIrBinary binary,
+                out RoslynExpressionSyntax result)
+            {
+                result = null;
+                if (binary.Left is not DdfIrIndex index) return false;
+                DdfBoundExpression indexBound = Take(index);
+                DdfBoundExpression targetBound = Peek(index.Target);
+                if (indexBound == null || targetBound == null ||
+                    targetBound.Type.ArrayRank == 0) return false;
+                RoslynExpressionSyntax target = GenerateExpression(index.Target);
+                RoslynExpressionSyntax offset = GenerateExpression(index.Index);
+                RoslynExpressionSyntax value = GenerateExpression(binary.Right);
+                if (target == null || offset == null || value == null) return true;
+                TypeSyntax elementType = GenerateType(indexBound.Type, index);
+                if (elementType == null) return true;
+                result = SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
+                            CSharpSyntaxKind.SimpleMemberAccessExpression,
+                            SyntaxFactory.IdentifierName("DdfRuntimeValues"),
+                            SyntaxFactory.GenericName("SetArrayElement")
+                                .AddTypeArgumentListArguments(elementType)))
+                    .AddArgumentListArguments(
+                        SyntaxFactory.Argument(target),
+                        SyntaxFactory.Argument(offset),
+                        SyntaxFactory.Argument(value),
+                        SyntaxFactory.Argument(Location(index)));
+                return true;
             }
 
             private RoslynExpressionSyntax GenerateCall(DdfIrCall call, DdfBoundExpression bound)
@@ -808,16 +1193,18 @@ namespace DDFLanguageEditor.Compiler
                     SyntaxFactory.InvocationExpression(callable)
                     .WithArgumentList(SyntaxFactory.ArgumentList(
                         SyntaxFactory.SeparatedList(arguments)));
-                return SyntaxFactory.InvocationExpression(
+                return Await(SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
                             CSharpSyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                            SyntaxFactory.IdentifierName("AtCall")))
+                            SyntaxFactory.IdentifierName("AtCallAsync")))
                     .AddArgumentListArguments(
                         SyntaxFactory.Argument(Location(call)),
                         SyntaxFactory.Argument(
                             SyntaxFactory.ParenthesizedLambdaExpression(
-                                invocation)));
+                                Await(invocation))
+                            .WithAsyncKeyword(SyntaxFactory.Token(
+                                CSharpSyntaxKind.AsyncKeyword)))));
             }
 
             private RoslynExpressionSyntax GenerateHostCall(
@@ -831,7 +1218,7 @@ namespace DDFLanguageEditor.Compiler
                             SyntaxFactory.MemberAccessExpression(
                                 CSharpSyntaxKind.SimpleMemberAccessExpression,
                                 SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                                SyntaxFactory.IdentifierName("InvokeCapability")))
+                                SyntaxFactory.IdentifierName("InvokeCapabilityAsync")))
                         .AddArgumentListArguments(
                             SyntaxFactory.Argument(
                                 SyntaxFactory.LiteralExpression(
@@ -850,14 +1237,14 @@ namespace DDFLanguageEditor.Compiler
                                     "DdfRuntimeCapabilityEffectKind"),
                                 SyntaxFactory.IdentifierName("Function"))));
                 if (target.Type.Name == "void" && target.Type.ArrayRank == 0)
-                    return invocation;
+                    return Await(invocation);
                 TypeSyntax returnType = GenerateType(target.Type, call);
-                return returnType == null ? null : invocation.WithExpression(
+                return returnType == null ? null : Await(invocation.WithExpression(
                     SyntaxFactory.MemberAccessExpression(
                         CSharpSyntaxKind.SimpleMemberAccessExpression,
                         SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                        SyntaxFactory.GenericName("InvokeCapabilityValue")
-                            .AddTypeArgumentListArguments(returnType)));
+                        SyntaxFactory.GenericName("InvokeCapabilityValueAsync")
+                            .AddTypeArgumentListArguments(returnType))));
             }
 
             private bool TryGenerateHostAssignment(DdfIrBinary binary,
@@ -907,19 +1294,19 @@ namespace DDFLanguageEditor.Compiler
             {
                 TypeSyntax returnType = GenerateType(type, location);
                 if (returnType == null) return null;
-                return
+                return Await(
                     SyntaxFactory.InvocationExpression(
                             SyntaxFactory.MemberAccessExpression(
                                 CSharpSyntaxKind.SimpleMemberAccessExpression,
                                 SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                                SyntaxFactory.GenericName("InvokeCapabilityValue")
+                                SyntaxFactory.GenericName("InvokeCapabilityValueAsync")
                                     .AddTypeArgumentListArguments(returnType)))
                         .AddArgumentListArguments(
                             SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
                                 CSharpSyntaxKind.StringLiteralExpression,
                                 SyntaxFactory.Literal(capability))),
                             SyntaxFactory.Argument(ObjectArray(arguments)),
-                            SyntaxFactory.Argument(Location(location)));
+                            SyntaxFactory.Argument(Location(location))));
             }
 
             private RoslynExpressionSyntax GenerateHostCapabilityWrite(
@@ -928,18 +1315,18 @@ namespace DDFLanguageEditor.Compiler
             {
                 TypeSyntax returnType = GenerateType(type, location);
                 if (returnType == null) return null;
-                return SyntaxFactory.InvocationExpression(
+                return Await(SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
                             CSharpSyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                            SyntaxFactory.GenericName("WriteCapabilityValue")
+                            SyntaxFactory.GenericName("WriteCapabilityValueAsync")
                                 .AddTypeArgumentListArguments(returnType)))
                     .AddArgumentListArguments(
                         SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
                             CSharpSyntaxKind.StringLiteralExpression,
                             SyntaxFactory.Literal(capability))),
                         SyntaxFactory.Argument(value),
-                        SyntaxFactory.Argument(Location(location)));
+                        SyntaxFactory.Argument(Location(location))));
             }
 
             private RoslynExpressionSyntax GenerateHostElementRead(
@@ -948,18 +1335,18 @@ namespace DDFLanguageEditor.Compiler
             {
                 TypeSyntax returnType = GenerateType(type, location);
                 if (returnType == null) return null;
-                return SyntaxFactory.InvocationExpression(
+                return Await(SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
                             CSharpSyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                            SyntaxFactory.GenericName("ReadCapabilityElement")
+                            SyntaxFactory.GenericName("ReadCapabilityElementAsync")
                                 .AddTypeArgumentListArguments(returnType)))
                     .AddArgumentListArguments(
                         SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
                             CSharpSyntaxKind.StringLiteralExpression,
                             SyntaxFactory.Literal(capability))),
                         SyntaxFactory.Argument(offset),
-                        SyntaxFactory.Argument(Location(location)));
+                        SyntaxFactory.Argument(Location(location))));
             }
 
             private RoslynExpressionSyntax GenerateHostElementWrite(
@@ -969,11 +1356,11 @@ namespace DDFLanguageEditor.Compiler
             {
                 TypeSyntax returnType = GenerateType(type, location);
                 if (returnType == null) return null;
-                return SyntaxFactory.InvocationExpression(
+                return Await(SyntaxFactory.InvocationExpression(
                         SyntaxFactory.MemberAccessExpression(
                             CSharpSyntaxKind.SimpleMemberAccessExpression,
                             SyntaxFactory.IdentifierName("DdfRuntime_Context"),
-                            SyntaxFactory.GenericName("WriteCapabilityElement")
+                            SyntaxFactory.GenericName("WriteCapabilityElementAsync")
                                 .AddTypeArgumentListArguments(returnType)))
                     .AddArgumentListArguments(
                         SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
@@ -981,7 +1368,7 @@ namespace DDFLanguageEditor.Compiler
                             SyntaxFactory.Literal(capability))),
                         SyntaxFactory.Argument(offset),
                         SyntaxFactory.Argument(value),
-                        SyntaxFactory.Argument(Location(location)));
+                        SyntaxFactory.Argument(Location(location))));
             }
 
             private static ArrayCreationExpressionSyntax ObjectArray(
@@ -1189,7 +1576,8 @@ namespace DDFLanguageEditor.Compiler
                 }
                 DdfBoundSymbol field = workItem.BoundUnit.Symbols.FirstOrDefault(
                     item => item.Id == bound.ReferencedSymbolId &&
-                        item.Kind == DdfBoundSymbolKind.Field);
+                        (item.Kind == DdfBoundSymbolKind.Field ||
+                         item.Kind == DdfBoundSymbolKind.EnumerationMember));
                 if (field == null || field.ModuleIdentity != workItem.Identity)
                 {
                     Unsupported(member,
@@ -1236,6 +1624,83 @@ namespace DDFLanguageEditor.Compiler
                                                    exception is ArgumentOutOfRangeException)
                 {
                     Unsupported(literal, "Letterale DDF non rappresentabile in modo sicuro.");
+                    return null;
+                }
+            }
+
+            private RoslynExpressionSyntax GenerateConstant(DdfConstantValue constant)
+            {
+                if (constant == null) return null;
+                if (constant.Kind == DdfConstantKind.Boolean)
+                    return SyntaxFactory.LiteralExpression((bool)constant.Value
+                        ? CSharpSyntaxKind.TrueLiteralExpression
+                        : CSharpSyntaxKind.FalseLiteralExpression);
+                if (constant.Kind == DdfConstantKind.String)
+                    return SyntaxFactory.LiteralExpression(CSharpSyntaxKind.StringLiteralExpression,
+                        SyntaxFactory.Literal((string)constant.Value));
+                if (constant.Kind == DdfConstantKind.Character)
+                    return SyntaxFactory.LiteralExpression(CSharpSyntaxKind.CharacterLiteralExpression,
+                        SyntaxFactory.Literal((char)constant.Value));
+                if (constant.Kind == DdfConstantKind.Floating)
+                    return SyntaxFactory.LiteralExpression(CSharpSyntaxKind.NumericLiteralExpression,
+                        SyntaxFactory.Literal((double)constant.Value));
+                if (constant.Kind == DdfConstantKind.Enumeration)
+                    return GenerateEnumerationConstant(constant);
+                return SyntaxFactory.LiteralExpression(CSharpSyntaxKind.NumericLiteralExpression,
+                    SyntaxFactory.Literal((int)constant.Value));
+            }
+
+            private RoslynExpressionSyntax GenerateEnumerationConstant(
+                DdfConstantValue constant)
+            {
+                if (!(constant.Value is DdfEnumValue value)) return null;
+                DdfBoundSymbol enumeration = workItem.BoundUnit.Symbols
+                    .Where(item => item.Kind == DdfBoundSymbolKind.Enumeration &&
+                        item.Name == value.TypeName)
+                    .OrderByDescending(item => item.ModuleIdentity == workItem.Identity)
+                    .FirstOrDefault();
+                DdfBoundSymbol member = enumeration == null ? null :
+                    workItem.BoundUnit.Symbols.FirstOrDefault(item =>
+                        item.Kind == DdfBoundSymbolKind.EnumerationMember &&
+                        item.ModuleIdentity == enumeration.ModuleIdentity &&
+                        item.Type.Name == enumeration.Name &&
+                        item.Name == value.MemberName);
+                if (enumeration == null || member == null)
+                {
+                    issues.Add(new DdfDotNetContractIssue("DDFC400",
+                        relativePath + ": valore enum fixed non risolto: " +
+                        value + "."));
+                    return null;
+                }
+                if (enumeration.ModuleIdentity == workItem.Identity)
+                    return SyntaxFactory.MemberAccessExpression(
+                        CSharpSyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName(workItem.GeneratedNames
+                            .GetIdentifier(enumeration.Id)),
+                        SyntaxFactory.IdentifierName(workItem.GeneratedNames
+                            .GetIdentifier(member.Id)));
+                if (linkNames == null)
+                {
+                    issues.Add(new DdfDotNetContractIssue("DDFC400",
+                        relativePath + ": tabella link richiesta per il valore enum fixed " +
+                        value + "."));
+                    return null;
+                }
+                try
+                {
+                    DdfDotNetLinkedSymbolName linkedEnumeration =
+                        linkNames.Resolve(enumeration);
+                    DdfDotNetLinkedSymbolName linkedMember = linkNames.Resolve(member);
+                    return DdfDotNetNameMangler.CreateQualifiedExpression(
+                        linkedEnumeration.NamespaceName.Split('.')
+                            .Concat(new[] { linkedEnumeration.ContainerTypeName,
+                                linkedEnumeration.Identifier,
+                                linkedMember.Identifier }).ToArray());
+                }
+                catch (KeyNotFoundException exception)
+                {
+                    issues.Add(new DdfDotNetContractIssue("DDFC400",
+                        relativePath + ": " + exception.Message));
                     return null;
                 }
             }
@@ -1306,6 +1771,18 @@ namespace DDFLanguageEditor.Compiler
                             SyntaxFactory.SeparatedList(arguments))));
             }
 
+            private static RoslynStatementSyntax RuntimeCaptureErrorCall() =>
+                SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(
+                                CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("DdfRuntime_Context"),
+                                SyntaxFactory.IdentifierName("CaptureError")))
+                        .WithArgumentList(SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.Argument(
+                                    SyntaxFactory.IdentifierName("exception"))))));
+
             private RoslynStatementSyntax RegisterLocal(
                 DdfIrVariableDeclaration variable)
             {
@@ -1315,12 +1792,14 @@ namespace DDFLanguageEditor.Compiler
                     "RegisterDebugLocal", symbol,
                     Type(variable.Type).DisplayName,
                     SyntaxFactory.IdentifierName(workItem.GeneratedNames
-                        .GetIdentifier(symbol.Id)));
+                        .GetIdentifier(symbol.Id)), variable.IsFixed,
+                    variable.IsFixed);
             }
 
             private static RoslynStatementSyntax RegisterDebugValue(string method,
                 DdfBoundSymbol symbol, string typeName,
-                RoslynExpressionSyntax value)
+                RoslynExpressionSyntax value, bool isReadOnly = false,
+                bool isFixed = false)
             {
                 ParenthesizedLambdaExpressionSyntax reader =
                     SyntaxFactory.ParenthesizedLambdaExpression(value);
@@ -1337,7 +1816,17 @@ namespace DDFLanguageEditor.Compiler
                             SyntaxFactory.Argument(SyntaxFactory.LiteralExpression(
                                 CSharpSyntaxKind.StringLiteralExpression,
                                 SyntaxFactory.Literal(typeName))),
-                            SyntaxFactory.Argument(reader)));
+                            SyntaxFactory.Argument(reader),
+                            SyntaxFactory.Argument(isReadOnly
+                                ? SyntaxFactory.LiteralExpression(
+                                    CSharpSyntaxKind.TrueLiteralExpression)
+                                : SyntaxFactory.LiteralExpression(
+                                    CSharpSyntaxKind.FalseLiteralExpression)),
+                            SyntaxFactory.Argument(isFixed
+                                ? SyntaxFactory.LiteralExpression(
+                                    CSharpSyntaxKind.TrueLiteralExpression)
+                                : SyntaxFactory.LiteralExpression(
+                                    CSharpSyntaxKind.FalseLiteralExpression))));
             }
 
             private static BlockSyntax DebugScope(
@@ -1402,7 +1891,8 @@ namespace DDFLanguageEditor.Compiler
                 {
                     DdfBoundSymbol structure = workItem.BoundUnit.Symbols
                         .FirstOrDefault(item =>
-                            item.Kind == DdfBoundSymbolKind.Structure &&
+                            (item.Kind == DdfBoundSymbolKind.Structure ||
+                             item.Kind == DdfBoundSymbolKind.Enumeration) &&
                             item.ModuleIdentity == workItem.Identity &&
                             item.Name == type.Name);
                     element = structure == null ? null :
@@ -1460,13 +1950,41 @@ namespace DDFLanguageEditor.Compiler
                         item.ModuleIdentity == workItem.Identity &&
                         item.Name == variable.Type.Name);
                 if (structure != null)
-                    return SyntaxFactory.ObjectCreationExpression(
-                            SyntaxFactory.IdentifierName(workItem.GeneratedNames
-                                .GetIdentifier(structure.Id)))
+                    return Await(SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(
+                                CSharpSyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName(workItem.GeneratedNames
+                                    .GetIdentifier(structure.Id)),
+                                SyntaxFactory.IdentifierName("CreateAsync")))
                         .AddArgumentListArguments(SyntaxFactory.Argument(
-                            SyntaxFactory.IdentifierName("DdfRuntime_Context")));
+                            SyntaxFactory.IdentifierName("DdfRuntime_Context"))));
+                DdfBoundSymbol enumeration = workItem.BoundUnit.Symbols
+                    .FirstOrDefault(item => item.Kind == DdfBoundSymbolKind.Enumeration &&
+                        item.ModuleIdentity == workItem.Identity &&
+                        item.Name == variable.Type.Name);
+                if (enumeration != null)
+                    return SyntaxFactory.DefaultExpression(SyntaxFactory.IdentifierName(
+                        workItem.GeneratedNames.GetIdentifier(enumeration.Id)));
                 return null;
             }
+
+            private static TypeSyntax AsyncReturnType(DdfBoundType type,
+                TypeSyntax valueType) => type.Name == "void" &&
+                type.ArrayRank == 0
+                    ? SyntaxFactory.IdentifierName("Task")
+                    : SyntaxFactory.GenericName("Task")
+                        .AddTypeArgumentListArguments(valueType);
+
+            private static AwaitExpressionSyntax Await(
+                RoslynExpressionSyntax expression) =>
+                SyntaxFactory.AwaitExpression(expression);
+
+            private static RoslynStatementSyntax AwaitCompletedTask() =>
+                SyntaxFactory.ExpressionStatement(Await(
+                    SyntaxFactory.MemberAccessExpression(
+                        CSharpSyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("Task"),
+                        SyntaxFactory.IdentifierName("CompletedTask"))));
 
             private DdfBoundExpression Take(DdfIrExpression expression)
             {
@@ -1531,13 +2049,23 @@ namespace DDFLanguageEditor.Compiler
                     workItem.GeneratedNames.GetDocumentInitializerName(
                         document.RelativePath))
                 .ToList().AsReadOnly();
+            IReadOnlyList<string> stateCaptureNames = documents.Select(document =>
+                    workItem.GeneratedNames.GetDocumentStateCaptureName(
+                        document.RelativePath))
+                .ToList().AsReadOnly();
+            IReadOnlyList<string> stateApplyNames = documents.Select(document =>
+                    workItem.GeneratedNames.GetDocumentStateApplyName(
+                        document.RelativePath))
+                .ToList().AsReadOnly();
             for (int documentIndex = 0; documentIndex < documents.Count;
                  documentIndex++)
             {
                 DdfBoundIrDocument document = documents[documentIndex];
                 var generator = new Generator(workItem, mapping, document, issues,
-                    linkNames, initializerNames[documentIndex], documentIndex == 0,
-                    initializerNames);
+                    linkNames, initializerNames[documentIndex],
+                    stateCaptureNames[documentIndex],
+                    stateApplyNames[documentIndex], documentIndex == 0,
+                    initializerNames, stateCaptureNames, stateApplyNames);
                 RoslynCompilationUnitSyntax root = generator.Generate(document.StructuralProgram);
                 if (issues.Count != 0) continue;
                 string generatedPath = "generated/" + workItem.AssemblyName + "/" +

@@ -93,6 +93,11 @@ namespace DDFLanguageEditor.Core
                         AddBinding(bindings, symbolsByStart, field.NameStart, structure.Start, structure.End, structure.Start, 1);
                     }
                 }
+                else if (member is EnumDeclarationSyntax enumeration)
+                {
+                    AddBinding(bindings, symbolsByStart, enumeration.NameStart,
+                        0, source.Length, 0, 0);
+                }
                 else if (member is FunctionDeclarationSyntax function)
                 {
                     AddBinding(bindings, symbolsByStart, function.NameStart, 0, source.Length, 0, 0);
@@ -260,6 +265,12 @@ namespace DDFLanguageEditor.Core
                     CollectStatementBindings(conditional.ElseBody, symbolsByStart, bindings, depth + 1,
                         conditional.ElseBody.Start, conditional.ElseBody.End);
             }
+            else if (statement is SelectStatementSyntax selection)
+            {
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    CollectStatementBindings(clause.Body, symbolsByStart, bindings,
+                        depth + 1, clause.Body.Start, clause.Body.End);
+            }
             else if (statement is WhileStatementSyntax loop)
             {
                 CollectStatementBindings(loop.Body, symbolsByStart, bindings, depth + 1, loop.Body.Start, loop.Body.End);
@@ -289,6 +300,10 @@ namespace DDFLanguageEditor.Core
                     VisitTypeReference(field.Type, bindings, occurrences, diagnostics, source);
                     VisitExpression(field.Initializer, bindings, occurrences, diagnostics, source);
                 }
+            }
+            else if (member is EnumDeclarationSyntax)
+            {
+                // Enum declarations contain no executable expressions.
             }
             else if (member is FunctionDeclarationSyntax function)
             {
@@ -327,6 +342,15 @@ namespace DDFLanguageEditor.Core
                 VisitExpression(conditional.Condition, bindings, occurrences, diagnostics, source);
                 VisitStatementReferences(conditional.Body, bindings, occurrences, diagnostics, source);
                 VisitStatementReferences(conditional.ElseBody, bindings, occurrences, diagnostics, source);
+            }
+            else if (statement is SelectStatementSyntax selection)
+            {
+                VisitExpression(selection.Expression, bindings, occurrences, diagnostics, source);
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                {
+                    VisitExpression(clause.Value, bindings, occurrences, diagnostics, source);
+                    VisitStatementReferences(clause.Body, bindings, occurrences, diagnostics, source);
+                }
             }
             else if (statement is WhileStatementSyntax loop)
             {
@@ -394,6 +418,26 @@ namespace DDFLanguageEditor.Core
             }
             else if (expression is MemberAccessExpressionSyntax member)
             {
+                if (member.Target is NameExpressionSyntax enumName)
+                {
+                    Binding enumBinding = Resolve(bindings, enumName.Name, enumName.Start);
+                    if (enumBinding?.Symbol.Kind == DdfSymbolKind.Enumeration)
+                    {
+                        occurrences.Add(new DdfSymbolOccurrence(enumBinding.Symbol,
+                            enumName.Start, enumName.Length, false));
+                        DdfDocumentSymbol value = enumBinding.Symbol.Children.FirstOrDefault(
+                            item => item.Name == member.Name &&
+                                    item.Kind == DdfSymbolKind.EnumerationMember);
+                        if (value != null)
+                            occurrences.Add(new DdfSymbolOccurrence(value,
+                                member.NameStart, member.NameLength, false));
+                        else
+                            diagnostics.Add(CreateDiagnostic("DDF201",
+                                "Valore enum non risolto: '" + member.Name + "'.",
+                                member.NameStart, member.NameLength, source));
+                        return;
+                    }
+                }
                 VisitExpression(member.Target, bindings, occurrences, diagnostics, source);
             }
         }
@@ -407,7 +451,8 @@ namespace DDFLanguageEditor.Core
         {
             if (type == null) return;
             Binding binding = Resolve(bindings, type.Name, type.Start);
-            if (binding != null && binding.Symbol.Kind == DdfSymbolKind.Structure)
+            if (binding != null && (binding.Symbol.Kind == DdfSymbolKind.Structure ||
+                                    binding.Symbol.Kind == DdfSymbolKind.Enumeration))
             {
                 occurrences.Add(new DdfSymbolOccurrence(binding.Symbol, type.Start, type.Name.Length, false));
             }

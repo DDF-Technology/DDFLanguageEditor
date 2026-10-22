@@ -37,6 +37,13 @@
   <ItemGroup>
     <Content Include="..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-version-matrix.json" Link="ddf-version-matrix.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-version-matrix.schema.json" Link="ddf-version-matrix.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-language-integration.json" Link="ddf-language-integration.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-language-integration.schema.json" Link="ddf-language-integration.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-backend-equivalence.json" Link="ddf-backend-equivalence.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-backend-equivalence.schema.json" Link="ddf-backend-equivalence.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\DDF_BACKEND_EQUIVALENCE.md" Link="DDF_BACKEND_EQUIVALENCE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\language-packages\ddf-it-didactic\*.*" Link="language-package-seeds\ddf-it-didactic\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\language-packages\ddf-c-familiar\*.*" Link="language-package-seeds\ddf-c-familiar\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

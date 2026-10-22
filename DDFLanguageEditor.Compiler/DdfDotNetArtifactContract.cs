@@ -524,7 +524,8 @@ namespace DDFLanguageEditor.Compiler
         {
             bool supportedKind = Enum.TryParse(symbol?.Kind,
                 out DdfBoundSymbolKind kind) && kind is
-                DdfBoundSymbolKind.Structure or DdfBoundSymbolKind.Function or
+                DdfBoundSymbolKind.Structure or DdfBoundSymbolKind.Enumeration or
+                DdfBoundSymbolKind.EnumerationMember or DdfBoundSymbolKind.Function or
                 DdfBoundSymbolKind.Global or DdfBoundSymbolKind.Field or
                 DdfBoundSymbolKind.Parameter or DdfBoundSymbolKind.Local;
             if (symbol == null || string.IsNullOrWhiteSpace(symbol.SymbolId) ||

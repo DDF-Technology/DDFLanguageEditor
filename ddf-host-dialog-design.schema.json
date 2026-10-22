@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/host-dialog-design-1.0.json",
+  "title": "DDF host dialog design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "minimumLanguageVersion", "targetEditorSdkContract", "capabilityId", "providerContract", "function", "enums", "defaultLimits", "recoverableErrors", "diagnosticMapping", "rules", "requestFields", "responseFields", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-host-dialog-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0039" },
+    "minimumLanguageVersion": { "const": "0.13" },
+    "targetEditorSdkContract": { "const": "0.38" },
+    "capabilityId": { "const": "ui.dialog.message" },
+    "providerContract": { "const": "ddf.ui.dialog.message.v1" },
+    "function": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "name", "parameters", "returnType", "effect" ],
+      "properties": {
+        "name": { "const": "dialogMessage" },
+        "parameters": { "type": "array", "prefixItems": [ { "const": "string" }, { "const": "string" }, { "const": "dialogButtons" }, { "const": "dialogIcon" } ], "items": false, "minItems": 4, "maxItems": 4 },
+        "returnType": { "const": "dialogResult" },
+        "effect": { "const": "ui" }
+      }
+    },
+    "enums": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "dialogButtons", "dialogIcon", "dialogResult" ],
+      "properties": {
+        "dialogButtons": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "dialogIcon": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "dialogResult": { "$ref": "#/$defs/nonEmptyUniqueStrings" }
+      }
+    },
+    "defaultLimits": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "maximumTextCodeUnits", "maximumTitleCodeUnits", "maximumDialogsPerExecution", "maximumPendingPerInstance", "timeoutMilliseconds" ],
+      "properties": {
+        "maximumTextCodeUnits": { "const": 32768 },
+        "maximumTitleCodeUnits": { "const": 256 },
+        "maximumDialogsPerExecution": { "const": 8 },
+        "maximumPendingPerInstance": { "const": 1 },
+        "timeoutMilliseconds": { "const": 300000 }
+      }
+    },
+    "recoverableErrors": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "diagnosticMapping": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "deniedOrUnavailable", "quotaOrBusy", "timeout", "cleanup", "invalidProviderResponse" ],
+      "properties": {
+        "deniedOrUnavailable": { "const": "DDF409" },
+        "quotaOrBusy": { "const": "DDF413" },
+        "timeout": { "const": "DDF414" },
+        "cleanup": { "const": "DDF415" },
+        "invalidProviderResponse": { "const": "DDF424" }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": [ "embeddedIsDenyByDefault", "standaloneUsesGovernedDefaultProvider", "headlessNeverCreatesWindows", "textAndTitleArePlainText", "emptyTitleUsesHostDefault", "scriptCannotSelectNativeOwner", "scriptCannotControlWindowGeometry", "hostMayOnlyRestrictPolicy", "executionNeverRunsOnUiThread", "onlyPresentationUsesUiDispatcher", "scriptSuspendsCooperatively", "stateLocksNotHeldWhileAwaiting", "reentrancyAndHiddenQueuesForbidden", "windowCloseReturnsCancel", "stopAndDisposeCancelExecution", "lateOrDuplicateResponsesRejected", "debuggerShowsOnlyCapabilityIdentity", "workerNeverLoadsUiToolkit", "automaticRetryForbidden", "fixedUsageForbidden" ],
+      "additionalProperties": false,
+      "properties": {
+        "embeddedIsDenyByDefault": { "const": true },
+        "standaloneUsesGovernedDefaultProvider": { "const": true },
+        "headlessNeverCreatesWindows": { "const": true },
+        "textAndTitleArePlainText": { "const": true },
+        "emptyTitleUsesHostDefault": { "const": true },
+        "scriptCannotSelectNativeOwner": { "const": true },
+        "scriptCannotControlWindowGeometry": { "const": true },
+        "hostMayOnlyRestrictPolicy": { "const": true },
+        "executionNeverRunsOnUiThread": { "const": true },
+        "onlyPresentationUsesUiDispatcher": { "const": true },
+        "scriptSuspendsCooperatively": { "const": true },
+        "stateLocksNotHeldWhileAwaiting": { "const": true },
+        "reentrancyAndHiddenQueuesForbidden": { "const": true },
+        "windowCloseReturnsCancel": { "const": true },
+        "stopAndDisposeCancelExecution": { "const": true },
+        "lateOrDuplicateResponsesRejected": { "const": true },
+        "debuggerShowsOnlyCapabilityIdentity": { "const": true },
+        "workerNeverLoadsUiToolkit": { "const": true },
+        "automaticRetryForbidden": { "const": true },
+        "fixedUsageForbidden": { "const": true }
+      }
+    },
+    "requestFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "responseFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "optionalSdkInterfacesOnly", "catalogAndToolsShareSnapshot", "effectReceiptRequired", "vmAndRoslynMustBeEquivalent", "automaticTestsUseInMemoryProvider", "manualStandaloneAndEmbeddedSmokesRequired" ],
+      "properties": {
+        "optionalSdkInterfacesOnly": { "const": true },
+        "catalogAndToolsShareSnapshot": { "const": true },
+        "effectReceiptRequired": { "const": true },
+        "vmAndRoslynMustBeEquivalent": { "const": true },
+        "automaticTestsUseInMemoryProvider": { "const": true },
+        "manualStandaloneAndEmbeddedSmokesRequired": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

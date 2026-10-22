@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
@@ -30,20 +31,41 @@ namespace DDF___Program_Language_Editor
 
         public static WorkspaceSessionSnapshot Parse(string value)
         {
-            if (string.IsNullOrWhiteSpace(value)) return null;
+            return ParseVersioned(value).Value;
+        }
+
+        public static DdfPersistenceReadResult<WorkspaceSessionSnapshot>
+            ParseVersioned(string value)
+        {
+            DdfPersistencePreparation preparation =
+                DdfPersistenceSerialization.PrepareJson(
+                    DdfPersistenceArtifactKind.WorkspaceSession, value);
+            if (!preparation.Succeeded)
+                return DdfPersistenceReadResult<WorkspaceSessionSnapshot>.Failed(
+                    value, preparation, preparation.Failure);
             try
             {
-                WorkspaceSessionSnapshot snapshot = JsonSerializer.Deserialize<WorkspaceSessionSnapshot>(value);
+                WorkspaceSessionSnapshot snapshot = JsonSerializer
+                    .Deserialize<WorkspaceSessionSnapshot>(
+                        preparation.PreparedArtifact.Payload);
                 if (snapshot == null || snapshot.FormatVersion != 1 || snapshot.Documents == null || snapshot.Documents.Count == 0)
-                    return null;
+                    return DdfPersistenceReadResult<WorkspaceSessionSnapshot>.Failed(
+                        value, preparation,
+                        "La sessione workspace non contiene documenti validi.");
                 snapshot.Documents = snapshot.Documents.Where(document => document != null).Select(sanitize).ToList();
-                if (snapshot.Documents.Count == 0) return null;
+                if (snapshot.Documents.Count == 0)
+                    return DdfPersistenceReadResult<WorkspaceSessionSnapshot>.Failed(
+                        value, preparation,
+                        "La sessione workspace non contiene documenti leggibili.");
                 snapshot.ActiveDocumentIndex = Math.Max(0, Math.Min(snapshot.Documents.Count - 1, snapshot.ActiveDocumentIndex));
-                return snapshot;
+                return DdfPersistenceReadResult<WorkspaceSessionSnapshot>.Success(
+                    value, preparation, snapshot);
             }
-            catch (JsonException)
+            catch (JsonException exception)
             {
-                return null;
+                return DdfPersistenceReadResult<WorkspaceSessionSnapshot>.Failed(
+                    value, preparation,
+                    "Sessione workspace non valida: " + exception.Message);
             }
         }
 

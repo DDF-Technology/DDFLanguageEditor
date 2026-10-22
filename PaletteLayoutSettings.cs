@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
@@ -31,26 +32,42 @@ namespace DDF___Program_Language_Editor
 
         public static PaletteLayoutSettings Parse(string value)
         {
+            return ParseVersioned(value).Value ?? Default;
+        }
+
+        public static DdfPersistenceReadResult<PaletteLayoutSettings>
+            ParseVersioned(string value)
+        {
+            DdfPersistencePreparation preparation =
+                DdfPersistenceSerialization.PrepareKeyValue(
+                    DdfPersistenceArtifactKind.PaletteLayout, value);
+            if (!preparation.Succeeded)
+                return DdfPersistenceReadResult<PaletteLayoutSettings>.Failed(
+                    value, preparation, preparation.Failure);
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string line in (value ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (string line in preparation.PreparedArtifact.Payload.Split(
+                new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 int separator = line.IndexOf('=');
                 if (separator > 0) values[line.Substring(0, separator).Trim()] = line.Substring(separator + 1).Trim();
             }
             PaletteLayoutSettings defaults = Default;
-            return new PaletteLayoutSettings(
+            var parsed = new PaletteLayoutSettings(
                 parseInt(values, "outlineWidth", defaults.OutlineWidth),
                 parseInt(values, "diagnosticsHeight", defaults.DiagnosticsHeight),
                 parseBool(values, "outlinePinned", defaults.OutlinePinned),
                 parseBool(values, "diagnosticsPinned", defaults.DiagnosticsPinned),
                 parseBool(values, "flowchartVisible", defaults.FlowchartVisible),
                 parseList(values, "hiddenPalettes"));
+            return DdfPersistenceReadResult<PaletteLayoutSettings>.Success(
+                value, preparation, parsed);
         }
 
         public string Serialize()
         {
             return string.Join(Environment.NewLine, new[]
             {
+                "schemaVersion=" + DdfPersistenceSchemaCatalog.PaletteLayoutVersion,
                 "outlineWidth=" + OutlineWidth,
                 "diagnosticsHeight=" + DiagnosticsHeight,
                 "outlinePinned=" + OutlinePinned,

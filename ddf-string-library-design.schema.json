@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/string-library-design-1.0.json",
+  "title": "DDF string library design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "targetStandardLibraryVersion", "concatenationOperator", "functions", "rules", "unicode", "format", "limits", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-string-library-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0035" },
+    "targetLanguageVersion": { "const": "0.20" },
+    "targetStandardLibraryVersion": { "const": "0.20.0" },
+    "concatenationOperator": { "const": "+" },
+    "functions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "rules": { "$ref": "#/$defs/trueProperties" },
+    "unicode": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "version", "caseMapping", "trimProperty", "cultureIndependent", "versionChangeRequiresLibraryUpgrade" ],
+      "properties": {
+        "version": { "const": "15.1" },
+        "caseMapping": { "const": "default-case-conversion" },
+        "trimProperty": { "const": "White_Space" },
+        "cultureIndependent": { "const": true },
+        "versionChangeRequiresLibraryUpgrade": { "const": true }
+      }
+    },
+    "format": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "signature", "placeholders", "escapedOpenBrace", "escapedCloseBrace", "alignmentForbidden", "formatSpecifiersForbidden", "expressionEvaluationForbidden", "reflectionForbidden" ],
+      "properties": {
+        "signature": { "const": "format(string, sequence<string>) out string" },
+        "placeholders": { "const": "zero-based-decimal-index" },
+        "escapedOpenBrace": { "const": "{{" },
+        "escapedCloseBrace": { "const": "}}" },
+        "alignmentForbidden": { "const": true },
+        "formatSpecifiersForbidden": { "const": true },
+        "expressionEvaluationForbidden": { "const": true },
+        "reflectionForbidden": { "const": true }
+      }
+    },
+    "limits": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "diagnostics": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": { "$ref": "#/$defs/trueProperties" }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "trueProperties": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": { "const": true }
+    }
+  }
+}

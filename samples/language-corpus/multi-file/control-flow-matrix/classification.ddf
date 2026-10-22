@@ -1,0 +1,51 @@
+classify(int value) out int
+{
+    int result << 0;
+
+    select(value)
+    {
+        when 9
+        {
+            result << 30;
+        }
+
+        otherwise
+        {
+            result << 900;
+        }
+    }
+
+    int step << 0;
+    while(step < 3)
+    {
+        if(step < 0)
+        {
+            result << 1000;
+        }
+
+        result++;
+        step++;
+    }
+
+    ret result;
+}
+
+finalize(int value) out int
+{
+    if(value == 42)
+    {
+        ret value + unreachableGuard(0);
+    }
+
+    ret 2000;
+}
+
+unreachableGuard(int mode) out int
+{
+    if(mode == 0)
+    {
+        ret 0;
+    }
+
+    ret 3000;
+}

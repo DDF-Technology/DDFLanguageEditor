@@ -378,3 +378,404 @@ motivazione. Gli stati ammessi sono `Accettata`, `Proposta`, `Superata` e
   e richiede riallineamento di specifica, pacchetto, corpus, migrazione e baseline.
   Le correzioni di conformità che non cambiano il contratto restano ammesse e
   devono comunque essere classificate nel registro del candidato.
+
+## DDF-0025 — Costanti tipizzate esplicite con `fixed`
+
+- **Stato:** Accettata
+- **Data:** 2026-10-12
+- **Decisione:** DDF `0.13`, distribuito inizialmente dal pacchetto canonico
+  `ddf@0.13.0`, introduce `fixed` per dichiarare valori immutabili tipizzati
+  locali o di modulo. L'inizializzatore è obbligatorio e deve essere una
+  espressione pura e deterministica; la prima verticale accetta letterali,
+  parentesi, operatori puri e altre costanti già visibili, ma non chiamate,
+  output, assegnazioni, accessi a membri o indici. Assegnazione, incremento e
+  decremento successivi sono sempre errori. AST e IR conservano l'intenzione
+  `fixed`, la VM usa celle non scrivibili e la IR bound espone simboli non
+  scrivibili al backend compilato. Il valutatore costante tipizzato comune
+  materializza il valore nella IR, risolve dipendenze in avanti e valori
+  esportati da moduli diretti e uniforma overflow e cicli fra VM e Roslyn.
+- **Alternative rifiutate:** riutilizzare `const` con semantica C#/Roslyn;
+  introdurre `static` e implicazioni OOP; trattare come costante una variabile
+  ordinaria mai riassegnata; permettere chiamate dichiarate pure prima di avere
+  effetti verificabili; aggiornare le impronte della baseline `0.12` come se il
+  candidato storico non fosse mai esistito.
+- **Conseguenze:** `fixed` è una nuova keyword e richiede il minor semantico
+  DDF `0.13`; il candidato `0.12` resta riproducibile al commit
+  `c3decfefa84eb19cdd03869417440fac6a198f97`. Profili sintattici, formatter,
+  IntelliSense, debugger e SDK dovranno consumare lo stesso ruolo dichiarativo.
+  Nessun dettaglio Roslyn entra nel Core; VM e backend condividono lo stesso
+  valore costante materializzato e lo stesso comportamento per overflow e cicli.
+
+## DDF-0026 — Stato mutabile esplicito per istanza con `state`
+
+- **Stato:** Accettata
+- **Data:** 2026-10-12
+- **Decisione:** DDF `0.13` introduce `state` come intenzione dichiarativa
+  distinta dalle variabili ordinarie e da `fixed`. La prima verticale ammette
+  soltanto dichiarazioni di modulo, con inizializzatore obbligatorio e tipo
+  primitivo scalare. La VM conserva i valori tra invocazioni esclusivamente
+  quando l'host fornisce e riusa lo stesso `DdfStateStore`; altrimenti crea uno
+  store effimero per il run. Lo store è process-local, azzerabile, osservabile
+  tramite snapshot e rifiuta esecuzioni sovrapposte. AST, IR e IR bound
+  conservano il marcatore senza introdurre tipi Roslyn nel Core.
+- **Alternative rifiutate:** variabili statiche CLR implicite; stato globale di
+  processo; persistenza automatica su disco; condivisione fra host; concorrenza
+  last-write-wins; campi, array e strutture prima di definire snapshot e
+  migrazione.
+- **Conseguenze:** lifecycle esteso, provider persistente capability-based,
+  migrazione, Watch e piena equivalenza delle invocazioni ripetute nel backend
+  compilato restano gate espliciti della roadmap. Il contratto SDK `0.35`
+  assegna uno store committed a ogni istanza e usa copie transazionali per run e
+  debug: conferma soltanto `HostEffects` riusciti e scarta Simulation, errore e
+  cancellazione. Nessun host acquisisce persistenza o condivisione fra istanze
+  senza una scelta documentata. Durante una pausa Watch e Variabili espongono
+  una copia in sola lettura marcata esplicitamente come `State`: è il valore
+  transazionale del run corrente, non una conferma anticipata nello store. Il
+  contratto SDK `0.36` aggiunge un provider di persistenza opt-in separato da
+  documenti e layout: snapshot versionati e immutabili vengono applicati solo
+  dopo validazione completa o migrazione esplicita dell'host.
+
+## DDF-0027 — Le funzioni top-level sono funzioni di modulo
+
+- **Stato:** Accettata
+- **Data:** 2026-10-12
+- **Decisione:** ogni funzione DDF è dichiarata al livello principale e
+  appartiene al modulo, non al file, a una struttura o a un'istanza. Tutti i
+  sorgenti dello stesso modulo condividono lo stesso namespace di funzioni; un
+  export la rende visibile ai moduli dipendenti diretti. La funzione non ha un
+  ricevitore implicito e viene richiamata senza creare oggetti.
+- **Alternative rifiutate:** aggiungere `static` per imitare C#/Java;
+  introdurre metodi nelle strutture prima di un modello di istanze; trattare il
+  file come contenitore semantico; creare automaticamente una classe CLR
+  visibile nel linguaggio.
+- **Conseguenze:** `static` resta un identificatore ordinario e non compare nel
+  lessico canonico. Locali e parametri nascono a ogni chiamata; nessun dato
+  viene conservato implicitamente dalla funzione. Lo stato fra invocazioni usa
+  esclusivamente `state` e lo store esplicito dell'istanza. VM e Roslyn possono
+  scegliere contenitori interni differenti purché IR, risoluzione, debugger e
+  SDK espongano soltanto il modello di funzione di modulo DDF.
+
+## DDF-0028 — Errori recuperabili tipizzati, fault del motore non intercettabili
+
+- **Stato:** Accettata
+- **Data:** 2026-10-12
+- **Decisione:** ogni errore attraversabile dal codice DDF possiede una
+  identità di tipo backend-neutral stabile, distinta dal codice diagnostico,
+  e conserva messaggio, documento, span e stack DDF. Le funzioni standard e le
+  API host dichiarano in modo verificabile soltanto gli errori recuperabili che
+  possono produrre. I fault del motore non appartengono a quel contratto e non
+  possono essere nascosti dallo script.
+- **Alternative rifiutate:** esporre direttamente eccezioni o tipi CLR;
+  considerare recuperabile ogni `DDFnnn`; affidarsi unicamente al testo del
+  messaggio; aggiungere subito una sintassi `try/catch` prima di stabilizzare
+  identità, propagazione e confini di sicurezza.
+- **Conseguenze:** Core e SDK possono descrivere gli errori senza dipendere da
+  Roslyn o dalla VM; le external API includono le dichiarazioni nel proprio
+  fingerprint. Il catalogo usa una allowlist di sei errori recuperabili; ogni
+  condizione di contratto interno, capability, permesso, budget, timeout,
+  cleanup, transazione, cancellazione, sicurezza, artefatto o guasto interno è
+  un fault del motore. La sintassi DDF per
+  recupero selettivo, propagazione e cleanup, insieme al trasporto equivalente
+  in VM e backend compilato, resta un gate successivo e versionato.
+
+## DDF-0029 — Recupero esplicito e cleanup strutturato nel DDF 0.14
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-12
+- **Decisione:** la futura verticale usa `attempt` con uno o più `recover`
+  tipizzati e un eventuale `always`; `recover error` è il solo handler generico
+  e deve essere ultimo. Le funzioni DDF dichiarano con `raises` gli errori che
+  possono oltrepassarne il confine e `raise` ripropaga soltanto un valore
+  catturato, preservandone identità e stack. I fault del motore saltano gli
+  handler ma attraversano il cleanup cooperativo.
+- **Alternative rifiutate:** eccezioni CLR e sintassi `try/catch`; recupero per
+  codice o testo; propagazione silenziosa non dichiarata; filtri arbitrari;
+  gerarchie OOP degli errori; cleanup affidato a convenzioni manuali.
+- **Conseguenze:** le identità di errore usano nomi qualificati compatibili con
+  il lessico, per esempio `operation.invalidInput`. `always` viene eseguito una
+  sola volta per ogni uscita cooperativa; un fault o errore già pendente resta
+  primario se anche il cleanup fallisce. Lo stato transazionale viene confermato
+  soltanto dopo il successo dell'intera invocazione. L'aggiunta delle keyword è
+  un cambiamento beta che richiede DDF `0.14`; il contratto corrente `0.13.0`
+  non viene modificato finché parser, IR, VM, Roslyn e strumenti non saranno
+  consegnati insieme. Il disegno verificabile è
+  `ddf-error-handling-design.json`.
+
+## DDF-0030 — Valori opzionali espliciti senza `null` nel DDF 0.15
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** la futura verticale usa il tipo `maybe T`, il costruttore
+  `some(expression)` e il valore contestuale `none`. Il contenuto è accessibile
+  soltanto tramite una selezione esaustiva con `when some(binding)` e
+  `when none`; non esistono conversioni implicite, `.value`, `unwrap` o un
+  fallback `otherwise` capace di nascondere l'assenza.
+- **Alternative rifiutate:** introdurre `null`; usare un valore sentinella del
+  tipo payload; mappare automaticamente `null` CLR; esporre `Nullable<T>` o
+  tipi Roslyn nella IR; considerare “non trovato” un errore; introdurre insieme
+  opzionali e gestione strutturata degli errori nella stessa versione.
+- **Conseguenze:** l'assenza è un dato normale e non produce stack di errore.
+  IR e ABI usano un valore tagged backend-neutral; firme e fingerprint
+  includono `maybe T`, mentre API host e database richiedono adapter espliciti.
+  Watch mostra `some(...)`/`none` e il Flowchart distingue Presente/Assente.
+  `state maybe T` resta rinviato fino all'estensione versionata della
+  persistenza. L'attivazione completa è destinata a DDF `0.15`; nel pacchetto
+  `0.13.0`, `maybe`, `some` e `none` restano identificatori ordinari. Il disegno
+  verificabile è `ddf-optional-values-design.json`.
+
+## DDF-0031 — Alias di dipendenza e qualificazione esplicita nel DDF 0.16
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** ogni dipendenza diretta del futuro manifesto `1.3` dichiara
+  un alias obbligatorio e unico nel modulo consumatore. Il sorgente accede agli
+  export esclusivamente con `alias::simbolo`; `.` resta riservato a membri e
+  valori enum. Le dichiarazioni del modulo corrente restano non qualificate.
+- **Alternative rifiutate:** dedurre namespace da file/cartelle o dall'id del
+  modulo; continuare a fondere export esterni nello spazio piatto; direttive
+  `use` diverse per file; wildcard, alias di singoli simboli, lookup transitivo,
+  re-export impliciti e scelta del simbolo basata sull'ordine delle dipendenze.
+- **Conseguenze:** dipendenze dirette possono esportare nomi uguali senza
+  collisioni. Alias e tabella di binding entrano in fingerprint, unità di
+  compilazione, artefatti e source map, mentre la IR bound conserva l'identità
+  stabile del simbolo e non un nome CLR. La migrazione dal manifesto `1.2` non
+  inventa alias e richiede conferma. L'attivazione completa è destinata a DDF
+  `0.16`; nel contratto corrente `::` resta fuori dalla grammatica. Il disegno
+  verificabile è `ddf-module-qualification-design.json`.
+
+## DDF-0032 — Iterazione tipizzata e snapshot deterministico nel DDF 0.17
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** la futura verticale usa
+  `each(T elemento in raccolta)`, con tipo esplicito, espressione valutata una
+  volta e nuovo binding non riassegnabile a ogni iterazione. Gli array seguono
+  l'ordine crescente degli indici e producono uno snapshot superficiale prima
+  del corpo; `continue` avanza e `brk` termina il ciclo più interno.
+- **Alternative rifiutate:** affidarsi a `IEnumerable`/`GetEnumerator` CLR;
+  iterazione implicita di stringhe o oggetti host; inferenza obbligatoria del
+  tipo; binding scrivibile con write-back nascosto; enumerazione live o non
+  ordinata; semantica diversa fra array, VM e Roslyn.
+- **Conseguenze:** la prima verticale copre gli array. Sequenze dinamiche e
+  viste host richiederanno snapshot ordinati, autorizzati e limitati; le mappe
+  useranno una futura vista tipizzata di coppie. La IR conserva il ciclo bound,
+  non un enumeratore backend. Debugger e Flowchart espongono l'iterazione senza
+  temporanei CLR. L'attivazione completa è destinata a DDF `0.17`; nel
+  pacchetto `0.13.0`, `each` e `in` restano identificatori ordinari. Il disegno
+  verificabile è `ddf-typed-iteration-design.json`.
+
+## DDF-0033 — Famiglie chiuse di collezioni tipizzate nel DDF 0.18
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** la futura superficie introduce le sole famiglie integrate
+  `sequence<T>`, `map<K,V>` e `view<T>`, più `entry<K,V>` prodotto
+  dall'iterazione delle mappe. Non sono generici universali. Sequenze e mappe
+  sono riferimenti non nulli, ordinati e mutabili; le viste host sono snapshot
+  ordinati, limitati e in sola lettura.
+- **Alternative rifiutate:** esporre `List<T>`, `Dictionary<K,V>`,
+  `IEnumerable` o oggetti CLR; collezioni non tipizzate; mappe senza ordine;
+  lookup assente tramite valore predefinito; viste host live; uguaglianza di
+  collezione implicita; abilitare subito `fixed` o persistenza `state` profonda.
+- **Conseguenze:** `map.find` restituisce `maybe V`; l'iterazione usa snapshot
+  superficiali e `entry<K,V>` immutabili. Le chiavi iniziali sono tipi scalari
+  stabili ed enum, non `float` o valori composti. IR e SDK descrivono operazioni
+  DDF, mai tipi CLR; budget e fallimenti restano atomici. L'attivazione completa
+  è destinata a DDF `0.18`; nel pacchetto `0.13.0`, `sequence`, `map`, `view` ed
+  `entry` restano identificatori ordinari. Il disegno verificabile è
+  `ddf-typed-collections-design.json`.
+
+## DDF-0034 — `long` checked e `decimal` esatto nel DDF 0.19
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** la futura superficie introduce `long`, intero signed a 64 bit
+  con aritmetica checked e suffisso `i64`, e `decimal`, decimale base 10 con
+  coefficiente a 96 bit, scala `0..28`, arrotondamento tie-to-even e suffisso
+  `dec`. I letterali senza suffisso restano rispettivamente `int` e `float`.
+- **Alternative rifiutate:** adottare suffissi CLR `L`/`M`; inferire il tipo dal
+  backend; usare `double` per importi; promuovere implicitamente fra
+  `float`/`decimal` o `long`/`float`; esporre `System.Decimal` o tipi Roslyn
+  nella IR; introdurre l'intera famiglia numerica CLR.
+- **Conseguenze:** sono implicite soltanto `int -> long`, `int -> decimal` e
+  `long -> decimal`, oltre alla preesistente `int -> float`. Le altre
+  conversioni sono funzioni standard esplicite e fallibili. VM e Roslyn devono
+  coincidere su overflow, scala, arrotondamento, costanti e output. `long` potrà
+  essere chiave di mappa; `decimal` no nella prima verticale. La persistenza
+  `state` richiede uno schema versionato. L'attivazione completa è destinata a
+  DDF `0.19`; nel pacchetto `0.13.0`, `long` e `decimal` restano identificatori
+  ordinari. Il disegno verificabile è `ddf-extended-numerics-design.json`.
+
+## DDF-0035 — Stringhe ordinali, Unicode versionato e formato sicuro nel DDF 0.20
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** `+` concatenerà soltanto due `string`, senza conversioni
+  implicite. La libreria standard offrirà confronto e ricerca ordinali,
+  prefisso/suffisso, sottostringa, sostituzione, trim, conversione di caso,
+  split, join e formattazione posizionale di stringhe già convertite. `find`
+  restituirà `maybe int`; indici e posizioni conteranno code unit UTF-16.
+- **Alternative rifiutate:** concatenazione implicita di qualunque valore;
+  confronto o conversione dipendenti dalla cultura di sistema; `-1` come
+  sentinella di ricerca; regex come primitiva iniziale; formatter che valuti
+  espressioni, reflection o specificatori CLR; operazioni `System.String`
+  inserite direttamente nella IR; dati Unicode scelti dal runtime installato.
+- **Conseguenze:** il comportamento Unicode iniziale è fissato alla versione
+  `15.1`; una variazione richiede una nuova versione della libreria standard.
+  `split` e `join` dipendono da `sequence<string>` e `find` da `maybe int`.
+  Quote e fallimenti restano atomici e recuperabili. VM e Roslyn devono usare
+  le stesse primitive DDF e gli stessi dati Unicode. L'attivazione completa è
+  destinata a DDF `0.20` e alla libreria standard `0.20.0`; nel contratto
+  corrente `+` resta numerico e le nuove funzioni non sono esportate. Il
+  disegno verificabile è `ddf-string-library-design.json`.
+
+## DDF-0036 — Matematica pura e riproducibile nel DDF 0.21
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** la libreria standard `0.21.0` offrirà famiglie tipizzate e non
+  sovraccaricate per valore assoluto, min/max, clamp e arrotondamento, oltre a
+  radice, potenza floating, esponenziali, logaritmi, trigonometria e costanti.
+  Gli angoli saranno in radianti; domini, zeri con segno, tie-to-even e ordine
+  di valutazione saranno parte del contratto DDF.
+- **Alternative rifiutate:** esporre `System.Math` o overload CLR; usare
+  cultura, `libm` o istruzioni hardware come semantica implicita; accettare NaN
+  e infinito; usare tolleranze crescenti fra backend; mescolare casualità,
+  tempo, statistiche o matrici nel nucleo matematico; consentire subito queste
+  chiamate negli inizializzatori `fixed`.
+- **Conseguenze:** le trascendenti useranno l'algoritmo versionato
+  `ddf.math.transcendental.v1` e vettori di riferimento; VM, Roslyn e futura VM
+  dovranno produrre lo stesso pattern binary64 o lo stesso errore. Le famiglie
+  relative a `long` e `decimal` dipendono da DDF `0.19`. Errori di dominio,
+  risultato, clamp, cifre e provider hanno diagnostiche riservate. La verticale
+  completa è destinata a DDF `0.21`; le funzioni restano assenti dalla libreria
+  corrente. Il disegno verificabile è `ddf-math-library-design.json`.
+
+## DDF-0037 — Tempo civile separato e nondeterminismo iniettato nel DDF 0.22
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** DDF introdurrà i valori distinti `date`, `time`, `datetime`,
+  `instant` e `duration`, con calendario gregoriano prolettico, tick da 100 ns,
+  calcolo checked e testo canonico invariant. `datetime` non implica un fuso;
+  la conversione in `instant` richiede un offset UTC esplicito. Ora corrente e
+  casualità useranno rispettivamente `ddf.clock.v1` e `ddf.random.v1`.
+- **Alternative rifiutate:** un unico tipo equivalente a `DateTime`; fuso,
+  cultura o timezone del sistema impliciti; tipi CLR nella IR; DST senza dati
+  versionati; leap second parziali; `System.Random.Shared`, seed temporale o
+  stato globale; bias modulo; sleep e timer prima del modello asincrono.
+- **Conseguenze:** timezone IANA/DST richiederanno un modulo con database
+  bloccato a versione. Provider clock/random sono espliciti, revocabili,
+  limitati e sostituibili con snapshot deterministici. Parsing restituisce
+  `maybe T`; persistenza e artefatti registrano tipo, tick e versione, non testo
+  locale. La verticale completa è destinata a DDF `0.22` e alla libreria
+  standard `0.22.0`; tipi e funzioni restano inattivi nella `0.13`. Il disegno
+  verificabile è `ddf-temporal-random-design.json`.
+
+## DDF-0038 — Descrittore semantico unico per ogni funzione standard
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** lo schema futuro `2.0` e l'adapter
+  `ddf-standard-library-v4` descriveranno ogni funzione tramite identità stabile,
+  firma, documentazione, effetti, capability, errori, determinismo, portabilità,
+  costo, regola costante, dipendenze e binding backend-neutral. Tutti i consumer
+  useranno lo stesso snapshot immutabile e fingerprintato.
+- **Alternative rifiutate:** riconoscere funzioni per nome in parser o UI;
+  overload CLR; nomi di assembly/metodi, reflection o C# nei JSON; effetti o
+  errori dedotti dal binding; funzioni platform-bound nella libreria standard;
+  valutazione costante diretta dal backend; fallback su adapter non
+  corrispondenti.
+- **Conseguenze:** profili sintattici possono cambiare presentazione, non
+  identità semantica. Artifact e worker negoziano schema, adapter, versione,
+  operazioni e fingerprint in modalità fail-closed. Lo schema corrente `1.1`
+  e `ddf-standard-library-v3` restano attivi finché la migrazione delle cinque
+  funzioni esistenti non è completa. Il nuovo contratto è prerequisito della
+  libreria stringhe DDF `0.20`. Il disegno verificabile è
+  `ddf-standard-library-binding-design.json`.
+
+## DDF-0039 — Dialoghi tipizzati come capability UI sospensiva
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** `dialogMessage(text, title, buttons, icon)` restituirà un
+  `dialogResult` usando enum chiusi e la capability `ui.dialog.message`. Il
+  provider `ddf.ui.dialog.message.v1` riceverà una richiesta immutabile, verrà
+  eseguito dal dispatcher scelto dall'host e sospenderà cooperativamente lo
+  script senza spostare istruzioni DDF sul thread UI.
+- **Alternative rifiutate:** esporre `MessageBox`, handle o tipi WinForms;
+  pulsanti/icone arbitrari; rilevare la UI dal framework installato; concedere
+  automaticamente la capability embedded; bloccare il thread UI; code nascoste,
+  reentrancy, retry automatici o toolkit grafici nel worker; usare `cancel` per
+  mascherare Stop e dispose.
+- **Conseguenze:** standalone offre un adapter governato; embedded è
+  deny-by-default; headless fallisce senza aprire finestre. Owner, focus,
+  policy, quote e accessibilità restano responsabilità dell'host. Debugger e
+  ricevute espongono solo l'identità della capability. L'SDK `0.38` aggiungerà
+  esclusivamente interfacce opzionali e host legacy continueranno senza il
+  servizio. Il disegno verificabile è `ddf-host-dialog-design.json`.
+
+## DDF-0040 — Test di progetto isolati senza nuova sintassi
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** `ddf-test-plan@1.0` registrerà funzioni DDF ordinarie come casi
+  applicativi; `ddf.testing@1` fornirà asserzioni tipizzate soltanto in modalità
+  test. Fixture dichiarative e fingerprintate inizializzeranno `state`, input,
+  clock, random, valori host, capability simulate e budget. Editor e CLI
+  consumeranno `ddf-test-report@1.0`.
+- **Alternative rifiutate:** introdurre subito una keyword `test`; confondere
+  test del pacchetto linguaggio e del progetto; includere sorgenti test negli
+  artefatti; setup/teardown arbitrari prima del contratto risorse; effetti reali
+  impliciti; dipendenza dall'ordine; engine fault atteso come successo; messaggi
+  localizzati, stack CLR, timestamp o durata come oracoli.
+- **Conseguenze:** ogni caso usa stato nuovo e capability non dichiarate sono
+  negate; gli effetti simulati vengono sempre annullati. VM e Roslyn devono
+  concordare o il caso diventa errore infrastrutturale. Il test adapter corrente
+  `ddf-tests-v1` resta separato e continua a convalidare soltanto i pacchetti
+  linguaggio. L'SDK opzionale previsto è `0.39`. Il disegno verificabile è
+  `ddf-project-testing-design.json`.
+
+## DDF-0041 — Ownership lessicale delle risorse tramite `use`
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** DDF `0.23` introdurrà la forma
+  `use tipo nome << acquisizione { ... }`. I tipi risorsa saranno nominali e
+  opachi; il binding sarà immutabile, non copiabile e confinato allo scope. Ogni
+  acquisizione riuscita avrà un solo tentativo di cleanup e gli scope annidati
+  verranno chiusi in ordine LIFO su qualunque uscita cooperativa.
+- **Alternative rifiutate:** un `defer` generico; esposizione di `IDisposable`,
+  `IAsyncDisposable`, handle nativi o oggetti CLR; cleanup soltanto a fine
+  esecuzione; rilascio manuale; garbage collection come garanzia; abort del
+  thread; concessione di capability derivata dal possesso dell'handle.
+- **Conseguenze:** il registro di risorse capability corrente resta fallback di
+  sicurezza, mentre gli scope `use` consentiranno rilascio anticipato senza
+  doppio dispose. Errori di cleanup hanno precedenza e soppressione stabili,
+  `state` viene confermato solo dopo cleanup riuscito e VM/Roslyn devono
+  concordare sull'ordine osservabile. L'SDK opzionale previsto è `0.40`; `use`
+  resta un identificatore ordinario in DDF `0.13`. Il disegno verificabile è
+  `ddf-resource-lifetime-design.json`.
+
+## DDF-0042 — Sospensione cooperativa senza `async`/`await`
+
+- **Stato:** Accettata per implementazione futura
+- **Data:** 2026-10-14
+- **Decisione:** una normale chiamata DDF potrà essere dichiarata sospensiva dal
+  descrittore semantico. Il motore conserverà una continuazione correlata alla
+  generazione dell'esecuzione, rilascerà il thread e riprenderà con un risultato
+  tipizzato. Ogni istanza ammetterà una sola esecuzione e una sola sospensione
+  pendente, restando proprietaria di `state`, transazioni e risorse fino al
+  completamento o cleanup.
+- **Alternative rifiutate:** keyword `async`/`await`; tipi task/future nel
+  linguaggio; thread condivisi o callback rientranti; concorrenza implicita su
+  `state`; attesa bloccante sul thread UI; abort di thread .NET; continuazioni
+  contenenti tipi CLR; timeout sempre intercettabili; accettazione di risposte
+  tardive o duplicate.
+- **Conseguenze:** Stop e dispose sono cancellazioni terminali, mentre solo i
+  timeout dichiarati recuperabili diventano errori DDF. Cleanup DDF-0041 usa un
+  contesto indipendente e limitato. Debugger e Flowchart conservano la chiamata
+  sorgente e mostrano `awaiting-capability` senza frame provider. VM, Roslyn e
+  worker condividono il protocollo versionato e gli stessi esiti. L'SDK
+  opzionale previsto è `0.41`; `async` e `await` restano identificatori ordinari.
+  Il disegno verificabile è `ddf-cooperative-async-design.json`.

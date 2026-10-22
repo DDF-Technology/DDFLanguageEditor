@@ -3,7 +3,12 @@
 ## Stato
 
 La `0.11.2` introduce in modo incrementale il confine incorporabile dell'editor.
-Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.34"`.
+Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.41"`.
+La fonte autorevole dei domini di versione è `ddf-version-matrix.json`: versione
+del prodotto, pacchetti NuGet, contratto SDK, ABI Runtime, protocollo worker,
+formati e schemi persistiti rimangono separati. Il pacchetto SDK corrente è
+`0.12.5-beta`; l'incremento del contratto API non implica automaticamente un
+incremento uguale del prodotto o della ABI.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
 
@@ -24,7 +29,7 @@ ancora pubblicati su un feed pubblico; dopo aver configurato una sorgente che li
 contiene, un host WinForms può dichiarare:
 
 ```xml
-<PackageReference Include="DDFLanguageEditor.WinForms" Version="0.11.2-beta" />
+<PackageReference Include="DDFLanguageEditor.WinForms" Version="0.12.5-beta" />
 ```
 
 La dipendenza da `DDFLanguageEditor.Core` viene risolta automaticamente. Durante
@@ -43,7 +48,7 @@ I pacchetti locali si generano in modo ripetibile con:
 `IDdfEditorSurface`. La shell standalone usa la stessa classe come contenitore
 della propria superficie centrale e le associa l'editor del documento attivo.
 
-Il contratto `0.34` espone:
+Il contratto `0.41` conserva tutte le API `0.37` ed espone:
 
 - testo sorgente tramite `SourceText`;
 - selezione normalizzata tramite `SetSelection`, `SelectionStart` e
@@ -66,6 +71,28 @@ Il contratto `0.34` espone:
 - una strategia di persistenza opzionale fornita dall'host.
 - un contenitore progetto opzionale, interamente controllato dall'host.
 - un servizio di esecuzione isolato con Run, Stop, stato, output e risultato.
+- la capability opzionale `IDdfEditorCooperativeExecutionService`, individuabile
+  con un type check senza invalidare implementazioni legacy del servizio. Il suo
+  `CooperativeSnapshot` e l'evento `CooperativeStateChanged` descrivono `idle`,
+  `running`, `awaiting-capability`, `cancelling` e `cleaning-up`, insieme alla
+  richiesta sospesa immutabile e correlata. Non espongono `Task`, token, thread,
+  continuation, eccezioni o dettagli Roslyn;
+- il debugger VM embedded implementa la stessa capability opzionale. Durante
+  l'attesa espone `DdfEditorDebugState.AwaitingCapability` e mantiene
+  `CurrentLocation`/`CurrentSnapshot` per Watch, Variabili, Call Stack e
+  Flowchart in sola lettura; Continue e Step restano disabilitati perché non si
+  tratta di un breakpoint. Il debugger Roslyn fuori processo implementa lo
+  stesso contratto: il worker allega lo snapshot DDF alla richiesta capability
+  correlata e il servizio standalone pubblica attesa e ripresa senza esporre
+  frame provider, task CLR o nomi C#;
+- una capability opzionale per snapshot e reset dello `state` committed per istanza.
+- snapshot di debug con raccolta `States` separata dai globali; ogni elemento è
+  marcato `IsTransactionalState` e rappresenta la copia in sola lettura del run
+  attualmente sospeso, non il valore committed definitivo.
+- metadati additivi `IsReadOnly` e `IsFixed` su simboli documento, elementi di
+  completamento e variabili degli snapshot di debug. Un host può usarli per
+  icone, tooltip e controlli Watch senza dover implementare nuove interfacce;
+  costruttori e firme precedenti restano disponibili.
 - un catalogo host per tipi, oggetti, funzioni, documentazione e permessi.
 - librerie atomiche di funzioni host tipizzate per matematica, logica e algoritmi
   applicativi personalizzati.
@@ -96,6 +123,88 @@ documents.CreateVirtual("Regola.ddf", editor.SourceText);
 editor.SetSelection(0, 4);
 editor.FocusEditor();
 ```
+
+### Negoziazione delle capability opzionali
+
+Le estensioni recenti non aggiungono membri obbligatori a
+`IDdfEditorSurface`. Un host aggiornato può interrogare la superficie senza
+eccezioni e continuare a funzionare anche con un servizio legacy:
+
+```csharp
+if (editor is IDdfEditorCapabilityProvider capabilities)
+{
+    DdfEditorCapabilityResult result = capabilities.InspectCapability(
+        DdfEditorCapabilityIds.ScriptStatePersistence);
+
+    if (result.TryGetService<IDdfEditorScriptStatePersistenceService>(
+            out var statePersistence))
+    {
+        statePersistence.SavePersistedScriptState();
+    }
+    else
+    {
+        Log(result.Issue.Code, result.Issue.Message);
+    }
+}
+```
+
+Il catalogo corrente comprende `editor.script-state`,
+`editor.script-state.persistence`, `editor.execution.cooperative` ed
+`editor.execution.async-lifecycle`. Una funzione conosciuta ma non implementata
+produce `DDFH006`; un identificatore sconosciuto produce `DDFH007`. I metodi
+imperativi storici restano compatibili e, se la funzione manca, sollevano
+`DdfEditorCapabilityUnavailableException`, che conserva lo stesso codice e lo
+stesso risultato ispezionabile. Un host nuovo dovrebbe preferire
+`InspectCapability` e trattare l'assenza come configurazione supportata.
+
+### Policy di deprecazione e migrazione
+
+La policy pubblica `DdfEditorApiLifecycleCatalog` è alla versione `1.0`.
+Durante la beta un membro pubblico sostituito non viene rimosso in silenzio:
+rimane disponibile per almeno due contratti successivi documentati e nessuna
+rottura è ammessa prima del contratto SDK `2.0`. Ogni membro censito espone
+`DdfEditorDeprecatedApiAttribute` con identità stabile, versione di
+deprecazione, prima versione in cui potrebbe essere rimosso, sostituzione e
+guida. Attributi, catalogo e `ddf-version-matrix.json` sono controllati dai test.
+
+Arresto osservabile di Run o Debug:
+
+```csharp
+if (service is IDdfEditorAsyncLifecycleService lifecycle)
+{
+    DdfEditorLifecycleResult stopped = await lifecycle.StopAsync(
+        TimeSpan.FromSeconds(5), cancellationToken);
+    if (!stopped.Succeeded) Log(stopped.ErrorCode, stopped.Message);
+}
+else
+{
+    service.Stop(); // fallback binario per host precedenti a 0.41
+}
+```
+
+Adapter host tipizzato:
+
+```csharp
+var adapter = DdfHostValueAdapter.Create<int, int>(
+    "int", value => value, value => value);
+```
+
+Lo storico `new DdfHostValueAdapter(Func<object, object>, ...)` resta eseguibile,
+ma non dichiara il tipo DDF e non deve essere usato per nuove integrazioni. Per
+gli enum si usa invece `DdfHostValueAdapter.Enumeration<TEnum>` con tabella
+esplicita.
+
+Snapshot editor versionato:
+
+```csharp
+var state = new DdfEditorPersistedState(
+    DdfEditorPersistedState.CurrentSchemaVersion,
+    documents, activeDocumentIndex, preferences, debugging);
+```
+
+Il costruttore storico senza `schemaVersion` continua a produrre lo schema
+corrente; non deve essere usato per deserializzare dati esterni, che richiedono
+prima ispezione e migrazione esplicita.
 
 ## Shell completa incorporabile
 
@@ -162,6 +271,13 @@ compilatore Roslyn. Il contratto espone soltanto `ValidateScript()` e
 `PrepareScript()`; compilazione e relativo servizio non sono collegabili a
 `DdfEditorView` o `DdfEmbeddedEditorControl`, nemmeno tramite API. Core e
 WinForms non acquisiscono riferimenti a `Microsoft.CodeAnalysis`.
+
+Questo confine è ora applicato da `embeddedBoundary` in
+`ddf-version-matrix.json`. Il gate sorgente rifiuta riferimenti ai progetti
+Compiler/Runner, package Roslyn e primitive dirette di emit o caricamento di
+assembly; `tools/pack-sdk.ps1` controlla inoltre dipendenze nuspec, payload e
+tabelle `AssemblyRef` delle DLL Core/WinForms. Una semplice assenza del file
+Roslyn dalla cartella di output non è quindi considerata una prova sufficiente.
 
 Le API devono essere usate dal thread UI WinForms. L'evento
 `SourceTextChanged` viene emesso una sola volta anche quando l'host assegna il
@@ -292,20 +408,68 @@ quindi aprire il Gestore pacchetti, installare o selezionare un profilo e tornar
 al DDF incorporato anche dentro l'applicazione host. Il cambio usa la stessa
 pipeline dello standalone: converte in memoria i buffer aperti, aggiorna lexer,
 formatter, IntelliSense, diagnostiche e Flowchart e non salva implicitamente i
-documenti. La shell embedded non installa automaticamente pacchetti aggiuntivi:
-l'host può distribuirli oppure l'utente può installarli dal Gestore.
+documenti. Ogni nuova istanza embedded parte sempre dal DDF incorporato: non
+eredita la preferenza linguistica globale dello standalone o di un'altra istanza.
+La shell embedded non installa automaticamente pacchetti aggiuntivi: l'host può
+distribuirli oppure l'utente può installarli dal Gestore.
 
 L'host può attivare la stessa pipeline senza simulare comandi UI:
 
 ```csharp
-DdfLanguagePackageLoadResult result = embeddedEditor.ActivateLanguagePackage(packagePath);
-// oppure: embeddedEditor.UseEmbeddedLanguage();
+DdfLanguagePackageLoadResult loaded = DdfLanguagePackageLoader.Load(packagePath);
+if (!loaded.Success)
+{
+    ShowDiagnostics(loaded.Diagnostics);
+    return;
+}
+
+DdfLanguageMigrationPlan plan =
+    embeddedEditor.Editor.AnalyzeLanguageMigration(loaded.Package);
+if (!plan.CanActivate)
+{
+    ShowMigrationDiagnostics(plan.Diagnostics);
+    return;
+}
+
+DdfLanguagePackageLoadResult result =
+    embeddedEditor.ActivateLanguagePackage(packagePath);
+// Per il fallback incorporato: embeddedEditor.UseEmbeddedLanguage();
 ```
 
 Anche `embeddedEditor.Editor.LanguageSession.TryActivate(...)` e la sostituzione
 tramite `AttachLanguageSession(...)` aggiornano immediatamente l'intera shell.
 Le attivazioni programmatiche non scrivono preferenze globali: la persistenza
 rimane responsabilità dell'host.
+
+La shell completa delega all'host anche la disposizione delle toolbar mobili.
+Non legge e non scrive il profilo globale dello standalone. L'host può includere
+lo snapshot versionato nel proprio file, database o archivio applicativo:
+
+```csharp
+// Durante il salvataggio/chiusura dell'applicazione host
+string toolbarLayout = embeddedEditor.CaptureToolbarLayout();
+SaveHostSetting("ddfToolbarLayout", toolbarLayout);
+
+// Dopo aver ricreato e mostrato il controllo embedded
+string savedLayout = LoadHostSetting("ddfToolbarLayout");
+if (!string.IsNullOrWhiteSpace(savedLayout))
+    embeddedEditor.RestoreToolbarLayout(savedLayout);
+```
+
+Lo snapshot conserva visibilità, riga, ordine e coordinate logiche di ogni
+categoria. Dati corrotti o appartenenti a uno schema futuro vengono rifiutati
+senza cambiare il layout corrente. DatabaseDemo applica questo modello nel
+proprio `DatabaseDemo.layout.json`.
+
+`AnalyzeLanguageMigration` ispeziona tutti i buffer del servizio documentale,
+oppure il documento corrente quando non esiste una raccolta. Restituisce
+anteprime immutabili e diagnostiche `DDFM001`-`DDFM004` senza cambiare testo,
+pacchetto attivo o file. Le conversioni proposte derivano dai ruoli semantici,
+non da sostituzioni testuali; commenti e stringhe restano invariati. Collisioni
+fra una nuova keyword e un identificatore, ruoli mancanti o ambigui e cambi di
+significato della stessa grafia hanno severità `Error` e rendono
+`CanActivate == false`. L'host deve mostrare la revisione e richiedere una
+rinomina esplicita: il servizio non corregge identificatori automaticamente.
 
 ## Servizio di analisi
 
@@ -421,8 +585,65 @@ La superficie inoltra in modo uniforme il lifecycle che prima era osservabile
 soltanto collegandosi ai singoli servizi. Sono disponibili eventi per aggiunta,
 modifica, attivazione e chiusura dei documenti, uno snapshot immutabile della
 selezione, aggiornamento delle diagnostiche, navigazione, preparazione, output,
-esecuzione e debug. Gli eventi di Run e Debug mantengono il thread del servizio:
-un host grafico deve quindi effettuare il marshal verso la propria UI.
+esecuzione e debug. Run e Debug non eseguono istruzioni DDF sul thread UI: dopo
+la fotografia iniziale dei buffer, il motore usa un worker dedicato indipendente
+dal `SynchronizationContext` del chiamante.
+
+Il contratto `0.41` espone `IDdfEditorEventDispatcher`. `DdfEditorView` fornisce
+automaticamente un dispatcher WinForms tramite `EventDispatcher` e lo assegna ai
+propri servizi predefiniti; stato, output, pausa e completamento ritornano quindi
+in ordine sul thread che ha creato la superficie. Un host che costruisce
+direttamente `DdfEditorExecutionService`, `DdfEditorDebugService` o il debugger
+Roslyn può passare un dispatcher proprio, oppure usare
+`DdfEditorSynchronizationContextDispatcher`. Il dispatcher inline predefinito
+resta disponibile soltanto per compatibilità con host headless o legacy: in quel
+caso i callback mantengono il thread produttore. Il dispatcher non esegue mai
+istruzioni DDF e i callback già accodati vengono ignorati dopo `Dispose`.
+
+Gli host con esigenze di isolamento o accodamento proprie possono inoltre
+fornire `IDdfEditorExecutionScheduler` al costruttore dei servizi di esecuzione e
+debug. `DdfEditorDedicatedExecutionScheduler` rimane il default e usa un worker
+`LongRunning`; uno scheduler personalizzato deve invocare l'operazione una sola
+volta fuori dal thread chiamante. Il servizio verifica questo vincolo: uno
+scheduler inline/UI produce un completamento fallito osservabile, ripristina lo
+stato `Idle` e non esegue lo script. Rifiuti, task nulli e fault dello scheduler
+vengono normalizzati sul worker sicuro predefinito, evitando sessioni bloccate.
+
+Le funzioni host rimangono sul worker salvo opt-in esplicito con
+`DdfHostFunctionDispatchTarget.Ui`. In quel caso la definizione deve dichiarare
+esattamente una capability nel namespace `ui.*`: soltanto il delegate di
+presentazione viene accodato tramite `IDdfEditorUiCapabilityInvoker`, mentre la
+VM conserva la continuazione nello stato `AwaitingCapability`. L'invoker
+predefinito usa lo stesso `IDdfEditorEventDispatcher`, ammette una sola richiesta
+UI pendente per servizio e propaga cancellazione, fault e risultato in modo
+asincrono. `DdfEditorExecutionService` e `DdfEditorDebugService` accettano anche
+un invoker host personalizzato. Nessuna funzione ordinaria viene promossa
+automaticamente alla UI e concedere la relativa permission resta responsabilità
+esplicita dell'host.
+
+Run e Debug implementano inoltre la capability opzionale
+`IDdfEditorAsyncLifecycleService`. `StopAsync(timeout)` richiede la cancellazione
+e attende completion, rollback e cleanup; `DisposeAsync(timeout)` impedisce
+subito nuovi callback, rende il servizio inutilizzabile e osserva lo stesso
+rilascio. `DdfEditorLifecycleResult` distingue `Completed`, `AlreadyIdle` e
+`TimedOut`, conserva generazione e completion quando disponibili e usa il codice
+stabile `DDFH005` quando il cleanup supera la scadenza. Entrambi i servizi
+implementano anche `IAsyncDisposable` con attesa predefinita di cinque secondi;
+`Stop()` e `Dispose()` rimangono disponibili per compatibilità, ma non consentono
+all'host di osservare la fine del cleanup.
+
+Il timeout non forza né interrompe un thread CLR: segnala che il provider non ha
+collaborato e l'operazione può ancora terminare successivamente. Estensioni
+native, codice non fidato e provider che non garantiscono cancellazione e cleanup
+limitato devono essere isolati nel worker fuori processo, che può essere
+terminato dal sistema operativo.
+
+Lo smoke WinForms `--embedded-reactivity-only` costituisce il gate di
+reattività del contratto: heartbeat UI durante CPU-bound, attesa capability,
+provider lento e breakpoint; Stop/Dispose asincroni, nessun callback tardivo e
+due superfici concorrenti isolate. Il test non alza i budget per assorbire
+regressioni e può essere eseguito indipendentemente dalla matrice completa dei
+menu.
 
 `IDdfEditorPreparationService` fotografa testo e versione di ogni buffer.
 `ValidateScript()` e `PrepareScript()` non leggono i sorgenti dal disco e non
@@ -534,17 +755,78 @@ cella o riferimento della VM sopravvive alla fine dell'esecuzione.
 `script -> host`. Può essere associato a oggetti, parametri e valori restituiti:
 
 ```csharp
-var integerText = new DdfHostValueAdapter(
-    hostValue => int.Parse((string)hostValue),
+var integerText = DdfHostValueAdapter.Create<string, int>(
+    "int",
+    hostValue => int.Parse(hostValue, CultureInfo.InvariantCulture),
     scriptValue => Convert.ToString(scriptValue,
         CultureInfo.InvariantCulture));
 ```
+
+La factory generica rifiuta `null`, tipi CLR differenti da quelli dichiarati e
+l'associazione dell'adapter a un tipo DDF diverso da `ScriptTypeName`. In questo
+modo i delegate dell'host non contengono cast e un errore di registrazione viene
+rilevato prima dell'esecuzione. `Kind` e `IsTyped` permettono inoltre all'host di
+distinguere adapter scalari, enum, identità e legacy. Il costruttore storico con
+due `Func<object, object>` rimane disponibile per compatibilità, ma non offre le
+garanzie del contratto tipizzato.
+
+Gli enum CLR attraversano il confine soltanto mediante una tabella nominale
+esplicita; non vengono convertiti nel relativo numero e non vengono scoperti con
+reflection:
+
+```csharp
+var modeAdapter = DdfHostValueAdapter.Enumeration<DeviceMode>(
+    "DeviceMode",
+    new Dictionary<DeviceMode, string>
+    {
+        [DeviceMode.Ready] = "Ready",
+        [DeviceMode.Busy] = "Busy"
+    });
+```
+
+Un valore o membro assente dalla tabella viene rifiutato. Gli adapter per
+`maybe`, numerici estesi, date/durate e collezioni verranno aggiunti insieme ai
+rispettivi tipi DDF: questa API non li abilita implicitamente nella grammatica
+corrente.
 
 Prima di chiamare l'host, array e oggetti strutturati vengono esportati come
 raccolte .NET di soli valori; le celle private della VM non attraversano mai il
 confine. Al ritorno, la VM ricostruisce esclusivamente tipi primitivi, array e
 campi dichiarati nel catalogo. Tipi e membri non registrati non sono raggiungibili
 dal sorgente e non viene eseguita reflection automatica.
+
+### Lease di risorsa host
+
+Per risorse con cleanup esplicito, un adapter asincrono può registrare un lease
+opaco anziché consegnare direttamente l'oggetto nativo al registro:
+
+```csharp
+var descriptor = new DdfHostResourceDescriptor(
+    "databaseConnection",
+    "database.connection.open",
+    "Connessione database");
+
+DdfHostResourceLease lease =
+    await context.RegisterResourceLeaseAsync(
+        descriptor, nativeConnection, leaseAuthority);
+```
+
+`IDdfHostResourceLeaseAuthority.AuthorizeAsync(...)` decide prima della
+registrazione usando identità dell'esecuzione, descrittore e deadline. Un
+diniego chiude immediatamente la risorsa e produce `DDF409`. `Observe(...)`
+riceve snapshot immutabili con ID, tipo, capability e stato `Active`, `Revoked`
+o `Released`, senza ricevere connection string, handle, percorsi o l'oggetto
+CLR sottostante.
+
+L'host può conservare il `DdfHostResourceLease` e chiamare
+`RevokeAsync(motivo)`. `EnsureAvailable()` permette alle operazioni successive
+di rifiutare un lease revocato. Revoca, fine esecuzione e chiamate concorrenti
+convergono su un solo cleanup; le risorse ancora attive vengono rilasciate in
+ordine LIFO. `DisposeAsync()` ripetuto è innocuo.
+
+Questo contratto prepara la gestione delle risorse ma non abilita ancora la
+sintassi DDF `use`: handle nominali nel linguaggio, ownership lessicale, IR,
+debugger e parità Roslyn arriveranno insieme alla verticale DDF `0.23`.
 
 ## Risultati strutturati restituiti all'host
 
@@ -799,9 +1081,12 @@ host o da una successiva operazione compensativa esplicita.
 Una funzione host può fornire `invokeAsync` e, se mutante, `simulateAsync` come
 delegate che restituiscono `ValueTask<object>`. Riceve un
 `DdfHostInvocationContext` contenente identità univoca dell'esecuzione, modalità,
-istante iniziale, scadenza globale e `CancellationToken`. Il delegate non deve
-accedere direttamente ai controlli grafici: viene eseguito fuori dal thread UI e
-l'host deve effettuare esplicitamente il marshaling verso il proprio dispatcher.
+istante iniziale, scadenza globale e `CancellationToken`. Per impostazione
+predefinita il delegate viene eseguito fuori dal thread UI e non deve accedere ai
+controlli grafici. Le sole funzioni di presentazione possono dichiarare
+`dispatchTarget: DdfHostFunctionDispatchTarget.Ui` insieme a una capability
+`ui.*`; in quel caso l'SDK effettua il marshaling senza spostare sulla UI il
+runtime DDF.
 
 ```csharp
 host.RegisterFunction(new DdfHostFunctionDefinition(
@@ -841,10 +1126,59 @@ come sandbox di sicurezza.
 
 ## Persistenza fornita dall'host
 
+Il Core pubblica un contratto comune e indipendente dal formato per ispezionare
+la persistenza prima di applicarla. `DdfPersistenceSchemaCatalog` mantiene le
+versioni correnti di stato editor, sessioni, breakpoint, Watch, layout, `state`
+e manifesti progetto in accordo con `ddf-version-matrix.json`.
+`DdfPersistenceSchemaContract.Inspect(...)` distingue uno snapshot corrente da
+uno migrabile, futuro/non supportato o appartenente a un altro dominio.
+`Prepare(...)` applica soltanto un `IDdfPersistenceMigrationProvider` esplicito
+e accetta il risultato esclusivamente se tipo e versione coincidono con il
+contratto di destinazione:
+
+```csharp
+var contract = DdfPersistenceSchemaCatalog.Get(
+    DdfPersistenceArtifactKind.ProjectManifest);
+var source = new DdfPersistenceArtifact(
+    DdfPersistenceArtifactKind.ProjectManifest, "1.1", json);
+
+DdfPersistenceInspection inspection = contract.Inspect(source);
+DdfPersistenceMigrationResult prepared = contract.Prepare(source, migrator);
+if (!prepared.Succeeded)
+{
+    // prepared.Original è ancora lo snapshot 1.1 leggibile dall'host.
+    Log(prepared.Failure);
+    return;
+}
+
+ApplyAtomically(prepared.Prepared.Payload);
+```
+
+Il contratto non scrive file e non applica modifiche: l'host può quindi
+convalidare l'intero nuovo payload e sostituire la propria copia soltanto dopo
+il successo. Dichiarare una versione come leggibile non installa una migrazione
+implicita; senza provider lo snapshot precedente viene rifiutato senza perdita.
+Il collegamento al confine versionato è attivo per sessione workspace, Hot Exit, Crash Recovery,
+breakpoint, Watch e layout palette/toolbar. I metodi `ParseVersioned` restituiscono
+un `DdfPersistenceReadResult<T>` che conserva sempre `OriginalPayload`, artefatto,
+ispezione ed eventuale errore. Una versione futura non viene applicata o
+cancellata automaticamente; i layout storici privi di versione sono riconosciuti
+come `legacy` e risalvati come schema `1.0`. Le scritture delle impostazioni usano
+un file temporaneo e una sostituzione nello stesso volume.
+
 `IDdfEditorPersistenceProvider` separa lo stato dell'editor dal supporto scelto
 dall'applicazione ospitante. L'SDK non conosce file di configurazione, cartelle
 utente, database o servizi cloud: consegna e riceve soltanto un
 `DdfEditorPersistedState` immutabile.
+
+`DdfEditorPersistedState.SchemaVersion` vale normalmente `1.0`; il costruttore
+storico continua a produrre automaticamente lo schema corrente. Un provider che
+deve leggere dati precedenti può implementare anche la capability opzionale
+`IDdfEditorPersistenceMigrationProvider`. `RestoreState` chiede allora un nuovo
+snapshot corrente, ne verifica la versione e soltanto dopo applica documenti,
+preferenze, breakpoint e Watch. Senza migratore, o se il migratore restituisce
+null o una versione errata, la superficie resta invariata e lo snapshot originale
+rimane al provider.
 
 ```csharp
 var persistence = new DdfInMemoryEditorPersistenceProvider();
@@ -934,6 +1268,100 @@ crescente, gli eventi di output/completamento e `Stop()` cooperativo. Il risulta
 distingue errori di build, diagnostiche runtime, annullamento ed errore interno.
 Una seconda chiamata Run sulla stessa istanza viene rifiutata mentre istanze
 diverse possono essere eseguite contemporaneamente.
+
+Il contratto additivo `0.37` introduce descrittori backend-neutral per gli
+errori DDF. `DdfErrorDefinition` separa l'identità stabile del tipo (`TypeId`)
+dal codice diagnostico (`DDFnnn`) e classifica ogni voce come recuperabile o
+come fault del motore. `DdfErrorValue` conserva messaggio, documento, span e
+stack DDF senza trasportare eccezioni o tipi CLR. In questo incremento i
+descrittori sono metadati verificabili: la sintassi DDF per intercettare e
+propagare tali valori non è ancora disponibile.
+
+Le funzioni host ed external API dichiarano gli errori recuperabili in modo
+immutabile, senza modificare i costruttori pubblici esistenti:
+
+```csharp
+var parseCustomer = new DdfHostFunctionDefinition(
+    "parseCustomer", "int", parameters, invoke)
+    .DeclaresRecoverableErrors(DdfErrorCatalog.InvalidInput);
+```
+
+`DeclaresRecoverableErrors(...)` rifiuta duplicati e fault del motore. Il
+formato descrittivo delle external API sale a `1.1` e include le dichiarazioni
+nel fingerprint, così un cambiamento del contratto di errore non può passare
+inosservato. Il catalogo standard espone gli stessi descrittori tramite
+`DdfStandardFunction.ErrorDefinitions`; `ErrorCodes` rimane disponibile per
+compatibilità.
+
+`DdfErrorCatalog.All`, `TryGetByCode` e `TryGetByTypeId` espongono inoltre la
+classificazione completa e immutabile. Solo sei errori applicativi sono
+recuperabili; contratto interno, capability, permessi, budget, timeout, cleanup,
+transazioni, concorrenza `state`, cancellazione, sicurezza, artefatti invalidi e
+guasti interni restano `EngineFault` e non possono comparire in
+`DeclaresRecoverableErrors(...)`.
+
+`DdfExecutionResult.Error` espone il valore tipizzato prodotto da VM o debugger
+Roslyn, con lo stesso codice, tipo, messaggio, documento, span e stack DDF. Un
+adapter host segnala un errore applicativo con `DdfHostErrorException`, ma solo
+per una definizione recuperabile già inclusa in `DeclaresRecoverableErrors(...)`;
+la VM converte immediatamente l'eccezione nel valore SDK. Un errore non dichiarato
+viene chiuso come `engine.hostAdapterFailure` / `DDF410`, quindi nessuna eccezione
+CLR attraversa il risultato pubblico dell'esecuzione.
+
+Gli stessi metadati alimentano gli strumenti dell'editor: completamento,
+Signature Help e hover mostrano gli errori recuperabili dichiarati dalle funzioni
+standard e host. Dopo Run o Debug, l'Output presenta `TypeId`, codice e messaggio
+come collegamento alla posizione sorgente e usa lo stack DDF del risultato per la
+navigazione. Quick Fix, analisi dei percorsi e rami Flowchart verranno aggiunti
+insieme alla sintassi `raises`/`attempt` di DDF `0.14`, evitando suggerimenti che
+oggi non avrebbero una semantica eseguibile.
+
+Il contratto additivo `0.35` introduce `IDdfEditorScriptStateService`, ottenibile
+da `DdfEditorView.ScriptStateService` quando il servizio di esecuzione associato
+supporta la capability. Ogni editor crea uno store `state` distinto e lo condivide
+fra Run e Debug della stessa istanza. `CaptureScriptState()` restituisce soltanto
+lo snapshot committed; `ResetScriptState()` è ammesso a esecuzione ferma. Un run
+`HostEffects` riuscito conferma atomicamente le mutazioni, mentre errore,
+cancellazione e `Simulation` le scartano. La simulazione parte comunque dallo
+snapshot committed, così può mostrare il risultato previsto senza modificare la
+sessione reale. La capability è separata da `IDdfEditorExecutionService`, quindi
+gli host che implementano il contratto precedente non devono aggiungere membri.
+Lo snapshot non viene incluso automaticamente nella persistenza dell'editor e
+non viene scritto su disco.
+
+```csharp
+IDdfEditorScriptStateService state = editor.ScriptStateService;
+IReadOnlyDictionary<string, object> snapshot = state?.CaptureScriptState();
+state?.ResetScriptState();
+```
+
+Il contratto additivo `0.36` introduce una persistenza separata e opt-in. Un
+provider riceve esclusivamente uno snapshot immutabile con schema `1.0`, identità
+e versione del pacchetto linguaggio, chiavi opache, tipi DDF e valori primitivi.
+L'editor non sceglie file, database o formato di serializzazione e non salva mai
+automaticamente durante Run, Debug o la persistenza di documenti e layout.
+
+```csharp
+var provider = new DdfInMemoryEditorScriptStatePersistenceProvider();
+editor.AttachScriptStatePersistenceProvider(provider);
+
+editor.SaveScriptState();       // operazione esplicita dell'host
+bool restored = editor.RestoreScriptState();
+editor.ResetPersistedScriptState();
+editor.DetachScriptStatePersistenceProvider(); // revoca senza perdere il committed
+```
+
+`IDdfEditorScriptStatePersistenceProvider.Save` e `Clear` devono essere atomici
+nel supporto scelto dall'host. Il ripristino convalida integralmente schema,
+pacchetto, numero di voci, chiavi, tipi e valori prima di sostituire lo store
+committed. Uno snapshot incompatibile è rifiutato senza modificare lo stato
+corrente, a meno che il provider implementi anche
+`IDdfEditorScriptStateMigrationProvider` e restituisca uno snapshot conforme al
+contratto di destinazione. Tutte le operazioni richiedono Run e Debug fermi.
+La revoca rimuove soltanto la capacità di I/O: non cancella lo stato committed e
+le esecuzioni successive continuano in memoria.
+`DdfInMemoryEditorScriptStatePersistenceProvider` è soltanto un supporto utile a
+test e sessioni temporanee: non effettua I/O.
 
 Il contratto `0.31` aggiunge `DdfEditorExecutionBuildHandler` e
 `DdfEditorExecutionBuildContext`. Un host che possiede manifest, dipendenze o
@@ -1035,9 +1463,17 @@ obbligare gli host a modificare la propria integrazione.
 
 ## Applicazione host dimostrativa
 
+Fino alla 1.0 l'unico host di riferimento è C# su .NET 10 con WinForms.
+VB.NET, F#, WPF e host non-.NET sono destinazioni `post-1.0`: quando verranno
+aperte dovranno riutilizzare questi contratti versionati tramite adapter, senza
+reimplementare la semantica DDF. La policy machine-readable e i criteri di
+promozione sono descritti in [DDF_HOST_SUPPORT_POLICY.md](DDF_HOST_SUPPORT_POLICY.md).
+
 `samples/DDFLanguageEditor.MinimalHost` è l'esempio iniziale consigliato. Aggiunge
 un solo `DdfEmbeddedEditorControl`, collega un pulsante host allo script, inoltra
-il salvataggio a una variabile dell'applicazione e mostra il risultato:
+il salvataggio a una variabile dell'applicazione e mostra il risultato. La form
+espone soltanto i punti utili al test dell'integrazione (`EditorHost`, documento,
+pulsante, stato e script salvato), senza replicare servizi interni dell'editor:
 
 ```powershell
 dotnet run --project samples\DDFLanguageEditor.MinimalHost\DDFLanguageEditor.MinimalHost.csproj
@@ -1063,7 +1499,9 @@ dentro una nuova raccolta di documenti. Ogni profilo mostra il proprio Output e,
 alla pausa, attiva il documento corretto e seleziona l'intervallo sorgente.
 La demo non legge il profilo della shell e non scrive file: rende
 quindi osservabile il confine fra responsabilità dell'SDK e responsabilità
-dell'applicazione ospitante.
+dell'applicazione ospitante. Stop usa
+`IDdfEditorAsyncLifecycleService.StopAsync` quando disponibile e mantiene il
+solo fallback sincrono necessario agli SDK precedenti.
 
 `samples/DDFLanguageEditor.DatabaseDemo` mostra il percorso applicativo
 completo: un database clienti in memoria implementa `IDdfHostDatabaseService`,
@@ -1074,6 +1512,99 @@ Il database può essere sostituito da un adapter reale senza modificare lo scrip
 
 ```powershell
 dotnet run --project samples\DDFLanguageEditor.DatabaseDemo\DDFLanguageEditor.DatabaseDemo.csproj
+```
+
+Le tre demo sono anche contract test permanenti. Il gate dedicato avvia le form
+fuori schermo e verifica rispettivamente integrazione minima, isolamento fra
+istanze e capacità applicative complete con database e debug:
+
+```powershell
+dotnet tests\DDFLanguageEditor.EditorSmokeTests\bin\Release\DDFLanguageEditor.EditorSmokeTests.dll --host-contracts-only
+```
+
+Una modifica SDK non è accettabile se una demo continua a compilare ma perde il
+proprio comportamento; il gate controlla anche salvataggio delegato, comandi
+embedded nascosti, catalogo host, breakpoint, risultati e assenza di stato
+mutabile condiviso.
+
+## Dialoghi host pianificati
+
+La decisione `DDF-0039`, non ancora implementata, destina al contratto SDK
+`0.38` la capability opzionale `ui.dialog.message`. Il provider e il dispatcher
+saranno aggiuntivi: un host compilato contro `0.37` continuerà a funzionare con
+la capability assente. Soltanto la presentazione verrà inoltrata al thread UI;
+le istruzioni DDF resteranno sullo scheduler di esecuzione e attenderanno la
+risposta in modo cooperativo. Embedded e headless rimarranno deny-by-default.
+Il contratto completo è `DDF_HOST_DIALOG_DESIGN.md`.
+
+La decisione `DDF-0040`, anch'essa non implementata, pianifica per l'SDK `0.39`
+servizi opzionali di discovery, esecuzione, debug e report dei test di progetto.
+Gli host `0.37` e quelli che adotteranno soltanto i dialoghi `0.38` non dovranno
+implementare nuovi membri. Piano, fixture e report resteranno snapshot
+immutabili; Test Explorer e futura CLI consumeranno lo stesso risultato. Il
+contratto completo è `DDF_PROJECT_TESTING_DESIGN.md`.
+
+La decisione `DDF-0041`, non ancora implementata, destina all'SDK opzionale
+`0.40` descrittori risorsa e lease lessicali per il futuro costrutto `use`.
+L'host continuerà a possedere l'oggetto nativo e consegnerà al motore soltanto
+un token opaco, revocabile e limitato alla singola esecuzione e allo scope. Gli
+host precedenti manterranno il registro LIFO execution-wide come fallback; non
+saranno obbligati ad adottare il nuovo provider. Cleanup, timeout e cancellazione
+produrranno esiti DDF stabili senza esporre `IDisposable`, handle o stack CLR. Il
+contratto completo è `DDF_RESOURCE_LIFETIME_DESIGN.md`.
+
+La decisione `DDF-0042`, non ancora implementata, destina all'SDK opzionale
+`0.41` snapshot immutabili di sospensione, continuazioni correlate, dispatcher
+host ed eventi di stato. Le interfacce saranno additive: un host precedente
+continuerà a funzionare senza provider sospensivi. Una singola istanza resterà
+occupata durante `running`, `awaiting-capability`, cancellazione e cleanup;
+eventi concorrenti non entreranno nello stesso script. Soltanto la presentazione
+UI attraverserà il dispatcher, mentre le istruzioni DDF resteranno sullo
+scheduler di esecuzione. Stop/dispose impediranno callback tardive e provider
+non cooperativi richiederanno il worker fuori processo. Il contratto completo è
+`DDF_COOPERATIVE_ASYNC_DESIGN.md`.
+
+## Controllo aggiornamenti pianificato
+
+La milestone `0.13.6` aggiungerà un servizio opzionale di sola verifica per
+aggiornamenti del componente embedded. Il risultato sarà immutabile e conterrà
+versione disponibile, canale, compatibilità, note e URI già verificate. Nessun
+membro obbligatorio verrà aggiunto alle interfacce esistenti.
+
+L'host sceglierà provider, repository, frequenza, canale e presentazione. In
+assenza di configurazione non verrà eseguita alcuna richiesta di rete. Il
+componente non scaricherà né sostituirà DLL, non chiuderà o riavvierà l'host e
+non presenterà UI propria se l'host non la consente. GitHub Releases sarà il
+primo provider, non una dipendenza del Core. Il contratto completo è
+`PRODUCT_UPDATE_DESIGN.md`.
+
+Prima di attivare questo servizio, la roadmap richiede una matrice
+machine-readable che riallinei metadati di prodotto, linguaggio, contratto SDK,
+pacchetti NuGet, assembly, Runtime ABI, protocollo worker e schemi. Le versioni
+restano domini separati, ma un gate di build/pack impedirà valori storici o
+contraddittori. Il valore storico `PackageVersion` WinForms `0.11.2-beta` è
+stato rimosso. `tools/pack-sdk.ps1` deriva nomi e versioni dalla matrice e
+verifica i metadati NuGet, le DLL e la presenza del contratto machine-readable.
+`tools/test-sdk-compatibility.ps1` completa il gate: ricompila il baseline
+`0.34` ancorato al commit dichiarato, esegue quell'host con le DLL `0.41`
+estratte dai NuGet e prova separatamente un host aggiornato.
+
+I tre termini di compatibilità non sono intercambiabili:
+
+| Asse | Prova obbligatoria | Garanzia corrente |
+|---|---|---|
+| Binaria | Compilare l'host con le DLL `0.34`, sostituirle con quelle `0.41` estratte dai NuGet e avviare senza ricompilare | Buffer, selezione, eventi e analisi continuano a funzionare |
+| Sorgente | Ricompilare lo stesso sorgente che usa soltanto API `0.34` direttamente contro le reference `0.41`, quindi avviarlo | Nessuna modifica al sorgente legacy è necessaria |
+| Dati persistiti | Eseguire round-trip dello schema corrente, rifiutare atomicamente lo schema legacy senza migratore e applicarlo soltanto tramite `IDdfEditorPersistenceMigrationProvider` | Nessun dato futuro/legacy viene applicato o sovrascritto implicitamente |
+
+Un quarto host compilato contro `0.41` verifica tutte le capability dichiarate
+da `DdfEditorCapabilityCatalog`, lifecycle e sospensione cooperativa sia su Run
+sia su Debug e un ciclo reale della persistenza `state`. Il successo di un solo
+asse non permette di dichiarare compatibili gli altri. Il comando di
+distribuzione è:
+
+```powershell
+.\tools\test-sdk-compatibility.ps1 -Configuration Release
 ```
 
 ## Prossimo confine

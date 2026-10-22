@@ -8,6 +8,7 @@ using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using DDFLanguageEditor.Runtime;
 
 namespace DDFLanguageEditor.Compiler
@@ -36,11 +37,19 @@ namespace DDFLanguageEditor.Compiler
     {
         private const string ModuleInitializerName =
             "DdfGenerated_Helper_ModuleInitialize";
+        private const string StateCaptureName =
+            "DdfGenerated_Helper_StateCapture";
+        private const string StateApplyName =
+            "DdfGenerated_Helper_StateApply";
         private DdfStandaloneAssemblyLoadContext loadContext;
         private readonly Dictionary<string, Assembly> assemblies;
         private readonly string entryModuleIdentity;
         private readonly IReadOnlyList<string> moduleOrder;
         private readonly IReadOnlyDictionary<string, DdfDotNetSourceMap> maps;
+        private readonly string languageId;
+        private readonly string languagePackageVersion;
+        private DdfPersistedStateSnapshot stateToRestore;
+        private DdfPersistedStateSnapshot capturedState;
         private int executed;
         private int disposed;
 
@@ -54,6 +63,9 @@ namespace DDFLanguageEditor.Compiler
             moduleOrder = program.Artifacts.Select(item => item.Identity)
                 .ToList().AsReadOnly();
             this.maps = maps;
+            DdfDotNetSourceMap entryMap = maps[entryModuleIdentity];
+            languageId = entryMap.LanguageProfileId;
+            languagePackageVersion = entryMap.LanguageProfileVersion;
             loadContext = new DdfStandaloneAssemblyLoadContext(artifacts,
                 package.ManagedReferences, packagedReferences);
             UnloadToken = new WeakReference(loadContext, trackResurrection: false);
@@ -89,6 +101,31 @@ namespace DDFLanguageEditor.Compiler
         public bool HasExecuted => Volatile.Read(ref executed) != 0;
         public WeakReference UnloadToken { get; }
 
+        public void RestoreState(DdfPersistedStateSnapshot snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+            if (HasExecuted)
+                throw new InvalidOperationException(
+                    "Lo stato deve essere ripristinato prima dell'esecuzione.");
+            if (!string.Equals(snapshot.LanguageId, languageId,
+                    StringComparison.Ordinal) ||
+                !string.Equals(snapshot.LanguagePackageVersion,
+                    languagePackageVersion, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "Lo snapshot state appartiene a un pacchetto linguaggio differente.");
+            stateToRestore = snapshot;
+        }
+
+        public DdfPersistedStateSnapshot CaptureState()
+        {
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+            if (capturedState == null)
+                throw new InvalidOperationException(
+                    "Nessuno stato completato è disponibile per questa sessione.");
+            return capturedState;
+        }
+
         public DdfDotNetCooperativeDebugger CreateDebugger()
         {
             if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
@@ -103,11 +140,9 @@ namespace DDFLanguageEditor.Compiler
             if (Interlocked.Exchange(ref executed, 1) != 0)
                 throw new InvalidOperationException(
                     "La sessione standalone è monouso; creare una nuova sessione per una nuova esecuzione.");
-            return context.Execute(runtime =>
+            DdfRuntimeExecutionResult result = context.Execute(runtime =>
             {
-                foreach (string identity in moduleOrder)
-                    Invoke(FindMethod(assemblies[identity],
-                        ModuleInitializerName), runtime);
+                InitializeAndRestore(runtime);
                 DdfDotNetSourceMap entryMap = maps[entryModuleIdentity];
                 DdfDotNetDebugSymbol main = entryMap.Symbols.SingleOrDefault(
                     symbol => string.Equals(symbol.Name, "main",
@@ -120,6 +155,45 @@ namespace DDFLanguageEditor.Compiler
                     main.StorageName);
                 return Invoke(entry, runtime);
             });
+            capturedState = CaptureCurrentState();
+            return result;
+        }
+
+        public ValueTask<DdfRuntimeExecutionResult> ExecuteAsync(
+            DdfRuntimeContext context)
+        {
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            if (IsDisposed) throw new ObjectDisposedException(GetType().Name);
+            if (Interlocked.Exchange(ref executed, 1) != 0)
+                throw new InvalidOperationException(
+                    "La sessione standalone è monouso; creare una nuova sessione per una nuova esecuzione.");
+            return ExecuteAndCaptureAsync(context);
+        }
+
+        private async ValueTask<DdfRuntimeExecutionResult> ExecuteAndCaptureAsync(
+            DdfRuntimeContext context)
+        {
+            DdfRuntimeExecutionResult result = await context.ExecuteAsync(
+                async runtime =>
+            {
+                foreach (string identity in moduleOrder)
+                    await InvokeAsync(FindMethod(assemblies[identity],
+                        ModuleInitializerName), runtime).ConfigureAwait(false);
+                ApplyRestoredState();
+                DdfDotNetSourceMap entryMap = maps[entryModuleIdentity];
+                DdfDotNetDebugSymbol main = entryMap.Symbols.SingleOrDefault(
+                    symbol => string.Equals(symbol.Name, "main",
+                                  StringComparison.Ordinal) &&
+                              string.Equals(symbol.Kind, "Function",
+                                  StringComparison.OrdinalIgnoreCase)) ??
+                    throw new MissingMethodException(
+                        "Entry point DDF main non presente nella source map verificata.");
+                MethodInfo entry = FindMethod(assemblies[entryModuleIdentity],
+                    main.StorageName);
+                return await InvokeAsync(entry, runtime).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+            capturedState = CaptureCurrentState();
+            return result;
         }
 
         public void Dispose()
@@ -148,16 +222,129 @@ namespace DDFLanguageEditor.Compiler
             return matches[0];
         }
 
-        private static object Invoke(MethodInfo method,
-            DdfRuntimeContext context)
+        private void InitializeAndRestore(DdfRuntimeContext runtime)
         {
-            try { return method.Invoke(null, new object[] { context }); }
+            foreach (string identity in moduleOrder)
+                Invoke(FindMethod(assemblies[identity], ModuleInitializerName),
+                    runtime);
+            ApplyRestoredState();
+        }
+
+        private void ApplyRestoredState()
+        {
+            if (stateToRestore == null) return;
+            HashSet<string> knownKeys = CaptureStateEntries()
+                .Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+            string unknown = stateToRestore.Entries.Select(item => item.Key)
+                .FirstOrDefault(key => !knownKeys.Contains(key));
+            if (unknown != null)
+                throw new InvalidOperationException(
+                    "Lo snapshot contiene una chiave state non presente nel programma: " +
+                    unknown + ".");
+            foreach (string identity in moduleOrder)
+                InvokeStateApply(FindStateMethod(assemblies[identity],
+                    StateApplyName, typeof(IReadOnlyDictionary<string,
+                        DdfPersistedStateEntry>)), stateToRestore.ByKey);
+        }
+
+        private DdfPersistedStateSnapshot CaptureCurrentState() =>
+            new DdfPersistedStateSnapshot(
+                DdfPersistedStateSnapshot.CurrentSchemaVersion, languageId,
+                languagePackageVersion, CaptureStateEntries());
+
+        private IReadOnlyList<DdfPersistedStateEntry> CaptureStateEntries()
+        {
+            var result = new List<DdfPersistedStateEntry>();
+            foreach (string identity in moduleOrder)
+            {
+                MethodInfo method = FindStateMethod(assemblies[identity],
+                    StateCaptureName);
+                object value;
+                try { value = method.Invoke(null, Array.Empty<object>()); }
+                catch (TargetInvocationException exception)
+                    when (exception.InnerException != null)
+                {
+                    ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                    throw;
+                }
+                if (value is not IEnumerable<DdfPersistedStateEntry> entries)
+                    throw new InvalidOperationException(
+                        "Il metodo state generato ha restituito un valore non valido.");
+                result.AddRange(entries);
+            }
+            return result.AsReadOnly();
+        }
+
+        private static MethodInfo FindStateMethod(Assembly assembly, string name,
+            Type parameterType = null)
+        {
+            MethodInfo[] matches = assembly.GetTypes().SelectMany(type =>
+                    type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic |
+                                    BindingFlags.Static))
+                .Where(method => method.Name == name &&
+                    (parameterType == null
+                        ? method.GetParameters().Length == 0
+                        : method.GetParameters().Length == 1 &&
+                          method.GetParameters()[0].ParameterType == parameterType))
+                .ToArray();
+            if (matches.Length != 1)
+                throw new MissingMethodException("Metodo state generato " + name +
+                    " assente o ambiguo nell'assembly " +
+                    assembly.GetName().Name + ".");
+            return matches[0];
+        }
+
+        private static void InvokeStateApply(MethodInfo method,
+            IReadOnlyDictionary<string, DdfPersistedStateEntry> entries)
+        {
+            try { method.Invoke(null, new object[] { entries }); }
             catch (TargetInvocationException exception)
                 when (exception.InnerException != null)
             {
                 ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
                 throw;
             }
+        }
+
+        private static object Invoke(MethodInfo method,
+            DdfRuntimeContext context)
+        {
+            object invocation;
+            try { invocation = method.Invoke(null, new object[] { context }); }
+            catch (TargetInvocationException exception)
+                when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
+            if (invocation is not Task task) return invocation;
+            task.GetAwaiter().GetResult();
+            PropertyInfo result = task.GetType().GetProperty("Result",
+                BindingFlags.Public | BindingFlags.Instance);
+            return result?.GetValue(task);
+        }
+
+        private static async ValueTask<object> InvokeAsync(MethodInfo method,
+            DdfRuntimeContext context)
+        {
+            object invocation;
+            try { invocation = method.Invoke(null, new object[] { context }); }
+            catch (TargetInvocationException exception)
+                when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
+            if (invocation is not Task task) return invocation;
+            try { await task.ConfigureAwait(false); }
+            catch (Exception exception)
+            {
+                ExceptionDispatchInfo.Capture(exception).Throw();
+                throw;
+            }
+            PropertyInfo result = task.GetType().GetProperty("Result",
+                BindingFlags.Public | BindingFlags.Instance);
+            return result?.GetValue(task);
         }
     }
 

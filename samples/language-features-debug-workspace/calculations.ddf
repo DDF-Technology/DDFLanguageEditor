@@ -1,0 +1,86 @@
+add(int left, int right) out int
+{
+    ret left + right;
+}
+
+clamp(int value, int minimum, int maximum) out int
+{
+    if(value < minimum)
+    {
+        ret minimum;
+    }
+    else if(value > maximum)
+    {
+        ret maximum;
+    }
+    else
+    {
+        ret value;
+    }
+}
+
+safeDivide(OperationResult result, int numerator, int denominator) out int
+{
+    if(denominator == 0)
+    {
+        result.value << 0;
+        result.status << OperationStatus.InvalidDivisor;
+        ret 0;
+    }
+
+    result.value << numerator / denominator;
+    result.status << OperationStatus.Ok;
+    ret result.value;
+}
+
+calculateSeries(int limit) out int
+{
+    int total << 0;
+
+    for(int index << 0; index < limit; index++)
+    {
+        if(index == 2)
+        {
+            continue;
+        }
+
+        total << total + index;
+
+        if(total > 20)
+        {
+            brk;
+        }
+    }
+
+    ret total;
+}
+
+countUpWithWhile(int target) out int
+{
+    int value << 0;
+
+    while(value < target)
+    {
+        value++;
+    }
+
+    ret value;
+}
+
+countDownWithDoWhile(int start) out int
+{
+    int value << start;
+
+    do
+    {
+        value--;
+    } while(value > 0);
+
+    ret value;
+}
+
+average(int left, int right) out float
+{
+    float total << left + right;
+    ret total / 2;
+}

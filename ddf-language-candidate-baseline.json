@@ -6,6 +6,7 @@
   "packageVersion": "0.12.3",
   "status": "frozen-evaluation",
   "frozenAt": "2026-09-29",
+  "frozenCommit": "c3decfefa84eb19cdd03869417440fac6a198f97",
   "hashAlgorithm": "sha256-utf8-lf",
   "artifacts": [
     { "path": "DDF_LANGUAGE_SPEC.md", "sha256": "3929a35d9ae3c74cd6d196e9b0676fd3217ee656c43b4b13cc66c6c9938b1dd3" },

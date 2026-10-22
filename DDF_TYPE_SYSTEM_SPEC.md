@@ -1,6 +1,6 @@
-# Sistema dei tipi e semantica DDF 0.12
+# Sistema dei tipi e semantica DDF 0.13
 
-Stato: contratto normativo della milestone `0.12.2`.
+Stato: contratto normativo aggiornato dal pacchetto DDF `0.13.0`.
 
 Questa specifica di area è consolidata dalla specifica autonoma
 `DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.
@@ -67,6 +67,12 @@ normativo del nucleo è:
 | `T[n]` | `T[]` SZArray | `T[]` | lunghezza controllata dalla semantica DDF |
 | struttura DDF | classe CLR generata | `sealed class` interna | conserva identità condivisa e non-null |
 
+Il futuro tipo integrato `error`, accettato per DDF `0.14` ma non ancora
+attivo, sarà un valore immutabile backend-neutral e non una `System.Exception`.
+Le identità qualificate, per esempio `operation.invalidInput`, selezioneranno
+esattamente un errore recuperabile; non introdurranno ereditarietà o cast CLR.
+Il contratto di progetto è `ddf-error-handling-design.json`.
+
 La parola DDF `struct` non impone quindi `System.ValueType`: descrive un record
 nominale DDF con semantica di riferimento. Questa scelta evita che VM e backend
 divergano per copie implicite dei valori composti.
@@ -99,6 +105,35 @@ caricamento di assembly o accesso a membri non esposti dal catalogo host.
 Quest'ultima è una conversione contestuale, non rende `string` convertibile in
 `char` nelle assegnazioni, nei parametri o nei ritorni.
 
+Il disegno futuro `DDF-0034`, non ancora attivo, aggiunge `long` signed 64 bit
+checked e `decimal` base 10 esatto con coefficiente a 96 bit e scala `0..28`.
+Le sole nuove promozioni implicite saranno `int -> long`, `int -> decimal` e
+`long -> decimal`; ogni passaggio con `float` richiederà una funzione esplicita.
+La IR userà primitive DDF e non tipi CLR o Roslyn.
+
+Il disegno futuro `DDF-0035`, non ancora attivo, conserva `string` come valore
+non nullo e immutabile. DDF `0.20` aggiungerà `string + string`, operazioni
+ordinali su code unit UTF-16, dati Unicode `15.1` versionati, ricerca con
+risultato `maybe int`, split/join basati su `sequence<string>` e formattazione
+di soli argomenti già convertiti. Nessun valore viene convertito implicitamente
+in testo e la IR non espone operazioni CLR. Il contratto è
+`ddf-string-library-design.json`.
+
+Il disegno futuro `DDF-0036`, non ancora attivo, associa a ogni funzione
+matematica firme DDF non sovraccaricate e risultati dello stesso tipo dichiarato.
+Valore assoluto, min/max, clamp e arrotondamento coprono le famiglie numeriche
+ammesse; radice, potenza generale e trascendenti operano su `float`. Domini,
+zeri con segno e risultati non finiti sono normativi. `long` e `decimal`
+richiedono prima DDF `0.19`; nessun tipo o overload CLR entra nella IR. Il
+contratto è `ddf-math-library-design.json`.
+
+Il disegno futuro `DDF-0037`, non ancora attivo, aggiunge i tipi nominalmente
+distinti `date`, `time`, `datetime`, `instant` e `duration`. Nessuna conversione
+implicita trasforma tempo civile in istante UTC; offset, range e precisione sono
+parte del tipo e non del backend CLR. Le primitive IR conservano tick e identità
+DDF, mentre clock e random sono effetti forniti da provider sostituibili. Il
+contratto è `ddf-temporal-random-design.json`.
+
 ## Tipi composti
 
 ### Array
@@ -118,6 +153,17 @@ I suffissi concatenati riconosciuti dalla grammatica beta sono riservati e non
 validi nel nucleo 0.12. Gli array multidimensionali o jagged richiederanno una
 decisione successiva.
 
+La futura iterazione `each`, definita ma non ancora attiva da `DDF-0032`, userà
+il tipo elemento esatto dell'array e uno snapshot superficiale in ordine di
+indice. Non renderà l'array implicitamente convertibile a un enumeratore CLR e
+non introdurrà write-back attraverso il binding del ciclo.
+
+Le future collezioni definite da `DDF-0033` sono famiglie di tipo integrate e
+chiuse: `sequence<T>`, `map<K,V>`, `view<T>` ed `entry<K,V>`. Non costituiscono
+un sistema di generici universali. Sequenze e mappe avranno identità condivisa e
+ordine stabile; le viste saranno snapshot host in sola lettura. La loro sintassi
+non è ancora valida nel DDF `0.13`.
+
 ### Strutture
 
 Una struttura è un tipo nominale: due strutture con campi uguali ma nomi diversi
@@ -134,6 +180,26 @@ Il grafo di contenimento fra strutture deve essere aciclico, considerando anche
 i campi array: con valori sempre non nulli, una struttura che contiene se stessa
 direttamente o indirettamente non avrebbe una costruzione finita. La ricorsione
 dei dati richiederà in futuro un tipo opzionale o un riferimento esplicito.
+
+### Enum nominali
+
+`enum Nome { ValoreA, ValoreB }` dichiara un tipo nominale chiuso. I valori si
+usano sempre in forma qualificata (`Nome.ValoreA`), sono immutabili e non sono
+convertibili implicitamente in `int`, `string` o in un altro enum, anche quando
+i nomi dei membri coincidono. Sono ammessi assegnazione, passaggio, ritorno e
+confronto di uguaglianza fra valori dello stesso enum; gli operatori numerici e
+relazionali sono vietati. Un enum deve contenere almeno un valore e il primo è
+il valore iniziale deterministico.
+
+### Selezione multipla
+
+L'espressione di `select` determina il tipo di tutti i casi `when`. Ogni caso è
+una espressione costante deterministica compatibile per uguaglianza con quel
+tipo; casi incompatibili o duplicati sono errori. `otherwise` rende completa la
+selezione e deve essere unico e ultimo. In sua assenza il type checker accetta
+soltanto una copertura completa dei due valori `bool` o di tutti i membri dello
+stesso enum nominale. Non viene applicata alcuna conversione dell'enum verso un
+tipo numerico o testuale.
 
 ## Compatibilità e conversioni
 
@@ -154,10 +220,45 @@ definite nella `0.12.3`; non sono cast del linguaggio.
 
 ## Dichiarazioni, inizializzazione e mutabilità
 
-Variabili, parametri e campi sono mutabili. Una dichiarazione senza
+Variabili, parametri e campi ordinari sono mutabili. Una dichiarazione senza
 inizializzatore riceve il valore iniziale deterministico del tipo; non esiste uno
-stato «non inizializzato». Array e strutture vengono costruiti ricorsivamente e
+stato «non inizializzato». Gli enum assumono il primo valore dichiarato. Array e strutture vengono costruiti ricorsivamente e
 non possono contenere riferimenti nulli.
+
+`fixed T nome << espressione;` dichiara invece una costante tipizzata locale o
+di modulo. L'inizializzatore è obbligatorio e il tipo deve essere primitivo
+scalare oppure un enum nominale. Sono ammesse soltanto espressioni pure e
+deterministiche composte da letterali, valori enum qualificati, parentesi,
+operatori unari/binari e altre costanti già visibili; chiamate, output,
+assegnazioni, accessi a campi e indici non sono ammessi. Un valore `fixed` non
+può essere assegnato, incrementato o decrementato.
+Il valutatore costante tipizzato materializza il valore nella IR comune prima
+della VM e di Roslyn. Risolve dipendenze in avanti nello stesso modulo e valori
+`fixed` esportati da dipendenze dirette; `DDF318` segnala i cicli e `DDF319`
+overflow checked, divisione per zero o risultati `float` non finiti.
+I valori enum sono materializzati con identità di tipo e membro, senza
+conversione implicita a intero o dipendenza dal valore sottostante CLR.
+
+`state T nome << espressione;` dichiara uno stato mutabile di modulo associato
+all'istanza di esecuzione. La prima verticale richiede un tipo primitivo scalare
+e l'inizializzatore. Senza `DdfStateStore` esplicito l'esecuzione usa uno store
+effimero nuovo; riusare lo stesso store conserva il valore tra invocazioni,
+mentre `Reset()` ripristina l'inizializzazione alla chiamata successiva. Lo store
+non persiste su disco e impedisce l'uso concorrente della medesima istanza.
+`DDF320` rifiuta campi e locali, `DDF321` l'inizializzatore mancante e `DDF322`
+i tipi composti. Snapshot persistenti, migrazioni e serializzazione host restano
+fuori dal contratto di questa verticale.
+
+Nel servizio Editor SDK lo store committed è distinto per istanza e condiviso
+fra Run e Debug. Ogni invocazione usa una copia: soltanto un'esecuzione
+`HostEffects` riuscita la conferma atomicamente; Simulation, errore e
+cancellazione la eliminano. Snapshot e reset sono espliciti e non implicano I/O.
+Durante una pausa del debugger lo `state` è osservabile in sola lettura come
+categoria distinta da globali e locali. Il valore appartiene alla transazione
+del run sospeso; lo snapshot committed dell'istanza resta separato.
+La persistenza opzionale usa uno snapshot SDK schema `1.0` vincolato all'identità
+e alla versione del pacchetto linguaggio. Un ripristino incompatibile richiede
+una migrazione esplicita dell'host e non modifica parzialmente lo store corrente.
 
 Le destinazioni modificabili sono esclusivamente:
 
@@ -177,6 +278,13 @@ applicano le stesse regole numeriche e restituiscono il valore precedente.
 
 Esistono namespace distinti per tipi, funzioni e valori. I campi appartengono al
 namespace della propria struttura. I confronti dei nomi sono case-sensitive.
+
+Le funzioni sono sempre dichiarazioni top-level appartenenti a un modulo. Non
+possiedono un ricevitore implicito, non sono membri di una struttura e non
+richiedono un'istanza: sotto questo unico aspetto svolgono già il ruolo delle
+funzioni statiche di altri linguaggi. DDF non introduce il modificatore
+`static`; locali e parametri continuano comunque ad avere una nuova durata per
+ogni chiamata, mentre soltanto `state` conserva dati nell'istanza esplicita.
 
 - Un parametro è visibile nell'intero corpo della funzione.
 - Un locale è visibile dalla dichiarazione alla fine del blocco che lo contiene.
@@ -232,6 +340,19 @@ Gli operatori booleani accettano soltanto `bool`. `+` non concatena stringhe nel
 nucleo: formattazione e composizione testuale appartengono alla libreria.
 
 ## Funzioni
+
+La futura verticale DDF `0.23` aggiungerà tipi risorsa nominali e opachi soltanto
+per il binding lessicale `use` definito da `DDF-0041`. Tali handle non saranno
+copiabili, confrontabili, serializzabili, persistibili o ammessi come globali,
+parametri, risultati, campi ed elementi. Le operazioni potranno riceverli solo
+come prestiti dichiarati e non trattenibili. Nessun tipo CLR o handle nativo
+entrerà nel sistema dei tipi DDF. Questa categoria è inattiva nella `0.13`.
+
+L'asincronia cooperativa `DDF-0042` non introduce `Task<T>`, future, promise o
+tipi CLR nel sistema DDF. Una funzione conserva il proprio tipo di risultato e
+il descrittore dichiara separatamente l'effetto sospensivo. I valori catturati
+dalla continuazione devono già essere rappresentabili dalla IR DDF; lease e
+risorse restano opachi e governati dalle rispettive regole di ownership.
 
 Una firma comprende nome, parametri nell'ordine dichiarato e tipo restituito.
 Il nome è unico nell'intero progetto: overload, parametri opzionali, variadici e

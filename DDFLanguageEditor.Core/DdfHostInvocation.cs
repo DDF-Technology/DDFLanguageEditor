@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DDFLanguageEditor.Core
 {
@@ -56,6 +57,58 @@ namespace DDFLanguageEditor.Core
         {
             if (resource == null) throw new ArgumentNullException(nameof(resource));
             registerResource(resource);
+        }
+
+        public async ValueTask<DdfHostResourceLease> RegisterResourceLeaseAsync(
+            DdfHostResourceDescriptor descriptor, object resource,
+            IDdfHostResourceLeaseAuthority authority)
+        {
+            if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
+            if (resource == null) throw new ArgumentNullException(nameof(resource));
+            if (authority == null) throw new ArgumentNullException(nameof(authority));
+
+            var request = new DdfHostResourceLeaseRequest(ExecutionId, descriptor,
+                DateTimeOffset.UtcNow, Deadline);
+            DdfHostResourceLeaseDecision decision;
+            try
+            {
+                decision = await authority.AuthorizeAsync(request,
+                    CancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                await DdfHostResourceLease.DisposeUnregisteredAsync(resource)
+                    .ConfigureAwait(false);
+                throw;
+            }
+            if (decision == null)
+            {
+                await DdfHostResourceLease.DisposeUnregisteredAsync(resource)
+                    .ConfigureAwait(false);
+                throw new InvalidOperationException(
+                    "L'autorità lease ha restituito una decisione nulla.");
+            }
+            if (!decision.Granted)
+            {
+                await DdfHostResourceLease.DisposeUnregisteredAsync(resource)
+                    .ConfigureAwait(false);
+                throw new DdfHostResourceLeaseDeniedException(
+                    descriptor.ResourceType);
+            }
+
+            var lease = new DdfHostResourceLease(ExecutionId, descriptor,
+                resource, authority);
+            try
+            {
+                registerResource(lease);
+                lease.NotifyActive();
+                return lease;
+            }
+            catch
+            {
+                await lease.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
         }
     }
 }

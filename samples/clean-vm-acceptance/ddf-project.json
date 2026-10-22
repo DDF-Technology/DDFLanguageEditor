@@ -8,7 +8,7 @@
     "exports": [ "main" ]
   },
   "languageId": "ddf",
-  "languagePackageVersion": "0.12.3",
+  "languagePackageVersion": "0.13.0",
   "sources": [ "main.ddf" ],
   "entrySource": "main.ddf",
   "entryPoint": "main",

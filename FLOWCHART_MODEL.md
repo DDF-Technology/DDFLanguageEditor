@@ -12,7 +12,7 @@ product roadmap. Node selection can navigate to source, but it cannot mutate it.
 - `DdfFlowchartNode` stores a stable build-local ID, semantic kind, compact
   label, source interval and any referenced function names.
 - `DdfFlowchartEdge` stores the control role (`Next`, `True`, `False`,
-  `Break`, `Return` or `Terminate`) independently from `IsBackEdge`.
+  `Break`, `Continue`, `Return` or `Terminate`) independently from `IsBackEdge`.
 - `DdfFlowchartBuildResult` returns either a graph or diagnostics such as
   `DDFC001` when the requested function is absent.
 
@@ -23,9 +23,19 @@ data-flow views.
 ## Covered IR
 
 The first increment represents entry, exit, sequential declarations and
-expressions, decisions, `while`, `do while`, `for`, calls, returns, breaks and
-explicit termination. Labels are slices of the source, while topology and
+expressions, decisions, `while`, `do while`, `for`, calls, returns, breaks,
+continues and explicit termination. A continue edge returns to the loop test,
+or to the increment node of a counted `for`. Labels are slices of the source, while topology and
 semantic roles come exclusively from IR node types.
+
+Control-transfer targets follow lexical loop ownership rather than visual
+proximity. `continue` reaches the condition of `while`/`do while` and the
+increment step of `for`; `brk` reaches the continuation immediately after the
+innermost loop even when it appears inside `if` or `select`; `ret` and `end`
+reach the function exit with distinct edge roles. Structured recovery, typed
+iteration, lexical resource cleanup and cooperative suspension will receive
+dedicated topology only when their language verticals are active; the current
+builder does not invent placeholder semantics for them.
 
 `DdfFlowchartSnapshotService` produces immutable, source-versioned snapshots in
 the background. It debounces rapid edits, cancels the previous request and checks
@@ -97,6 +107,17 @@ function and document across workspace files without consulting a newer editor
 analysis. The active node uses a dedicated execution badge and the marker is
 cleared before resuming, stopping or completing execution.
 
+The executable gate `--flowchart-runtime-sync-only` treats the debug snapshot as
+the single correlation point for the active document, selected source span,
+yellow editor line, function diagram and execution node. It covers local and
+cross-file Step Into, Over and Out, cooperative capability suspension and resume,
+normal completion, propagated runtime failure and execution-wide resource cleanup.
+While a capability is suspended the node remains on the calling statement and the
+palette reports `DEBUG IN ATTESA`; after resume it advances to the next DDF
+statement. Completion, cancellation and fault clear both editor and diagram
+markers. Structured `attempt/recover/always` and lexical `use` will join this gate
+only when their dedicated IR nodes become active.
+
 `FlowchartView` is the reusable WinForms presentation boundary. It owns the
 canvas, local toolbar, status row, pointer/pan exclusivity, grouping switch, zoom
 commands and icon resources. Hosts provide analysis and navigation through its
@@ -129,6 +150,17 @@ Whenever an incoming route reaches a line already shared by edges with the same
 target, a compact arrow is drawn immediately before that merge vertex. The marker
 inherits the solid or loop-back color and indicates flow direction without covering
 the junction, node, or branch label.
+
+The repeatable WinForms gate `--flowchart-geometry-only` exercises both a compact
+combination of decisions and loops and the large
+`samples/flowchart-complex-smoke-test.ddf` graph. It requires every semantic edge
+to have a route; every route to remain orthogonal, simplified, vertically departed
+and inside the diagram; solid and dashed paths never to overlap or cross; compatible
+merges to share an elbow; both route kinds to receive pre-merge arrows; and two
+successive layouts of the same input to produce identical coordinates and label
+anchors. This test is the release gate for current constructs. Future structured
+recovery, typed iteration and lexical cleanup must extend the matrix when their IR
+nodes become active rather than weakening these invariants.
 
 The multi-file sample in `samples/flowchart-workspace` exercises navigation,
 grouping, control-flow forms, recursion, arrays, structures, runtime and debug.

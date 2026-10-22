@@ -1,0 +1,8 @@
+enum Mode
+{
+    Base,
+
+main() out int
+{
+    ret 0;
+}

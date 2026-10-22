@@ -4,13 +4,14 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using DDFLanguageEditor.Compiler;
 using DDFLanguageEditor.Runtime;
 
 namespace DDFLanguageEditor.Runner
 {
     internal sealed class DdfDotNetWorkerBrokerProvider :
-        IDdfRuntimeCapabilityProvider
+        IDdfRuntimeAsyncCapabilityProvider
     {
         private sealed class BrokerFile
         {
@@ -121,6 +122,24 @@ namespace DDFLanguageEditor.Runner
             else
                 throw new InvalidOperationException(
                     "Capability o risorsa broker non autorizzata.");
+        }
+
+        public ValueTask<object> InvokeAsync(string capabilityId,
+            IReadOnlyList<object> arguments,
+            DdfRuntimeCapabilityInvocationContext context)
+        {
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            context.CancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(capabilityId,
+                    DdfDotNetWorkerBrokerCapabilities.FetchNetworkResponse,
+                    StringComparison.Ordinal) && arguments?.Count == 1 &&
+                arguments[0] is string liveName &&
+                liveNetworkResources.Contains(liveName) &&
+                duplexChannel != null)
+                return duplexChannel.InvokeAsync(capabilityId, arguments,
+                    context.CancellationToken);
+            return ValueTask.FromResult(Invoke(capabilityId, arguments,
+                context.CancellationToken));
         }
     }
 }

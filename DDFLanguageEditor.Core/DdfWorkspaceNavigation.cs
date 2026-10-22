@@ -189,6 +189,8 @@ namespace DDFLanguageEditor.Core
             {
                 case DdfSymbolKind.Library: return "libreria";
                 case DdfSymbolKind.Structure: return "struttura";
+                case DdfSymbolKind.Enumeration: return "enum";
+                case DdfSymbolKind.EnumerationMember: return "valore enum";
                 case DdfSymbolKind.Function: return "funzione";
                 case DdfSymbolKind.Parameter: return "parametro";
                 case DdfSymbolKind.Field: return "campo";

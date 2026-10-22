@@ -1,0 +1,5 @@
+main() out int
+{
+    state int counter << 0;
+    ret counter;
+}

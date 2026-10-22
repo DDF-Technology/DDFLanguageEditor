@@ -573,8 +573,10 @@ namespace DDFLanguageEditor.Core
                     Module = pair.Key.Module,
                     Path = pair.Key.Source.RelativePath,
                     Kind = member is DdfIrFunction ? "funzione" : member is DdfIrStructure ? "struttura" :
+                        member is DdfIrEnum ? "enum" :
                         member is DdfIrGlobal global && global.Statement is DdfIrVariableDeclaration ? "globale" : null,
                     Name = member is DdfIrFunction function ? function.Name : member is DdfIrStructure structure ? structure.Name :
+                        member is DdfIrEnum enumeration ? enumeration.Name :
                         member is DdfIrGlobal globalMember && globalMember.Statement is DdfIrVariableDeclaration variable ? variable.Name : null
                 }))
                 .Where(item => item.Kind != null && !string.IsNullOrEmpty(item.Name))
@@ -596,6 +598,18 @@ namespace DDFLanguageEditor.Core
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
                 return new DdfBuildResult(null, issues);
 
+            IReadOnlyList<DdfIrModule> runtimeModules = parsed
+                .Where(item => programs.ContainsKey(item))
+                .Select(item => new DdfIrModule(item.Source.Path, item.Source.Source, programs[item],
+                    item.Module.Manifest.Module.Id, item.Module.Manifest.Module.Version,
+                    item.Module.Manifest.Module.Exports, item.Module.Manifest.Dependencies,
+                    item.Source.RelativePath))
+                .ToList().AsReadOnly();
+            foreach (DdfConstantEvaluationIssue issue in DdfConstantEvaluator.Evaluate(runtimeModules))
+                issues.Add(DdfBuildIssue.FromDiagnostic(issue.DocumentPath, issue.Diagnostic));
+            if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
+                return new DdfBuildResult(null, issues);
+
             var orderedGlobals = parsed.Where(item => programs.ContainsKey(item)).SelectMany(item => programs[item].Members
                 .OfType<DdfIrGlobal>()
                 .Where(global => global.Statement is DdfIrVariableDeclaration)
@@ -610,11 +624,15 @@ namespace DDFLanguageEditor.Core
                 {
                     var current = globals[index];
                     foreach (string dependency in EnumerateNames(current.Variable.Initializer).Distinct(StringComparer.Ordinal))
+                    {
+                        if (current.Variable.IsFixed && globals.Any(item =>
+                            item.Variable.IsFixed && item.Variable.Name == dependency)) continue;
                         if (globalOrder.TryGetValue(dependency, out int dependencyIndex) && dependencyIndex >= index)
                             issues.Add(DdfBuildIssue.Configuration("DDFB011",
                                 "La globale '" + current.Variable.Name + "' dipende da '" + dependency +
                                 "', dichiarata successivamente o coinvolta in un ciclo. L'inizializzazione segue l'ordine dei file e delle dichiarazioni.",
                                 current.Source.Path));
+                    }
                 }
             }
             if (issues.Any(item => item.Severity == DdfDiagnosticSeverity.Error))
@@ -628,13 +646,6 @@ namespace DDFLanguageEditor.Core
                       item.Source.RelativePath,
                     Hash(item.Source.Source), item.Source.FromUnsavedBuffer)).ToList().AsReadOnly();
             string fingerprint = Fingerprint(manifest, package, artifactSources, maxInstructions, modules);
-            IReadOnlyList<DdfIrModule> runtimeModules = parsed
-                .Where(item => programs.ContainsKey(item))
-                .Select(item => new DdfIrModule(item.Source.Path, item.Source.Source, programs[item],
-                    item.Module.Manifest.Module.Id, item.Module.Manifest.Module.Version,
-                    item.Module.Manifest.Module.Exports, item.Module.Manifest.Dependencies,
-                    item.Source.RelativePath))
-                .ToList().AsReadOnly();
             IReadOnlyList<DdfBuildResolvedModule> resolvedModules = modules
                 .Select(module => new DdfBuildResolvedModule(module.Manifest.Module.Id,
                     module.Manifest.Module.Version, module.Manifest.Module.Exports))
@@ -734,6 +745,7 @@ namespace DDFLanguageEditor.Core
         {
             FunctionDeclarationSyntax function => function.Name,
             StructDeclarationSyntax structure => structure.Name,
+            EnumDeclarationSyntax enumeration => enumeration.Name,
             GlobalStatementSyntax global when global.Statement is VariableDeclarationStatementSyntax variable => variable.Name,
             _ => string.Empty
         };

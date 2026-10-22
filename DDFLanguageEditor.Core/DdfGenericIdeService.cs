@@ -99,7 +99,8 @@ namespace DDFLanguageEditor.Core
         private static DdfDocumentSymbol WithKind(DdfDocumentSymbol symbol, DdfSymbolKind kind)
         {
             return new DdfDocumentSymbol(symbol.Name, kind, symbol.Detail, symbol.Start, symbol.Length,
-                symbol.SelectionStart, symbol.SelectionLength, symbol.Children);
+                symbol.SelectionStart, symbol.SelectionLength, symbol.Children,
+                symbol.IsReadOnly, symbol.IsFixed);
         }
 
         private static void CollectFoldingRanges(DdfGenericSyntaxNode node, DdfCompiledGrammar grammar,

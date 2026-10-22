@@ -70,6 +70,15 @@ namespace DDFLanguageEditor.Compiler
                     VisitStatement(conditional.Body);
                     VisitStatement(conditional.ElseBody);
                 }
+                else if (statement is DdfIrSelect selection)
+                {
+                    VisitExpression(selection.Expression);
+                    foreach (DdfIrSelectClause clause in selection.Clauses)
+                    {
+                        VisitExpression(clause.Value);
+                        VisitStatement(clause.Body);
+                    }
+                }
                 else if (statement is DdfIrWhile loop)
                 {
                     VisitExpression(loop.Condition);

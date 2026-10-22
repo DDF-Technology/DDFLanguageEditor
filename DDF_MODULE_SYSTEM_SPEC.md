@@ -162,3 +162,12 @@ dal build del progetto consumatore.
 | `DDF312` | chiamata a funzione non visibile o sconosciuta |
 | `DDF313` | riferimento a valore non visibile o sconosciuto |
 
+## 10. Evoluzione futura: alias qualificati
+
+La risoluzione piatta degli export diretti resta normativa per DDF `0.13` e il
+manifesto `1.2`. `DDF-0031` definisce la sua sostituzione coordinata in DDF
+`0.16`/manifesto `1.3`: alias obbligatorio per dipendenza diretta e sintassi
+`alias::simbolo`, senza namespace derivati dai percorsi, wildcard, accesso
+transitivo o re-export impliciti. Il contratto completo e ancora inattivo è
+`ddf-module-qualification-design.json`.
+

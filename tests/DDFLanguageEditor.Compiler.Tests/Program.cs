@@ -33,6 +33,8 @@ using CSharpSyntaxKind = Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 using RoslynCompilationUnitSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax;
 using RoslynForStatementSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.ForStatementSyntax;
 using RoslynLiteralExpressionSyntax = Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax;
+using PersistedRuntimeStateEntry = DDFLanguageEditor.Runtime.DdfPersistedStateEntry;
+using PersistedRuntimeStateSnapshot = DDFLanguageEditor.Runtime.DdfPersistedStateSnapshot;
 
 namespace DDFLanguageEditor.Compiler.Tests
 {
@@ -59,6 +61,19 @@ namespace DDFLanguageEditor.Compiler.Tests
                         "Governed adapter VM/Roslyn cross-backend gate passed.");
                     return 0;
                 }
+                if ((args ?? Array.Empty<string>()).Contains(
+                        "--debug-language-matrix", StringComparer.Ordinal))
+                {
+                    DebugsActiveLanguageConstructsMatrix();
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
+                        "--debug-suspension-matrix", StringComparer.Ordinal))
+                {
+                    VerifiesCompiledCapabilitySuspension();
+                    RunsInteractiveInputOverDuplexWorker();
+                    return 0;
+                }
                 RoundTripsVersionedDotNetArtifactContracts();
                 RejectsUnsafeOrIncompatibleArtifactMetadata();
                 KeepsJsonSchemasAlignedWithRuntimeContracts();
@@ -66,6 +81,10 @@ namespace DDFLanguageEditor.Compiler.Tests
                 MatchesVmOnDifferentialExecutionCorpus();
                 MatchesVersionedNormativeLanguageCorpus();
                 BridgesExplicitStandaloneHostCapabilities();
+                VerifiesCompiledCapabilitySuspension();
+                MatchesCleanupOrderAcrossVmAndCompiledBackend();
+                PersistsStateAcrossVmAndCompiledSessions();
+                PreservesTypedErrorsAcrossVmAndCompiledFiles();
                 VerifiesGovernedAdaptersAcrossVmAndCompiledBackend();
                 RunsReadOnlyFileBrokerOutOfProcess();
                 RunsTransactionalFileBrokerOutOfProcess();
@@ -80,8 +99,11 @@ namespace DDFLanguageEditor.Compiler.Tests
                 PinsCompilerProfileAndExplicitReferences();
                 BuildsVerifiedManagedExternalReferenceSets();
                 BuildsEditorArtifactsThroughStandaloneBridge();
+                StressesShippedLargeWorkspaceAcrossVmAndCompiledBackend();
+                DebugsShippedLanguageFeaturesWorkspace();
+                DebugsActiveLanguageConstructsMatrix();
                 GeneratesSafeSyntaxTreesAndModuleInitializers();
-                Console.WriteLine("All 23 compiler contract tests passed.");
+                Console.WriteLine("All 30 compiler contract tests passed.");
                 return 0;
             }
             catch (Exception exception)
@@ -89,6 +111,397 @@ namespace DDFLanguageEditor.Compiler.Tests
                 Console.Error.WriteLine(exception);
                 return 1;
             }
+        }
+
+        private static void DebugsShippedLanguageFeaturesWorkspace()
+        {
+            string root = Path.Combine(Environment.CurrentDirectory, "samples",
+                "language-features-debug-workspace");
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
+            Require(loaded.Success, "Il manifest del workspace di debug non è valido.");
+
+            var documents = new OpenDocumentCollection();
+            string mainPath = Path.Combine(root, "main.ddf");
+            OpenDocumentBuffer main = documents.Open(mainPath,
+                File.ReadAllText(mainPath, Encoding.UTF8));
+
+            DdfEditorExecutionBuildContext Build(
+                DdfEditorExecutionRequest request,
+                IReadOnlyList<DdfEditorBuildDocumentSnapshot> snapshots,
+                DdfLanguagePackage activePackage)
+            {
+                var buffers = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => Path.GetFullPath(item.FilePath),
+                        item => item.SourceText, StringComparer.OrdinalIgnoreCase);
+                DdfBuildResult result = new DdfBuildService().Validate(root,
+                    loaded.Manifest, activePackage, buffers);
+                var paths = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => item.Id,
+                        item => Path.GetFullPath(item.FilePath),
+                        StringComparer.Ordinal);
+                return new DdfEditorExecutionBuildContext(result,
+                    activePackage, paths);
+            }
+
+            var language = new DdfLanguagePackageSession(package);
+            using var debugger = new DdfDotNetEditorDebugService(
+                () => documents, () => language,
+                (request, snapshots, activePackage) =>
+                    Build(request, snapshots, activePackage));
+            debugger.SetBreakpoints(new[]
+            {
+                new DdfEditorBreakpoint(main.Id, 27, true)
+            });
+            int pauses = 0;
+            debugger.Paused += (_, _) =>
+            {
+                pauses++;
+                debugger.Continue();
+            };
+
+            DdfEditorExecutionCompletion completion = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(timeout: TimeSpan.FromMinutes(2)))
+                .GetAwaiter().GetResult();
+            Require(completion.BuildIssues.All(item =>
+                    item.Severity != DdfDiagnosticSeverity.Error),
+                "Il debugger ha rifiutato il workspace: " + string.Join("; ",
+                    completion.BuildIssues.Select(item => item.Code + ": " +
+                        item.Message)));
+            Require(string.IsNullOrEmpty(completion.InternalError),
+                "Il debugger compilato è fallito: " + completion.InternalError);
+            Require(completion.ExecutionResult?.Succeeded == true,
+                "Il debugger non ha completato l'esecuzione del workspace.");
+            Equal("419", Convert.ToString(completion.ExecutionResult.ReturnValue,
+                CultureInfo.InvariantCulture));
+            Equal(1, pauses);
+
+            using var debuggerWithoutBreakpoints =
+                new DdfDotNetEditorDebugService(
+                    () => documents, () => language,
+                    (request, snapshots, activePackage) =>
+                        Build(request, snapshots, activePackage));
+            int unexpectedPauses = 0;
+            debuggerWithoutBreakpoints.Paused += (_, _) => unexpectedPauses++;
+            DdfEditorExecutionCompletion completionWithoutBreakpoints =
+                debuggerWithoutBreakpoints.RunAsync(
+                        new DdfEditorExecutionRequest(
+                            timeout: TimeSpan.FromMinutes(2)))
+                    .GetAwaiter().GetResult();
+            Require(string.IsNullOrEmpty(
+                    completionWithoutBreakpoints.InternalError),
+                "Il debug senza breakpoint ha creato un piano worker vuoto: " +
+                completionWithoutBreakpoints.InternalError);
+            Require(completionWithoutBreakpoints.ExecutionResult?.Succeeded ==
+                    true,
+                "Il debug senza breakpoint non completa l'esecuzione.");
+            Equal("419", Convert.ToString(completionWithoutBreakpoints
+                .ExecutionResult.ReturnValue, CultureInfo.InvariantCulture));
+            Equal(0, unexpectedPauses);
+        }
+
+        private static void StressesShippedLargeWorkspaceAcrossVmAndCompiledBackend()
+        {
+            string root = Path.Combine(RepositoryRoot(), "samples",
+                "debug-large-workspace");
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
+            Require(loaded.Success,
+                "Il manifest del workspace di stress non e' valido.");
+            DdfBuildResult prepared = new DdfBuildService().Validate(root,
+                loaded.Manifest, package);
+            Require(prepared.Success && prepared.Artifact.Sources.Count == 42,
+                "Il workspace di stress non attraversa tutti i 42 sorgenti: " +
+                string.Join("; ", prepared.Issues.Select(issue =>
+                    issue.Code + " " + issue.Message)));
+
+            DdfDotNetReferenceSet references =
+                DdfDotNetReferencePackResolver.Resolve(FindNet10ReferencePack(),
+                    typeof(DdfRuntimeAbi).Assembly.Location);
+            Stopwatch compileWatch = Stopwatch.StartNew();
+            DdfDotNetCompilationPlanResult planned =
+                DdfDotNetCompilationPlanner.Create(prepared,
+                    new DdfDotNetCompilationOptions("net10.0",
+                        DdfRuntimeAbi.Version, referenceSet: references));
+            Require(planned.Success,
+                "Il piano Roslyn del workspace di stress non e' valido.");
+            DdfDotNetArtifactEmissionResult emission =
+                DdfDotNetArtifactEmitter.Emit(planned.Plan,
+                    package.Language.Types.ClrMapping);
+            compileWatch.Stop();
+            Require(emission.Success && emission.Artifacts.Count == 1 &&
+                    emission.Artifacts.Single().SourceMap.Documents.Count == 42,
+                "L'emit Roslyn del workspace di stress ha perso sorgenti o mapping: " +
+                string.Join("; ", emission.Issues.Select(issue =>
+                    issue.Code + " " + issue.Message)));
+
+            var vmOutput = new List<string>();
+            Stopwatch vmWatch = Stopwatch.StartNew();
+            DdfExecutionResult vm = DdfInterpreter.Execute(
+                prepared.Artifact.RuntimeModules, package.Language,
+                new DdfExecutionOptions
+                {
+                    EntryPoint = prepared.Artifact.EntryPoint,
+                    Output = vmOutput.Add
+                });
+            vmWatch.Stop();
+            var compiledOutput = new List<string>();
+            Stopwatch compiledWatch = Stopwatch.StartNew();
+            DdfRuntimeExecutionResult compiled = ExecuteForVerification(
+                planned.Plan, emission, compiledOutput);
+            compiledWatch.Stop();
+            Require(vm.Succeeded && Convert.ToInt32(vm.ReturnValue,
+                        CultureInfo.InvariantCulture) == 3387 &&
+                    Convert.ToInt32(compiled.Value,
+                        CultureInfo.InvariantCulture) == 3387 &&
+                    vmOutput.SequenceEqual(compiledOutput) &&
+                    vmOutput.SequenceEqual(new[]
+                        { "Large debugger workspace completed" }),
+                "VM e Roslyn divergono sul workspace di stress attivo.");
+
+            Console.WriteLine("PASS stress 42 file VM/Roslyn: piano+emit=" +
+                compileWatch.ElapsedMilliseconds + " ms, VM=" +
+                vmWatch.ElapsedMilliseconds + " ms, Roslyn=" +
+                compiledWatch.ElapsedMilliseconds + " ms");
+        }
+
+        private static void DebugsActiveLanguageConstructsMatrix()
+        {
+            string root = Path.Combine(Environment.CurrentDirectory, "samples",
+                "language-features-debug-workspace");
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            DdfProjectManifestLoadResult loaded = DdfProjectManifestLoader.Load(root);
+            Require(loaded.Success,
+                "Il manifest del workspace per la matrice debugger non è valido.");
+
+            var documents = new OpenDocumentCollection();
+            var opened = new Dictionary<string, IDdfEditorDocument>(
+                StringComparer.OrdinalIgnoreCase);
+            foreach (string path in Directory.GetFiles(root, "*.ddf")
+                         .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                IDdfEditorDocument document = documents.Open(path,
+                    File.ReadAllText(path, Encoding.UTF8));
+                opened[Path.GetFileName(path)] = document;
+            }
+
+            DdfEditorExecutionBuildContext Build(
+                DdfEditorExecutionRequest request,
+                IReadOnlyList<DdfEditorBuildDocumentSnapshot> snapshots,
+                DdfLanguagePackage activePackage)
+            {
+                var buffers = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => Path.GetFullPath(item.FilePath),
+                        item => item.SourceText, StringComparer.OrdinalIgnoreCase);
+                DdfBuildResult result = new DdfBuildService().Validate(root,
+                    loaded.Manifest, activePackage, buffers);
+                var paths = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => item.Id,
+                        item => Path.GetFullPath(item.FilePath),
+                        StringComparer.Ordinal);
+                return new DdfEditorExecutionBuildContext(result,
+                    activePackage, paths);
+            }
+
+            var language = new DdfLanguagePackageSession(package);
+            DdfDotNetEditorDebugService CreateDebugger() => new(
+                () => documents, () => language,
+                (request, snapshots, activePackage) =>
+                    Build(request, snapshots, activePackage));
+            int LineOf(string fileName, string fragment)
+            {
+                string source = opened[fileName].SourceText;
+                int start = source.IndexOf(fragment, StringComparison.Ordinal);
+                Require(start >= 0, "Frammento debugger non trovato in " +
+                    fileName + ": " + fragment);
+                return LineAt(source, start);
+            }
+
+            IDdfEditorDocument main = opened["main.ddf"];
+            IDdfEditorDocument calculations = opened["calculations.ddf"];
+            using (var debugger = CreateDebugger())
+            using (var pauses = new DebugPauseRecorder(debugger))
+            {
+                debugger.SetWatchExpressions(new[]
+                {
+                    "completedRuns", "localOffset", "priority"
+                });
+                debugger.SetBreakpoints(new[]
+                {
+                    new DdfEditorBreakpoint(main.Id,
+                        LineOf("main.ddf", "completedRuns++;")),
+                    new DdfEditorBreakpoint(main.Id,
+                        LineOf("main.ddf", "fixed int localOffset")),
+                    new DdfEditorBreakpoint(calculations.Id,
+                        LineOf("calculations.ddf", "continue;")),
+                    new DdfEditorBreakpoint(main.Id,
+                        LineOf("main.ddf", "priorityWeight(DefaultPriority)"))
+                });
+                Task<DdfEditorExecutionCompletion> run = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(timeout: TimeSpan.FromMinutes(2)));
+
+                DdfEditorDebugSnapshot statePause = pauses.Wait();
+                Require(statePause.Location.DocumentId == main.Id &&
+                        statePause.States.Any(variable =>
+                            variable.Name == "completedRuns" &&
+                            variable.Kind == DdfRuntimeVariableKind.State) &&
+                        statePause.Globals.Any(variable =>
+                            variable.Name == "DefaultPriority" &&
+                            variable.IsFixed && variable.IsReadOnly) &&
+                        statePause.CallStack.All(frame =>
+                            !frame.FunctionName.StartsWith("DdfGenerated_",
+                                StringComparison.Ordinal)),
+                    "La pausa su state/fixed espone metadati o frame non DDF.");
+                DdfEditorWatchResult stateWatch = debugger.EvaluateWatch(
+                    "completedRuns");
+                Require(stateWatch.Available &&
+                        stateWatch.Value.IsTransactionalState,
+                    "Watch non espone lo state con la categoria DDF corretta.");
+                Require(debugger.Continue(),
+                    "Continua non riparte dalla pausa sullo state.");
+
+                DdfEditorDebugSnapshot fixedPause = pauses.Wait();
+                Require(fixedPause.Location.DocumentId == main.Id &&
+                        fixedPause.Location.Line == LineOf("main.ddf",
+                            "fixed int localOffset"),
+                    "Il breakpoint sulla dichiarazione fixed non è stabile.");
+                Require(debugger.StepOver(),
+                    "Step Over non parte dalla dichiarazione fixed.");
+                DdfEditorDebugSnapshot afterFixed = pauses.Wait();
+                Require(afterFixed.Location.DocumentId == main.Id &&
+                        afterFixed.Location.Line > fixedPause.Location.Line &&
+                        afterFixed.Variables.Any(variable =>
+                            variable.Name == "localOffset" &&
+                            variable.DisplayValue == "2" &&
+                            variable.IsFixed && variable.IsReadOnly),
+                    "Step Over non supera fixed o perde la sua proiezione read-only.");
+                DdfEditorWatchResult fixedWatch = debugger.EvaluateWatch(
+                    "localOffset");
+                Require(fixedWatch.Available && fixedWatch.Value.IsFixed &&
+                        fixedWatch.Value.IsReadOnly &&
+                        fixedWatch.Value.DisplayValue == "2",
+                    "Watch non conserva il contratto read-only di fixed.");
+                Require(debugger.Continue(),
+                    "Continua non riparte dopo la dichiarazione fixed.");
+
+                DdfEditorDebugSnapshot continuePause = pauses.Wait();
+                Require(continuePause.Location.DocumentId == calculations.Id &&
+                        continuePause.Location.Line == LineOf("calculations.ddf",
+                            "continue;"),
+                    "Il breakpoint dentro continue non raggiunge il file esterno.");
+                Require(debugger.StepOver(),
+                    "Step Over non parte dal costrutto continue.");
+                DdfEditorDebugSnapshot afterContinue = pauses.Wait();
+                Require(afterContinue.Location.DocumentId == calculations.Id &&
+                        (afterContinue.Location.Line != continuePause.Location.Line ||
+                         afterContinue.Location.Start != continuePause.Location.Start),
+                    "Step Over resta bloccato sullo stesso continue.");
+                Require(debugger.Continue(),
+                    "Continua non riparte dopo il costrutto continue.");
+
+                DdfEditorDebugSnapshot callPause = pauses.Wait();
+                Require(callPause.Location.DocumentId == main.Id &&
+                        callPause.Location.Line == LineOf("main.ddf",
+                            "priorityWeight(DefaultPriority)"),
+                    "Il breakpoint prima della chiamata enum/select non è stabile.");
+                Require(debugger.StepInto(),
+                    "Step Into non parte dalla chiamata priorityWeight.");
+                DdfEditorDebugSnapshot selectPause = pauses.Wait();
+                Require(selectPause.Location.DocumentId ==
+                            opened["classification.ddf"].Id &&
+                        selectPause.CallStack.Count >= 2 &&
+                        selectPause.CallStack[0].FunctionName == "priorityWeight" &&
+                        selectPause.CallStack[1].FunctionName == "main" &&
+                        selectPause.Variables.Any(variable =>
+                            variable.Name == "priority" &&
+                            variable.TypeName == "Priority"),
+                    "Step Into non entra nel select enum con Call Stack DDF.");
+                DdfEditorWatchResult enumWatch = debugger.EvaluateWatch("priority");
+                Require(enumWatch.Available &&
+                        enumWatch.Value.TypeName == "Priority" &&
+                        enumWatch.Value.DisplayValue == "Priority.High",
+                    "Watch non espone il valore enum nominale nella funzione esterna: " +
+                    (enumWatch.Available
+                        ? enumWatch.Value.TypeName + "=" +
+                          enumWatch.Value.DisplayValue
+                        : enumWatch.Message));
+                Require(debugger.StepOver(),
+                    "Step Over non parte dentro il select enum.");
+                DdfEditorDebugSnapshot insideSelect = pauses.Wait();
+                Require(insideSelect.Location.DocumentId ==
+                            opened["classification.ddf"].Id &&
+                        insideSelect.CallStack[0].FunctionName == "priorityWeight",
+                    "Step Over dentro select esce prematuramente dal file DDF.");
+                Require(debugger.StepOut(),
+                    "Step Out non parte dalla funzione con select.");
+                DdfEditorDebugSnapshot callerPause = pauses.Wait();
+                Require(callerPause.Location.DocumentId == main.Id &&
+                        callerPause.CallStack.Count == 1 &&
+                        callerPause.CallStack[0].FunctionName == "main",
+                    "Step Out non torna al chiamante DDF nel file principale.");
+                Require(debugger.Continue(),
+                    "Continua non riparte dopo Step Out.");
+                Require(run.Wait(TimeSpan.FromSeconds(30)) &&
+                        run.Result.Succeeded &&
+                        Convert.ToString(run.Result.ExecutionResult.ReturnValue,
+                            CultureInfo.InvariantCulture) == "419",
+                    "La matrice Step/Continue non completa il workspace con risultato 419.");
+            }
+
+            using (var debugger = CreateDebugger())
+            using (var pauses = new DebugPauseRecorder(debugger))
+            {
+                debugger.SetBreakpoints(new[]
+                {
+                    new DdfEditorBreakpoint(main.Id,
+                        LineOf("main.ddf", "completedRuns++;"))
+                });
+                Task<DdfEditorExecutionCompletion> run = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(timeout: TimeSpan.FromMinutes(2)));
+                pauses.Wait();
+                Require(debugger.Stop(),
+                    "Stop non viene accettato durante una pausa sui nuovi costrutti.");
+                Require(run.Wait(TimeSpan.FromSeconds(15)) &&
+                        run.Result.WasCancelled &&
+                        debugger.State == DdfEditorDebugState.Idle,
+                    "Stop non chiude in modo coerente la sessione compilata.");
+            }
+
+            string remappedSource = Environment.NewLine + main.SourceText;
+            Require(documents.UpdateDocument(main.Id, remappedSource, true),
+                "Il buffer main non accetta la modifica usata per il remapping.");
+            using (var debugger = CreateDebugger())
+            using (var pauses = new DebugPauseRecorder(debugger))
+            {
+                int remappedLine = LineOf("main.ddf", "completedRuns++;");
+                debugger.SetBreakpoints(new[]
+                {
+                    new DdfEditorBreakpoint(main.Id, remappedLine)
+                });
+                Task<DdfEditorExecutionCompletion> run = debugger.RunAsync(
+                    new DdfEditorExecutionRequest(timeout: TimeSpan.FromMinutes(2)));
+                DdfEditorDebugSnapshot remapped = pauses.Wait();
+                Require(remapped.Location.DocumentId == main.Id &&
+                        remapped.Location.Line == remappedLine &&
+                        remapped.Location.Start == remappedSource.IndexOf(
+                            "completedRuns++;", StringComparison.Ordinal),
+                    "Il breakpoint non viene rimappato sul buffer modificato.");
+                Require(debugger.Continue(),
+                    "Continua non riparte dopo il breakpoint rimappato.");
+                Require(run.Wait(TimeSpan.FromSeconds(30)) &&
+                        run.Result.Succeeded,
+                    "Il workspace non termina dopo il remapping del breakpoint.");
+            }
+
+            Console.WriteLine(
+                "PASS matrice debugger costrutti attivi: state/fixed, continue, enum/select, Step Into/Over/Out, Continua, Stop e remapping multifile");
         }
 
         private static void RoundTripsVersionedDotNetArtifactContracts()
@@ -1144,6 +1557,34 @@ namespace DDFLanguageEditor.Compiler.Tests
                 .SelectMany(document => document.StructuralProgram.Members)
                 .OfType<DdfIrFunction>().Single(function =>
                     function.Name == "main");
+            int mainCallStart = mainFunction.Body.Statements[0].Start;
+            using (var debugger = new DdfDotNetCooperativeDebugger(
+                       firstEmission.Artifacts.Select(item => item.SourceMap)))
+            {
+                debugger.SetBreakpoints(new[]
+                {
+                    new DdfDotNetSourceBreakpoint("main.ddf", mainCallStart)
+                });
+                Task<DdfRuntimeExecutionResult> debugRun = Task.Run(() =>
+                    ExecuteForVerification(referenced.Plan, firstEmission,
+                        new List<string>(), debugger));
+                Require(debugger.WaitForPause(TimeSpan.FromSeconds(5)) &&
+                        debugger.CurrentPause.Location.DocumentPath == "main.ddf" &&
+                        debugger.CurrentPause.Frames[0].Name == "main",
+                    "Il breakpoint sulla chiamata non ha fermato il chiamante.");
+                debugger.Resume(DdfDotNetDebugCommand.StepInto);
+                Require(debugger.WaitForPause(TimeSpan.FromSeconds(5)) &&
+                        debugger.CurrentPause.Location.DocumentPath == "math.ddf" &&
+                        debugger.CurrentPause.Frames.Count == 2 &&
+                        debugger.CurrentPause.Frames[0].Name == "add" &&
+                        debugger.CurrentPause.Frames[1].Name == "main",
+                    "F11 da un breakpoint sulla chiamata si è fermato di nuovo " +
+                    "nel chiamante invece di entrare nel file esterno.");
+                debugger.Resume(DdfDotNetDebugCommand.Continue);
+                Require(debugRun.Wait(TimeSpan.FromSeconds(5)) &&
+                        Convert.ToInt32(debugRun.Result.Value) == 42,
+                    "Il runner non termina dopo lo Step Into multifile.");
+            }
             int mainOutputStart = mainFunction.Body.Statements[1].Start;
             using (var debugger = new DdfDotNetCooperativeDebugger(
                        firstEmission.Artifacts.Select(item => item.SourceMap)))
@@ -1574,16 +2015,86 @@ namespace DDFLanguageEditor.Compiler.Tests
                     "    do\n    {\n        total++;\n    } while(total < 9);\n" +
                     "    if(total == 9)\n    {\n        total >> Console;\n    }\n" +
                     "    ret total;\n}\n", null),
+                ("continue",
+                    "main() out int\n{\n    int total << 0;\n" +
+                    "    for(int index << 0; index < 6; index++)\n    {\n" +
+                    "        if(index == 2) { continue; }\n" +
+                    "        total << total + index;\n    }\n" +
+                    "    ret total;\n}\n", null),
+                ("nested-control-transfers",
+                    "main() out int\n{\n    int total << 0;\n" +
+                    "    for(int outer << 0; outer < 3; outer++)\n    {\n" +
+                    "        int inner << 0;\n        while(inner < 4)\n        {\n" +
+                    "            inner++;\n            if(inner == 1) { continue; }\n" +
+                    "            if(outer == 1 && inner == 2) { brk; }\n" +
+                    "            total++;\n        }\n        int probe << 0;\n" +
+                    "        do\n        {\n            probe++;\n" +
+                    "            if(probe == 1) { continue; }\n" +
+                    "            if(probe == 2) { brk; }\n        } while(probe < 3);\n" +
+                    "        if(outer == 0) { continue; }\n        select(outer)\n        {\n" +
+                    "            when 2 { if(total > 0) { ret total + 35; } }\n" +
+                    "            otherwise { total++; }\n        }\n    }\n" +
+                    "    ret 4000;\n}\n", null),
+                ("nested-end",
+                    "main() out int\n{\n    for(int outer << 0; outer < 2; outer++)\n    {\n" +
+                    "        int inner << 0;\n        while(inner < 2)\n        {\n" +
+                    "            inner++;\n            select(inner)\n            {\n" +
+                    "                when 1 { if(outer == 1) { end; } }\n" +
+                    "                otherwise { }\n            }\n        }\n    }\n" +
+                    "    ret 0;\n}\n", null),
+                ("nominal-enum",
+                    "enum Color { Red, Green, Blue }\n\n" +
+                    "main() out int\n{\n    Color selected;\n" +
+                    "    if(selected == Color.Red)\n    {\n        ret 42;\n    }\n" +
+                    "    ret 0;\n}\n", null),
+                ("fixed-enum",
+                    "enum Color { Red, Green, Blue }\n\n" +
+                    "fixed Color preferred << Color.Green;\n\n" +
+                    "main() out int\n{\n    fixed Color selected << preferred;\n" +
+                    "    if(selected == Color.Green)\n    {\n        ret 42;\n    }\n" +
+                    "    ret 0;\n}\n", null),
+                ("exhaustive-select",
+                    "enum Color { Red, Green, Blue }\n\n" +
+                    "main() out int\n{\n    Color selected << Color.Green;\n" +
+                    "    select(selected)\n    {\n" +
+                    "        when Color.Red { ret 1; }\n" +
+                    "        when Color.Green { ret 42; }\n" +
+                    "        when Color.Blue { ret 3; }\n    }\n}\n", null),
+                ("select-otherwise",
+                    "enum Color { Red, Green, Blue }\n\n" +
+                    "main() out int\n{\n    Color selected << Color.Blue;\n" +
+                    "    select(selected)\n    {\n" +
+                    "        when Color.Red { ret 1; }\n" +
+                    "        when Color.Green { ret 2; }\n" +
+                    "        otherwise { ret 42; }\n    }\n}\n", null),
                 ("arrays-structures",
                     "struct Box\n{\n    int value;\n}\n\n" +
                     "main() out int\n{\n    int[2] values;\n    Box box;\n" +
                     "    values[0] << 4;\n    values[1] << 5;\n" +
                     "    box.value << values[0] + values[1];\n" +
                     "    box.value >> Console;\n    ret box.value;\n}\n", null),
+                ("array-identity-and-single-length-evaluation",
+                    "int lengthCalls << 0;\n" +
+                    "size() out int { lengthCalls++; ret 3; }\n" +
+                    "mutate(int[3] values) out void { values[1] << 20; }\n" +
+                    "replaceLocally(int[3] values) out void { int[3] replacement; " +
+                    "values << replacement; values[0] << 99; }\n" +
+                    "main() out int\n{\n    int[size()] values;\n" +
+                    "    int[3] alias << values;\n    values[0] << 20;\n" +
+                    "    mutate(alias);\n    values[2] << 1;\n" +
+                    "    replaceLocally(alias);\n" +
+                    "    ret lengthCalls + values[0] + alias[1] + values[2];\n}\n", null),
                 ("input-conversion",
                     "main() out float\n{\n    string text << readLine();\n" +
                     "    float value << toFloat(text);\n    value >> Console;\n" +
                     "    ret value;\n}\n", "1.5"),
+                ("active-scalar-conversions",
+                    "main() out float\n{\n    int whole << toInt(\"  +20  \");\n" +
+                    "    float fraction << toFloat(\"2.2e1\");\n" +
+                    "    char letter << \"D\";\n    string text << \"DDF\";\n" +
+                    "    bool matches << letter == text[0];\n" +
+                    "    if(!matches) { ret 0; }\n" +
+                    "    ret whole + fraction;\n}\n", null),
                 ("integer-division",
                     "main() out int\n{\n    ret -7 / 2;\n}\n", null),
                 ("end",
@@ -1601,9 +2112,15 @@ namespace DDFLanguageEditor.Compiler.Tests
                     "main() out int\n{\n    ret 2 ^ -1;\n}\n", null),
                 ("invalid-conversion",
                     "main() out int\n{\n    ret toInt(\"DDF\");\n}\n", null),
+                ("integer-conversion-overflow",
+                    "main() out int\n{\n    ret toInt(\"2147483648\");\n}\n", null),
+                ("non-finite-conversion",
+                    "main() out float\n{\n    ret toFloat(\"1e309\");\n}\n", null),
                 ("array-bounds",
                     "main() out int\n{\n    int[1] values;\n" +
-                    "    ret values[2];\n}\n", null)
+                    "    ret values[2];\n}\n", null),
+                ("negative-array-length",
+                    "main() out int\n{\n    int[-1] values;\n    ret 0;\n}\n", null)
             };
             DdfLanguagePackage package = DdfLanguagePackageLoader
                 .LoadEmbeddedDefault().Package;
@@ -1706,10 +2223,10 @@ namespace DDFLanguageEditor.Compiler.Tests
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
-            Equal(5, successful);
-            Equal(6, failed);
-            Equal(1, terminated);
-            Console.WriteLine("PASS corpus differenziale VM/Roslyn: risultati, Output, flusso, conversioni e 6 errori runtime");
+            Equal(14, successful);
+            Equal(9, failed);
+            Equal(2, terminated);
+            Console.WriteLine("PASS corpus differenziale VM/Roslyn: risultati, enum, select, identità array, Output, flusso, conversioni invariant e 9 errori runtime");
         }
 
         private static bool EquivalentValue(object expected, object actual)
@@ -1814,11 +2331,11 @@ namespace DDFLanguageEditor.Compiler.Tests
                 workspaceCount++;
             }
 
-            Equal(6, validCount);
+            Equal(12, validCount);
             Equal(2, runtimeErrorCount);
-            Equal(2, workspaceCount);
+            Equal(4, workspaceCount);
             Console.WriteLine("PASS corpus normativo versionato VM/Roslyn: " +
-                "6 validi, 2 errori runtime e 2 workspace multifile");
+                "12 validi, 2 errori runtime e 4 workspace multifile");
         }
 
         private static DifferentialExecution ExecuteDifferential(string root,
@@ -2686,6 +3203,820 @@ namespace DDFLanguageEditor.Compiler.Tests
             }
         }
 
+        private static void VerifiesCompiledCapabilitySuspension()
+        {
+            VerifiesCompiledCapabilitySuspensionAsync().GetAwaiter().GetResult();
+        }
+
+        private static async Task VerifiesCompiledCapabilitySuspensionAsync()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-compiled-async-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                const string source =
+                    "main() out int\n{\n    ret hostWait(41) + 1;\n}\n";
+                File.WriteAllText(Path.Combine(root, "main.ddf"), source,
+                    new UTF8Encoding(false));
+                var catalog = new DdfEditorHostCatalog();
+                catalog.RegisterPermission(new DdfHostPermissionDefinition(
+                    "async.test", "Async test", "Test capability asincrona."));
+                catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                    "hostWait", "int", new[]
+                    {
+                        new DdfHostParameterDefinition("value", "int")
+                    }, arguments => arguments[0],
+                    requiredPermissions: new[] { "async.test" }));
+                catalog.SetPermission("async.test", true);
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "Compiled async suspension", package, "main.ddf");
+                project.Module.Id = "ddf.test.compiled-async";
+                project.Module.Version = "1.0.0";
+                project.Module.Exports.Add("main");
+                DdfBuildResult prepared = new DdfBuildService().Validate(root,
+                    project, package, null, catalog.Snapshot);
+                Require(prepared.Success,
+                    "Il test async non supera la pipeline Core.");
+                DdfDotNetReferenceSet references =
+                    DdfDotNetReferencePackResolver.Resolve(
+                        FindNet10ReferencePack(),
+                        typeof(DdfRuntimeAbi).Assembly.Location);
+                DdfDotNetCompilationPlanResult planned =
+                    DdfDotNetCompilationPlanner.Create(prepared,
+                        new DdfDotNetCompilationOptions("net10.0",
+                            DdfRuntimeAbi.Version, referenceSet: references));
+                Require(planned.Success, "Piano Roslyn async non valido.");
+                DdfDotNetArtifactEmissionResult emission =
+                    DdfDotNetArtifactEmitter.Emit(planned.Plan,
+                        package.Language.Types.ClrMapping);
+                Require(emission.Success, "Emit Roslyn async fallito: " +
+                    string.Join("; ", emission.Issues.Select(issue =>
+                        issue.Code + " " + issue.Message)));
+                var provider = new SuspendingCapabilityProvider(
+                    DdfDotNetHostCapabilities.ForFunction("hostWait"));
+                Task<DdfRuntimeExecutionResult> execution =
+                    ExecuteForVerificationAsync(planned.Plan, emission,
+                        provider);
+                await provider.Entered.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                Require(!execution.IsCompleted && provider.SyncInvocations == 0,
+                    "L'assembly Roslyn non si è sospeso in modo cooperativo o " +
+                    "ha usato il fallback sincrono.");
+                provider.Release.TrySetResult(41);
+                DdfRuntimeExecutionResult result = await execution.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                Require(Convert.ToInt32(result.Value,
+                            CultureInfo.InvariantCulture) == 42 &&
+                        provider.AsyncInvocations == 1 &&
+                        provider.SyncInvocations == 0,
+                    "La ripresa della capability Roslyn async non è deterministica.");
+
+                var timedOutProvider = new LateCapabilityProvider(
+                    DdfDotNetHostCapabilities.ForFunction("hostWait"));
+                Task<DdfRuntimeExecutionResult> timedOutExecution =
+                    ExecuteForVerificationAsync(planned.Plan, emission,
+                        timedOutProvider, capabilityTimeout:
+                            TimeSpan.FromMilliseconds(100));
+                await timedOutProvider.Entered.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                DdfRuntimeException timeoutError = null;
+                try { await timedOutExecution.ConfigureAwait(false); }
+                catch (DdfRuntimeException exception)
+                {
+                    timeoutError = exception;
+                }
+                Require(timeoutError?.Code == "DDF414" &&
+                        timedOutProvider.Resource.DisposeCount == 1 &&
+                        !timedOutProvider.Completed.Task.IsCompleted,
+                    "Timeout o cleanup della capability compilata sospesa non " +
+                    "sono deterministici.");
+                timedOutProvider.Release.TrySetResult(99);
+                await timedOutProvider.Completed.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                Require(timedOutProvider.Resource.DisposeCount == 1,
+                    "Una risposta tardiva ha riaperto o rilasciato due volte " +
+                    "la risorsa capability.");
+
+                using var stop = new CancellationTokenSource();
+                var stoppedProvider = new LateCapabilityProvider(
+                    DdfDotNetHostCapabilities.ForFunction("hostWait"));
+                Task<DdfRuntimeExecutionResult> stoppedExecution =
+                    ExecuteForVerificationAsync(planned.Plan, emission,
+                        stoppedProvider, stop.Token,
+                        TimeSpan.FromSeconds(5));
+                await stoppedProvider.Entered.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                stop.Cancel();
+                bool cancelled = false;
+                try { await stoppedExecution.ConfigureAwait(false); }
+                catch (OperationCanceledException) { cancelled = true; }
+                Require(cancelled &&
+                        stoppedProvider.Resource.DisposeCount == 1 &&
+                        !stoppedProvider.Completed.Task.IsCompleted,
+                    "Stop non ha cancellato e ripulito l'assembly sospeso.");
+                stoppedProvider.Release.TrySetResult(100);
+                await stoppedProvider.Completed.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                Require(stoppedProvider.Resource.DisposeCount == 1,
+                    "La risposta successiva a Stop ha alterato il cleanup.");
+                Console.WriteLine("PASS assembly Roslyn: sospensione, ripresa, timeout, Stop, risposta tardiva e cleanup");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void MatchesCleanupOrderAcrossVmAndCompiledBackend()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-cleanup-differential-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                const string source =
+                    "main() out int\n{\n" +
+                    "    int mode << hostAcquire();\n" +
+                    "    if(mode == 1)\n    {\n" +
+                    "        int zero << 0;\n" +
+                    "        ret 1 / zero;\n    }\n" +
+                    "    ret 42;\n}\n";
+                File.WriteAllText(Path.Combine(root, "main.ddf"), source,
+                    new UTF8Encoding(false));
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                DdfEditorHostCatalog buildCatalog = CreateCleanupCatalog(
+                    CleanupScenario.Success, new List<string>());
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "Cleanup differential", package, "main.ddf");
+                project.Module.Id = "ddf.test.cleanup-differential";
+                project.Module.Version = "1.0.0";
+                project.Module.Exports.Add("main");
+                DdfBuildResult prepared = new DdfBuildService().Validate(root,
+                    project, package, null, buildCatalog.Snapshot);
+                Require(prepared.Success,
+                    "Il caso cleanup non supera la pipeline Core: " +
+                    string.Join("; ", prepared.Issues));
+                DdfDotNetReferenceSet references =
+                    DdfDotNetReferencePackResolver.Resolve(
+                        FindNet10ReferencePack(),
+                        typeof(DdfRuntimeAbi).Assembly.Location);
+                DdfDotNetCompilationPlanResult planned =
+                    DdfDotNetCompilationPlanner.Create(prepared,
+                        new DdfDotNetCompilationOptions("net10.0",
+                            DdfRuntimeAbi.Version, referenceSet: references));
+                Require(planned.Success,
+                    "Piano Roslyn cleanup differenziale non valido.");
+                DdfDotNetArtifactEmissionResult emission =
+                    DdfDotNetArtifactEmitter.Emit(planned.Plan,
+                        package.Language.Types.ClrMapping);
+                Require(emission.Success,
+                    "Emit cleanup differenziale fallito: " + string.Join("; ",
+                        emission.Issues.Select(issue => issue.Code + " " +
+                            issue.Message)));
+                string capability = DdfDotNetHostCapabilities.ForFunction(
+                    "hostAcquire");
+
+                foreach (CleanupScenario scenario in new[]
+                         {
+                             CleanupScenario.Success,
+                             CleanupScenario.RuntimeError,
+                             CleanupScenario.Timeout,
+                             CleanupScenario.CleanupFailure
+                         })
+                {
+                    var vmEvents = new List<string>();
+                    var compiledEvents = new List<string>();
+                    DdfExecutionResult vm = DdfInterpreter.Execute(
+                        prepared.Artifact.RuntimeModules, package.Language,
+                        new DdfExecutionOptions
+                        {
+                            EntryPoint = "main",
+                            HostCatalog = CreateCleanupCatalog(scenario,
+                                vmEvents).Snapshot,
+                            HostCallTimeout = scenario == CleanupScenario.Timeout
+                                ? TimeSpan.FromMilliseconds(75)
+                                : TimeSpan.FromSeconds(2)
+                        });
+                    var provider = new CleanupMatrixCapabilityProvider(
+                        capability, scenario, compiledEvents);
+                    DdfRuntimeExecutionResult compiled = null;
+                    DdfRuntimeException compiledError = null;
+                    try
+                    {
+                        compiled = ExecuteForVerificationAsync(planned.Plan,
+                                emission, provider, capabilityTimeout:
+                                    scenario == CleanupScenario.Timeout
+                                        ? TimeSpan.FromMilliseconds(75)
+                                        : TimeSpan.FromSeconds(2))
+                            .GetAwaiter().GetResult();
+                    }
+                    catch (DdfRuntimeException exception)
+                    {
+                        compiledError = exception;
+                    }
+
+                    string[] expectedOrder = scenario ==
+                        CleanupScenario.CleanupFailure
+                        ? new[] { "third", "failing", "first" }
+                        : new[] { "second", "first" };
+                    Require(vmEvents.SequenceEqual(expectedOrder) &&
+                            compiledEvents.SequenceEqual(expectedOrder) &&
+                            vmEvents.SequenceEqual(compiledEvents),
+                        scenario + ": ordine cleanup divergente. VM=<" +
+                        string.Join(",", vmEvents) + "> Roslyn=<" +
+                        string.Join(",", compiledEvents) + ">.");
+
+                    if (scenario == CleanupScenario.Success)
+                    {
+                        Require(vm.Succeeded && compiledError == null &&
+                                compiled != null &&
+                                Convert.ToInt32(vm.ReturnValue,
+                                    CultureInfo.InvariantCulture) == 42 &&
+                                Convert.ToInt32(compiled.Value,
+                                    CultureInfo.InvariantCulture) == 42,
+                            "Il cleanup sul successo diverge fra VM e Roslyn.");
+                    }
+                    else
+                    {
+                        string expectedCode = scenario switch
+                        {
+                            CleanupScenario.RuntimeError => "DDF404",
+                            CleanupScenario.Timeout => "DDF414",
+                            CleanupScenario.CleanupFailure => "DDF415",
+                            _ => throw new InvalidOperationException()
+                        };
+                        Require(!vm.Succeeded && vm.Diagnostics.Any(item =>
+                                    item.Code == expectedCode) &&
+                                compiled == null &&
+                                compiledError?.Code == expectedCode,
+                            scenario + ": esito o diagnostica cleanup divergente; " +
+                            "atteso " + expectedCode + ".");
+                    }
+                }
+
+                var transferCases = new[]
+                {
+                    new
+                    {
+                        Name = "continue",
+                        Source = "main() out int\n{\n    int mode << hostAcquire();\n" +
+                            "    int total << 0;\n" +
+                            "    for(int index << 0; index < 3; index++)\n    {\n" +
+                            "        if(index == 1) { continue; }\n" +
+                            "        total++;\n    }\n    ret total + 40;\n}\n",
+                        ExpectedValue = 42,
+                        Ended = false
+                    },
+                    new
+                    {
+                        Name = "break",
+                        Source = "main() out int\n{\n    int mode << hostAcquire();\n" +
+                            "    int total << 2;\n    while(true)\n    {\n" +
+                            "        brk;\n        total << 1000;\n    }\n" +
+                            "    ret total + 40;\n}\n",
+                        ExpectedValue = 42,
+                        Ended = false
+                    },
+                    new
+                    {
+                        Name = "return",
+                        Source = "main() out int\n{\n    int mode << hostAcquire();\n" +
+                            "    if(mode == 0) { ret 42; }\n    ret 0;\n}\n",
+                        ExpectedValue = 42,
+                        Ended = false
+                    },
+                    new
+                    {
+                        Name = "end",
+                        Source = "main() out int\n{\n    int mode << hostAcquire();\n" +
+                            "    for(int index << 0; index < 2; index++)\n    {\n" +
+                            "        if(index == 0) { end; }\n    }\n    ret 0;\n}\n",
+                        ExpectedValue = 0,
+                        Ended = true
+                    }
+                };
+                foreach (var transfer in transferCases)
+                {
+                    string caseRoot = Path.Combine(root, "transfer-" +
+                        transfer.Name);
+                    Directory.CreateDirectory(caseRoot);
+                    File.WriteAllText(Path.Combine(caseRoot, "main.ddf"),
+                        transfer.Source, new UTF8Encoding(false));
+                    DdfProjectManifest transferProject =
+                        DdfProjectManifest.CreateImplicit(
+                            "Cleanup transfer " + transfer.Name, package,
+                            "main.ddf");
+                    transferProject.Module.Id =
+                        "ddf.test.cleanup-transfer." + transfer.Name;
+                    transferProject.Module.Version = "1.0.0";
+                    transferProject.Module.Exports.Add("main");
+                    DdfBuildResult transferPrepared = new DdfBuildService()
+                        .Validate(caseRoot, transferProject, package, null,
+                            buildCatalog.Snapshot);
+                    Require(transferPrepared.Success,
+                        transfer.Name + ": preparazione cleanup fallita — " +
+                        string.Join("; ", transferPrepared.Issues));
+                    DdfDotNetCompilationPlanResult transferPlanned =
+                        DdfDotNetCompilationPlanner.Create(transferPrepared,
+                            new DdfDotNetCompilationOptions("net10.0",
+                                DdfRuntimeAbi.Version,
+                                referenceSet: references));
+                    Require(transferPlanned.Success,
+                        transfer.Name + ": piano cleanup non valido.");
+                    DdfDotNetArtifactEmissionResult transferEmission =
+                        DdfDotNetArtifactEmitter.Emit(transferPlanned.Plan,
+                            package.Language.Types.ClrMapping);
+                    Require(transferEmission.Success,
+                        transfer.Name + ": emit cleanup fallito — " +
+                        string.Join("; ", transferEmission.Issues));
+
+                    var vmTransferEvents = new List<string>();
+                    DdfExecutionResult vmTransfer = DdfInterpreter.Execute(
+                        transferPrepared.Artifact.RuntimeModules,
+                        package.Language, new DdfExecutionOptions
+                        {
+                            EntryPoint = "main",
+                            HostCatalog = CreateCleanupCatalog(
+                                CleanupScenario.Success,
+                                vmTransferEvents).Snapshot
+                        });
+                    var compiledTransferEvents = new List<string>();
+                    var transferProvider = new CleanupMatrixCapabilityProvider(
+                        capability, CleanupScenario.Success,
+                        compiledTransferEvents);
+                    DdfRuntimeExecutionResult compiledTransfer =
+                        ExecuteForVerificationAsync(transferPlanned.Plan,
+                            transferEmission, transferProvider)
+                        .GetAwaiter().GetResult();
+                    string[] expectedTransferOrder = { "second", "first" };
+                    Require(vmTransfer.Succeeded &&
+                            vmTransfer.WasTerminated == transfer.Ended &&
+                            compiledTransfer.Ended == transfer.Ended &&
+                            vmTransferEvents.SequenceEqual(
+                                expectedTransferOrder) &&
+                            compiledTransferEvents.SequenceEqual(
+                                expectedTransferOrder),
+                        transfer.Name +
+                        ": cleanup singolo/LIFO o terminazione divergente. VM=<" +
+                        string.Join(",", vmTransferEvents) + "> Roslyn=<" +
+                        string.Join(",", compiledTransferEvents) + ">.");
+                    if (!transfer.Ended)
+                    {
+                        Require(Convert.ToInt32(vmTransfer.ReturnValue,
+                                    CultureInfo.InvariantCulture) ==
+                                transfer.ExpectedValue &&
+                                Convert.ToInt32(compiledTransfer.Value,
+                                    CultureInfo.InvariantCulture) ==
+                                transfer.ExpectedValue,
+                            transfer.Name +
+                            ": risultato divergente durante il cleanup.");
+                    }
+                }
+
+                var vmStopEvents = new List<string>();
+                using var vmStop = new CancellationTokenSource();
+                using var vmEntered = new ManualResetEventSlim(false);
+                Task<DdfExecutionResult> vmStopped = Task.Run(() =>
+                    DdfInterpreter.Execute(prepared.Artifact.RuntimeModules,
+                        package.Language, new DdfExecutionOptions
+                        {
+                            EntryPoint = "main",
+                            HostCatalog = CreateCleanupCatalog(
+                                CleanupScenario.Stop, vmStopEvents,
+                                vmEntered).Snapshot,
+                            HostCallTimeout = TimeSpan.FromSeconds(5),
+                            CancellationToken = vmStop.Token
+                        }));
+                Require(vmEntered.Wait(TimeSpan.FromSeconds(5)),
+                    "La VM non ha raggiunto la capability prima dello Stop.");
+                vmStop.Cancel();
+                Require(vmStopped.Wait(TimeSpan.FromSeconds(5)) &&
+                        vmStopped.Result.WasCancelled,
+                    "La VM non ha completato lo Stop differenziale.");
+
+                var compiledStopEvents = new List<string>();
+                using var compiledStop = new CancellationTokenSource();
+                var stoppedProvider = new CleanupMatrixCapabilityProvider(
+                    capability, CleanupScenario.Stop, compiledStopEvents);
+                Task<DdfRuntimeExecutionResult> compiledStopped =
+                    ExecuteForVerificationAsync(planned.Plan, emission,
+                        stoppedProvider, compiledStop.Token,
+                        TimeSpan.FromSeconds(5));
+                Require(stoppedProvider.Entered.Wait(TimeSpan.FromSeconds(5)),
+                    "Roslyn non ha raggiunto la capability prima dello Stop.");
+                compiledStop.Cancel();
+                bool compiledCancelled = false;
+                try
+                {
+                    compiledStopped.GetAwaiter().GetResult();
+                }
+                catch (OperationCanceledException)
+                {
+                    compiledCancelled = true;
+                }
+                Require(compiledCancelled &&
+                        vmStopEvents.SequenceEqual(new[] { "second", "first" }) &&
+                        compiledStopEvents.SequenceEqual(vmStopEvents),
+                    "Stop o ordine cleanup divergente fra VM e Roslyn.");
+
+                Console.WriteLine("PASS cleanup differenziale VM/Roslyn: " +
+                    "continue, brk, ret, end, successo, errore, timeout, Stop e fallimento in ordine LIFO");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void PersistsStateAcrossVmAndCompiledSessions()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-state-differential-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                const string source =
+                    "state int calls << 0;\n" +
+                    "main() out int\n{\n    calls++;\n    ret calls;\n}\n";
+                File.WriteAllText(Path.Combine(root, "main.ddf"), source,
+                    new UTF8Encoding(false));
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "State differential", package, "main.ddf");
+                project.Module.Id = "ddf.test.state-differential";
+                project.Module.Version = "1.0.0";
+                project.Module.Exports.Add("main");
+                DdfBuildResult prepared = new DdfBuildService().Validate(root,
+                    project, package);
+                Require(prepared.Success,
+                    "Il caso state non supera la pipeline Core: " +
+                    string.Join("; ", prepared.Issues));
+                DdfDotNetReferenceSet references =
+                    DdfDotNetReferencePackResolver.Resolve(
+                        FindNet10ReferencePack(),
+                        typeof(DdfRuntimeAbi).Assembly.Location);
+                DdfDotNetCompilationPlanResult planned =
+                    DdfDotNetCompilationPlanner.Create(prepared,
+                        new DdfDotNetCompilationOptions("net10.0",
+                            DdfRuntimeAbi.Version, referenceSet: references));
+                Require(planned.Success, "Piano Roslyn state non valido.");
+                DdfDotNetArtifactEmissionResult emission =
+                    DdfDotNetArtifactEmitter.Emit(planned.Plan,
+                        package.Language.Types.ClrMapping);
+                Require(emission.Success, "Emit state fallito: " +
+                    string.Join("; ", emission.Issues.Select(issue =>
+                        issue.Code + " " + issue.Message)));
+
+                var vmState = new DdfStateStore();
+                DdfExecutionResult vmFirst = DdfInterpreter.Execute(
+                    prepared.Artifact.RuntimeModules, package.Language,
+                    new DdfExecutionOptions
+                    {
+                        EntryPoint = "main",
+                        StateStore = vmState
+                    });
+                DdfExecutionResult vmSecond = DdfInterpreter.Execute(
+                    prepared.Artifact.RuntimeModules, package.Language,
+                    new DdfExecutionOptions
+                    {
+                        EntryPoint = "main",
+                        StateStore = vmState
+                    });
+                Require(vmFirst.Succeeded && vmSecond.Succeeded &&
+                        Convert.ToInt32(vmFirst.ReturnValue,
+                            CultureInfo.InvariantCulture) == 1 &&
+                        Convert.ToInt32(vmSecond.ReturnValue,
+                            CultureInfo.InvariantCulture) == 2,
+                    "La VM non ha mantenuto state fra due esecuzioni.");
+
+                DdfDotNetLinkedBundle bundle = CreateBundle(planned.Plan,
+                    emission, references);
+                DdfDotNetRuntimeEnvironment environment = new(
+                    DdfDotNetArtifactHostKind.Standalone, "net10.0",
+                    DdfRuntimeAbi.Version, string.Empty,
+                    Array.Empty<string>());
+                PersistedRuntimeStateSnapshot firstSnapshot;
+                using (DdfDotNetStandaloneSession session =
+                       LoadSession(bundle, references, environment))
+                {
+                    DdfRuntimeExecutionResult result = session.Execute(
+                        new DdfRuntimeContext(100000));
+                    firstSnapshot = session.CaptureState();
+                    Require(Convert.ToInt32(result.Value,
+                                CultureInfo.InvariantCulture) == 1 &&
+                            firstSnapshot.Entries.Count == 1 &&
+                            (int)firstSnapshot.Entries[0].Value == 1,
+                        "La prima sessione compilata non ha catturato state.");
+                }
+
+                PersistedRuntimeStateSnapshot secondSnapshot;
+                using (DdfDotNetStandaloneSession session =
+                       LoadSession(bundle, references, environment))
+                {
+                    session.RestoreState(firstSnapshot);
+                    DdfRuntimeExecutionResult result = session.Execute(
+                        new DdfRuntimeContext(100000));
+                    secondSnapshot = session.CaptureState();
+                    Require(Convert.ToInt32(result.Value,
+                                CultureInfo.InvariantCulture) == 2 &&
+                            (int)secondSnapshot.Entries.Single().Value == 2,
+                        "La seconda sessione compilata non ha ripristinato state.");
+                }
+                Require(secondSnapshot.Entries.Single().Key ==
+                            vmState.Snapshot().Single().Key &&
+                        secondSnapshot.Entries.Single().TypeName == "int" &&
+                        (int)secondSnapshot.Entries.Single().Value ==
+                            (int)vmState.Snapshot().Single().Value,
+                    "Chiave, tipo o valore state divergono fra VM e Roslyn.");
+
+                using (DdfDotNetStandaloneSession session =
+                       LoadSession(bundle, references, environment))
+                {
+                    bool languageRejected = false;
+                    try
+                    {
+                        session.RestoreState(new PersistedRuntimeStateSnapshot(
+                            PersistedRuntimeStateSnapshot.CurrentSchemaVersion,
+                            "different-language",
+                            firstSnapshot.LanguagePackageVersion,
+                            firstSnapshot.Entries));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        languageRejected = true;
+                    }
+                    Require(languageRejected,
+                        "Uno snapshot di un altro linguaggio è stato accettato.");
+                }
+
+                using (DdfDotNetStandaloneSession session =
+                       LoadSession(bundle, references, environment))
+                {
+                    PersistedRuntimeStateEntry current =
+                        firstSnapshot.Entries.Single();
+                    session.RestoreState(new PersistedRuntimeStateSnapshot(
+                        PersistedRuntimeStateSnapshot.CurrentSchemaVersion,
+                        firstSnapshot.LanguageId,
+                        firstSnapshot.LanguagePackageVersion,
+                        new[] { new PersistedRuntimeStateEntry(current.Key,
+                            "string", "wrong-type") }));
+                    bool typeRejected = false;
+                    try
+                    {
+                        session.Execute(new DdfRuntimeContext(100000));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        typeRejected = true;
+                    }
+                    bool failedStateUnavailable = false;
+                    try { session.CaptureState(); }
+                    catch (InvalidOperationException)
+                    {
+                        failedStateUnavailable = true;
+                    }
+                    Require(typeRejected && failedStateUnavailable,
+                        "Uno state incompatibile è stato applicato o committato.");
+                }
+
+                using (DdfDotNetStandaloneSession session =
+                       LoadSession(bundle, references, environment))
+                {
+                    session.RestoreState(firstSnapshot);
+                    DdfRuntimeExecutionResult result = session.Execute(
+                        new DdfRuntimeContext(100000));
+                    Require(Convert.ToInt32(result.Value,
+                                CultureInfo.InvariantCulture) == 2,
+                        "Un tentativo state fallito ha alterato lo snapshot committato.");
+                }
+                Console.WriteLine("PASS state persistente VM/Roslyn: " +
+                    "chiavi stabili, restore tipizzato, commit e rollback");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void PreservesTypedErrorsAcrossVmAndCompiledFiles()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-error-differential-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                const string mainSource =
+                    "main() out int\n{\n    ret bridge();\n}\n";
+                const string helperSource =
+                    "fail() out int\n{\n    int zero << 0;\n" +
+                    "    ret 42 / zero;\n}\n\n" +
+                    "bridge() out int\n{\n    ret fail();\n}\n";
+                File.WriteAllText(Path.Combine(root, "main.ddf"), mainSource,
+                    new UTF8Encoding(false));
+                File.WriteAllText(Path.Combine(root, "errors.ddf"), helperSource,
+                    new UTF8Encoding(false));
+
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "Typed error differential", package, "main.ddf");
+                project.Module.Id = "ddf.test.error-differential";
+                project.Module.Version = "1.0.0";
+                project.Module.Exports.Add("main");
+                DdfDotNetReferenceSet references =
+                    DdfDotNetReferencePackResolver.Resolve(
+                        FindNet10ReferencePack(),
+                        typeof(DdfRuntimeAbi).Assembly.Location);
+                DifferentialExecution execution = ExecuteDifferential(root,
+                    project, package, references);
+                RequireEquivalentTypedError(execution,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["main.ddf"] = mainSource,
+                        ["errors.ddf"] = helperSource
+                    }, new[] { "fail", "bridge", "main" }, new[]
+                    {
+                        "errors.ddf", "errors.ddf", "main.ddf"
+                    }, "multifile");
+
+                string moduleRoot = Path.Combine(root, "module-workspace");
+                string moduleSample = Path.Combine(RepositoryRoot(), "samples",
+                    "module-workspace");
+                foreach (string file in Directory.EnumerateFiles(moduleSample,
+                             "*", SearchOption.AllDirectories))
+                {
+                    string destination = Path.Combine(moduleRoot,
+                        Path.GetRelativePath(moduleSample, file));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                    File.Copy(file, destination);
+                }
+                const string scaleSource =
+                    "scale(int value) out int\n{\n    int zero << 0;\n" +
+                    "    ret value / zero;\n}\n";
+                string scalePath = Path.Combine(moduleRoot, ".ddf", "modules",
+                    "ddf.sample.scale", "1.0.0", "scale.ddf");
+                File.WriteAllText(scalePath, scaleSource,
+                    new UTF8Encoding(false));
+                DdfProjectManifestLoadResult loaded =
+                    DdfProjectManifestLoader.Load(moduleRoot);
+                Require(loaded.Success,
+                    "Il workspace modulare per gli errori non è valido.");
+                DifferentialExecution moduleExecution = ExecuteDifferential(
+                    moduleRoot, loaded.Manifest, package, references);
+                string moduleMainSource = File.ReadAllText(Path.Combine(
+                    moduleRoot, "main.ddf"), Encoding.UTF8);
+                RequireEquivalentTypedError(moduleExecution,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["main.ddf"] = moduleMainSource,
+                        ["scale.ddf"] = scaleSource
+                    }, new[] { "scale", "main" }, new[]
+                    {
+                        "scale.ddf", "main.ddf"
+                    }, "modulo versionato");
+
+                Console.WriteLine("PASS errori tipizzati VM/Roslyn: codice, " +
+                    "tipo, messaggio, posizione e stack invariati fra file e moduli");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RequireEquivalentTypedError(
+            DifferentialExecution execution,
+            IReadOnlyDictionary<string, string> sources,
+            IReadOnlyList<string> expectedFunctions,
+            IReadOnlyList<string> expectedFiles, string scenario)
+        {
+            Require(!execution.Vm.Succeeded && execution.Vm.Error != null &&
+                    execution.Compiled == null &&
+                    execution.CompiledError != null,
+                "Il caso errore " + scenario +
+                " non è fallito su entrambi i backend.");
+            DdfErrorValue vmError = execution.Vm.Error;
+            DdfRuntimeException compiledError = execution.CompiledError;
+            Require(DdfErrorCatalog.TryGetByCode(compiledError.Code,
+                        out DdfErrorDefinition compiledDefinition) &&
+                    vmError.Code == compiledError.Code &&
+                    vmError.TypeId == compiledDefinition.TypeId &&
+                    vmError.Message == compiledError.Message &&
+                    vmError.Start == compiledError.Location.Start &&
+                    vmError.Length == compiledError.Location.Length &&
+                    Path.GetFileName(vmError.DocumentPath) ==
+                    Path.GetFileName(compiledError.Location.DocumentPath),
+                scenario + ": codice, tipo, messaggio o posizione divergono.");
+            Require(vmError.Stack.Count == expectedFunctions.Count &&
+                    compiledError.Frames.Count == vmError.Stack.Count,
+                scenario + ": cardinalità dello stack DDF non valida.");
+            for (int index = 0; index < vmError.Stack.Count; index++)
+            {
+                DdfErrorStackFrame vmFrame = vmError.Stack[index];
+                DdfRuntimeErrorFrame compiledFrame = compiledError.Frames[index];
+                string declarationFile = Path.GetFileName(
+                    compiledFrame.Declaration.DocumentPath);
+                Require(sources.TryGetValue(declarationFile,
+                        out string declarationSource),
+                    scenario + ": sorgente dichiarazione non riconosciuto: " +
+                    declarationFile + ".");
+                string declarationText = declarationSource.Substring(
+                    compiledFrame.Declaration.Start,
+                    compiledFrame.Declaration.Length);
+                Require(declarationText.StartsWith(vmFrame.FunctionName + "(",
+                            StringComparison.Ordinal) &&
+                        compiledFrame.Location.Start <= vmFrame.Start &&
+                        compiledFrame.Location.Start +
+                            compiledFrame.Location.Length >=
+                            vmFrame.Start + vmFrame.Length &&
+                        Path.GetFileName(vmFrame.DocumentPath) ==
+                        Path.GetFileName(compiledFrame.Location.DocumentPath),
+                    scenario + ": frame errore " + index +
+                    " divergente fra VM e Roslyn.");
+            }
+            Require(vmError.Stack.Select(frame => frame.FunctionName)
+                    .SequenceEqual(expectedFunctions) &&
+                    vmError.Stack.Select(frame => Path.GetFileName(
+                            frame.DocumentPath)).SequenceEqual(expectedFiles),
+                scenario + ": ordine o provenienza dello stack non validi.");
+        }
+
+        private static DdfDotNetLinkedBundle CreateBundle(
+            DdfDotNetCompilationPlan plan,
+            DdfDotNetArtifactEmissionResult emission,
+            DdfDotNetReferenceSet references)
+        {
+            DdfDotNetArtifactLinkResult linked = DdfDotNetArtifactLinker.Link(
+                plan.EntryModuleIdentity,
+                emission.Artifacts.Select(item => item.Manifest));
+            Require(linked.Success, "Link state fallito: " +
+                string.Join("; ", linked.Issues.Select(issue =>
+                    issue.Code + " " + issue.Message)));
+            DdfDotNetLinkedBundleResult bundled =
+                DdfDotNetLinkedBundleBuilder.Create(linked.Program, emission,
+                    references);
+            Require(bundled.Success, "Bundle state fallito: " +
+                string.Join("; ", bundled.Issues.Select(issue =>
+                    issue.Code + " " + issue.Message)));
+            return bundled.Bundle;
+        }
+
+        private static DdfDotNetStandaloneSession LoadSession(
+            DdfDotNetLinkedBundle bundle, DdfDotNetReferenceSet references,
+            DdfDotNetRuntimeEnvironment environment)
+        {
+            DdfDotNetStandaloneLoadResult loaded =
+                DdfDotNetStandaloneLoader.Load(bundle, references,
+                    environment);
+            Require(loaded.Success, "Load state fallito: " +
+                string.Join("; ", loaded.Issues.Select(issue =>
+                    issue.Code + " " + issue.Message)));
+            return loaded.Session;
+        }
+
+        private static DdfEditorHostCatalog CreateCleanupCatalog(
+            CleanupScenario scenario, IList<string> events,
+            ManualResetEventSlim entered = null)
+        {
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "hostAcquire", "int",
+                Array.Empty<DdfHostParameterDefinition>(), null,
+                invokeAsync: async (context, arguments) =>
+                {
+                    RegisterCleanupResources(scenario, events,
+                        context.RegisterResource,
+                        context.RegisterAsyncResource);
+                    entered?.Set();
+                    if (scenario is CleanupScenario.Timeout or
+                        CleanupScenario.Stop)
+                        await Task.Delay(Timeout.InfiniteTimeSpan,
+                            context.CancellationToken).ConfigureAwait(false);
+                    return scenario == CleanupScenario.RuntimeError ? 1 : 0;
+                }));
+            return catalog;
+        }
+
+        private static void RegisterCleanupResources(CleanupScenario scenario,
+            IList<string> events, Action<IDisposable> register,
+            Action<IAsyncDisposable> registerAsync)
+        {
+            register(new OrderedCleanupResource("first", events));
+            if (scenario == CleanupScenario.CleanupFailure)
+            {
+                register(new OrderedCleanupResource("failing", events,
+                    throwOnDispose: true));
+                registerAsync(new OrderedAsyncCleanupResource("third", events));
+            }
+            else
+                registerAsync(new OrderedAsyncCleanupResource("second", events));
+        }
+
         private static void RunsReadOnlyFileBrokerOutOfProcess()
         {
             string root = Path.Combine(Path.GetTempPath(), "ddf-file-broker-" +
@@ -3291,8 +4622,59 @@ namespace DDFLanguageEditor.Compiler.Tests
                     .GetAwaiter().GetResult();
                 Require(!denied.Success && transport.SendCount == 1,
                     "Il worker ha inoltrato una risorsa HTTP live non concessa.");
-                Console.WriteLine("PASS network broker live duplex: grant " +
-                    "logico, preflight host, receipt e deny-by-default");
+
+                request.CorrelationId = "compiler-live-network-timeout";
+                request.LiveNetworkResources = new List<string> { "weather" };
+                var lateHandler = new LateDuplexCapabilityHandler();
+                Task<DdfDotNetWorkerExecutionResult> timedOutTask =
+                    DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
+                        request, new DdfDotNetWorkerResourceLimits(
+                            TimeSpan.FromMilliseconds(750),
+                            maxProcessCpuTime: TimeSpan.FromSeconds(30)),
+                        lateHandler);
+                lateHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                    .GetAwaiter().GetResult();
+                DdfDotNetWorkerExecutionResult timedOut = timedOutTask
+                    .WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                Require(timedOut.TimedOut && !timedOut.Success &&
+                        timedOut.Issues.Any(issue => issue.Code == "DDFC531") &&
+                        lateHandler.CancellationObserved.Task.IsCompleted &&
+                        !lateHandler.Completed.Task.IsCompleted,
+                    "Il timeout worker non ha cancellato il callback locale " +
+                    "senza attenderlo indefinitamente.");
+                lateHandler.Release.TrySetResult("late-network");
+                lateHandler.Completed.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                    .GetAwaiter().GetResult();
+                Require(!timedOut.Success && timedOut.Response == null,
+                    "La risposta tardiva ha alterato l'esito già chiuso del worker.");
+
+                request.CorrelationId = "compiler-live-network-stop";
+                var stoppedHandler = new LateDuplexCapabilityHandler();
+                using var stopSource = new CancellationTokenSource();
+                Task<DdfDotNetWorkerExecutionResult> stoppedTask =
+                    DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
+                        request, new DdfDotNetWorkerResourceLimits(
+                            TimeSpan.FromSeconds(30)), stoppedHandler,
+                        stopSource.Token);
+                stoppedHandler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                    .GetAwaiter().GetResult();
+                stopSource.Cancel();
+                bool stopped = false;
+                try
+                {
+                    stoppedTask.WaitAsync(TimeSpan.FromSeconds(5))
+                        .GetAwaiter().GetResult();
+                }
+                catch (OperationCanceledException) { stopped = true; }
+                Require(stopped &&
+                        stoppedHandler.CancellationObserved.Task.IsCompleted &&
+                        !stoppedHandler.Completed.Task.IsCompleted,
+                    "Stop non ha interrotto il worker con callback host tardivo.");
+                stoppedHandler.Release.TrySetResult("after-stop");
+                stoppedHandler.Completed.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                    .GetAwaiter().GetResult();
+                Console.WriteLine("PASS network broker live duplex: grant, " +
+                    "deny-by-default, timeout, Stop e risposta tardiva");
             }
             finally
             {
@@ -3682,6 +5064,14 @@ namespace DDFLanguageEditor.Compiler.Tests
                 Require(!exhausted.Success && exhausted.Issues.Any(issue =>
                         issue.Code == "DDF408"),
                     "L'esaurimento della coda Input non ha prodotto DDF408.");
+                Require(exhausted.Response?.ErrorLocation != null &&
+                        exhausted.Response.ErrorLocation.DocumentPath ==
+                            "main.ddf" &&
+                        exhausted.Response.ErrorStack.Count == 1 &&
+                        !string.IsNullOrWhiteSpace(
+                            exhausted.Response.ErrorStack[0].SymbolId),
+                    "Il worker non ha trasportato posizione e stack DDF " +
+                    "dell'errore tipizzato.");
                 bool budgetRejected = false;
                 try
                 {
@@ -3716,8 +5106,8 @@ namespace DDFLanguageEditor.Compiler.Tests
                         issue => issue.Code == "DDFC543"),
                     "Il protocollo ha accettato un comando Stop nel piano " +
                     "debug batch.");
-                Console.WriteLine("PASS worker protocollo 1.9: input " +
-                    "bufferizzato, debug batch DDF, DDF408 e quote");
+                Console.WriteLine("PASS worker protocollo 2.0: input " +
+                    "bufferizzato, debug batch DDF, DDF408 tipizzato e quote");
             }
             finally
             {
@@ -3785,6 +5175,23 @@ namespace DDFLanguageEditor.Compiler.Tests
                 DdfDotNetWorkerRequest request = DdfDotNetWorkerProtocol
                     .CreateRequest(bundled.Bundle, references, environment,
                         100000, "compiler-worker-interactive-input", policy,
+                        debugPlan: new DdfDotNetWorkerDebugPlan
+                        {
+                            Breakpoints = new List<
+                                DdfDotNetWorkerDebugBreakpoint>
+                            {
+                                new()
+                                {
+                                    SourcePath = "main.ddf",
+                                    Start = source.IndexOf(
+                                        "string first",
+                                        StringComparison.Ordinal),
+                                    Length = 1
+                                }
+                            },
+                            Interactive = true,
+                            MaxPauses = 4
+                        },
                         interactiveInput:
                             new DdfDotNetWorkerInteractiveInputOptions
                             {
@@ -3792,27 +5199,164 @@ namespace DDFLanguageEditor.Compiler.Tests
                                 MaxValueBytes = 64
                             });
                 var values = new Queue<string>(new[] { "live", "input" });
-                var handler = new DdfDotNetWorkerInteractiveInputHandler(
+                var inputHandler = new DdfDotNetWorkerInteractiveInputHandler(
                     cancellationToken =>
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         return ValueTask.FromResult(values.Dequeue());
                     });
+                var debugHandler = new DdfDotNetWorkerInteractiveDebugHandler(
+                    (pause, cancellationToken) => ValueTask.FromResult(
+                        DdfDotNetDebugCommand.Continue));
+                var handler = new DdfDotNetWorkerDuplexCapabilityRouter(new[]
+                {
+                    new KeyValuePair<string,
+                        IDdfDotNetWorkerDuplexCapabilityHandler>(
+                        DdfDotNetWorkerBrokerCapabilities.ReadConsoleInput,
+                        inputHandler),
+                    new KeyValuePair<string,
+                        IDdfDotNetWorkerDuplexCapabilityHandler>(
+                        DdfDotNetWorkerBrokerCapabilities.NextDebugCommand,
+                        debugHandler)
+                });
+                var observer = new CooperativeWorkerObserver();
                 string workerPath = RunnerPath();
                 DdfDotNetWorkerExecutionResult execution =
                     DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
                         request, new DdfDotNetWorkerResourceLimits(
-                            TimeSpan.FromSeconds(30)), handler)
+                            TimeSpan.FromSeconds(30)), handler, observer)
                     .GetAwaiter().GetResult();
                 Require(execution.Success &&
                         execution.Response.ResultJson == "9" &&
                         execution.Response.Output.SequenceEqual(
                             new[] { "live", "input" }) &&
                         execution.Response.ConsumedInputCount == 2 &&
-                        handler.RequestCount == 2,
+                        inputHandler.RequestCount == 2 &&
+                        debugHandler.PauseCount == 1 &&
+                        observer.Awaiting.Count == 2 &&
+                        observer.Resumed.Count == 2 &&
+                        observer.Awaiting.All(item =>
+                            item.CapabilityId ==
+                                DdfDotNetWorkerBrokerCapabilities
+                                    .ReadConsoleInput &&
+                            item.DebugSnapshot?.Location?.DocumentPath ==
+                                "main.ddf" &&
+                            item.DebugSnapshot.Frames.Count > 0),
                     "L'input interattivo duplex non è stato consumato: " +
                     string.Join("; ", execution.Issues.Select(issue =>
                         issue.Code + " " + issue.Message)));
+                Require(observer.Awaiting.Zip(observer.Resumed,
+                        (awaiting, resumed) =>
+                            awaiting.RequestId == resumed.RequestId &&
+                            awaiting.CorrelationId == resumed.CorrelationId)
+                        .All(value => value),
+                    "Le notifiche di sospensione e ripresa non sono correlate.");
+                string projectedSnapshots = JsonSerializer.Serialize(
+                    observer.Awaiting.Select(item => item.DebugSnapshot));
+                Require(observer.Awaiting.All(item =>
+                            item.DebugSnapshot.Frames.All(frame =>
+                                frame.Name == "main" &&
+                                frame.Location.DocumentPath == "main.ddf" &&
+                                frame.Variables.All(variable =>
+                                    !string.IsNullOrWhiteSpace(variable.Name) &&
+                                    !variable.Name.Contains("<",
+                                        StringComparison.Ordinal)))) &&
+                        !projectedSnapshots.Contains("DdfGenerated_",
+                            StringComparison.Ordinal) &&
+                        !projectedSnapshots.Contains("Microsoft.CodeAnalysis",
+                            StringComparison.Ordinal) &&
+                        !projectedSnapshots.Contains("System.Runtime.CompilerServices",
+                            StringComparison.Ordinal),
+                    "La sospensione cooperativa espone frame o temporanei CLR/Roslyn.");
+
+                request.CorrelationId =
+                    "compiler-worker-interactive-input-timeout";
+                var timeoutEntered = new TaskCompletionSource<object>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var timeoutInput = new DdfDotNetWorkerInteractiveInputHandler(
+                    async cancellationToken =>
+                    {
+                        timeoutEntered.TrySetResult(null);
+                        await Task.Delay(Timeout.InfiniteTimeSpan,
+                            cancellationToken).ConfigureAwait(false);
+                        return string.Empty;
+                    });
+                var timeoutRouter = new DdfDotNetWorkerDuplexCapabilityRouter(
+                    new[]
+                    {
+                        new KeyValuePair<string,
+                            IDdfDotNetWorkerDuplexCapabilityHandler>(
+                            DdfDotNetWorkerBrokerCapabilities.ReadConsoleInput,
+                            timeoutInput),
+                        new KeyValuePair<string,
+                            IDdfDotNetWorkerDuplexCapabilityHandler>(
+                            DdfDotNetWorkerBrokerCapabilities.NextDebugCommand,
+                            debugHandler)
+                    });
+                var timeoutObserver = new CooperativeWorkerObserver();
+                Task<DdfDotNetWorkerExecutionResult> timeoutExecution =
+                    DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
+                        request, new DdfDotNetWorkerResourceLimits(
+                            TimeSpan.FromSeconds(5)), timeoutRouter,
+                        timeoutObserver);
+                timeoutEntered.Task.WaitAsync(TimeSpan.FromSeconds(4))
+                    .GetAwaiter().GetResult();
+                DdfDotNetWorkerExecutionResult timedOut = timeoutExecution
+                    .GetAwaiter().GetResult();
+                Require(timedOut.TimedOut &&
+                        timeoutObserver.Awaiting.Count == 1 &&
+                        timeoutObserver.Resumed.Count == 1 &&
+                        timeoutObserver.Awaiting[0].RequestId ==
+                            timeoutObserver.Resumed[0].RequestId,
+                    "Il timeout worker non chiude in modo correlato la " +
+                    "sospensione cooperativa.");
+
+                request.CorrelationId =
+                    "compiler-worker-interactive-input-stop";
+                var stopEntered = new TaskCompletionSource<object>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var stopInput = new DdfDotNetWorkerInteractiveInputHandler(
+                    async cancellationToken =>
+                    {
+                        stopEntered.TrySetResult(null);
+                        await Task.Delay(Timeout.InfiniteTimeSpan,
+                            cancellationToken).ConfigureAwait(false);
+                        return string.Empty;
+                    });
+                var stopRouter = new DdfDotNetWorkerDuplexCapabilityRouter(
+                    new[]
+                    {
+                        new KeyValuePair<string,
+                            IDdfDotNetWorkerDuplexCapabilityHandler>(
+                            DdfDotNetWorkerBrokerCapabilities.ReadConsoleInput,
+                            stopInput),
+                        new KeyValuePair<string,
+                            IDdfDotNetWorkerDuplexCapabilityHandler>(
+                            DdfDotNetWorkerBrokerCapabilities.NextDebugCommand,
+                            debugHandler)
+                    });
+                var stopObserver = new CooperativeWorkerObserver();
+                using (var stop = new CancellationTokenSource())
+                {
+                    Task<DdfDotNetWorkerExecutionResult> stoppedExecution =
+                        DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
+                            request, new DdfDotNetWorkerResourceLimits(
+                                TimeSpan.FromSeconds(30)), stopRouter,
+                            stopObserver, stop.Token);
+                    stopEntered.Task.WaitAsync(TimeSpan.FromSeconds(5))
+                        .GetAwaiter().GetResult();
+                    stop.Cancel();
+                    bool cancelled = false;
+                    try { stoppedExecution.GetAwaiter().GetResult(); }
+                    catch (OperationCanceledException) { cancelled = true; }
+                    Require(cancelled &&
+                            stopObserver.Awaiting.Count == 1 &&
+                            stopObserver.Resumed.Count == 1 &&
+                            stopObserver.Awaiting[0].RequestId ==
+                                stopObserver.Resumed[0].RequestId,
+                        "Stop non chiude in modo correlato la sospensione " +
+                        "cooperativa del worker.");
+                }
 
                 request.CorrelationId =
                     "compiler-worker-interactive-input-legacy";
@@ -3837,7 +5381,8 @@ namespace DDFLanguageEditor.Compiler.Tests
                 Require(quotaRejected,
                     "Il protocollo ha accettato una quota input live invalida.");
                 Console.WriteLine("PASS input console duplex: richieste live, " +
-                    "quote e rifiuto senza canale interattivo");
+                    "snapshot DDF correlati, timeout, Stop, quote e rifiuto " +
+                    "senza canale interattivo");
             }
             finally
             {
@@ -4022,6 +5567,8 @@ namespace DDFLanguageEditor.Compiler.Tests
             {
                 const string hostile = "#error injected; namespace Evil { }";
                 string source =
+                    "fixed int fixedBase << 40;\n\n" +
+                    "state int stateCounter << 0;\n\n" +
                     "message() out string\n" +
                     "{\n" +
                     "    ret \"" + hostile + "\";\n" +
@@ -4037,7 +5584,8 @@ namespace DDFLanguageEditor.Compiler.Tests
                     "    {\n" +
                     "        values[index] << index;\n" +
                     "    }\n" +
-                    "    int total << sum(values[1], 20);\n" +
+                    "    fixed int fixedOffset << 1;\n" +
+                    "    int total << sum(values[1], fixedBase + fixedOffset);\n" +
                     "    print(message());\n" +
                     "    length(message());\n" +
                     "    toInt(\"2\");\n" +
@@ -4122,8 +5670,46 @@ namespace DDFLanguageEditor.Compiler.Tests
                         syntax.DescendantNodes().OfType<InvocationExpressionSyntax>()
                             .Any(invocation => invocation.Expression.ToString()
                                 .EndsWith("DdfRuntimeNumeric.ToInt",
+                                    StringComparison.Ordinal)) &&
+                        syntax.DescendantNodes().OfType<InvocationExpressionSyntax>()
+                            .Any(invocation => invocation.Expression.ToString()
+                                .EndsWith("RegisterDebugState",
                                     StringComparison.Ordinal)),
                     "I binding standard non sono stati tradotti per identità semantica.");
+                Require(item.BoundUnit.Symbols.Any(symbol =>
+                            symbol.Kind == DdfBoundSymbolKind.Global &&
+                            symbol.Name == "fixedBase" && !symbol.IsWritable) &&
+                        item.BoundUnit.Symbols.Any(symbol =>
+                            symbol.Kind == DdfBoundSymbolKind.Local &&
+                            symbol.Name == "fixedOffset" && !symbol.IsWritable) &&
+                        item.BoundUnit.Symbols.Any(symbol =>
+                            symbol.Kind == DdfBoundSymbolKind.Global &&
+                            symbol.Name == "stateCounter" && symbol.IsState &&
+                            symbol.IsWritable),
+                    "fixed o state non sono sopravvissuti nella IR bound.");
+                DdfBoundSymbol fixedBase = item.BoundUnit.Symbols.Single(symbol =>
+                    symbol.Kind == DdfBoundSymbolKind.Global &&
+                    symbol.Name == "fixedBase");
+                DdfBoundSymbol fixedOffset = item.BoundUnit.Symbols.Single(symbol =>
+                    symbol.Kind == DdfBoundSymbolKind.Local &&
+                    symbol.Name == "fixedOffset");
+                foreach (DdfBoundSymbol fixedSymbol in new[]
+                         { fixedBase, fixedOffset })
+                {
+                    InvocationExpressionSyntax registration = syntax
+                        .DescendantNodes().OfType<InvocationExpressionSyntax>()
+                        .Single(invocation => invocation.ArgumentList.Arguments.Count == 5 &&
+                            invocation.ArgumentList.Arguments[0].Expression is
+                                RoslynLiteralExpressionSyntax literal &&
+                            string.Equals(literal.Token.ValueText,
+                                fixedSymbol.Id, StringComparison.Ordinal));
+                    Require(registration.ArgumentList.Arguments[3].Expression
+                                .IsKind(CSharpSyntaxKind.TrueLiteralExpression) &&
+                            registration.ArgumentList.Arguments[4].Expression
+                                .IsKind(CSharpSyntaxKind.TrueLiteralExpression),
+                        "La registrazione debug Roslyn di fixed non espone " +
+                        "sola lettura e identità fixed.");
+                }
                 DdfDotNetCompilationBuildResult semantic =
                     DdfDotNetCompilationBuilder.Create(item,
                         package.Language.Types.ClrMapping);
@@ -4163,13 +5749,18 @@ namespace DDFLanguageEditor.Compiler.Tests
                 Require(initializedSyntax.DescendantNodes()
                         .OfType<MethodDeclarationSyntax>().Any(method =>
                             method.Identifier.ValueText == initializerItem.GeneratedNames
-                                .ModuleInitializerName) &&
+                                .ModuleInitializerName &&
+                            method.Modifiers.Any(modifier => modifier.IsKind(
+                                CSharpSyntaxKind.AsyncKeyword))) &&
                         initializedSyntax.DescendantNodes()
-                            .OfType<ConstructorDeclarationSyntax>().Any(constructor =>
-                                constructor.ParameterList.Parameters.Any(parameter =>
+                            .OfType<MethodDeclarationSyntax>().Any(method =>
+                                method.Identifier.ValueText == "CreateAsync" &&
+                                method.Modifiers.Any(modifier => modifier.IsKind(
+                                    CSharpSyntaxKind.AsyncKeyword)) &&
+                                method.ParameterList.Parameters.Any(parameter =>
                                     parameter.Identifier.ValueText ==
                                         "DdfRuntime_Context")),
-                    "Il coordinatore di modulo o il costruttore contestuale manca.");
+                    "Il coordinatore di modulo o la factory contestuale async manca.");
                 DdfDotNetCompilationBuildResult initializedSemantic =
                     DdfDotNetCompilationBuilder.Create(initializerItem,
                         package.Language.Types.ClrMapping);
@@ -4740,16 +6331,88 @@ namespace DDFLanguageEditor.Compiler.Tests
             }
         }
 
+        private static async Task<DdfRuntimeExecutionResult>
+            ExecuteForVerificationAsync(DdfDotNetCompilationPlan plan,
+                DdfDotNetArtifactEmissionResult emission,
+                IDdfRuntimeCapabilityProvider capabilityProvider,
+                CancellationToken cancellationToken = default,
+                TimeSpan? capabilityTimeout = null)
+        {
+            var loadContext = new VerificationLoadContext(emission.Artifacts);
+            try
+            {
+                DdfDotNetCompilationWorkItem entry = plan.WorkItems.Single(item =>
+                    item.Identity == plan.EntryModuleIdentity);
+                DdfDotNetEmittedArtifact entryArtifact = emission.Artifacts.Single(
+                    item => item.ModuleIdentity == entry.Identity);
+                Assembly assembly = loadContext.LoadArtifact(entryArtifact);
+                Type container = assembly.GetType(entry.GeneratedNames.NamespaceName +
+                    "." + entry.GeneratedNames.ContainerTypeName,
+                    throwOnError: true);
+                DdfBoundSymbol main = entry.BoundUnit.Symbols.Single(symbol =>
+                    symbol.ModuleIdentity == entry.Identity &&
+                    symbol.Kind == DdfBoundSymbolKind.Function &&
+                    symbol.Name == "main");
+                MethodInfo initializer = container.GetMethod(
+                    entry.GeneratedNames.ModuleInitializerName,
+                    BindingFlags.Public | BindingFlags.Static) ??
+                    throw new InvalidOperationException(
+                        "Coordinatore del modulo compilato non trovato.");
+                MethodInfo entryPoint = container.GetMethod(
+                    entry.GeneratedNames.GetIdentifier(main.Id),
+                    BindingFlags.Public | BindingFlags.Static) ??
+                    throw new InvalidOperationException(
+                        "Entry point compilato non trovato.");
+                var context = new DdfRuntimeContext(100000,
+                    cancellationToken, capabilityProvider: capabilityProvider,
+                    capabilityTimeout: capabilityTimeout);
+                return await context.ExecuteAsync(async runtime =>
+                {
+                    await InvokeAsync(initializer, runtime).ConfigureAwait(false);
+                    return await InvokeAsync(entryPoint, runtime)
+                        .ConfigureAwait(false);
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                loadContext.Unload();
+            }
+        }
+
         private static object Invoke(MethodInfo method,
             DdfRuntimeContext context)
         {
-            try { return method.Invoke(null, new object[] { context }); }
+            object invocation;
+            try { invocation = method.Invoke(null, new object[] { context }); }
             catch (TargetInvocationException exception)
                 when (exception.InnerException != null)
             {
                 ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
                 throw;
             }
+            if (invocation is not Task task) return invocation;
+            task.GetAwaiter().GetResult();
+            PropertyInfo result = task.GetType().GetProperty("Result",
+                BindingFlags.Public | BindingFlags.Instance);
+            return result?.GetValue(task);
+        }
+
+        private static async Task<object> InvokeAsync(MethodInfo method,
+            DdfRuntimeContext context)
+        {
+            object invocation;
+            try { invocation = method.Invoke(null, new object[] { context }); }
+            catch (TargetInvocationException exception)
+                when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
+            if (invocation is not Task task) return invocation;
+            await task.ConfigureAwait(false);
+            PropertyInfo result = task.GetType().GetProperty("Result",
+                BindingFlags.Public | BindingFlags.Instance);
+            return result?.GetValue(task);
         }
 
         private static int LineAt(string source, int start)
@@ -4759,6 +6422,48 @@ namespace DDFLanguageEditor.Compiler.Tests
             for (int index = 0; index < end; index++)
                 if (source[index] == '\n') line++;
             return line;
+        }
+
+        private sealed class DebugPauseRecorder : IDisposable
+        {
+            private readonly object sync = new();
+            private readonly Queue<DdfEditorDebugSnapshot> snapshots = new();
+            private readonly AutoResetEvent available = new(false);
+            private readonly IDdfEditorDebugService debugger;
+
+            public DebugPauseRecorder(IDdfEditorDebugService debugger)
+            {
+                this.debugger = debugger ??
+                    throw new ArgumentNullException(nameof(debugger));
+                debugger.Paused += DebuggerOnPaused;
+            }
+
+            public DdfEditorDebugSnapshot Wait()
+            {
+                DateTime deadline = DateTime.UtcNow.AddSeconds(15);
+                while (true)
+                {
+                    lock (sync)
+                        if (snapshots.Count > 0) return snapshots.Dequeue();
+                    TimeSpan remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero || !available.WaitOne(remaining))
+                        throw new InvalidOperationException(
+                            "Timeout in attesa della prossima pausa DDF.");
+                }
+            }
+
+            public void Dispose()
+            {
+                debugger.Paused -= DebuggerOnPaused;
+                available.Dispose();
+            }
+
+            private void DebuggerOnPaused(object sender,
+                DdfEditorDebugPausedEventArgs args)
+            {
+                lock (sync) snapshots.Enqueue(args.Snapshot);
+                available.Set();
+            }
         }
 
         private static int FirstMethodIlOffset(byte[] assemblyBytes)
@@ -5009,6 +6714,106 @@ namespace DDFLanguageEditor.Compiler.Tests
             internal List<string> CompiledOutput { get; } = new();
         }
 
+        private enum CleanupScenario
+        {
+            Success,
+            RuntimeError,
+            Timeout,
+            Stop,
+            CleanupFailure
+        }
+
+        private sealed class OrderedCleanupResource : IDisposable
+        {
+            private readonly string name;
+            private readonly IList<string> events;
+            private readonly bool throwOnDispose;
+            private int disposed;
+
+            internal OrderedCleanupResource(string name, IList<string> events,
+                bool throwOnDispose = false)
+            {
+                this.name = name;
+                this.events = events;
+                this.throwOnDispose = throwOnDispose;
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref disposed, 1) != 0)
+                    throw new InvalidOperationException(
+                        "Risorsa rilasciata due volte: " + name + ".");
+                events.Add(name);
+                if (throwOnDispose)
+                    throw new InvalidOperationException(
+                        "Cleanup intenzionalmente fallito: " + name + ".");
+            }
+        }
+
+        private sealed class OrderedAsyncCleanupResource : IAsyncDisposable
+        {
+            private readonly string name;
+            private readonly IList<string> events;
+            private int disposed;
+
+            internal OrderedAsyncCleanupResource(string name,
+                IList<string> events)
+            {
+                this.name = name;
+                this.events = events;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                if (Interlocked.Exchange(ref disposed, 1) != 0)
+                    throw new InvalidOperationException(
+                        "Risorsa asincrona rilasciata due volte: " + name + ".");
+                events.Add(name);
+                return ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class CleanupMatrixCapabilityProvider :
+            IDdfRuntimeAsyncCapabilityProvider
+        {
+            private readonly string capability;
+            private readonly CleanupScenario scenario;
+            private readonly IList<string> events;
+
+            internal CleanupMatrixCapabilityProvider(string capability,
+                CleanupScenario scenario, IList<string> events)
+            {
+                this.capability = capability;
+                this.scenario = scenario;
+                this.events = events;
+            }
+
+            internal ManualResetEventSlim Entered { get; } = new(false);
+
+            public object Invoke(string capabilityId,
+                IReadOnlyList<object> arguments,
+                CancellationToken cancellationToken) =>
+                throw new InvalidOperationException(
+                    "Il gate cleanup richiede il percorso asincrono.");
+
+            public async ValueTask<object> InvokeAsync(string capabilityId,
+                IReadOnlyList<object> arguments,
+                DdfRuntimeCapabilityInvocationContext context)
+            {
+                if (!string.Equals(capabilityId, capability,
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "Capability cleanup inattesa: " + capabilityId + ".");
+                RegisterCleanupResources(scenario, events,
+                    context.RegisterResource, context.RegisterAsyncResource);
+                Entered.Set();
+                if (scenario is CleanupScenario.Timeout or CleanupScenario.Stop)
+                    await Task.Delay(Timeout.InfiniteTimeSpan,
+                        context.CancellationToken).ConfigureAwait(false);
+                return scenario == CleanupScenario.RuntimeError ? 1 : 0;
+            }
+        }
+
         private sealed class DelegateCapabilityProvider :
             IDdfRuntimeAsyncCapabilityProvider
         {
@@ -5044,6 +6849,154 @@ namespace DDFLanguageEditor.Compiler.Tests
                 LastTransactionId = context.TransactionId;
                 return Invoke(capabilityId, arguments,
                     context.CancellationToken);
+            }
+        }
+
+        private sealed class SuspendingCapabilityProvider :
+            IDdfRuntimeAsyncCapabilityProvider
+        {
+            private readonly string capabilityId;
+
+            internal SuspendingCapabilityProvider(string capabilityId) =>
+                this.capabilityId = capabilityId;
+
+            internal TaskCompletionSource<bool> Entered { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<object> Release { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal int SyncInvocations { get; private set; }
+            internal int AsyncInvocations { get; private set; }
+
+            public object Invoke(string requestedCapabilityId,
+                IReadOnlyList<object> arguments,
+                CancellationToken cancellationToken)
+            {
+                SyncInvocations++;
+                throw new InvalidOperationException(
+                    "Il fallback sincrono non deve essere invocato.");
+            }
+
+            public async ValueTask<object> InvokeAsync(
+                string requestedCapabilityId,
+                IReadOnlyList<object> arguments,
+                DdfRuntimeCapabilityInvocationContext context)
+            {
+                if (!string.Equals(requestedCapabilityId, capabilityId,
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "Capability asincrona inattesa: " +
+                        requestedCapabilityId + ".");
+                AsyncInvocations++;
+                Entered.TrySetResult(true);
+                return await Release.Task.WaitAsync(context.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        private sealed class LateCapabilityProvider :
+            IDdfRuntimeAsyncCapabilityProvider
+        {
+            private readonly string capabilityId;
+
+            internal LateCapabilityProvider(string capabilityId) =>
+                this.capabilityId = capabilityId;
+
+            internal TaskCompletionSource<bool> Entered { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<object> Release { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<bool> Completed { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TrackedAsyncResource Resource { get; } = new();
+
+            public object Invoke(string requestedCapabilityId,
+                IReadOnlyList<object> arguments,
+                CancellationToken cancellationToken) => throw new
+                InvalidOperationException(
+                    "Il provider tardivo non ammette il fallback sincrono.");
+
+            public async ValueTask<object> InvokeAsync(
+                string requestedCapabilityId,
+                IReadOnlyList<object> arguments,
+                DdfRuntimeCapabilityInvocationContext context)
+            {
+                if (!string.Equals(requestedCapabilityId, capabilityId,
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "Capability tardiva inattesa.");
+                context.RegisterAsyncResource(Resource);
+                Entered.TrySetResult(true);
+                try
+                {
+                    // Deliberatamente non usa il token: il runtime deve poter
+                    // terminare comunque e ignorare il risultato tardivo.
+                    return await Release.Task.ConfigureAwait(false);
+                }
+                finally { Completed.TrySetResult(true); }
+            }
+        }
+
+        private sealed class LateDuplexCapabilityHandler :
+            IDdfDotNetWorkerDuplexCapabilityHandler
+        {
+            internal TaskCompletionSource<bool> Entered { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<string> Release { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<bool> CancellationObserved {
+                get;
+            } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            internal TaskCompletionSource<bool> Completed { get; } = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public async ValueTask<DdfDotNetWorkerDuplexCapabilityResult>
+                InvokeAsync(string capabilityId,
+                    IReadOnlyList<string> argumentsJson,
+                    CancellationToken cancellationToken)
+            {
+                using CancellationTokenRegistration registration =
+                    cancellationToken.Register(() =>
+                        CancellationObserved.TrySetResult(true));
+                Entered.TrySetResult(true);
+                try
+                {
+                    // Simula un adapter host guasto che ignora Stop/timeout.
+                    string value = await Release.Task.ConfigureAwait(false);
+                    return DdfDotNetWorkerDuplexCapabilityResult.Succeeded(
+                        JsonSerializer.Serialize(value));
+                }
+                finally { Completed.TrySetResult(true); }
+            }
+        }
+
+        private sealed class CooperativeWorkerObserver :
+            IDdfDotNetWorkerCooperativeExecutionObserver
+        {
+            internal List<DdfDotNetWorkerCooperativeSuspension> Awaiting {
+                get;
+            } = new();
+            internal List<DdfDotNetWorkerCooperativeSuspension> Resumed {
+                get;
+            } = new();
+
+            public void OnAwaitingCapability(
+                DdfDotNetWorkerCooperativeSuspension suspension) =>
+                Awaiting.Add(suspension);
+
+            public void OnCapabilityResumed(
+                DdfDotNetWorkerCooperativeSuspension suspension) =>
+                Resumed.Add(suspension);
+        }
+
+        private sealed class TrackedAsyncResource : IAsyncDisposable
+        {
+            private int disposeCount;
+            internal int DisposeCount => Volatile.Read(ref disposeCount);
+
+            public ValueTask DisposeAsync()
+            {
+                Interlocked.Increment(ref disposeCount);
+                return ValueTask.CompletedTask;
             }
         }
 

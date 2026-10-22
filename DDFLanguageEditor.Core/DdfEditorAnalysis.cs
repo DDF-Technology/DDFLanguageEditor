@@ -299,8 +299,10 @@ namespace DDFLanguageEditor.Core
                     item.Documentation, item.TypeName, "Host", int.MaxValue));
             IEnumerable<DdfCompletionItem> functions = catalog.Functions.Select(item =>
                 new DdfCompletionItem(item.Name, item.Name, DdfCompletionKind.Function,
-                    item.Signature + (string.IsNullOrWhiteSpace(item.Documentation)
-                        ? string.Empty : " — " + item.Documentation),
+                    DdfErrorPresentation.AppendDeclarations(
+                        item.Signature + (string.IsNullOrWhiteSpace(item.Documentation)
+                            ? string.Empty : " — " + item.Documentation),
+                        item.RecoverableErrors),
                     item.ReturnType, "Host", int.MaxValue));
             return types.Concat(objects).Concat(functions);
         }

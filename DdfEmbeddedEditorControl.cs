@@ -113,6 +113,27 @@ namespace DDF___Program_Language_Editor
 
         public bool ContinueDebug() => shell.ContinueEmbeddedDebug();
 
+        /// <summary>
+        /// Reapplies syntax colors, gutter and overview after host-side layout
+        /// operations that may recreate native WinForms handles.
+        /// </summary>
+        public void RefreshEditorPresentation() =>
+            shell.RefreshEmbeddedEditorPresentation();
+
+        /// <summary>
+        /// Captures the movable toolbar order, rows and visibility so the host
+        /// can persist it with its own application state.
+        /// </summary>
+        public string CaptureToolbarLayout() =>
+            shell.CaptureEmbeddedToolbarLayout();
+
+        /// <summary>
+        /// Restores a toolbar snapshot previously captured by this SDK.
+        /// Invalid or future data is rejected without changing the current layout.
+        /// </summary>
+        public bool RestoreToolbarLayout(string serialized) =>
+            shell.RestoreEmbeddedToolbarLayout(serialized);
+
         public void SetModuleStoreCapability(DdfEmbeddedModuleStoreCapability capability)
         {
             shell.SetEmbeddedModuleStoreCapability(capability);
@@ -120,6 +141,28 @@ namespace DDF___Program_Language_Editor
         }
 
         public void RevokeModuleStoreCapability() => SetModuleStoreCapability(null);
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            SchedulePresentationRefresh();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible) SchedulePresentationRefresh();
+        }
+
+        private void SchedulePresentationRefresh()
+        {
+            if (!IsHandleCreated || IsDisposed || Disposing) return;
+            BeginInvoke(new Action(() =>
+            {
+                if (!IsDisposed && !Disposing && Visible)
+                    shell.RefreshEmbeddedEditorPresentation();
+            }));
+        }
 
         protected override void Dispose(bool disposing)
         {

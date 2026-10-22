@@ -4,6 +4,11 @@ Stato: **baseline congelata in valutazione**
 Inizio del ciclo: 2026-09-29  
 Baseline: `ddf-0.12-candidate-cycle-1`
 
+La baseline storica è conservata dal commit
+`c3decfefa84eb19cdd03869417440fac6a198f97`; dalla linea DDF `0.13` le impronte
+restano una ricevuta del candidato chiuso e non vengono ricalcolate sui file
+canonici correnti.
+
 ## Scopo
 
 Questo ciclo verifica con utilizzo reale che specifica, pacchetto canonico,
@@ -81,10 +86,10 @@ decisione mancante o inesistente, versione invariata e decisione non collegata.
 | Gate | Stato iniziale | Evidenza richiesta |
 | --- | --- | --- |
 | Baseline normativa immutata | Attivo | test delle impronte SHA-256 |
-| Analisi e diagnostiche | Verificato automaticamente | 6 validi, 8 non validi, 4 incompleti e 3 workspace multi-file |
-| IntelliSense e formatter | Verificato nel Core | snapshot di completamento sui validi/incompleti; formatter idempotente e semanticamente equivalente sui 6 validi |
-| Debugger e runtime VM | Verificato nel Core | pausa/ripresa sulla `ret` raggiungibile e risultato invariato per ognuno dei 6 programmi validi; oracoli runtime e multi-file |
-| Build di preparazione corrente | Verificato nel Core | doppia validazione con fingerprint riproducibile dei 6 validi e Build dei 3 workspace; backend `ddf-vm-ir-v1` |
+| Analisi e diagnostiche | Verificato automaticamente | corpus corrente: 12 validi, 16 non validi, 8 incompleti e 4 workspace multi-file |
+| IntelliSense e formatter | Verificato nel Core | snapshot di completamento sui validi/incompleti; formatter idempotente e semanticamente equivalente sui 12 validi |
+| Debugger e runtime VM | Verificato nel Core | pausa/ripresa sulla `ret` raggiungibile e risultato invariato per ognuno dei 12 programmi validi; oracoli runtime e multi-file |
+| Build di preparazione corrente | Verificato nel Core | doppia validazione con fingerprint riproducibile dei 12 validi e Build dei 4 workspace; backend `ddf-vm-ir-v1` |
 | Uso reale | In corso | smoke WinForms e 76 comandi superati; sessione umana `DDF_CANDIDATE_MANUAL_SESSION.md` ancora da completare |
 
 La regressione `verifies the DDF candidate toolchain against the normative corpus`
@@ -93,6 +98,10 @@ verifica esplicitamente che la formattazione non cambi output o valore restituit
 che il debugger raggiunga una pausa reale e che due preparazioni Build producano
 la stessa impronta. Gli smoke WinForms restano un gate complementare per la UI,
 non una nuova definizione della semantica.
+
+I conteggi sono l'evidenza corrente del gate mantenuto e includono le estensioni
+normative DDF 0.13. Le impronte del candidato 0.12 restano invece congelate nel
+baseline: ampliare il corpus non riscrive retroattivamente quella specifica.
 
 Il runner Roslyn non appartiene a questo ciclo: verrà collegato allo stesso corpus
 nella `0.13`. La parola “Build” nella `0.12.5` indica ancora validazione e

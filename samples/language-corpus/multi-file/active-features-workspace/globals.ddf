@@ -1,0 +1,8 @@
+enum Mode
+{
+    Base,
+    Extended
+}
+
+fixed int baseValue << 39;
+state int calls << 0;

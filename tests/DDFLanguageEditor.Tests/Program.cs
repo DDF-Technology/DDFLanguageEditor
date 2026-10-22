@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.IO.Compression;
 using System.Globalization;
@@ -95,6 +96,8 @@ namespace DDFLanguageEditor.Tests
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
             Run("builds a source-linked flowchart from intermediate representation", BuildsSourceLinkedFlowchart);
             Run("models pre-test post-test and counted loops in flowcharts", ModelsAllFlowchartLoopForms);
+            Run("routes active flowchart control transfers to semantic targets",
+                RoutesActiveFlowchartControlTransfersToSemanticTargets);
             Run("validates the complex flowchart regression matrix", ValidatesComplexFlowchartRegressionMatrix);
             Run("collapses linear flowchart sequences without losing source links", CollapsesLinearFlowchartSequences);
             Run("keeps only the newest asynchronous flowchart snapshot", KeepsNewestFlowchartSnapshot);
@@ -104,13 +107,43 @@ namespace DDFLanguageEditor.Tests
             Run("resolves editor definitions across supplied buffers", ResolvesEditorDefinitionsAcrossBuffers);
             Run("lays out flowcharts deterministically without overlapping ranks", LaysOutFlowchartsDeterministically);
             Run("executes and diagnoses from intermediate representation", ExecutesAndDiagnosesFromIntermediateRepresentation);
+            Run("supports nominal enums across parser type checker IR and VM", SupportsNominalEnumsAcrossCorePipeline);
+            Run("executes exhaustive multi-way selection without fall-through", ExecutesExhaustiveMultiWaySelection);
+            Run("validates the active enum and selection acceptance matrix", ValidatesActiveEnumAndSelectionAcceptanceMatrix);
             Run("runs isolated host execution sessions", RunsIsolatedHostExecutionSessions);
+            Run("governs host execution schedulers", GovernsHostExecutionSchedulers);
+            Run("routes only UI capabilities through the host dispatcher",
+                RoutesOnlyUiCapabilitiesThroughHostDispatcher);
+            Run("observes asynchronous stop and disposal lifecycles",
+                ObservesAsynchronousStopAndDisposalLifecycles);
+            Run("owns transactional state per editor host instance", OwnsTransactionalStatePerEditorHostInstance);
             Run("shares an explicit host catalog across IntelliSense type checking and runtime", SharesHostCatalogAcrossPipelines);
+            Run("separates typed recoverable errors from engine faults", SeparatesTypedRecoverableErrorsFromEngineFaults);
+            Run("transports typed errors across VM and host boundaries", TransportsTypedErrorsAcrossVmAndHostBoundaries);
+            Run("keeps the future error handling design explicit and inactive", KeepsFutureErrorHandlingDesignExplicitAndInactive);
+            Run("keeps the future optional value design explicit and inactive", KeepsFutureOptionalValueDesignExplicitAndInactive);
+            Run("keeps the future module qualification design explicit and inactive", KeepsFutureModuleQualificationDesignExplicitAndInactive);
+            Run("keeps the future typed iteration design explicit and inactive", KeepsFutureTypedIterationDesignExplicitAndInactive);
+            Run("keeps the future typed collection design explicit and inactive", KeepsFutureTypedCollectionDesignExplicitAndInactive);
+            Run("keeps the future extended numeric design explicit and inactive", KeepsFutureExtendedNumericDesignExplicitAndInactive);
+            Run("keeps the future string library design explicit and inactive", KeepsFutureStringLibraryDesignExplicitAndInactive);
+            Run("keeps the future math library design explicit and inactive", KeepsFutureMathLibraryDesignExplicitAndInactive);
+            Run("keeps the future temporal and random design explicit and inactive", KeepsFutureTemporalRandomDesignExplicitAndInactive);
+            Run("keeps the future standard library binding contract explicit and inactive", KeepsFutureStandardLibraryBindingContractExplicitAndInactive);
+            Run("keeps the future host dialog contract explicit and inactive", KeepsFutureHostDialogContractExplicitAndInactive);
+            Run("keeps the future project testing contract explicit and inactive", KeepsFutureProjectTestingContractExplicitAndInactive);
+            Run("keeps the future resource lifetime contract explicit and inactive", KeepsFutureResourceLifetimeContractExplicitAndInactive);
+            Run("keeps the future cooperative async contract explicit and inactive", KeepsFutureCooperativeAsyncContractExplicitAndInactive);
+            Run("guards cooperative suspension generations and late results", GuardsCooperativeSuspensionGenerationsAndLateResults);
             Run("enforces host value adapters access and lifetimes", EnforcesHostValueAdaptersAccessAndLifetimes);
+            Run("enforces strict typed scalar and enum host adapters", EnforcesStrictTypedHostAdapters);
             Run("returns immutable typed host values after execution", ReturnsImmutableTypedHostValuesAfterExecution);
             Run("invokes typed procedures manually and from host events", InvokesTypedProceduresManuallyAndFromHostEvents);
             Run("separates analysis simulation and host effects", SeparatesAnalysisSimulationAndHostEffects);
             Run("bounds asynchronous host operations and releases resources", BoundsAsyncHostOperationsAndReleasesResources);
+            Run("authorizes observes and revokes opaque host resource leases", AuthorizesObservesAndRevokesHostResourceLeases);
+            Run("suspends host calls without occupying the execution worker", SuspendsHostCallsWithoutOccupyingExecutionWorker);
+            Run("keeps embedded debugger snapshots while awaiting capabilities", KeepsEmbeddedDebuggerSnapshotsWhileAwaitingCapabilities);
             Run("executes parameterized typed database services", ExecutesParameterizedTypedDatabaseServices);
             Run("registers typed host function libraries atomically", RegistersTypedHostFunctionLibrariesAtomically);
             Run("reports and rolls back partial host effects", ReportsAndRollsBackPartialHostEffects);
@@ -123,7 +156,11 @@ namespace DDFLanguageEditor.Tests
             Run("loads and executes package-defined standard functions", LoadsAndExecutesPackageDefinedStandardFunctions);
             Run("enforces the versioned minimum standard library contract", EnforcesMinimumStandardLibraryContract);
             Run("keeps the autonomous specification aligned with the canonical package", KeepsAutonomousSpecificationAligned);
+            Run("keeps every active language increment declaratively integrated", KeepsActiveLanguageIncrementsDeclarativelyIntegrated);
+            Run("keeps backend equivalence evidence explicit and release blocking", KeepsBackendEquivalenceEvidenceExplicitAndReleaseBlocking);
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
+            Run("keeps the authoritative version matrix aligned", KeepsAuthoritativeVersionMatrixAligned);
+            Run("inspects and migrates persisted artifacts atomically", InspectsAndMigratesPersistedArtifactsAtomically);
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
             Run("keeps candidate issues classified without implicit language changes", KeepsCandidateIssuesClassified);
             Run("rejects ungoverned incompatible DDF candidate changes", RejectsUngovernedCandidateChanges);
@@ -140,6 +177,7 @@ namespace DDFLanguageEditor.Tests
             Run("governs adapter families without promoting planned integrations", GovernsAdapterFamiliesWithoutPromotion);
             Run("projects one external API contract across analysis and runtime", ProjectsExternalApiAcrossAnalysisAndRuntime);
             Run("resolves versioned modules with export visibility and cycle checks", ResolvesVersionedModulesWithExportVisibilityAndCycleChecks);
+            Run("validates direct module visibility collisions and deterministic navigation", ValidatesDirectModuleVisibilityCollisionsAndDeterministicNavigation);
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
             Run("validates the shipped multi-file flowchart workspace", ValidatesShippedFlowchartWorkspace);
             Run("validates and debugs the shipped large workspace", ValidatesAndDebugsShippedLargeWorkspace);
@@ -157,8 +195,10 @@ namespace DDFLanguageEditor.Tests
             Run("executes a syntax-distinct demonstration language", ExecutesSyntaxDistinctDemonstrationLanguage);
             Run("keeps the shipped syntax profiles semantically equivalent", KeepsShippedSyntaxProfilesSemanticallyEquivalent);
             Run("converts equivalent syntax profiles without touching protected text", ConvertsEquivalentSyntaxProfilesSafely);
+            Run("plans keyword migrations and blocks identifier collisions", PlansKeywordMigrationsAndBlocksIdentifierCollisions);
             Run("drives diagnostics and flowchart presentation from language packages", DrivesPresentationFromLanguagePackages);
             Run("validates the normative syntax profile corpus", ValidatesNormativeSyntaxProfileCorpus);
+            Run("validates the language-service interaction matrix", ValidatesLanguageServiceInteractionMatrix);
             Run("rejects unreachable lexical rules", RejectsUnreachableLexicalRules);
             Run("rejects invalid language packages atomically", RejectsInvalidLanguagePackagesAtomically);
             Run("falls back to the embedded language package", FallsBackToEmbeddedLanguagePackage);
@@ -175,6 +215,7 @@ namespace DDFLanguageEditor.Tests
             Run("renames library names without damaging directives", RenamesLibraryNamesWithoutDamagingDirectives);
             Run("renames structure declarations and type references", RenamesStructureDeclarationsAndTypeReferences);
             Run("indexes DDF workspace documents recursively", IndexesDdfWorkspaceDocumentsRecursively);
+            Run("indexes globals declared with user-defined types", IndexesUserDefinedTypeGlobals);
             Run("indexes workspace extensions from the active package", IndexesConfiguredWorkspaceExtensions);
             Run("updates an in-memory workspace document", UpdatesInMemoryWorkspaceDocument);
             Run("updates workspace source without synchronous parsing", UpdatesWorkspaceSourceWithoutParsing);
@@ -187,6 +228,10 @@ namespace DDFLanguageEditor.Tests
             Run("finds semantic workspace references", FindsSemanticWorkspaceReferences);
             Run("parses line and column navigation", ParsesLineAndColumnNavigation);
             Run("accepts semantically valid typed code", AcceptsSemanticallyValidTypedCode);
+            Run("treats top-level functions as module functions", TreatsTopLevelFunctionsAsModuleFunctions);
+            Run("enforces typed immutable fixed values", EnforcesTypedImmutableFixedValues);
+            Run("exposes fixed as read-only IDE and debug metadata", ExposesFixedAsReadOnlyMetadata);
+            Run("persists explicit isolated state values", PersistsExplicitIsolatedStateValues);
             Run("reports incompatible initializers and assignments", ReportsIncompatibleInitializersAndAssignments);
             Run("reports invalid typed operators and conditions", ReportsInvalidTypedOperatorsAndConditions);
             Run("checks function arguments and return values", ChecksFunctionArgumentsAndReturnValues);
@@ -198,9 +243,13 @@ namespace DDFLanguageEditor.Tests
             Run("validates the normative DDF type corpus", ValidatesNormativeDdfTypeCorpus);
             Run("validates the complete normative DDF language corpus", ValidatesCompleteNormativeDdfLanguageCorpus);
             Run("enforces the DDF 0.12 runtime numeric contract", EnforcesDdf012RuntimeNumericContract);
+            Run("validates the active scalar and conversion culture matrix", ValidatesActiveScalarAndConversionCultureMatrix);
             Run("type-checks the editor smoke sample", TypeChecksEditorSmokeSample);
             Run("executes functions control flow and output", ExecutesFunctionsControlFlowAndOutput);
+            Run("continues loops consistently across language services", ContinuesLoopsAcrossLanguageServices);
+            Run("resolves nested control transfers to unique IR flow targets", ResolvesNestedControlTransfers);
             Run("executes arrays and structure members", ExecutesArraysAndStructureMembers);
+            Run("validates the active fixed array acceptance matrix", ValidatesActiveFixedArrayAcceptanceMatrix);
             Run("stops infinite execution at the instruction limit", StopsInfiniteExecutionAtInstructionLimit);
             Run("honors runtime cancellation", HonorsRuntimeCancellation);
             Run("disposes paused debugger without racing its waiter", DisposesPausedDebuggerWithoutRacingWaiter);
@@ -1203,9 +1252,9 @@ namespace DDFLanguageEditor.Tests
             Equal(false, result.HasErrors);
             Equal(DdfLanguagePackageOrigin.Embedded, result.Package.Origin);
             Equal("ddf", result.Package.Id);
-            Equal("0.12.3", result.Package.PackageVersion);
-            Equal("0.12", result.Package.LanguageVersion);
-            Equal(16, result.Package.Language.Keywords.Count);
+            Equal("0.13.0", result.Package.PackageVersion);
+            Equal("0.13", result.Package.LanguageVersion);
+            Equal(23, result.Package.Language.Keywords.Count);
             Equal(19, result.Package.Language.Operators.Count);
             Equal(0, result.Package.NativeExtensions.Count);
             Equal(true, result.Package.Grammar != null);
@@ -1515,7 +1564,7 @@ namespace DDFLanguageEditor.Tests
             DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
             Equal(DdfSafeSemanticOperationCatalog.OperationSet, package.Language.Semantics.OperationSet);
             Equal("1.0", package.Language.Semantics.OperationSetVersion);
-            Equal(14, package.Language.Semantics.Bindings.Count);
+            Equal(19, package.Language.Semantics.Bindings.Count);
 
             const string source = "main() out int { int value << 1; if(value > 0) { ret value; } ret 0; }";
             DdfParseResult parse = DdfParser.Parse(source, package.Language);
@@ -1797,6 +1846,99 @@ namespace DDFLanguageEditor.Tests
             Equal(3, result.Flowchart.Nodes.Count(node => node.Kind == DdfFlowchartNodeKind.LoopDecision));
             Equal(true, result.Flowchart.Edges.Count(edge => edge.IsBackEdge) >= 3);
             Equal(true, result.Flowchart.Nodes.Any(node => node.Kind == DdfFlowchartNodeKind.Process && node.Label.Contains("index++")));
+        }
+
+        private static void RoutesActiveFlowchartControlTransfersToSemanticTargets()
+        {
+            const string source =
+                "main() out int\n{\n" +
+                "    int total << 0;\n" +
+                "    int outer << 0;\n" +
+                "    while(outer < 2)\n    {\n" +
+                "        outer++;\n" +
+                "        for(int inner << 0; inner < 4; inner++)\n        {\n" +
+                "            select(inner)\n            {\n" +
+                "                when 0 { continue; }\n" +
+                "                when 1 { brk; }\n" +
+                "                otherwise { total++; }\n" +
+                "            }\n" +
+                "            if(total > 5) { ret total; }\n" +
+                "        }\n" +
+                "        do\n        {\n" +
+                "            total++;\n" +
+                "            if(total < 3) { continue; }\n" +
+                "            brk;\n" +
+                "        } while(total < 10);\n" +
+                "    }\n" +
+                "    end;\n" +
+                "}\n";
+            DdfFlowchartBuildResult result = DdfFlowchartBuilder.Build(source,
+                "main", documentPath: "main.ddf");
+            Equal(true, result.Success);
+            DdfFlowchart graph = result.Flowchart;
+
+            DdfFlowchartNode forContinue = graph.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Continue &&
+                node.Start == source.IndexOf("continue;", StringComparison.Ordinal));
+            DdfFlowchartEdge forContinueEdge = graph.Edges.Single(edge =>
+                edge.From == forContinue.Id);
+            DdfFlowchartNode forIncrement = graph.FindNode(forContinueEdge.To);
+            Equal(DdfFlowchartEdgeKind.Continue, forContinueEdge.Kind);
+            Equal(true, forContinueEdge.IsBackEdge);
+            Equal(true, forIncrement.Label.Contains("inner++"));
+
+            int doContinueStart = source.LastIndexOf("continue;",
+                StringComparison.Ordinal);
+            DdfFlowchartNode doContinue = graph.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Continue &&
+                node.Start == doContinueStart);
+            DdfFlowchartEdge doContinueEdge = graph.Edges.Single(edge =>
+                edge.From == doContinue.Id);
+            DdfFlowchartNode doDecision = graph.FindNode(doContinueEdge.To);
+            Equal(DdfFlowchartEdgeKind.Continue, doContinueEdge.Kind);
+            Equal(true, doContinueEdge.IsBackEdge);
+            Equal(true, doDecision.Label.Contains("total < 10"));
+
+            int selectBreakStart = source.IndexOf("brk;", StringComparison.Ordinal);
+            DdfFlowchartNode selectBreak = graph.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Break &&
+                node.Start == selectBreakStart);
+            DdfFlowchartEdge selectBreakEdge = graph.Edges.Single(edge =>
+                edge.From == selectBreak.Id);
+            DdfFlowchartNode afterFor = graph.FindNode(selectBreakEdge.To);
+            Equal(DdfFlowchartEdgeKind.Break, selectBreakEdge.Kind);
+            Equal(true, afterFor.Label.Contains("total++"));
+            Equal(true, afterFor.Start > source.IndexOf("do\n",
+                StringComparison.Ordinal));
+
+            int doBreakStart = source.LastIndexOf("brk;",
+                StringComparison.Ordinal);
+            DdfFlowchartNode doBreak = graph.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Break &&
+                node.Start == doBreakStart);
+            DdfFlowchartEdge doBreakEdge = graph.Edges.Single(edge =>
+                edge.From == doBreak.Id);
+            DdfFlowchartNode outerDecision = graph.FindNode(doBreakEdge.To);
+            Equal(DdfFlowchartEdgeKind.Break, doBreakEdge.Kind);
+            Equal(true, outerDecision.Label.Contains("outer < 2"));
+
+            foreach (DdfFlowchartNode terminal in graph.Nodes.Where(node =>
+                         node.Kind == DdfFlowchartNodeKind.Return ||
+                         node.Kind == DdfFlowchartNodeKind.Terminate))
+            {
+                DdfFlowchartEdge edge = graph.Edges.Single(candidate =>
+                    candidate.From == terminal.Id);
+                Equal(graph.ExitNodeId, edge.To);
+                Equal(terminal.Kind == DdfFlowchartNodeKind.Return
+                    ? DdfFlowchartEdgeKind.Return
+                    : DdfFlowchartEdgeKind.Terminate, edge.Kind);
+            }
+            Equal(2, graph.Nodes.Count(node =>
+                node.Kind == DdfFlowchartNodeKind.Continue));
+            Equal(2, graph.Nodes.Count(node =>
+                node.Kind == DdfFlowchartNodeKind.Break));
+            Equal(true, graph.Nodes.All(node => node.Start >= 0 &&
+                node.Start + node.Length <= source.Length));
         }
 
         private static void ValidatesComplexFlowchartRegressionMatrix()
@@ -2168,6 +2310,215 @@ namespace DDFLanguageEditor.Tests
             Equal("main", failed.StackTrace[1].FunctionName);
         }
 
+        private static void SupportsNominalEnumsAcrossCorePipeline()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            const string valid =
+                "enum Color { Red, Green, Blue }\n" +
+                "main() out int { Color selected; Color expected << Color.Red; " +
+                "if(selected == expected) { ret 42; } ret 0; }";
+            DdfParseResult parse = DdfParser.Parse(valid, package.Language);
+            Equal(0, parse.Diagnostics.Count);
+            EnumDeclarationSyntax declaration = parse.Root.Members
+                .OfType<EnumDeclarationSyntax>().Single();
+            SequenceEqual(new[] { "Red", "Green", "Blue" },
+                declaration.Members.Select(item => item.Name));
+            DdfTypeCheckResult types = DdfTypeChecker.Check(valid, parse.Root,
+                typeSystem: package.Language.Types,
+                standardLibrary: package.Language.StandardLibrary,
+                runtime: package.Language.Runtime);
+            Equal(0, types.Diagnostics.Count);
+            DdfIrProgram ir = DdfIrLowerer.Lower(valid, parse, package.Language).Program;
+            Equal(1, ir.Members.OfType<DdfIrEnum>().Count());
+            DdfExecutionResult execution = DdfVirtualMachine.Execute(valid, ir,
+                package.Language.Runtime, package.Language.Types,
+                package.Language.StandardLibrary);
+            Equal(0, execution.Diagnostics.Count);
+            Equal(42L, Convert.ToInt64(execution.ReturnValue));
+            string completionSource =
+                "enum Color { Red, Green, Blue } main() out int { Color value << Color.; ret 0; }";
+            int completionPosition = completionSource.IndexOf("Color.;",
+                StringComparison.Ordinal) + "Color.".Length;
+            DdfCompletionResult completion = DdfCompletionService.GetCompletions(
+                completionSource, completionPosition, true, package.Language);
+            SequenceEqual(new[] { "Blue", "Green", "Red" }, completion.Items
+                .Where(item => item.Kind == DdfCompletionKind.Field)
+                .Select(item => item.DisplayText).OrderBy(item => item,
+                    StringComparer.Ordinal));
+
+            const string invalid =
+                "enum Empty { } enum Color { Red, Red } enum State { Red } " +
+                "main() out int { Color color << State.Red; " +
+                "Color.Red << Color.Red; if(color == State.Red) { ret 1; } ret 0; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid, package.Language);
+            DdfTypeCheckResult invalidTypes = DdfTypeChecker.Check(invalid,
+                invalidParse.Root, typeSystem: package.Language.Types,
+                standardLibrary: package.Language.StandardLibrary,
+                runtime: package.Language.Runtime);
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF324"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF325"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF301"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF302"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF308"));
+        }
+
+        private static void ExecutesExhaustiveMultiWaySelection()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
+            const string valid =
+                "enum Color { Red, Green, Blue }\n" +
+                "main() out int\n{\n    Color selected << Color.Green;\n" +
+                "    int result << 0;\n    select(selected)\n    {\n" +
+                "        when Color.Red { result << 1; }\n" +
+                "        when Color.Green { result << 42; }\n" +
+                "        when Color.Blue { result << 3; }\n    }\n" +
+                "    ret result;\n}";
+            DdfParseResult parse = DdfParser.Parse(valid, package.Language);
+            Equal(0, parse.Diagnostics.Count);
+            SelectStatementSyntax selection = parse.Root.Members
+                .OfType<FunctionDeclarationSyntax>().Single().Body.Statements
+                .OfType<SelectStatementSyntax>().Single();
+            Equal(3, selection.Clauses.Count);
+            Equal(false, selection.Clauses.Any(clause => clause.IsOtherwise));
+            DdfTypeCheckResult types = DdfTypeChecker.Check(valid, parse.Root,
+                typeSystem: package.Language.Types,
+                standardLibrary: package.Language.StandardLibrary,
+                runtime: package.Language.Runtime);
+            Equal(0, types.Diagnostics.Count);
+            DdfIrProgram ir = DdfIrLowerer.Lower(valid, parse, package.Language).Program;
+            Equal(1, ir.Members.OfType<DdfIrFunction>().Single().Body.Statements
+                .OfType<DdfIrSelect>().Count());
+            DdfExecutionResult execution = DdfVirtualMachine.Execute(valid, ir,
+                package.Language.Runtime, package.Language.Types,
+                package.Language.StandardLibrary);
+            Equal(true, execution.Succeeded);
+            Equal(42L, Convert.ToInt64(execution.ReturnValue));
+            Equal(true, DdfFormatter.Format(valid, package.Language).Text
+                .Contains("when Color.Green"));
+            DdfFlowchart flowchart = DdfFlowchartBuilder.Build(valid, "main",
+                package.Language).Flowchart;
+            Equal(3, flowchart.Nodes.Count(node =>
+                node.Kind == DdfFlowchartNodeKind.Decision));
+
+            const string invalid =
+                "enum Color { Red, Green } main() out int { int value << 1; " +
+                "select(value) { when 1 { value << 2; } when 1 { value << 3; } } " +
+                "select(value) { otherwise { value << 4; } when 2 { value << 5; } " +
+                "otherwise { value << 6; } } select(value) { when \"x\" { value << 7; } " +
+                "otherwise { value << 8; } } ret value; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid, package.Language);
+            DdfTypeCheckResult invalidTypes = DdfTypeChecker.Check(invalid,
+                invalidParse.Root, typeSystem: package.Language.Types,
+                standardLibrary: package.Language.StandardLibrary,
+                runtime: package.Language.Runtime);
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF326"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF327"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF328"));
+            Equal(true, invalidTypes.Diagnostics.Count(item => item.Code == "DDF329") >= 2);
+
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            var profileCases = new[]
+            {
+                new { Id = "ddf", Select = "select", When = "when", Otherwise = "otherwise", Out = "out", Return = "ret", Initializer = "<<" },
+                new { Id = "ddf-c-familiar", Select = "switch", When = "case", Otherwise = "default", Out = "returns", Return = "return", Initializer = "=" },
+                new { Id = "ddf-it-didactic", Select = "scegli", When = "caso", Otherwise = "predefinito", Out = "restituisce", Return = "restituisci", Initializer = "<<" }
+            };
+            foreach (var profile in profileCases)
+            {
+                DdfLanguagePackageLoadResult loaded = DdfLanguagePackageLoader.Load(
+                    Path.Combine(profiles, profile.Id));
+                Equal(true, loaded.Success);
+                string profileSource = "main() " + profile.Out + " int { int value " +
+                    profile.Initializer + " 2; " + profile.Select + "(value) { " +
+                    profile.When + " 1 { " + profile.Return + " 1; } " +
+                    profile.When + " 2 { " + profile.Return + " 42; } " +
+                    profile.Otherwise + " { " + profile.Return + " 0; } } }";
+                DdfParseResult profileParse = DdfParser.Parse(profileSource,
+                    loaded.Package.Language);
+                Equal(0, profileParse.Diagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(profileSource, profileParse.Root,
+                    typeSystem: loaded.Package.Language.Types,
+                    standardLibrary: loaded.Package.Language.StandardLibrary,
+                    runtime: loaded.Package.Language.Runtime).Diagnostics.Count);
+                DdfIrProgram profileIr = DdfIrLowerer.Lower(profileSource,
+                    profileParse, loaded.Package.Language).Program;
+                Equal(42L, Convert.ToInt64(DdfInterpreter.Execute(profileSource,
+                    profileIr, loaded.Package.Language).ReturnValue));
+            }
+        }
+
+        private static void ValidatesActiveEnumAndSelectionAcceptanceMatrix()
+        {
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+
+            DdfTypeCheckResult Check(string source, out DdfParseResult parse)
+            {
+                parse = DdfParser.Parse(source, package.Language);
+                return DdfTypeChecker.Check(source, parse.Root,
+                    typeSystem: package.Language.Types,
+                    standardLibrary: package.Language.StandardLibrary,
+                    runtime: package.Language.Runtime);
+            }
+
+            const string exhaustiveBoolean =
+                "main() out int { bool enabled << false; select(enabled) { " +
+                "when true { ret 1; } when false { ret 42; } } }";
+            DdfTypeCheckResult booleanTypes = Check(exhaustiveBoolean,
+                out DdfParseResult booleanParse);
+            Equal(0, booleanParse.Diagnostics.Count);
+            Equal(0, booleanTypes.Diagnostics.Count);
+            DdfIrProgram booleanIr = DdfIrLowerer.Lower(exhaustiveBoolean,
+                booleanParse, package.Language).Program;
+            Equal(42L, Convert.ToInt64(DdfInterpreter.Execute(exhaustiveBoolean,
+                booleanIr, package.Language).ReturnValue));
+
+            const string incompleteEnum =
+                "enum Color { Red, Green } main() out int { " +
+                "Color selected << Color.Red; select(selected) { " +
+                "when Color.Red { ret 1; } } }";
+            DdfTypeCheckResult incompleteTypes = Check(incompleteEnum, out _);
+            Equal(1, incompleteTypes.Diagnostics.Count(item =>
+                item.Code == "DDF328"));
+
+            const string duplicateEnumCase =
+                "enum Color { Red, Green } main() out int { " +
+                "Color selected << Color.Red; select(selected) { " +
+                "when Color.Red { ret 1; } when Color.Red { ret 2; } " +
+                "when Color.Green { ret 3; } } }";
+            DdfTypeCheckResult duplicateTypes = Check(duplicateEnumCase, out _);
+            Equal(1, duplicateTypes.Diagnostics.Count(item =>
+                item.Code == "DDF327"));
+
+            const string invalidCaseWithFallback =
+                "enum Color { Red } enum State { Red } main() out int { " +
+                "Color selected << Color.Red; select(selected) { " +
+                "when State.Red { ret 1; } otherwise { ret 42; } } }";
+            DdfTypeCheckResult fallbackTypes = Check(invalidCaseWithFallback,
+                out _);
+            Equal(1, fallbackTypes.Diagnostics.Count(item =>
+                item.Code == "DDF326"));
+            Equal(0, fallbackTypes.Diagnostics.Count(item =>
+                item.Code == "DDF328"));
+
+            const string nonConstantCaseWithFallback =
+                "main() out int { int selected << 1; int candidate << 1; " +
+                "select(selected) { when candidate { ret 1; } " +
+                "otherwise { ret 42; } } }";
+            DdfTypeCheckResult nonConstantTypes = Check(
+                nonConstantCaseWithFallback, out _);
+            Equal(1, nonConstantTypes.Diagnostics.Count(item =>
+                item.Code == "DDF326"));
+
+            const string incompleteSyntax =
+                "enum Mode { Base, main() out int { select(true) { " +
+                "when true { ret 1; }";
+            DdfParseResult recoveredParse = DdfParser.Parse(incompleteSyntax,
+                package.Language);
+            Equal(true, recoveredParse.Diagnostics.Count > 0);
+            Equal(true, recoveredParse.Root.Length <= incompleteSyntax.Length);
+        }
+
         private static void RunsIsolatedHostExecutionSessions()
         {
             var leftDocuments = new OpenDocumentCollection();
@@ -2216,6 +2567,445 @@ namespace DDFLanguageEditor.Tests
             Equal(DdfEditorExecutionState.Idle, loop.State);
         }
 
+        private static void OwnsTransactionalStatePerEditorHostInstance()
+        {
+            const string source =
+                "state int counter << 0; main() out int { counter++; if(counter == 4) { ret 1 / 0; } ret counter; }";
+            var leftDocuments = new OpenDocumentCollection();
+            leftDocuments.CreateVirtual("state.ddf", source);
+            var rightDocuments = new OpenDocumentCollection();
+            rightDocuments.CreateVirtual("state.ddf", source);
+            using var left = new DdfEditorExecutionService(leftDocuments,
+                new DdfLanguagePackageSession());
+            using var right = new DdfEditorExecutionService(rightDocuments,
+                new DdfLanguagePackageSession());
+
+            Equal(1, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(2, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(1, right.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+
+            IDdfEditorScriptStateService leftState = left;
+            Equal(1, leftState.CaptureScriptState().Count);
+            Equal(2, leftState.CaptureScriptState().Single().Value);
+
+            DdfEditorExecutionCompletion simulated = left.RunAsync(
+                new DdfEditorExecutionRequest(mode: DdfEditorExecutionMode.Simulation))
+                .GetAwaiter().GetResult();
+            Equal(true, simulated.Succeeded);
+            Equal(3, simulated.ExecutionResult.ReturnValue);
+            Equal(2, leftState.CaptureScriptState().Single().Value);
+
+            Equal(3, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+
+            DdfEditorExecutionCompletion failed = left.RunAsync()
+                .GetAwaiter().GetResult();
+            Equal(false, failed.Succeeded);
+            Equal(3, leftState.CaptureScriptState().Single().Value);
+
+            leftState.ResetScriptState();
+            Equal(0, leftState.CaptureScriptState().Count);
+            Equal(1, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+
+            var persisted = new TestScriptStatePersistenceProvider();
+            IDdfEditorScriptStatePersistenceService persistence = left;
+            persistence.AttachScriptStatePersistenceProvider(persisted);
+            persistence.SavePersistedScriptState();
+            Equal(1, persisted.SaveCount);
+            Equal(DdfEditorScriptStateSnapshot.CurrentSchemaVersion,
+                persisted.State.SchemaVersion);
+            Equal("ddf", persisted.State.LanguageId);
+            Equal(1, persisted.State.Entries.Count);
+            var memoryProvider = new DdfInMemoryEditorScriptStatePersistenceProvider();
+            memoryProvider.Save(persisted.State);
+            Equal(persisted.State, memoryProvider.Load());
+            memoryProvider.Clear();
+            Equal(null, memoryProvider.Load());
+            Equal(2, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(1, persisted.SaveCount);
+            Equal(true, persistence.RestorePersistedScriptState());
+            Equal(1, leftState.CaptureScriptState().Single().Value);
+            Equal(2, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+
+            persisted.State = new DdfEditorScriptStateSnapshot("0.9",
+                "ddf", "0.12.5", persisted.State.Entries);
+            Equal(true, persistence.RestorePersistedScriptState());
+            Equal(1, persisted.MigrationCount);
+            Equal(1, leftState.CaptureScriptState().Single().Value);
+            persistence.ResetPersistedScriptState();
+            Equal(1, persisted.ClearCount);
+            Equal(0, leftState.CaptureScriptState().Count);
+            Equal(1, left.RunAsync().GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+
+            var incompatible = new NonMigratingScriptStatePersistenceProvider(
+                new DdfEditorScriptStateSnapshot("0.9", "ddf", "0.12.5",
+                    persisted.LastSaved.Entries));
+            persistence.AttachScriptStatePersistenceProvider(incompatible);
+            Throws<InvalidOperationException>(() =>
+                persistence.RestorePersistedScriptState());
+            Equal(1, leftState.CaptureScriptState().Single().Value);
+            Equal(true, persistence.DetachScriptStatePersistenceProvider());
+            Equal(null, persistence.ScriptStatePersistenceProvider);
+            Throws<InvalidOperationException>(() =>
+                persistence.SavePersistedScriptState());
+            Equal(1, leftState.CaptureScriptState().Single().Value);
+
+            var sharedDocuments = new OpenDocumentCollection();
+            IDdfEditorDocument sharedDocument = sharedDocuments.CreateVirtual("shared.ddf",
+                "state int counter << 0;\nmain() out int\n{\n    counter++;\n    ret counter;\n}");
+            var sharedSession = new DdfLanguagePackageSession();
+            var sharedStore = new DdfStateStore();
+            using var sharedExecution = new DdfEditorExecutionService(
+                () => sharedDocuments, () => sharedSession,
+                scriptStateStore: sharedStore);
+            using var sharedDebug = new DdfEditorDebugService(
+                () => sharedDocuments, () => sharedSession,
+                scriptStateStore: sharedStore);
+            Equal(1, sharedExecution.RunAsync().GetAwaiter().GetResult()
+                .ExecutionResult.ReturnValue);
+            using var statePause = new SemaphoreSlim(0);
+            sharedDebug.SetBreakpoints(new[]
+            {
+                new DdfEditorBreakpoint(sharedDocument.Id, 4)
+            });
+            sharedDebug.Paused += (sender, args) => statePause.Release();
+            Task<DdfEditorExecutionCompletion> debugExecution = sharedDebug.RunAsync();
+            Equal(true, statePause.Wait(TimeSpan.FromSeconds(5)));
+            Equal(1, sharedDebug.CurrentSnapshot.States.Count);
+            DdfEditorDebugVariableSnapshot debugState = sharedDebug.CurrentSnapshot.States.Single();
+            Equal("counter", debugState.Name);
+            Equal("1", debugState.DisplayValue);
+            Equal(DdfRuntimeVariableKind.State, debugState.Kind);
+            Equal(true, debugState.IsTransactionalState);
+            DdfEditorWatchResult stateWatch = sharedDebug.EvaluateWatch("counter");
+            Equal(true, stateWatch.Available);
+            Equal("1", stateWatch.Value.DisplayValue);
+            Equal(true, sharedDebug.Continue());
+            Equal(2, debugExecution.GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(2, ((IDdfEditorScriptStateService)sharedExecution)
+                .CaptureScriptState().Single().Value);
+
+            var persistedAcrossInstances = new TestScriptStatePersistenceProvider();
+            DdfEditorScriptStateSnapshot savedSnapshot;
+            var reopenDocuments = new OpenDocumentCollection();
+            reopenDocuments.CreateVirtual("reopen.ddf",
+                "state int counter << 0; main() out int { counter++; ret counter; }");
+            using (var firstInstance = new DdfEditorExecutionService(reopenDocuments,
+                       new DdfLanguagePackageSession()))
+            {
+                Equal(1, firstInstance.RunAsync().GetAwaiter().GetResult()
+                    .ExecutionResult.ReturnValue);
+                IDdfEditorScriptStatePersistenceService firstPersistence = firstInstance;
+                firstPersistence.AttachScriptStatePersistenceProvider(
+                    persistedAcrossInstances);
+                firstPersistence.SavePersistedScriptState();
+                savedSnapshot = persistedAcrossInstances.State;
+                Equal(1, savedSnapshot.Entries.Single().Value);
+                Equal(2, firstInstance.RunAsync().GetAwaiter().GetResult()
+                    .ExecutionResult.ReturnValue);
+                Equal(1, savedSnapshot.Entries.Single().Value);
+            }
+
+            using (var reopenedInstance = new DdfEditorExecutionService(reopenDocuments,
+                       new DdfLanguagePackageSession()))
+            {
+                IDdfEditorScriptStateService reopenedState = reopenedInstance;
+                IDdfEditorScriptStatePersistenceService reopenedPersistence =
+                    reopenedInstance;
+                Equal(0, reopenedState.CaptureScriptState().Count);
+                reopenedPersistence.AttachScriptStatePersistenceProvider(
+                    persistedAcrossInstances);
+                Equal(true, reopenedPersistence.RestorePersistedScriptState());
+                Equal(1, reopenedState.CaptureScriptState().Single().Value);
+                Equal(2, reopenedInstance.RunAsync().GetAwaiter().GetResult()
+                    .ExecutionResult.ReturnValue);
+                Equal(true, reopenedPersistence.DetachScriptStatePersistenceProvider());
+                Throws<InvalidOperationException>(() =>
+                    reopenedPersistence.RestorePersistedScriptState());
+                Equal(2, reopenedState.CaptureScriptState().Single().Value);
+            }
+
+            using var parallelEntered = new CountdownEvent(2);
+            var parallelRelease = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var parallelCatalog = new DdfEditorHostCatalog();
+            parallelCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "holdParallel", "int", Array.Empty<DdfHostParameterDefinition>(),
+                invoke: null, invokeAsync: async (context, arguments) =>
+                {
+                    parallelEntered.Signal();
+                    await parallelRelease.Task.ConfigureAwait(false);
+                    return 0;
+                }));
+            const string parallelSource =
+                "state int counter << 0; main() out int { counter++; holdParallel(); ret counter; }";
+            var parallelLeftDocuments = new OpenDocumentCollection();
+            parallelLeftDocuments.CreateVirtual("parallel-left.ddf", parallelSource);
+            var parallelRightDocuments = new OpenDocumentCollection();
+            parallelRightDocuments.CreateVirtual("parallel-right.ddf", parallelSource);
+            using var parallelLeft = new DdfEditorExecutionService(
+                () => parallelLeftDocuments, () => new DdfLanguagePackageSession(),
+                () => parallelCatalog.Snapshot);
+            using var parallelRight = new DdfEditorExecutionService(
+                () => parallelRightDocuments, () => new DdfLanguagePackageSession(),
+                () => parallelCatalog.Snapshot);
+            Task<DdfEditorExecutionCompletion> parallelLeftRun = parallelLeft.RunAsync();
+            Task<DdfEditorExecutionCompletion> parallelRightRun = parallelRight.RunAsync();
+            Equal(true, parallelEntered.Wait(TimeSpan.FromSeconds(5)));
+            parallelRelease.TrySetResult(null);
+            Equal(1, parallelLeftRun.GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(1, parallelRightRun.GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(1, ((IDdfEditorScriptStateService)parallelLeft)
+                .CaptureScriptState().Single().Value);
+            Equal(1, ((IDdfEditorScriptStateService)parallelRight)
+                .CaptureScriptState().Single().Value);
+
+            using var contendedEntered = new ManualResetEventSlim();
+            var contendedRelease = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var contendedCatalog = new DdfEditorHostCatalog();
+            contendedCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "holdInstance", "int", Array.Empty<DdfHostParameterDefinition>(),
+                invoke: null, invokeAsync: async (context, arguments) =>
+                {
+                    contendedEntered.Set();
+                    await contendedRelease.Task.ConfigureAwait(false);
+                    return 0;
+                }));
+            var contendedDocuments = new OpenDocumentCollection();
+            contendedDocuments.CreateVirtual("contended.ddf",
+                "state int counter << 0; main() out int { counter++; holdInstance(); ret counter; }");
+            using var contendedInstance = new DdfEditorExecutionService(
+                () => contendedDocuments, () => new DdfLanguagePackageSession(),
+                () => contendedCatalog.Snapshot);
+            Task<DdfEditorExecutionCompletion> contendedRun = contendedInstance.RunAsync();
+            Equal(true, contendedEntered.Wait(TimeSpan.FromSeconds(5)));
+            Throws<InvalidOperationException>(() => contendedInstance.RunAsync());
+            contendedRelease.TrySetResult(null);
+            Equal(1, contendedRun.GetAwaiter().GetResult().ExecutionResult.ReturnValue);
+            Equal(1, ((IDdfEditorScriptStateService)contendedInstance)
+                .CaptureScriptState().Single().Value);
+        }
+
+        private static void GovernsHostExecutionSchedulers()
+        {
+            var documents = new OpenDocumentCollection();
+            documents.CreateVirtual("main.ddf", "main() out int { ret 42; }");
+            var language = new DdfLanguagePackageSession();
+            int callingThread = Environment.CurrentManagedThreadId;
+            var scheduler = new RecordingExecutionScheduler();
+            using (var execution = new DdfEditorExecutionService(
+                       () => documents, () => language,
+                       executionScheduler: scheduler))
+            {
+                DdfEditorExecutionCompletion completion = execution.RunAsync()
+                    .GetAwaiter().GetResult();
+                Equal(true, completion.Succeeded);
+                Equal(42L, Convert.ToInt64(
+                    completion.ExecutionResult.ReturnValue));
+                Equal(1, scheduler.ScheduleCount);
+                Equal(false, scheduler.ExecutionThreadId == callingThread);
+                Equal(DdfEditorExecutionState.Idle, execution.State);
+            }
+
+            using (var rejected = new DdfEditorExecutionService(
+                       () => documents, () => language,
+                       executionScheduler: new InlineExecutionScheduler()))
+            {
+                DdfEditorExecutionCompletion completion = rejected.RunAsync()
+                    .GetAwaiter().GetResult();
+                Equal(false, completion.Succeeded);
+                Equal(true, completion.InternalError.Contains(
+                    "thread chiamante/UI", StringComparison.Ordinal));
+                Equal(DdfEditorExecutionState.Idle, rejected.State);
+            }
+        }
+
+        private static void RoutesOnlyUiCapabilitiesThroughHostDispatcher()
+        {
+            Throws<ArgumentException>(() => new DdfHostFunctionDefinition(
+                "invalidUi", "int", Array.Empty<DdfHostParameterDefinition>(),
+                arguments => 0, dispatchTarget: DdfHostFunctionDispatchTarget.Ui));
+
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterPermission(new DdfHostPermissionDefinition(
+                "ui.test", "Test UI"));
+            Equal(true, catalog.SetPermission("ui.test", true));
+            int workerFunctionThread = 0;
+            int uiFunctionThread = 0;
+            using var uiStarted = new ManualResetEventSlim();
+            var uiRelease = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "workerValue", "int", Array.Empty<DdfHostParameterDefinition>(),
+                arguments =>
+                {
+                    workerFunctionThread = Environment.CurrentManagedThreadId;
+                    return 20;
+                }));
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "uiValue", "int", Array.Empty<DdfHostParameterDefinition>(),
+                invoke: null, requiredPermissions: new[] { "ui.test" },
+                invokeAsync: (context, arguments) =>
+                {
+                    uiFunctionThread = Environment.CurrentManagedThreadId;
+                    uiStarted.Set();
+                    return new ValueTask<object>(uiRelease.Task);
+                },
+                dispatchTarget: DdfHostFunctionDispatchTarget.Ui));
+
+            var documents = new OpenDocumentCollection();
+            documents.CreateVirtual("ui.ddf",
+                "main() out int { ret workerValue() + uiValue(); }");
+            var language = new DdfLanguagePackageSession();
+            var scheduler = new RecordingExecutionScheduler();
+            using var dispatcher = new DedicatedEventDispatcher();
+            using (var execution = new DdfEditorExecutionService(
+                       () => documents, () => language, () => catalog.Snapshot,
+                       eventDispatcher: dispatcher,
+                       executionScheduler: scheduler))
+            {
+                Task<DdfEditorExecutionCompletion> run = execution.RunAsync();
+                Equal(true, uiStarted.Wait(TimeSpan.FromSeconds(5)));
+                Equal(true, SpinWait.SpinUntil(() =>
+                    execution.CooperativeSnapshot.IsSuspended,
+                    TimeSpan.FromSeconds(5)));
+                Equal("ui.test", execution.CooperativeSnapshot
+                    .PendingSuspension.CapabilityId);
+                uiRelease.SetResult(22);
+                DdfEditorExecutionCompletion completion = run.GetAwaiter()
+                    .GetResult();
+                Equal(true, completion.Succeeded);
+                Equal(42L, Convert.ToInt64(
+                    completion.ExecutionResult.ReturnValue));
+                Equal(dispatcher.ThreadId, uiFunctionThread);
+                Equal(false, uiFunctionThread == workerFunctionThread);
+            }
+
+            uiFunctionThread = 0;
+            using (var debugger = new DdfEditorDebugService(
+                       () => documents, () => language, () => catalog.Snapshot,
+                       eventDispatcher: dispatcher,
+                       executionScheduler: scheduler))
+            {
+                DdfEditorExecutionCompletion completion = debugger.RunAsync()
+                    .GetAwaiter().GetResult();
+                Equal(true, completion.Succeeded);
+                Equal(dispatcher.ThreadId, uiFunctionThread);
+            }
+
+            var manualDispatcher = new ManualEventDispatcher();
+            using var invoker = new DdfEditorUiCapabilityInvoker(manualDispatcher);
+            using var cancellation = new CancellationTokenSource();
+            bool presented = false;
+            ValueTask<int> pending = invoker.InvokeAsync("ui.cancel", token =>
+            {
+                presented = true;
+                return ValueTask.FromResult(1);
+            }, cancellation.Token);
+            cancellation.Cancel();
+            manualDispatcher.Drain();
+            Throws<OperationCanceledException>(() => pending.AsTask()
+                .GetAwaiter().GetResult());
+            Equal(false, presented);
+            Throws<ArgumentException>(() => invoker.InvokeAsync("network.http",
+                token => ValueTask.FromResult(1), CancellationToken.None));
+        }
+
+        private static void ObservesAsynchronousStopAndDisposalLifecycles()
+        {
+            var entered = new ManualResetEventSlim();
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "waitForStop", "int", Array.Empty<DdfHostParameterDefinition>(),
+                invoke: null, invokeAsync: async (context, arguments) =>
+                {
+                    entered.Set();
+                    await Task.Delay(TimeSpan.FromMinutes(1),
+                        context.CancellationToken);
+                    return 1;
+                }));
+            var documents = new OpenDocumentCollection();
+            IDdfEditorDocument document = documents.CreateVirtual("lifecycle.ddf",
+                "main() out int { ret waitForStop(); }");
+            var language = new DdfLanguagePackageSession();
+            using (var execution = new DdfEditorExecutionService(
+                       () => documents, () => language, () => catalog.Snapshot))
+            {
+                Task<DdfEditorExecutionCompletion> running = execution.RunAsync();
+                Equal(true, entered.Wait(TimeSpan.FromSeconds(5)));
+                DdfEditorLifecycleResult stopped = execution.StopAsync(
+                    TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                Equal(DdfEditorLifecycleOutcome.Completed, stopped.Outcome);
+                Equal(true, stopped.Completion.WasCancelled);
+                Equal(DdfEditorExecutionState.Idle, execution.State);
+                Equal(stopped, execution.LastLifecycleResult);
+                Equal(stopped.Completion, running.GetAwaiter().GetResult());
+            }
+
+            entered.Reset();
+            using (var debugger = new DdfEditorDebugService(
+                       () => documents, () => language, () => catalog.Snapshot))
+            {
+                Task<DdfEditorExecutionCompletion> running = debugger.RunAsync();
+                Equal(true, entered.Wait(TimeSpan.FromSeconds(5)));
+                DdfEditorLifecycleResult stopped = debugger.StopAsync(
+                    TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                Equal(DdfEditorLifecycleOutcome.Completed, stopped.Outcome);
+                Equal(true, stopped.Completion.WasCancelled);
+                Equal(DdfEditorDebugState.Idle, debugger.State);
+                Equal(stopped.Completion, running.GetAwaiter().GetResult());
+            }
+
+            var cleanupStarted = new ManualResetEventSlim();
+            var cleanupRelease = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var cleanupCatalog = new DdfEditorHostCatalog();
+            cleanupCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "acquireSlowCleanup", "int",
+                Array.Empty<DdfHostParameterDefinition>(), invoke: null,
+                invokeAsync: (context, arguments) =>
+                {
+                    context.RegisterAsyncResource(
+                        new ControllableAsyncHostResource(cleanupStarted,
+                            cleanupRelease.Task));
+                    return ValueTask.FromResult<object>(1);
+                }));
+            documents.UpdateDocument(document.Id,
+                "main() out int { ret acquireSlowCleanup(); }");
+            using (var execution = new DdfEditorExecutionService(
+                       () => documents, () => language,
+                       () => cleanupCatalog.Snapshot))
+            {
+                Task<DdfEditorExecutionCompletion> running = execution.RunAsync();
+                Equal(true, cleanupStarted.Wait(TimeSpan.FromSeconds(5)));
+                DdfEditorLifecycleResult timedOut = execution.StopAsync(
+                    TimeSpan.FromMilliseconds(50)).GetAwaiter().GetResult();
+                Equal(DdfEditorLifecycleOutcome.TimedOut, timedOut.Outcome);
+                Equal("DDFH005", timedOut.ErrorCode);
+                Equal(false, timedOut.Succeeded);
+                cleanupRelease.SetResult(null);
+                running.GetAwaiter().GetResult();
+                Equal(DdfEditorExecutionState.Idle, execution.State);
+            }
+
+            var dispatcher = new ManualEventDispatcher();
+            int callbacks = 0;
+            documents.UpdateDocument(document.Id, "main() out int { ret 1; }");
+            var disposableExecution = new DdfEditorExecutionService(
+                () => documents, () => language,
+                eventDispatcher: dispatcher);
+            disposableExecution.StateChanged += (sender, args) => callbacks++;
+            disposableExecution.ExecutionCompleted +=
+                (sender, args) => callbacks++;
+            disposableExecution.RunAsync().GetAwaiter().GetResult();
+            DdfEditorLifecycleResult disposed = disposableExecution.DisposeAsync(
+                TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+            Equal(DdfEditorLifecycleOutcome.AlreadyIdle, disposed.Outcome);
+            dispatcher.Drain();
+            Equal(0, callbacks);
+            Throws<ObjectDisposedException>(() => disposableExecution.RunAsync());
+        }
+
         private static void SharesHostCatalogAcrossPipelines()
         {
             var catalog = new DdfEditorHostCatalog();
@@ -2235,7 +3025,8 @@ namespace DDFLanguageEditor.Tests
                     new DdfHostParameterDefinition("value", "int")
                 }, arguments => Convert.ToInt32(arguments[0]) * 2,
                 "Raddoppia un valore tramite il servizio host.",
-                new[] { "math.use" }));
+                new[] { "math.use" })
+                .DeclaresRecoverableErrors(DdfErrorCatalog.InvalidInput));
 
             DdfHostCatalogSnapshot deniedSnapshot = catalog.Snapshot;
             Equal(4L, deniedSnapshot.Revision);
@@ -2257,9 +3048,28 @@ namespace DDFLanguageEditor.Tests
                     item.DisplayText == "hostScale");
                 Equal("int", function.TypeName);
                 Equal(true, function.Detail.Contains("Raddoppia un valore"));
+                Equal(true, function.Detail.Contains(
+                    "operation.invalidInput (DDF408)"));
                 Equal(true, snapshot.Completions.Items.Any(item =>
                     item.DisplayText == "threshold" && item.TypeName == "int"));
             }
+
+            int hostArgument = source.IndexOf("threshold",
+                StringComparison.Ordinal) + 1;
+            DdfSignatureHelpResult hostSignature =
+                DdfSignatureHelpService.GetSignatureHelp(source, hostArgument,
+                    language: package.Language,
+                    hostCatalog: deniedSnapshot);
+            Equal("hostScale(int value) out int",
+                hostSignature.Signature.Signature);
+            Equal("operation.invalidInput (DDF408)",
+                hostSignature.Signature.ErrorSummary.Substring(
+                    "Errori recuperabili: ".Length));
+            DdfHoverInfo hostHover = DdfHoverService.CreateForHostFunction(
+                deniedSnapshot.Functions.Single(item =>
+                    item.Name == "hostScale"));
+            Equal(true, hostHover.Documentation.Contains(
+                "operation.invalidInput (DDF408)"));
 
             var documents = new OpenDocumentCollection();
             documents.CreateVirtual("host.ddf", source);
@@ -2287,15 +3097,1246 @@ namespace DDFLanguageEditor.Tests
                     Array.Empty<DdfHostParameterDefinition>(), arguments => 0)));
         }
 
+        private static void SeparatesTypedRecoverableErrorsFromEngineFaults()
+        {
+            Equal(true, DdfErrorCatalog.InvalidInput.IsRecoverable);
+            Equal(DdfErrorKind.EngineFault,
+                DdfErrorCatalog.InstructionLimit.Kind);
+            Equal(DdfErrorKind.EngineFault,
+                DdfErrorCatalog.CapabilityUnavailable.Kind);
+            Equal(DdfErrorKind.EngineFault,
+                DdfErrorCatalog.ExecutionCancelled.Kind);
+            Equal(DdfErrorKind.EngineFault,
+                DdfErrorCatalog.SecurityViolation.Kind);
+            Equal(DdfErrorKind.EngineFault,
+                DdfErrorCatalog.InvalidArtifact.Kind);
+            Equal(true, DdfErrorCatalog.TryGetByCode("DDF408",
+                out DdfErrorDefinition inputError));
+            Equal("operation.invalidInput", inputError.TypeId);
+            Equal(true, DdfErrorCatalog.TryGetByTypeId(
+                "engine.executionCancelled", out DdfErrorDefinition cancelled));
+            Equal("DDF424", cancelled.Code);
+
+            string[] recoverableCodes = DdfErrorCatalog.All
+                .Where(item => item.IsRecoverable)
+                .Select(item => item.Code).OrderBy(item => item,
+                    StringComparer.Ordinal).ToArray();
+            SequenceEqual(new[]
+            {
+                "DDF404", "DDF405", "DDF408", "DDF417", "DDF418", "DDF419"
+            }, recoverableCodes);
+            Equal(25, DdfErrorCatalog.All.Count);
+            Equal(25, DdfErrorCatalog.All.Select(item => item.Code)
+                .Distinct(StringComparer.Ordinal).Count());
+            Equal(25, DdfErrorCatalog.All.Select(item => item.TypeId)
+                .Distinct(StringComparer.Ordinal).Count());
+
+            var frame = new DdfErrorStackFrame("parse", "lib.ddf", 12, 3);
+            var value = new DdfErrorValue(inputError, "Valore non valido.",
+                "main.ddf", 4, 5, new[] { frame });
+            Equal("DDF408", value.Code);
+            Equal("operation.invalidInput", value.TypeId);
+            Equal("parse", value.Stack.Single().FunctionName);
+            Equal("Errori recuperabili: operation.invalidInput (DDF408)",
+                DdfErrorPresentation.FormatDeclarations(new[] { inputError }));
+
+            DdfHostFunctionDefinition hostFunction =
+                new DdfHostFunctionDefinition("parseValue", "int",
+                    new[] { new DdfHostParameterDefinition("text", "string") },
+                    arguments => 0)
+                .DeclaresRecoverableErrors(inputError);
+            Equal(inputError, hostFunction.RecoverableErrors.Single());
+            Throws<ArgumentException>(() => hostFunction
+                .DeclaresRecoverableErrors(DdfErrorCatalog.InstructionLimit));
+
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(hostFunction);
+            Equal(inputError, catalog.Snapshot.Functions.Single()
+                .RecoverableErrors.Single());
+
+            DdfExternalApiFunctionDefinition externalFunction =
+                new DdfExternalApiFunctionDefinition("parseValue",
+                    "sample.parse", "int",
+                    new[] { new DdfExternalApiParameterDefinition("text", "string") })
+                .DeclaresRecoverableErrors(inputError);
+            var declared = new DdfExternalApiDefinition("sample.errors",
+                "1.0.0", functions: new[] { externalFunction });
+            var undeclared = new DdfExternalApiDefinition("sample.errors",
+                "1.0.0", functions: new[]
+                {
+                    new DdfExternalApiFunctionDefinition("parseValue",
+                        "sample.parse", "int",
+                        new[] { new DdfExternalApiParameterDefinition(
+                            "text", "string") })
+                });
+            Equal("1.1", DdfExternalApiDefinition.FormatVersion);
+            False(declared.Fingerprint == undeclared.Fingerprint);
+            Equal(inputError, DdfExternalApiCatalogProjector
+                .CreateAnalysisCatalog(declared).Functions.Single()
+                .RecoverableErrors.Single());
+
+            DdfStandardFunction toInt = DdfRuntimeCatalog.StandardFunctions
+                .Single(item => item.Name == "toInt");
+            Equal(inputError, toInt.ErrorDefinitions.Single());
+        }
+
+        private static void TransportsTypedErrorsAcrossVmAndHostBoundaries()
+        {
+            const string source =
+                "divide() out int\n{\n int zero << 0;\n ret 10 / zero;\n}\n" +
+                "main() out int\n{\n ret divide();\n}";
+            DdfExecutionResult runtimeFailure = DdfInterpreter.Execute(source);
+            Equal(false, runtimeFailure.Succeeded);
+            Equal("arithmetic.divisionZero", runtimeFailure.Error.TypeId);
+            Equal("DDF404", runtimeFailure.Error.Code);
+            Equal(DdfErrorKind.Recoverable, runtimeFailure.Error.Kind);
+            Equal(runtimeFailure.Diagnostics.Single().Start,
+                runtimeFailure.Error.Start);
+            Equal(2, runtimeFailure.Error.Stack.Count);
+            Equal("divide", runtimeFailure.Error.Stack[0].FunctionName);
+            Equal(4, runtimeFailure.Error.Stack[0].Line);
+            Equal("main", runtimeFailure.Error.Stack[1].FunctionName);
+
+            DdfExecutionResult cancelled = DdfInterpreter.Execute(
+                "main() out void { while(true) { } }",
+                new DdfExecutionOptions { CancellationRequested = () => true });
+            Equal(true, cancelled.WasCancelled);
+            Equal("DDF424", cancelled.Error.Code);
+            Equal(DdfErrorKind.EngineFault, cancelled.Error.Kind);
+            Equal(0, cancelled.Diagnostics.Count);
+
+            const string hostSource =
+                "main() out int { ret parseHost(\"invalid\"); }";
+            DdfHostFunctionDefinition declaredFunction =
+                new DdfHostFunctionDefinition("parseHost", "int",
+                    new[] { new DdfHostParameterDefinition("text", "string") },
+                    arguments => throw new DdfHostErrorException(
+                        DdfErrorCatalog.InvalidInput,
+                        "Il valore host non è valido."))
+                .DeclaresRecoverableErrors(DdfErrorCatalog.InvalidInput);
+            var declaredCatalog = new DdfEditorHostCatalog();
+            declaredCatalog.RegisterFunction(declaredFunction);
+            DdfExecutionResult declaredFailure = DdfInterpreter.Execute(
+                hostSource, new DdfExecutionOptions
+                { HostCatalog = declaredCatalog.Snapshot });
+            Equal("DDF408", declaredFailure.Error.Code);
+            Equal("operation.invalidInput", declaredFailure.Error.TypeId);
+            Equal("Il valore host non è valido.", declaredFailure.Error.Message);
+            Equal("parseHost", declaredFailure.Error.Stack[0].FunctionName);
+
+            var undeclaredCatalog = new DdfEditorHostCatalog();
+            undeclaredCatalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "parseHost", "int",
+                new[] { new DdfHostParameterDefinition("text", "string") },
+                arguments => throw new DdfHostErrorException(
+                    DdfErrorCatalog.InvalidInput,
+                    "Errore non dichiarato.")));
+            DdfExecutionResult undeclaredFailure = DdfInterpreter.Execute(
+                hostSource, new DdfExecutionOptions
+                { HostCatalog = undeclaredCatalog.Snapshot });
+            Equal("DDF410", undeclaredFailure.Error.Code);
+            Equal("engine.hostAdapterFailure", undeclaredFailure.Error.TypeId);
+            Equal(DdfErrorKind.EngineFault, undeclaredFailure.Error.Kind);
+        }
+
+        private static void KeepsFutureErrorHandlingDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-error-handling-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-error-handling-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0029", design["decisionId"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string[] plannedKeywords = design["keywords"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(6, plannedKeywords.Length);
+            Equal(6, plannedKeywords.Distinct(StringComparer.Ordinal).Count());
+            string[] activeKeywords = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedKeywords.Any(keyword => activeKeywords.Contains(
+                keyword, StringComparer.Ordinal)));
+
+            JsonObject rules = design["rules"].AsObject();
+            Equal(true, rules.All(item => item.Value.GetValue<bool>()));
+            Equal(true, design["grammar"].AsObject()["functionErrors"]
+                .GetValue<string>().Contains("raises", StringComparison.Ordinal));
+            Equal(true, design["grammar"].AsObject()["raiseStatement"]
+                .GetValue<string>().Contains("raise", StringComparison.Ordinal));
+
+            Equal(true, DdfErrorCatalog.All.All(item => Regex.IsMatch(item.TypeId,
+                "^[a-z][A-Za-z0-9]*(?:\\.[a-z][A-Za-z0-9]*)+$")));
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_ERROR_HANDLING_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.14", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0029", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureOptionalValueDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-optional-values-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-optional-values-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0030", design["decisionId"].GetValue<string>());
+            Equal("0.15", design["targetLanguageVersion"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string[] plannedKeywords = design["keywords"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "maybe", "some", "none" }, plannedKeywords);
+            string[] activeKeywords = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedKeywords.Any(keyword => activeKeywords.Contains(
+                keyword, StringComparer.Ordinal)));
+
+            JsonObject rules = design["rules"].AsObject();
+            Equal(true, rules.All(item => item.Value.GetValue<bool>()));
+            Equal(true, design["grammar"].AsObject()["optionalType"]
+                .GetValue<string>().Contains("maybe", StringComparison.Ordinal));
+            Equal(true, design["grammar"].AsObject()["whenSomeClause"]
+                .GetValue<string>().Contains("some", StringComparison.Ordinal));
+            Equal(true, design["grammar"].AsObject()["whenNoneClause"]
+                .GetValue<string>().Contains("none", StringComparison.Ordinal));
+
+            const string currentSource =
+                "maybe() out int { ret 40; } " +
+                "some() out int { ret 2; } " +
+                "none() out int { ret maybe() + some(); } " +
+                "main() out int { ret none(); }";
+            DdfLexResult lexed = DdfLexer.Lex(currentSource);
+            Equal(0, lexed.Diagnostics.Count);
+            Equal(true, lexed.Tokens.Where(item => plannedKeywords.Contains(
+                currentSource.Substring(item.Start, item.Length),
+                StringComparer.Ordinal)).All(item =>
+                    item.Kind == DdfTokenKind.Identifier));
+            DdfParseResult parsed = DdfParser.Parse(currentSource, lexed);
+            Equal(0, parsed.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(currentSource, parsed.Root).Diagnostics.Count);
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentSource);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            const string inactiveCollectionSyntax =
+                "main() out int { sequence<int> values; " +
+                "map<string, int> scores; view<int> snapshot; ret 0; }";
+            DdfParseResult inactiveCollections = DdfParser.Parse(
+                inactiveCollectionSyntax);
+            Equal(true, inactiveCollections.Diagnostics.Count > 0 ||
+                DdfTypeChecker.Check(inactiveCollectionSyntax,
+                    inactiveCollections.Root).Diagnostics.Count > 0);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_OPTIONAL_VALUES_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.15", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0030", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureModuleQualificationDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-module-qualification-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-module-qualification-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject projectSchema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-project.schema.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0031", design["decisionId"].GetValue<string>());
+            Equal("0.16", design["targetLanguageVersion"].GetValue<string>());
+            Equal("1.3", design["targetProjectManifestVersion"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string token = design["qualificationToken"].GetValue<string>();
+            Equal("::", token);
+            string[] activeOperators = lexicon["operators"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            string[] activePunctuation = lexicon["punctuation"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(false, activeOperators.Contains(token, StringComparer.Ordinal));
+            Equal(false, activePunctuation.Contains(token, StringComparer.Ordinal));
+
+            JsonObject rules = design["rules"].AsObject();
+            Equal(true, rules.All(item => item.Value.GetValue<bool>()));
+            JsonObject manifestRules = design["manifest"].AsObject();
+            Equal("alias", manifestRules["dependencyAliasProperty"]
+                .GetValue<string>());
+            Equal(true, manifestRules["aliasRequired"].GetValue<bool>());
+            Equal(7, design["diagnostics"].AsArray().Count);
+            Equal(true, design["grammar"].AsObject().All(item =>
+                item.Value.GetValue<string>().Contains("::", StringComparison.Ordinal)));
+
+            Equal("1.2", projectSchema["properties"].AsObject()
+                ["schemaVersion"].AsObject()["const"].GetValue<string>());
+            JsonObject dependencyProperties = projectSchema["properties"].AsObject()
+                ["dependencies"].AsObject()["items"].AsObject()
+                ["properties"].AsObject();
+            Equal(false, dependencyProperties.ContainsKey("alias"));
+            Equal(null, typeof(DdfProjectDependency).GetProperty("Alias"));
+
+            const string inactiveQualifiedSource =
+                "main() out int { ret math::add(20, 22); }";
+            DdfLexResult inactiveQualifiedLex = DdfLexer.Lex(
+                inactiveQualifiedSource);
+            Equal(true, inactiveQualifiedLex.Diagnostics.Count > 0);
+            DdfParseResult inactiveQualifiedParse = DdfParser.Parse(
+                inactiveQualifiedSource, inactiveQualifiedLex);
+            Equal(true, inactiveQualifiedParse.Diagnostics.Count > 0 ||
+                inactiveQualifiedLex.Diagnostics.Count > 0);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_MODULE_QUALIFICATION_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.16", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("manifesto progetto `1.3`",
+                StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0031", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureTypedIterationDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-typed-iteration-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-typed-iteration-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0032", design["decisionId"].GetValue<string>());
+            Equal("0.17", design["targetLanguageVersion"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string[] plannedKeywords = design["keywords"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "each", "in" }, plannedKeywords);
+            string[] activeKeywords = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedKeywords.Any(keyword => activeKeywords.Contains(
+                keyword, StringComparer.Ordinal)));
+
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("array", design["collectionKinds"].AsObject()["initial"]
+                .AsArray().Single().GetValue<string>());
+            Equal("ascending-index", design["snapshot"].AsObject()["arrayOrder"]
+                .GetValue<string>());
+            Equal("shallow", design["snapshot"].AsObject()["depth"]
+                .GetValue<string>());
+            Equal(5, design["diagnostics"].AsArray().Count);
+
+            const string currentSource =
+                "each() out int { ret 40; } " +
+                "in() out int { ret 2; } " +
+                "main() out int { ret each() + in(); }";
+            DdfLexResult lexed = DdfLexer.Lex(currentSource);
+            Equal(0, lexed.Diagnostics.Count);
+            Equal(true, lexed.Tokens.Where(item => plannedKeywords.Contains(
+                currentSource.Substring(item.Start, item.Length),
+                StringComparer.Ordinal)).All(item =>
+                    item.Kind == DdfTokenKind.Identifier));
+            DdfParseResult parsed = DdfParser.Parse(currentSource, lexed);
+            Equal(0, parsed.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(currentSource, parsed.Root).Diagnostics.Count);
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentSource);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_TYPED_ITERATION_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.17", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0032", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureTypedCollectionDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-typed-collections-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-typed-collections-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0033", design["decisionId"].GetValue<string>());
+            Equal("0.18", design["targetLanguageVersion"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string[] plannedKeywords = design["keywords"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "sequence", "map", "view", "entry" },
+                plannedKeywords);
+            string[] activeKeywords = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedKeywords.Any(keyword => activeKeywords.Contains(
+                keyword, StringComparer.Ordinal)));
+
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["viewContract"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("sequence<T>", design["typeForms"].AsObject()["sequence"]
+                .GetValue<string>());
+            Equal("map<K,V>", design["typeForms"].AsObject()["map"]
+                .GetValue<string>());
+            SequenceEqual(new[] { "int", "char", "bool", "string", "enum" },
+                design["mapKeyKinds"].AsArray().Select(item =>
+                    item.GetValue<string>()));
+            Equal(6, design["diagnostics"].AsArray().Count);
+
+            const string currentSource =
+                "sequence() out int { ret 10; } " +
+                "map() out int { ret 11; } " +
+                "view() out int { ret 12; } " +
+                "entry() out int { ret 9; } " +
+                "main() out int { ret sequence() + map() + view() + entry(); }";
+            DdfLexResult lexed = DdfLexer.Lex(currentSource);
+            Equal(0, lexed.Diagnostics.Count);
+            Equal(true, lexed.Tokens.Where(item => plannedKeywords.Contains(
+                currentSource.Substring(item.Start, item.Length),
+                StringComparer.Ordinal)).All(item =>
+                    item.Kind == DdfTokenKind.Identifier));
+            DdfParseResult parsed = DdfParser.Parse(currentSource, lexed);
+            Equal(0, parsed.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(currentSource, parsed.Root).Diagnostics.Count);
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentSource);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_TYPED_COLLECTIONS_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.18", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0033", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureExtendedNumericDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-extended-numerics-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-extended-numerics-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "lexicon.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0034", design["decisionId"].GetValue<string>());
+            Equal("0.19", design["targetLanguageVersion"].GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            string[] plannedKeywords = design["keywords"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "long", "decimal" }, plannedKeywords);
+            string[] activeKeywords = lexicon["keywords"].AsArray()
+                .Select(item => item.AsObject()["text"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedKeywords.Any(keyword => activeKeywords.Contains(
+                keyword, StringComparer.Ordinal)));
+
+            JsonObject types = design["types"].AsObject();
+            Equal("i64", types["long"].AsObject()["literalSuffix"]
+                .GetValue<string>());
+            Equal("dec", types["decimal"].AsObject()["literalSuffix"]
+                .GetValue<string>());
+            Equal(96, types["decimal"].AsObject()["coefficientBits"]
+                .GetValue<int>());
+            Equal(28, types["decimal"].AsObject()["maximumScale"]
+                .GetValue<int>());
+            Equal("nearest-ties-to-even", types["decimal"].AsObject()["rounding"]
+                .GetValue<string>());
+            SequenceEqual(new[] { "int->long", "int->decimal", "long->decimal" },
+                design["implicitConversions"].AsArray().Select(item =>
+                    item.GetValue<string>()));
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject()["invariantFormatting"]
+                .GetValue<bool>());
+            Equal(true, design["integration"].AsObject()["vmAndRoslynMustBeEquivalent"]
+                .GetValue<bool>());
+            Equal(5, design["diagnostics"].AsArray().Count);
+
+            const string currentSource =
+                "long() out int { ret 20; } " +
+                "decimal() out int { ret 22; } " +
+                "main() out int { ret long() + decimal(); }";
+            DdfLexResult lexed = DdfLexer.Lex(currentSource);
+            Equal(0, lexed.Diagnostics.Count);
+            Equal(true, lexed.Tokens.Where(item => plannedKeywords.Contains(
+                currentSource.Substring(item.Start, item.Length),
+                StringComparer.Ordinal)).All(item =>
+                    item.Kind == DdfTokenKind.Identifier));
+            DdfParseResult parsed = DdfParser.Parse(currentSource, lexed);
+            Equal(0, parsed.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(currentSource, parsed.Root).Diagnostics.Count);
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentSource);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_EXTENDED_NUMERICS_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.19", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0034", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureStringLibraryDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-string-library-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-string-library-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject standardLibrary = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0035", design["decisionId"].GetValue<string>());
+            Equal("0.20", design["targetLanguageVersion"].GetValue<string>());
+            Equal("0.20.0", design["targetStandardLibraryVersion"]
+                .GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+            Equal("+", design["concatenationOperator"].GetValue<string>());
+
+            string[] plannedFunctions = design["functions"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(19, plannedFunctions.Length);
+            Equal(19, plannedFunctions.Distinct(StringComparer.Ordinal).Count());
+            string[] activeFunctions = standardLibrary["functions"].AsArray()
+                .Select(item => item.AsObject()["name"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedFunctions.Any(function => activeFunctions.Contains(
+                function, StringComparer.Ordinal)));
+
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("15.1", design["unicode"].AsObject()["version"]
+                .GetValue<string>());
+            Equal(true, design["unicode"].AsObject()["cultureIndependent"]
+                .GetValue<bool>());
+            Equal(true, design["format"].AsObject()
+                .Where(item => item.Value is JsonValue &&
+                    (item.Key.EndsWith("Forbidden", StringComparison.Ordinal) ||
+                     item.Key == "reflectionForbidden"))
+                .All(item => item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(5, design["diagnostics"].AsArray().Count);
+
+            const string futureConcatenation =
+                "main() out string { ret \"DDF\" + \" Editor\"; }";
+            DdfParseResult parsed = DdfParser.Parse(futureConcatenation);
+            Equal(0, parsed.Diagnostics.Count);
+            Equal(true, DdfTypeChecker.Check(futureConcatenation, parsed.Root)
+                .Diagnostics.Any());
+
+            const string currentIdentifier =
+                "contains() out int { ret 42; } main() out int { ret contains(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifier);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_STRING_LIBRARY_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.20", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0035", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureMathLibraryDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-math-library-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-math-library-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject extendedNumerics = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-extended-numerics-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject standardLibrary = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0036", design["decisionId"].GetValue<string>());
+            Equal("0.21", design["targetLanguageVersion"].GetValue<string>());
+            Equal("0.21.0", design["targetStandardLibraryVersion"]
+                .GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(extendedNumerics[
+                "targetLanguageVersion"].GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+            Equal("ddf.math.transcendental.v1", design[
+                "transcendentalAlgorithm"].GetValue<string>());
+            Equal("radian", design["angleUnit"].GetValue<string>());
+
+            string[] plannedFunctions = design["functions"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(35, plannedFunctions.Length);
+            Equal(35, plannedFunctions.Distinct(StringComparer.Ordinal).Count());
+            string[] activeFunctions = standardLibrary["functions"].AsArray()
+                .Select(item => item.AsObject()["name"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedFunctions.Any(function => activeFunctions.Contains(
+                function, StringComparer.Ordinal)));
+
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("400921fb54442d18", design["constants"].AsObject()[
+                "piBinary64Hex"].GetValue<string>());
+            Equal("4005bf0a8b145769", design["constants"].AsObject()[
+                "eBinary64Hex"].GetValue<string>());
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(5, design["diagnostics"].AsArray().Count);
+
+            const string currentIdentifier =
+                "absInt() out int { ret 42; } main() out int { ret absInt(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifier);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_MATH_LIBRARY_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.21", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0036", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureTemporalRandomDesignExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-temporal-random-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-temporal-random-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject policy = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-language-version-policy.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject stringDesign = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-string-library-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject standardLibrary = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0037", design["decisionId"].GetValue<string>());
+            Equal("0.22", design["targetLanguageVersion"].GetValue<string>());
+            Equal("0.22.0", design["targetStandardLibraryVersion"]
+                .GetValue<string>());
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(policy["languageVersion"]
+                .GetValue<string>()));
+            Equal(true, Version.Parse(design["targetLanguageVersion"]
+                .GetValue<string>()) > Version.Parse(stringDesign[
+                "targetLanguageVersion"].GetValue<string>()));
+            Equal("object", schema["type"].GetValue<string>());
+            Equal(100, design["resolutionNanoseconds"].GetValue<int>());
+            Equal("proleptic-gregorian", design["calendar"].GetValue<string>());
+
+            string[] plannedTypes = design["types"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(5, plannedTypes.Length);
+            Equal(5, plannedTypes.Distinct(StringComparer.Ordinal).Count());
+            string[] plannedFunctions = design["functions"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(40, plannedFunctions.Length);
+            Equal(40, plannedFunctions.Distinct(StringComparer.Ordinal).Count());
+            string[] activeFunctions = standardLibrary["functions"].AsArray()
+                .Select(item => item.AsObject()["name"].GetValue<string>())
+                .ToArray();
+            Equal(false, plannedFunctions.Any(function => activeFunctions.Contains(
+                function, StringComparer.Ordinal)));
+
+            Equal("ddf.clock.v1", design["providers"].AsObject()["clock"]
+                .GetValue<string>());
+            Equal("ddf.random.v1", design["providers"].AsObject()["random"]
+                .GetValue<string>());
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(7, design["diagnostics"].AsArray().Count);
+
+            const string currentIdentifiers =
+                "date() out int { ret 1; } " +
+                "time() out int { ret 2; } " +
+                "datetime() out int { ret 3; } " +
+                "instant() out int { ret 4; } " +
+                "duration() out int { ret 5; } " +
+                "main() out int { ret date() + time() + datetime() + instant() + duration(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifiers);
+            Equal(true, executed.Succeeded);
+            Equal(15, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_TEMPORAL_RANDOM_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("DDF 0.22", StringComparison.Ordinal));
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, decisions.Contains("DDF-0037", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureStandardLibraryBindingContractExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-standard-library-binding-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-standard-library-binding-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject current = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0038", design["decisionId"].GetValue<string>());
+            Equal("2.0", design["futureSectionSchemaVersion"].GetValue<string>());
+            Equal("ddf-standard-library-v4", design["futureAdapter"]
+                .GetValue<string>());
+            Equal("0.20", design["activationBeforeLanguageVersion"]
+                .GetValue<string>());
+            Equal("object", schema["type"].GetValue<string>());
+
+            JsonObject currentContract = design["currentContract"].AsObject();
+            Equal(current["schemaVersion"].GetValue<string>(), currentContract[
+                "sectionSchemaVersion"].GetValue<string>());
+            Equal(current["adapter"].GetValue<string>(), currentContract[
+                "adapter"].GetValue<string>());
+            Equal(current["version"].GetValue<string>(), currentContract[
+                "libraryVersion"].GetValue<string>());
+            Equal("1.1", current["schemaVersion"].GetValue<string>());
+            Equal("ddf-standard-library-v3", current["adapter"].GetValue<string>());
+
+            Equal(17, design["requiredFunctionFields"].AsArray().Count);
+            Equal(5, design["bindingFields"].AsArray().Count);
+            Equal(5, design["effectKinds"].AsArray().Count);
+            Equal(16, design["consumers"].AsArray().Count);
+            Equal(6, design["loaderDiagnostics"].AsArray().Count);
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+
+            var identityPattern = new Regex(design["functionIdentityPattern"]
+                .GetValue<string>(), RegexOptions.CultureInvariant);
+            Equal(true, identityPattern.IsMatch(
+                "ddf.standard/string/contains@1"));
+            Equal(false, identityPattern.IsMatch("System.String.Contains"));
+            Equal(false, design["portabilityKinds"].AsArray()
+                .Select(item => item.GetValue<string>())
+                .Contains("platform-bound", StringComparer.Ordinal));
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_STANDARD_LIBRARY_BINDING_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("schema `2.0`", StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0038", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureHostDialogContractExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-host-dialog-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-host-dialog-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject standardLibrary = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0039", design["decisionId"].GetValue<string>());
+            Equal("0.13", design["minimumLanguageVersion"].GetValue<string>());
+            Equal("0.38", design["targetEditorSdkContract"].GetValue<string>());
+            Equal("ui.dialog.message", design["capabilityId"].GetValue<string>());
+            Equal("ddf.ui.dialog.message.v1", design["providerContract"]
+                .GetValue<string>());
+            Equal("object", schema["type"].GetValue<string>());
+
+            JsonObject function = design["function"].AsObject();
+            Equal("dialogMessage", function["name"].GetValue<string>());
+            Equal(4, function["parameters"].AsArray().Count);
+            Equal("dialogResult", function["returnType"].GetValue<string>());
+            Equal("ui", function["effect"].GetValue<string>());
+            Equal(4, design["enums"].AsObject()["dialogButtons"].AsArray().Count);
+            Equal(5, design["enums"].AsObject()["dialogIcon"].AsArray().Count);
+            Equal(4, design["enums"].AsObject()["dialogResult"].AsArray().Count);
+            Equal(1, design["defaultLimits"].AsObject()[
+                "maximumPendingPerInstance"].GetValue<int>());
+            Equal(5, design["recoverableErrors"].AsArray().Count);
+            Equal(11, design["requestFields"].AsArray().Count);
+            Equal(3, design["responseFields"].AsArray().Count);
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+
+            Equal(false, standardLibrary["functions"].AsArray()
+                .Select(item => item.AsObject()["name"].GetValue<string>())
+                .Contains("dialogMessage", StringComparer.Ordinal));
+            const string currentIdentifier =
+                "dialogMessage() out int { ret 42; } " +
+                "main() out int { ret dialogMessage(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifier);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_HOST_DIALOG_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("ui.dialog.message",
+                StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0039", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureProjectTestingContractExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-project-testing-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-project-testing-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject packageTests = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "tests.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject standardLibrary = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "language-packages", "ddf", "standard-library.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0040", design["decisionId"].GetValue<string>());
+            Equal("0.39", design["targetEditorSdkContract"].GetValue<string>());
+            Equal("ddf-test-plan@1.0", design["planContract"].GetValue<string>());
+            Equal("ddf-project-tests-v1", design["adapter"].GetValue<string>());
+            Equal("ddf-test-report@1.0", design["reportContract"].GetValue<string>());
+            Equal("object", schema["type"].GetValue<string>());
+
+            Equal("1.0", packageTests["schemaVersion"].GetValue<string>());
+            Equal("ddf-tests-v1", packageTests["adapter"].GetValue<string>());
+            Equal(packageTests["adapter"].GetValue<string>(), design[
+                "currentLanguagePackageTestAdapter"].GetValue<string>());
+
+            JsonObject testLibrary = design["testLibrary"].AsObject();
+            Equal("ddf.testing@1", testLibrary["identity"].GetValue<string>());
+            string[] testFunctions = testLibrary["functions"].AsArray()
+                .Select(item => item.GetValue<string>()).ToArray();
+            Equal(11, testFunctions.Length);
+            Equal(11, testFunctions.Distinct(StringComparer.Ordinal).Count());
+            Equal(128, testLibrary["maximumFailuresPerCase"].GetValue<int>());
+            Equal(false, standardLibrary["functions"].AsArray()
+                .Select(item => item.AsObject()["name"].GetValue<string>())
+                .Any(name => testFunctions.Contains(name, StringComparer.Ordinal)));
+
+            Equal(3, design["expectedOutcomeKinds"].AsArray().Count);
+            Equal(5, design["caseStatusKinds"].AsArray().Count);
+            Equal(9, design["fixtureFields"].AsArray().Count);
+            Equal(10, design["runnerDiagnostics"].AsArray().Count);
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+
+            const string currentIdentifier =
+                "assertTrue() out int { ret 42; } " +
+                "main() out int { ret assertTrue(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifier);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_PROJECT_TESTING_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("accettato, non ancora implementato",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("ddf-tests-v1",
+                StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0040", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureResourceLifetimeContractExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-resource-lifetime-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-resource-lifetime-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0041", design["decisionId"].GetValue<string>());
+            Equal("0.23", design["targetLanguageVersion"].GetValue<string>());
+            Equal("0.40", design["targetEditorSdkContract"].GetValue<string>());
+            Equal("ddf-resource-descriptor@1.0",
+                design["resourceDescriptorContract"].GetValue<string>());
+            Equal("ddf.resource.provider.v1",
+                design["runtimeProviderContract"].GetValue<string>());
+            Equal("use", design["syntax"].AsObject()["keyword"]
+                .GetValue<string>());
+            Equal(false, design["syntax"].AsObject()["genericDeferSupported"]
+                .GetValue<bool>());
+            Equal(10, design["cleanupTriggers"].AsArray().Count);
+            Equal(10, design["diagnostics"].AsArray().Count);
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            const string currentIdentifier =
+                "use() out int { ret 42; } " +
+                "main() out int { ret use(); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifier);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_RESOURCE_LIFETIME_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains(
+                "fondazione SDK implementata, sintassi inattiva",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("defer", StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0041", StringComparison.Ordinal));
+        }
+
+        private static void KeepsFutureCooperativeAsyncContractExplicitAndInactive()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject design = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-cooperative-async-design.json"),
+                Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-cooperative-async-design.schema.json"),
+                Encoding.UTF8)).AsObject();
+
+            Equal("1.0", design["schemaVersion"].GetValue<string>());
+            Equal("accepted-design-not-implemented",
+                design["status"].GetValue<string>());
+            Equal("DDF-0042", design["decisionId"].GetValue<string>());
+            Equal("0.24", design["targetLanguageVersion"].GetValue<string>());
+            Equal("0.41", design["targetEditorSdkContract"].GetValue<string>());
+            Equal("ddf-cooperative-suspension@1.0",
+                design["suspensionDescriptorContract"].GetValue<string>());
+            Equal("ddf.async-capability-provider.v1",
+                design["runtimeProviderContract"].GetValue<string>());
+            Equal(0, design["syntax"].AsObject()["newKeywords"].AsArray().Count);
+            Equal(false, design["syntax"].AsObject()["asyncIdentifierReserved"]
+                .GetValue<bool>());
+            Equal(false, design["syntax"].AsObject()["awaitIdentifierReserved"]
+                .GetValue<bool>());
+            Equal(5, design["executionStates"].AsArray().Count);
+            Equal(4, design["irOperations"].AsArray().Count);
+            Equal(10, design["diagnostics"].AsArray().Count);
+            Equal(true, design["rules"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal(true, design["integration"].AsObject().All(item =>
+                item.Value.GetValue<bool>()));
+            Equal("object", schema["type"].GetValue<string>());
+
+            const string currentIdentifiers =
+                "async() out int { ret 40; } " +
+                "await(int value) out int { ret value + 2; } " +
+                "main() out int { ret await(async()); }";
+            DdfExecutionResult executed = DdfInterpreter.Execute(currentIdentifiers);
+            Equal(true, executed.Succeeded);
+            Equal(42, executed.ReturnValue);
+
+            string document = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_COOPERATIVE_ASYNC_DESIGN.md"), Encoding.UTF8);
+            string decisions = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_DECISIONS.md"), Encoding.UTF8);
+            Equal(true, document.Contains("infrastruttura in implementazione",
+                StringComparison.OrdinalIgnoreCase));
+            Equal(true, document.Contains("awaiting-capability",
+                StringComparison.Ordinal));
+            Equal(true, decisions.Contains("DDF-0042", StringComparison.Ordinal));
+        }
+
+        private static void GuardsCooperativeSuspensionGenerationsAndLateResults()
+        {
+            var coordinator = new DdfCooperativeExecutionCoordinator();
+            Guid firstExecution = Guid.NewGuid();
+            DdfCooperativeExecutionSnapshot started = coordinator.Begin(firstExecution);
+            Equal(1L, started.Generation);
+            Equal(firstExecution, started.ExecutionId);
+            Equal(DdfCooperativeExecutionState.Running, started.State);
+
+            var mutableMap = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["count"] = 2,
+                ["values"] = new List<object> { 3, 4 }
+            };
+            var mutableArguments = new List<object> { 1, mutableMap };
+            DateTimeOffset createdAt = new DateTimeOffset(
+                2026, 10, 14, 10, 0, 0, TimeSpan.Zero);
+            DateTimeOffset executionDeadline = createdAt.AddSeconds(30);
+            DateTimeOffset operationDeadline = createdAt.AddSeconds(5);
+            DateTimeOffset hostDeadline = createdAt.AddSeconds(10);
+            DateTimeOffset? deadline =
+                DdfCooperativeExecutionCoordinator.EarliestDeadline(
+                    executionDeadline, operationDeadline, hostDeadline);
+            using var cancellation = new CancellationTokenSource();
+            DdfCooperativeSuspensionRequest request = coordinator.Suspend(
+                "database.query", "customers.count", mutableArguments,
+                "main.ddf", 25, 18, "transaction-1", createdAt, deadline,
+                cancellation.Token);
+
+            Equal(DdfCooperativeExecutionState.AwaitingCapability,
+                coordinator.Snapshot.State);
+            Equal(operationDeadline, request.Deadline.Value);
+            Equal("database.query", request.CapabilityId);
+            Equal("customers.count", request.OperationId);
+            Equal(true, request.CancellationToken.CanBeCanceled);
+            mutableArguments[0] = 99;
+            mutableMap["count"] = 99;
+            Equal(1, request.Arguments[0]);
+            var frozenMap = (IReadOnlyDictionary<string, object>)request.Arguments[1];
+            Equal(2, frozenMap["count"]);
+
+            var foreign = new DdfCooperativeSuspensionResult(firstExecution,
+                started.Generation, Guid.NewGuid(),
+                DdfCooperativeSuspensionResultKind.Succeeded, 42);
+            Equal(false, coordinator.TryResume(foreign, out _));
+            Equal(DdfCooperativeExecutionState.AwaitingCapability,
+                coordinator.Snapshot.State);
+
+            var accepted = new DdfCooperativeSuspensionResult(firstExecution,
+                started.Generation, request.CorrelationId,
+                DdfCooperativeSuspensionResultKind.Succeeded, 42);
+            int acceptedCount = 0;
+            Parallel.For(0, 8, iteration =>
+            {
+                if (coordinator.TryResume(accepted,
+                    out DdfCooperativeExecutionSnapshot resumedSnapshot))
+                    Interlocked.Increment(ref acceptedCount);
+            });
+            Equal(1, acceptedCount);
+            Equal(DdfCooperativeExecutionState.Running, coordinator.Snapshot.State);
+            Equal(null, coordinator.Snapshot.PendingSuspension);
+
+            DdfCooperativeSuspensionRequest cancelledRequest = coordinator.Suspend(
+                "network.send", "http.request", new object[] { "payload" },
+                "main.ddf", 50, 12, null, createdAt, executionDeadline,
+                cancellation.Token);
+            Equal(true, coordinator.RequestCancellation(started.Generation));
+            Equal(DdfCooperativeExecutionState.Cancelling,
+                coordinator.Snapshot.State);
+            var late = new DdfCooperativeSuspensionResult(firstExecution,
+                started.Generation, cancelledRequest.CorrelationId,
+                DdfCooperativeSuspensionResultKind.Succeeded, "late");
+            Equal(false, coordinator.TryResume(late, out _));
+
+            coordinator.BeginCleanup(started.Generation);
+            Equal(DdfCooperativeExecutionState.CleaningUp,
+                coordinator.Snapshot.State);
+            coordinator.Complete(started.Generation);
+            Equal(DdfCooperativeExecutionState.Idle, coordinator.Snapshot.State);
+            Equal(Guid.Empty, coordinator.Snapshot.ExecutionId);
+
+            DdfCooperativeExecutionSnapshot second = coordinator.Begin(Guid.NewGuid());
+            Equal(2L, second.Generation);
+            Equal(false, coordinator.RequestCancellation(started.Generation));
+            Throws<InvalidOperationException>(() => coordinator.Begin(Guid.NewGuid()));
+            Throws<ArgumentException>(() => coordinator.Suspend(
+                "host.invalid", "opaque", new object[] { new object() },
+                string.Empty, 0, 0, null, createdAt, executionDeadline,
+                CancellationToken.None));
+            coordinator.BeginCleanup(second.Generation);
+            coordinator.Complete(second.Generation);
+        }
+
         private static void EnforcesHostValueAdaptersAccessAndLifetimes()
         {
             var catalog = new DdfEditorHostCatalog();
             int snapshotReads = 0;
             int snapshotWrites = 0;
             string snapshotBacking = "5";
-            var integerTextAdapter = new DdfHostValueAdapter(
-                value => int.Parse((string)value),
-                value => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture));
+            var integerTextAdapter = DdfHostValueAdapter.Create<string, int>(
+                "int", value => int.Parse(value,
+                    System.Globalization.CultureInfo.InvariantCulture),
+                value => Convert.ToString(value,
+                    System.Globalization.CultureInfo.InvariantCulture));
             catalog.RegisterObject(new DdfHostObjectDefinition(
                 "snapshotValue", "int", () =>
                 {
@@ -2325,9 +4366,7 @@ namespace DDFLanguageEditor.Tests
                 "adapted", "int", new[]
                 {
                     new DdfHostParameterDefinition("value", "int", null,
-                        new DdfHostValueAdapter(value => value,
-                            value => Convert.ToString(value,
-                                System.Globalization.CultureInfo.InvariantCulture)))
+                        integerTextAdapter)
                 }, arguments =>
                 {
                     adaptedArgument = (string)arguments[0];
@@ -2372,6 +4411,65 @@ namespace DDFLanguageEditor.Tests
                 package.Language.StandardLibrary,
                 new DdfExecutionOptions { HostCatalog = catalog.Snapshot });
             Equal(true, runtimeResult.Diagnostics.Any(item => item.Code == "DDF411"));
+        }
+
+        private enum HostAdapterMode
+        {
+            Ready,
+            Busy,
+            Unmapped
+        }
+
+        private static void EnforcesStrictTypedHostAdapters()
+        {
+            DdfHostValueAdapter scalar = DdfHostValueAdapter.Create<string, int>(
+                "int", value => int.Parse(value, CultureInfo.InvariantCulture),
+                value => value.ToString(CultureInfo.InvariantCulture));
+            Equal(DdfHostValueAdapterKind.Scalar, scalar.Kind);
+            Equal("int", scalar.ScriptTypeName);
+            Equal(true, scalar.IsTyped);
+            Equal(12, scalar.ToScriptValue("12"));
+            Equal("7", scalar.FromScriptValue(7));
+            Throws<InvalidOperationException>(() => scalar.ToScriptValue(12));
+            Throws<InvalidOperationException>(() => scalar.FromScriptValue(7L));
+            Throws<InvalidOperationException>(() => scalar.ToScriptValue(null));
+            Throws<ArgumentException>(() => new DdfHostParameterDefinition(
+                "value", "string", valueAdapter: scalar));
+            Throws<ArgumentException>(() => new DdfHostObjectDefinition(
+                "value", "string", () => "12", valueAdapter: scalar));
+            Throws<ArgumentException>(() => new DdfHostFunctionDefinition(
+                "value", "string", Array.Empty<DdfHostParameterDefinition>(),
+                _ => "12", returnValueAdapter: scalar));
+
+            var enumMembers = new Dictionary<HostAdapterMode, string>
+            {
+                [HostAdapterMode.Ready] = "Ready",
+                [HostAdapterMode.Busy] = "Busy"
+            };
+            DdfHostValueAdapter enumeration =
+                DdfHostValueAdapter.Enumeration("DeviceMode", enumMembers);
+            Equal(DdfHostValueAdapterKind.Enumeration, enumeration.Kind);
+            Equal("DeviceMode", enumeration.ScriptTypeName);
+            Equal(new DdfEnumValue("DeviceMode", "Ready"),
+                enumeration.ToScriptValue(HostAdapterMode.Ready));
+            Equal(HostAdapterMode.Busy, enumeration.FromScriptValue(
+                new DdfEnumValue("DeviceMode", "Busy")));
+            Throws<InvalidOperationException>(() => enumeration.ToScriptValue(
+                HostAdapterMode.Unmapped));
+            Throws<InvalidOperationException>(() => enumeration.FromScriptValue(
+                new DdfEnumValue("OtherMode", "Ready")));
+            Throws<InvalidOperationException>(() => enumeration.FromScriptValue(
+                new DdfEnumValue("DeviceMode", "Missing")));
+            Throws<ArgumentException>(() => DdfHostValueAdapter.Enumeration(
+                "DeviceMode", new Dictionary<HostAdapterMode, string>
+                {
+                    [HostAdapterMode.Ready] = "Same",
+                    [HostAdapterMode.Busy] = "Same"
+                }));
+
+            Equal(DdfHostValueAdapterKind.Legacy,
+                new DdfHostValueAdapter(value => value, value => value).Kind);
+            Equal(false, DdfHostValueAdapter.Identity.IsTyped);
         }
 
         private static void SeparatesAnalysisSimulationAndHostEffects()
@@ -3031,6 +5129,289 @@ namespace DDFLanguageEditor.Tests
                 maxHostResources: 0));
         }
 
+        private static void AuthorizesObservesAndRevokesHostResourceLeases()
+        {
+            var descriptor = new DdfHostResourceDescriptor(
+                "databaseConnection", "database.connection.open",
+                "Connessione database", "Lease opaco di test.");
+            var granted = new TestResourceLeaseAuthority(true);
+            var denied = new TestResourceLeaseAuthority(false);
+            var releases = new List<string>();
+            DdfHostResourceLease releasedLease = null;
+            DdfHostResourceLease revokedLease = null;
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "acquireReleased", "int",
+                Array.Empty<DdfHostParameterDefinition>(), null,
+                invokeAsync: async (context, arguments) =>
+                {
+                    releasedLease = await context.RegisterResourceLeaseAsync(
+                        descriptor, new TrackingHostResource("released", releases),
+                        granted);
+                    releasedLease.EnsureAvailable();
+                    return 1;
+                }));
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "acquireRevoked", "int",
+                Array.Empty<DdfHostParameterDefinition>(), null,
+                invokeAsync: async (context, arguments) =>
+                {
+                    revokedLease = await context.RegisterResourceLeaseAsync(
+                        descriptor, new TrackingHostResource("revoked", releases),
+                        granted);
+                    Equal(true, await revokedLease.RevokeAsync("capability revoked"));
+                    Equal(false, await revokedLease.RevokeAsync("duplicate"));
+                    return 2;
+                }));
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "acquireDenied", "int",
+                Array.Empty<DdfHostParameterDefinition>(), null,
+                invokeAsync: async (context, arguments) =>
+                {
+                    await context.RegisterResourceLeaseAsync(descriptor,
+                        new TrackingHostResource("denied", releases), denied);
+                    return 3;
+                }));
+
+            var documents = new OpenDocumentCollection();
+            IDdfEditorDocument document = documents.CreateVirtual(
+                "resource-lease.ddf", "main() out int { ret acquireReleased(); }");
+            using var execution = new DdfEditorExecutionService(() => documents,
+                () => new DdfLanguagePackageSession(), () => catalog.Snapshot);
+
+            DdfEditorExecutionCompletion released = execution.RunAsync()
+                .GetAwaiter().GetResult();
+            Equal(true, released.Succeeded);
+            Equal(DdfHostResourceLeaseState.Released,
+                releasedLease.Snapshot.State);
+            Throws<InvalidOperationException>(releasedLease.EnsureAvailable);
+            SequenceEqual(new[]
+            {
+                DdfHostResourceLeaseState.Active,
+                DdfHostResourceLeaseState.Released
+            }, granted.Snapshots.Select(item => item.State));
+
+            granted.Snapshots.Clear();
+            documents.UpdateDocument(document.Id,
+                "main() out int { ret acquireRevoked(); }");
+            DdfEditorExecutionCompletion revoked = execution.RunAsync()
+                .GetAwaiter().GetResult();
+            Equal(true, revoked.Succeeded);
+            Equal(DdfHostResourceLeaseState.Revoked,
+                revokedLease.Snapshot.State);
+            Equal("capability revoked", revokedLease.Snapshot.RevocationReason);
+            Throws<InvalidOperationException>(revokedLease.EnsureAvailable);
+            SequenceEqual(new[]
+            {
+                DdfHostResourceLeaseState.Active,
+                DdfHostResourceLeaseState.Revoked
+            }, granted.Snapshots.Select(item => item.State));
+
+            documents.UpdateDocument(document.Id,
+                "main() out int { ret acquireDenied(); }");
+            DdfEditorExecutionCompletion rejected = execution.RunAsync()
+                .GetAwaiter().GetResult();
+            Equal(false, rejected.Succeeded);
+            Equal(true, rejected.ExecutionResult.Diagnostics.Any(item =>
+                item.Code == "DDF409"));
+            SequenceEqual(new[] { "released", "revoked", "denied" }, releases);
+            Equal(2, granted.Requests.Count);
+            Equal(1, denied.Requests.Count);
+            Equal(0, denied.Snapshots.Count);
+            Equal(true, granted.Snapshots.All(item =>
+                item.Descriptor == descriptor && item.ExecutionId != Guid.Empty));
+            Equal(false, typeof(DdfHostResourceLeaseSnapshot).GetProperties()
+                .Any(property => property.PropertyType == typeof(object) ||
+                    typeof(IDisposable).IsAssignableFrom(property.PropertyType) ||
+                    typeof(IAsyncDisposable).IsAssignableFrom(property.PropertyType)));
+
+            Throws<ArgumentException>(() => new DdfHostResourceDescriptor(
+                "connection", "invalid capability", "Connection"));
+            Throws<ArgumentException>(() =>
+                DdfHostResourceLeaseDecision.Deny(" "));
+        }
+
+        private static void SuspendsHostCallsWithoutOccupyingExecutionWorker()
+        {
+            var entered = new ManualResetEventSlim();
+            var release = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var providerCancelled = new ManualResetEventSlim();
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "delayedValue", "int", Array.Empty<DdfHostParameterDefinition>(),
+                null, invokeAsync: async (context, arguments) =>
+                {
+                    entered.Set();
+                    try
+                    {
+                        return await release.Task.WaitAsync(context.CancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        providerCancelled.Set();
+                        throw;
+                    }
+                }));
+
+            var documents = new OpenDocumentCollection();
+            documents.CreateVirtual("cooperative.ddf",
+                "main() out int { int value << delayedValue(); ret value + 1; }");
+            using var execution = new DdfEditorExecutionService(() => documents,
+                () => new DdfLanguagePackageSession(), () => catalog.Snapshot);
+            var states = new List<DdfEditorExecutionState>();
+            var cooperativeSnapshots =
+                new List<DdfEditorCooperativeExecutionSnapshot>();
+            var stateSync = new object();
+            execution.StateChanged += (sender, args) =>
+            {
+                lock (stateSync) states.Add(args.State);
+            };
+            execution.CooperativeStateChanged += (sender, args) =>
+            {
+                lock (stateSync) cooperativeSnapshots.Add(args.Snapshot);
+            };
+
+            Task<DdfEditorExecutionCompletion> running = execution.RunAsync(
+                new DdfEditorExecutionRequest(
+                    hostCallTimeout: TimeSpan.FromSeconds(5)));
+            if (!entered.Wait(TimeSpan.FromSeconds(2)))
+                throw new InvalidOperationException(
+                    "Il provider sospensivo non è stato invocato.");
+            if (!SpinWait.SpinUntil(() => execution.CooperativeSnapshot.State ==
+                DdfEditorCooperativeExecutionState.AwaitingCapability,
+                TimeSpan.FromSeconds(2)))
+                throw new InvalidOperationException(
+                    "Lo stato AwaitingCapability non è stato osservato; stato: " +
+                    execution.CooperativeSnapshot.State + ".");
+            DdfEditorCooperativeExecutionSnapshot suspended =
+                execution.CooperativeSnapshot;
+            Equal(true, suspended.IsSuspended);
+            Equal("host.function", suspended.PendingSuspension.CapabilityId);
+            Equal("delayedValue", suspended.PendingSuspension.OperationId);
+            Equal(false, suspended.PendingSuspension.CorrelationId == Guid.Empty);
+            Equal(true, suspended.PendingSuspension.Deadline.HasValue);
+            Equal(false, typeof(DdfEditorCooperativeExecutionSnapshot)
+                .GetProperties().Any(property =>
+                    typeof(Task).IsAssignableFrom(property.PropertyType) ||
+                    property.PropertyType == typeof(CancellationToken)));
+            Equal(false, running.IsCompleted);
+            release.SetResult(41);
+            DdfEditorExecutionCompletion completed = running.GetAwaiter().GetResult();
+            if (!completed.Succeeded)
+                throw new InvalidOperationException(
+                    "La ripresa cooperativa non è riuscita: " +
+                    completed.InternalError + " | " + string.Join(" | ",
+                        completed.ExecutionResult?.Diagnostics.Select(item =>
+                            item.Code + ": " + item.Message) ??
+                        Array.Empty<string>()));
+            Equal(42, completed.ExecutionResult.ReturnValue);
+            Equal(DdfEditorCooperativeExecutionState.Idle,
+                execution.CooperativeSnapshot.State);
+            lock (stateSync)
+            {
+                Equal(DdfEditorExecutionState.Idle, states.Last());
+                Equal(DdfEditorCooperativeExecutionState.Idle,
+                    cooperativeSnapshots.Last().State);
+            }
+
+            entered.Reset();
+            release = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<DdfEditorExecutionCompletion> cancelledRun = execution.RunAsync(
+                new DdfEditorExecutionRequest(
+                    hostCallTimeout: TimeSpan.FromSeconds(5)));
+            if (!entered.Wait(TimeSpan.FromSeconds(2)))
+                throw new InvalidOperationException(
+                    "Il provider sospensivo non è stato reinvocato.");
+            if (!SpinWait.SpinUntil(() => execution.CooperativeSnapshot.State ==
+                DdfEditorCooperativeExecutionState.AwaitingCapability,
+                TimeSpan.FromSeconds(2)))
+                throw new InvalidOperationException(
+                    "La seconda attesa non ha esposto AwaitingCapability; stato: " +
+                    execution.CooperativeSnapshot.State + ".");
+            Equal(true, execution.Stop());
+            Equal(true, providerCancelled.Wait(TimeSpan.FromSeconds(2)));
+            DdfEditorExecutionCompletion cancelled = cancelledRun
+                .GetAwaiter().GetResult();
+            Equal(true, cancelled.WasCancelled);
+            Equal(DdfEditorExecutionState.Idle, execution.State);
+            release.TrySetResult(99);
+        }
+
+        private static void KeepsEmbeddedDebuggerSnapshotsWhileAwaitingCapabilities()
+        {
+            var entered = new ManualResetEventSlim();
+            var release = new TaskCompletionSource<object>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var catalog = new DdfEditorHostCatalog();
+            catalog.RegisterFunction(new DdfHostFunctionDefinition(
+                "delayedValue", "int", Array.Empty<DdfHostParameterDefinition>(),
+                null, invokeAsync: async (context, arguments) =>
+                {
+                    entered.Set();
+                    return await release.Task.WaitAsync(context.CancellationToken)
+                        .ConfigureAwait(false);
+                }));
+
+            var documents = new OpenDocumentCollection();
+            documents.CreateVirtual("debug-cooperative.ddf", string.Join("\n", new[]
+            {
+                "main() out int",
+                "{",
+                "    int seed << 1;",
+                "    int value << delayedValue();",
+                "    ret value + seed;",
+                "}"
+            }));
+            using var debugger = new DdfEditorDebugService(() => documents,
+                () => new DdfLanguagePackageSession(), () => catalog.Snapshot);
+            var cooperativeStates =
+                new List<DdfEditorCooperativeExecutionState>();
+            debugger.CooperativeStateChanged += (sender, args) =>
+                cooperativeStates.Add(args.Snapshot.State);
+
+            Task<DdfEditorExecutionCompletion> running = debugger.RunAsync(
+                new DdfEditorExecutionRequest(
+                    hostCallTimeout: TimeSpan.FromSeconds(5)));
+            if (!entered.Wait(TimeSpan.FromSeconds(2)) ||
+                !SpinWait.SpinUntil(() => debugger.State ==
+                    DdfEditorDebugState.AwaitingCapability,
+                    TimeSpan.FromSeconds(2)))
+            {
+                release.TrySetResult(41);
+                DdfEditorExecutionCompletion failed = running.GetAwaiter().GetResult();
+                throw new InvalidOperationException(
+                    "Il debugger embedded non ha pubblicato l'attesa capability; " +
+                    "stato=" + debugger.State + ", errore=" + failed.InternalError +
+                    ", diagnostiche=" + string.Join(" | ",
+                        failed.ExecutionResult?.Diagnostics.Select(item =>
+                            item.Code + ":" + item.Message) ?? Array.Empty<string>()));
+            }
+
+            Equal(false, debugger.IsPaused);
+            Equal(4, debugger.CurrentLocation.Line);
+            Equal("delayedValue", debugger.CooperativeSnapshot
+                .PendingSuspension.OperationId);
+            Equal(true, debugger.CurrentSnapshot.CallStack.Count > 0);
+            DdfEditorWatchResult seed = debugger.EvaluateWatch("seed");
+            Equal(true, seed.Available);
+            Equal("1", seed.Value.DisplayValue);
+            Equal(false, debugger.StepInto());
+
+            release.SetResult(41);
+            DdfEditorExecutionCompletion completion = running.GetAwaiter().GetResult();
+            Equal(true, completion.Succeeded);
+            Equal(42, completion.ExecutionResult.ReturnValue);
+            Equal(DdfEditorDebugState.Idle, debugger.State);
+            Equal(null, debugger.CurrentSnapshot);
+            Equal(true, cooperativeStates.Contains(
+                DdfEditorCooperativeExecutionState.AwaitingCapability));
+            Equal(DdfEditorCooperativeExecutionState.Idle,
+                cooperativeStates.Last());
+        }
+
         private static void BuildsImmutableHostDocumentSnapshots()
         {
             var documents = new OpenDocumentCollection();
@@ -3513,6 +5894,174 @@ namespace DDFLanguageEditor.Tests
         private static string NormalizeSpecificationWhitespace(string value) =>
             Regex.Replace(value ?? string.Empty, "\\s+", " ").Trim();
 
+        private static void KeepsActiveLanguageIncrementsDeclarativelyIntegrated()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "..", "..", "..", ".."));
+            JsonObject contract = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-integration.json"), Encoding.UTF8)).AsObject();
+            JsonObject contractSchema = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-language-integration.schema.json"), Encoding.UTF8)).AsObject();
+            JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+            JsonObject canonicalManifest = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "manifest.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", contract["schemaVersion"].GetValue<string>());
+            Equal("https://www.ddf.technology/schemas/language-integration-1.0.json",
+                contractSchema["$id"].GetValue<string>());
+            Equal(matrix["language"]["integrationContractVersion"].GetValue<string>(),
+                contract["schemaVersion"].GetValue<string>());
+            Equal("ddf-language-integration.json",
+                matrix["language"]["integrationContract"].GetValue<string>());
+            Equal(canonicalManifest["id"].GetValue<string>(),
+                contract["languageId"].GetValue<string>());
+            Equal(canonicalManifest["languageVersion"].GetValue<string>(),
+                contract["languageVersion"].GetValue<string>());
+            Equal(canonicalManifest["packageVersion"].GetValue<string>(),
+                contract["packageVersion"].GetValue<string>());
+
+            JsonArray layers = contract["layers"].AsArray();
+            string[] layerIds = layers.Select(node =>
+                node.AsObject()["id"].GetValue<string>()).ToArray();
+            SequenceEqual(new[]
+            {
+                "ebnf", "formatting", "grammar", "intellisense", "lexicon", "profiles",
+                "runtime", "schemas", "semantics", "specification", "standardLibrary",
+                "tests", "types"
+            }, layerIds.OrderBy(value => value, StringComparer.Ordinal));
+            Equal(layerIds.Length, layerIds.Distinct(StringComparer.Ordinal).Count());
+            foreach (JsonNode layerNode in layers)
+            {
+                string relative = layerNode.AsObject()["path"].GetValue<string>();
+                string absolute = Path.Combine(projectRoot,
+                    relative.Replace('/', Path.DirectorySeparatorChar));
+                Equal(true, File.Exists(absolute) || Directory.Exists(absolute));
+            }
+
+            JsonArray increments = contract["activeIncrements"].AsArray();
+            string[] incrementIds = increments.Select(node =>
+                node.AsObject()["id"].GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "continue", "enum", "fixed", "select", "state" },
+                incrementIds.OrderBy(value => value, StringComparer.Ordinal));
+            Equal(incrementIds.Length,
+                incrementIds.Distinct(StringComparer.Ordinal).Count());
+
+            JsonObject packageTests = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "tests.json"), Encoding.UTF8)).AsObject();
+            var packageTestNames = new HashSet<string>(packageTests["cases"].AsArray()
+                .Select(node => node.AsObject()["name"].GetValue<string>()), StringComparer.Ordinal);
+            JsonObject corpus = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "samples", "language-corpus", "corpus.json"), Encoding.UTF8)).AsObject();
+            var corpusValid = new HashSet<string>(corpus["valid"].AsArray()
+                .Select(node => node.AsObject()["id"].GetValue<string>()), StringComparer.Ordinal);
+            var corpusInvalid = new HashSet<string>(corpus["invalid"].AsArray()
+                .Select(node => node.AsObject()["id"].GetValue<string>()), StringComparer.Ordinal);
+            var corpusIncomplete = new HashSet<string>(corpus["incomplete"].AsArray()
+                .Select(node => node.AsObject()["id"].GetValue<string>()), StringComparer.Ordinal);
+            var corpusMultiFile = new HashSet<string>(corpus["multiFile"].AsArray()
+                .Select(node => node.AsObject()["id"].GetValue<string>()), StringComparer.Ordinal);
+
+            JsonArray profiles = contract["profiles"].AsArray();
+            Equal(1, profiles.Count(node => node.AsObject()["canonical"].GetValue<bool>()));
+            SequenceEqual(new[] { "ddf", "ddf-c-familiar", "ddf-it-didactic" },
+                profiles.Select(node => node.AsObject()["id"].GetValue<string>())
+                    .OrderBy(value => value, StringComparer.Ordinal));
+
+            foreach (JsonNode incrementNode in increments)
+            {
+                JsonObject increment = incrementNode.AsObject();
+                SequenceEqual(layerIds.OrderBy(value => value, StringComparer.Ordinal),
+                    increment["requiredLayers"].AsArray().Select(node => node.GetValue<string>())
+                        .OrderBy(value => value, StringComparer.Ordinal));
+                foreach (JsonNode test in increment["packageTests"].AsArray())
+                    Equal(true, packageTestNames.Contains(test.GetValue<string>()));
+                foreach (JsonNode test in increment["corpusValid"].AsArray())
+                    Equal(true, corpusValid.Contains(test.GetValue<string>()));
+                foreach (JsonNode test in increment["corpusInvalid"].AsArray())
+                    Equal(true, corpusInvalid.Contains(test.GetValue<string>()));
+                foreach (JsonNode test in increment["corpusIncomplete"].AsArray())
+                    Equal(true, corpusIncomplete.Contains(test.GetValue<string>()));
+                foreach (JsonNode test in increment["corpusMultiFile"].AsArray())
+                    Equal(true, corpusMultiFile.Contains(test.GetValue<string>()));
+            }
+
+            string specification = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_SPEC.md"), Encoding.UTF8);
+            foreach (JsonNode profileNode in profiles)
+            {
+                JsonObject profile = profileNode.AsObject();
+                string profileRoot = Path.Combine(projectRoot,
+                    profile["path"].GetValue<string>().Replace('/', Path.DirectorySeparatorChar));
+                DdfLanguagePackageLoadResult load = DdfLanguagePackageLoader.Load(profileRoot);
+                if (!load.Success)
+                    throw new InvalidOperationException(profile["id"].GetValue<string>() + ": " +
+                        string.Join(" | ", load.Diagnostics));
+
+                JsonObject lexicon = JsonNode.Parse(File.ReadAllText(Path.Combine(profileRoot,
+                    "lexicon.json"), Encoding.UTF8)).AsObject();
+                JsonObject grammar = JsonNode.Parse(File.ReadAllText(Path.Combine(profileRoot,
+                    "grammar.json"), Encoding.UTF8)).AsObject();
+                string ebnf = File.ReadAllText(Path.Combine(profileRoot, "grammar.ebnf"), Encoding.UTF8);
+                JsonObject semantics = JsonNode.Parse(File.ReadAllText(Path.Combine(profileRoot,
+                    "semantics.json"), Encoding.UTF8)).AsObject();
+                JsonObject runtime = JsonNode.Parse(File.ReadAllText(Path.Combine(profileRoot,
+                    "runtime.json"), Encoding.UTF8)).AsObject();
+                JsonObject intellisense = JsonNode.Parse(File.ReadAllText(Path.Combine(profileRoot,
+                    "intellisense.json"), Encoding.UTF8)).AsObject();
+
+                var keywordsByRole = lexicon["keywords"].AsArray().Select(node => node.AsObject())
+                    .Where(node => node["role"] != null &&
+                        node["role"].GetValue<string>() != "None")
+                    .GroupBy(node => node["role"].GetValue<string>(), StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key,
+                        group => group.Single()["text"].GetValue<string>(), StringComparer.Ordinal);
+                var grammarRules = new HashSet<string>(grammar["nodes"].AsArray()
+                    .Select(node => node.AsObject()["rule"].GetValue<string>()), StringComparer.Ordinal);
+                var semanticOperations = new HashSet<string>(semantics["bindings"].AsArray()
+                    .SelectMany(binding => binding.AsObject()["operations"].AsArray())
+                    .Select(operation => operation.AsObject()["id"].GetValue<string>()), StringComparer.Ordinal);
+                var runtimeOperations = new HashSet<string>(runtime["vmOperations"].AsArray()
+                    .Select(node => node.GetValue<string>()), StringComparer.Ordinal);
+                var snippetPrefixes = new HashSet<string>(intellisense["snippets"].AsArray()
+                    .Select(node => node.AsObject()["prefix"].GetValue<string>()), StringComparer.Ordinal);
+                JsonObject diagnostics = intellisense["diagnostics"].AsObject();
+
+                foreach (JsonNode incrementNode in increments)
+                {
+                    JsonObject increment = incrementNode.AsObject();
+                    foreach (JsonNode roleNode in increment["keywordRoles"].AsArray())
+                    {
+                        string role = roleNode.GetValue<string>();
+                        Equal(true, keywordsByRole.ContainsKey(role));
+                        if (profile["canonical"].GetValue<bool>())
+                            Equal(true, specification.Contains("`" + keywordsByRole[role] + "`",
+                                StringComparison.Ordinal));
+                    }
+                    foreach (JsonNode ruleNode in increment["grammarRules"].AsArray())
+                    {
+                        string rule = ruleNode.GetValue<string>();
+                        Equal(true, grammarRules.Contains(rule));
+                        Equal(true, Regex.IsMatch(ebnf, "(?m)^" + Regex.Escape(rule) + "\\s*="));
+                    }
+                    foreach (JsonNode operationNode in increment["semanticOperations"].AsArray())
+                        Equal(true, semanticOperations.Contains(operationNode.GetValue<string>()));
+                    foreach (JsonNode operationNode in increment["runtimeOperations"].AsArray())
+                        Equal(true, runtimeOperations.Contains(operationNode.GetValue<string>()));
+                    foreach (JsonNode roleNode in increment["snippetRoles"].AsArray())
+                        Equal(true, snippetPrefixes.Contains(keywordsByRole[roleNode.GetValue<string>()]));
+                    foreach (JsonNode diagnosticNode in increment["diagnosticCodes"].AsArray())
+                        Equal(true, diagnostics.ContainsKey(diagnosticNode.GetValue<string>()));
+                }
+            }
+
+            string guidance = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_LANGUAGE_INTEGRATION.md"), Encoding.UTF8);
+            Equal(true, guidance.Contains("non contiene le grafie concrete delle keyword",
+                StringComparison.Ordinal));
+            Equal(true, guidance.Contains("Il codice UI non", StringComparison.Ordinal));
+        }
+
         private static string ExtractSpecificationFence(string specification,
             string startMarker, string endMarker, string language)
         {
@@ -3529,6 +6078,99 @@ namespace DDFLanguageEditor.Tests
             if (fenceStart < 0 || contentStart <= 0 || fenceEnd < contentStart)
                 throw new InvalidOperationException("Fence " + language + " non valida nella specifica autonoma.");
             return block.Substring(contentStart, fenceEnd - contentStart).Trim();
+        }
+
+        private static void KeepsBackendEquivalenceEvidenceExplicitAndReleaseBlocking()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject contract = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-backend-equivalence.json"), Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-backend-equivalence.schema.json"), Encoding.UTF8)).AsObject();
+            JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", contract["schemaVersion"].GetValue<string>());
+            Equal("https://ddf.technology/schemas/ddf-backend-equivalence.schema.json",
+                schema["$id"].GetValue<string>());
+            Equal(matrix["language"]["languageVersion"].GetValue<string>(),
+                contract["languageVersion"].GetValue<string>());
+            Equal(matrix["language"]["backendEquivalenceContractVersion"]
+                    .GetValue<string>(), contract["schemaVersion"].GetValue<string>());
+            Equal("ddf-backend-equivalence.json",
+                matrix["language"]["backendEquivalenceContract"].GetValue<string>());
+            SequenceEqual(new[] { "ddf-vm-ir-v1", "dotnet-roslyn-v1" },
+                contract["backends"].AsArray().Select(node => node.GetValue<string>()));
+            Equal("block-on-divergence",
+                contract["releasePolicy"]["mode"].GetValue<string>());
+
+            string[] required = contract["releasePolicy"]["requiredDimensions"]
+                .AsArray().Select(node => node.GetValue<string>()).ToArray();
+            SequenceEqual(new[]
+            {
+                "cleanup-order", "debug-points", "host-effects", "output",
+                "persistable-state", "runtime-errors", "value"
+            }, required.OrderBy(value => value, StringComparer.Ordinal));
+            Equal(required.Length, required.Distinct(StringComparer.Ordinal).Count());
+
+            JsonArray dimensions = contract["dimensions"].AsArray();
+            string[] ids = dimensions.Select(node =>
+                node.AsObject()["id"].GetValue<string>()).ToArray();
+            SequenceEqual(required.OrderBy(value => value, StringComparer.Ordinal),
+                ids.OrderBy(value => value, StringComparer.Ordinal));
+            Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
+
+            var expectedStatus = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["value"] = "enforced",
+                ["output"] = "enforced",
+                ["runtime-errors"] = "enforced",
+                ["host-effects"] = "enforced",
+                ["cleanup-order"] = "enforced",
+                ["persistable-state"] = "enforced",
+                ["debug-points"] = "enforced"
+            };
+            string compilerTests = File.ReadAllText(Path.Combine(projectRoot,
+                "tests", "DDFLanguageEditor.Compiler.Tests", "Program.cs"),
+                Encoding.UTF8);
+            string coreTests = File.ReadAllText(Path.Combine(projectRoot,
+                "tests", "DDFLanguageEditor.Tests", "Program.cs"), Encoding.UTF8);
+            string runtimeTests = File.ReadAllText(Path.Combine(projectRoot,
+                "tests", "DDFLanguageEditor.Runtime.Tests", "Program.cs"),
+                Encoding.UTF8);
+            foreach (JsonNode dimensionNode in dimensions)
+            {
+                JsonObject dimension = dimensionNode.AsObject();
+                string id = dimension["id"].GetValue<string>();
+                string status = dimension["status"].GetValue<string>();
+                Equal(expectedStatus[id], status);
+                JsonArray evidence = dimension["evidence"].AsArray();
+                Equal(true, evidence.Count > 0);
+                foreach (JsonNode evidenceNode in evidence)
+                {
+                    string reference = evidenceNode.GetValue<string>();
+                    string[] parts = reference.Split(':');
+                    Equal(2, parts.Length);
+                    string source = parts[0] == "compiler" ? compilerTests :
+                        parts[0] == "core" ? coreTests :
+                        parts[0] == "runtime" ? runtimeTests : string.Empty;
+                    Equal(true, source.Contains(" " + parts[1] + "(",
+                        StringComparison.Ordinal));
+                }
+                if (status == "enforced")
+                    Equal(null, dimension["remainingGap"]?.GetValue<string>());
+                else
+                    Equal(true, !string.IsNullOrWhiteSpace(
+                        dimension["remainingGap"]?.GetValue<string>()));
+            }
+
+            string guidance = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_BACKEND_EQUIVALENCE.md"), Encoding.UTF8);
+            Equal(true, guidance.Contains("Una dimensione `partial` o `planned` non può",
+                StringComparison.Ordinal));
+            Equal(true, guidance.Contains("stato persistibile", StringComparison.Ordinal));
+            Equal(true, guidance.Contains("ordine di cleanup", StringComparison.Ordinal));
         }
 
         private static void KeepsDdfVersionPolicyAligned()
@@ -3594,6 +6236,360 @@ namespace DDFLanguageEditor.Tests
             Equal(true, migrationGuide.Contains("## Criteri di completamento", StringComparison.Ordinal));
         }
 
+        private static void KeepsAuthoritativeVersionMatrixAligned()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+            JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-version-matrix.schema.json"), Encoding.UTF8)).AsObject();
+
+            Equal("1.0", matrix["schemaVersion"].GetValue<string>());
+            Equal("https://www.ddf.technology/schemas/version-matrix-1.0.json",
+                schema["$id"].GetValue<string>());
+
+            JsonObject product = matrix["product"].AsObject();
+            Equal(product["version"].GetValue<string>() + " " +
+                CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
+                    product["stability"].GetValue<string>()),
+                product["displayVersion"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "ProductInfo.cs", "Version",
+                product["version"].GetValue<string>());
+            AssertSourceAttribute(projectRoot, "Properties/AssemblyInfo.cs",
+                "AssemblyVersion", product["assemblyVersion"].GetValue<string>());
+            AssertSourceAttribute(projectRoot, "Properties/AssemblyInfo.cs",
+                "AssemblyFileVersion", product["fileVersion"].GetValue<string>());
+            AssertSourceAttribute(projectRoot, "Properties/AssemblyInfo.cs",
+                "AssemblyInformationalVersion",
+                product["informationalVersion"].GetValue<string>());
+
+            JsonArray components = matrix["components"].AsArray();
+            string[] componentIds = components.Select(node =>
+                node.AsObject()["id"].GetValue<string>()).ToArray();
+            Equal(componentIds.Length,
+                componentIds.Distinct(StringComparer.Ordinal).Count());
+            Equal(true, componentIds.Contains("standalone", StringComparer.Ordinal));
+            Equal(true, componentIds.Contains("core-sdk", StringComparer.Ordinal));
+            Equal(true, componentIds.Contains("winforms-sdk", StringComparer.Ordinal));
+            Equal(true, componentIds.Contains("runtime", StringComparer.Ordinal));
+
+            foreach (JsonNode node in components)
+            {
+                JsonObject component = node.AsObject();
+                string project = Path.Combine(projectRoot,
+                    component["project"].GetValue<string>().Replace('/',
+                        Path.DirectorySeparatorChar));
+                Equal(true, File.Exists(project));
+                XDocument document = XDocument.Load(project);
+                XElement root = document.Root ?? throw new InvalidOperationException(
+                    "Progetto XML privo di radice: " + project);
+                AssertMsBuildProperty(root, "Version",
+                    component["version"].GetValue<string>(), project);
+                AssertMsBuildProperty(root, "AssemblyVersion",
+                    component["assemblyVersion"].GetValue<string>(), project);
+                AssertMsBuildProperty(root, "FileVersion",
+                    component["fileVersion"].GetValue<string>(), project);
+                AssertMsBuildProperty(root, "InformationalVersion",
+                    component["informationalVersion"].GetValue<string>(), project);
+
+                if (component["packageId"] != null)
+                {
+                    AssertMsBuildProperty(root, "PackageId",
+                        component["packageId"].GetValue<string>(), project);
+                    AssertMsBuildProperty(root, "PackageVersion",
+                        component["packageVersion"].GetValue<string>(), project);
+                    Equal(false, component["packageVersion"].GetValue<string>() ==
+                        "0.11.2-beta");
+                }
+            }
+
+            JsonObject language = matrix["language"].AsObject();
+            JsonObject manifest = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "manifest.json"), Encoding.UTF8)).AsObject();
+            Equal(language["id"].GetValue<string>(), manifest["id"].GetValue<string>());
+            Equal(language["languageVersion"].GetValue<string>(),
+                manifest["languageVersion"].GetValue<string>());
+            Equal(language["packageVersion"].GetValue<string>(),
+                manifest["packageVersion"].GetValue<string>());
+            Equal(language["engineApi"].GetValue<string>(),
+                manifest["engineApi"].GetValue<string>());
+
+            AssertSourceConstant(projectRoot, "DdfEditorContracts.cs", "CurrentVersion",
+                matrix["editorSdk"]["contractVersion"].GetValue<string>());
+            Equal("0.34", matrix["editorSdk"]["legacyContractVersion"].GetValue<string>());
+            Equal(false, matrix["editorSdk"]["legacyContractVersion"].GetValue<string>() ==
+                matrix["editorSdk"]["contractVersion"].GetValue<string>());
+            Equal(40, matrix["editorSdk"]["legacyBaselineCommit"].GetValue<string>().Length);
+            Equal(DdfEditorApiLifecycleCatalog.PolicyVersion,
+                matrix["editorSdk"]["apiLifecyclePolicyVersion"].GetValue<string>());
+            Equal(DdfEditorApiLifecycleCatalog.EarliestBreakingContractVersion,
+                matrix["editorSdk"]["earliestBreakingContractVersion"].GetValue<string>());
+            Equal(DdfEditorApiLifecycleCatalog.MinimumDocumentedSuccessorContracts,
+                matrix["editorSdk"]["minimumDocumentedSuccessorContracts"].GetValue<int>());
+            Equal("1.0", matrix["language"]["integrationContractVersion"].GetValue<string>());
+            Equal("ddf-language-integration.json",
+                matrix["language"]["integrationContract"].GetValue<string>());
+
+            JsonObject hostSupport = matrix["hostSupport"].AsObject();
+            Equal("1.0", hostSupport["policyVersion"].GetValue<string>());
+            JsonObject referenceHost = hostSupport["reference"].AsObject();
+            Equal("C#", referenceHost["language"].GetValue<string>());
+            Equal(".NET 10", referenceHost["runtime"].GetValue<string>());
+            Equal("WinForms", referenceHost["uiFramework"].GetValue<string>());
+            Equal("reference-beta", referenceHost["status"].GetValue<string>());
+            string[] referenceProjects = referenceHost["projects"].AsArray()
+                .Select(node => node.GetValue<string>()).ToArray();
+            Equal(3, referenceProjects.Length);
+            foreach (string relativeProject in referenceProjects)
+            {
+                string hostProject = Path.Combine(projectRoot,
+                    relativeProject.Replace('/', Path.DirectorySeparatorChar));
+                Equal(true, File.Exists(hostProject));
+                XDocument hostDocument = XDocument.Load(hostProject);
+                Equal("net10.0-windows", hostDocument.Descendants().Single(element =>
+                    element.Name.LocalName == "TargetFramework").Value);
+                Equal("true", hostDocument.Descendants().Single(element =>
+                    element.Name.LocalName == "UseWindowsForms").Value);
+            }
+
+            JsonArray plannedHosts = hostSupport["planned"].AsArray();
+            string[] plannedIds = plannedHosts.Select(node =>
+                node.AsObject()["id"].GetValue<string>()).ToArray();
+            SequenceEqual(new[] { "fsharp", "non-dotnet", "vbnet", "wpf" },
+                plannedIds.OrderBy(value => value, StringComparer.Ordinal));
+            foreach (JsonNode plannedNode in plannedHosts)
+            {
+                JsonObject planned = plannedNode.AsObject();
+                Equal("post-1.0", planned["availability"].GetValue<string>());
+                Equal("reuse-versioned-sdk-contracts",
+                    planned["strategy"].GetValue<string>());
+            }
+
+            string[] prematureManagedHosts = Directory.EnumerateFiles(projectRoot,
+                    "*.*proj", SearchOption.AllDirectories)
+                .Where(path => !path.Contains(Path.DirectorySeparatorChar + "obj" +
+                        Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                    (path.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase) ||
+                     path.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            Equal(0, prematureManagedHosts.Length);
+            foreach (string project in Directory.EnumerateFiles(projectRoot, "*.csproj",
+                SearchOption.AllDirectories).Where(path => !path.Contains(
+                    Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                XDocument projectDocument = XDocument.Load(project);
+                Equal(false, projectDocument.Descendants().Any(element =>
+                    element.Name.LocalName == "UseWPF" &&
+                    string.Equals(element.Value, "true",
+                        StringComparison.OrdinalIgnoreCase)));
+            }
+            string hostPolicy = File.ReadAllText(Path.Combine(projectRoot,
+                "DDF_HOST_SUPPORT_POLICY.md"), Encoding.UTF8);
+            foreach (string destination in new[] { "VB.NET", "F#", "WPF", "non-.NET" })
+                Equal(true, hostPolicy.Contains(destination, StringComparison.Ordinal));
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Runtime/DdfRuntimeAbi.cs", "Version",
+                matrix["runtime"]["abiVersion"].GetValue<string>());
+
+            JsonObject worker = matrix["worker"].AsObject();
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetWorkerProtocol.cs",
+                "ProtocolVersionValue", worker["protocolVersion"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetWorkerDuplexProtocol.cs",
+                "FrameVersionValue", worker["duplexFrameVersion"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetWorkerProtocol.cs",
+                "PolicyVersionValue", worker["accessPolicyVersion"].GetValue<string>());
+
+            JsonObject formats = matrix["formats"].AsObject();
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Core/DdfIntermediateRepresentation.cs", "FormatVersion",
+                formats["ir"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Core/DdfBoundIntermediateRepresentation.cs", "FormatVersion",
+                formats["boundIr"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfFlowchart.cs",
+                "FormatVersion", formats["flowchart"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetCompilationPlanner.cs", "FormatVersion",
+                formats["compilationPlan"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetCompilerProfile.cs", "FormatVersion",
+                formats["compilerProfile"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetNameMangler.cs", "FormatVersion",
+                formats["nameMap"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetArtifactLinker.cs", "FormatVersion",
+                formats["linker"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetLinkedBundle.cs", "FormatVersion",
+                formats["linkedBundle"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetArtifactCache.cs", "FormatVersion",
+                formats["artifactCache"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Core/DdfAdapterFamilyCatalog.cs", "FormatVersionValue",
+                formats["adapterFamilyCatalog"].GetValue<string>());
+
+            JsonObject schemas = matrix["schemas"].AsObject();
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfLanguagePackage.cs",
+                "SupportedSchemaVersion", schemas["languagePackage"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfLanguagePackage.cs",
+                "SupportedTypesSchemaVersion", schemas["languageTypes"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfLanguagePackage.cs",
+                "SupportedStandardLibrarySchemaVersion",
+                schemas["standardLibrary"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfBuildSystem.cs",
+                "SchemaVersionValue", schemas["project"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Core/DdfExternalReferenceLock.cs", "VersionValue",
+                schemas["externalReferencesLock"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfExternalApi.cs",
+                "FormatVersion", schemas["externalApi"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetArtifactContract.cs", "SchemaVersionValue",
+                schemas["artifactManifest"].GetValue<string>());
+            AssertSourceConstant(projectRoot,
+                "DDFLanguageEditor.Compiler/DdfDotNetLinkedPackageContract.cs",
+                "SchemaVersionValue", schemas["linkedPackage"].GetValue<string>());
+            Equal(schemas["artifactManifest"].GetValue<string>(),
+                schemas["sourceMap"].GetValue<string>());
+            AssertSourceConstant(projectRoot, "DDFLanguageEditor.Core/DdfEditorExecution.cs",
+                "CurrentSchemaVersion",
+                matrix["persistence"]["scriptState"].GetValue<string>());
+            JsonObject persistence = matrix["persistence"].AsObject();
+            var persistenceConstants = new Dictionary<string, string>
+            {
+                ["editorState"] = "EditorStateVersion",
+                ["workspaceSession"] = "WorkspaceSessionVersion",
+                ["hotExitSession"] = "HotExitSessionVersion",
+                ["crashRecoverySession"] = "CrashRecoverySessionVersion",
+                ["breakpoints"] = "BreakpointsVersion",
+                ["watchExpressions"] = "WatchExpressionsVersion",
+                ["paletteLayout"] = "PaletteLayoutVersion",
+                ["toolbarLayout"] = "ToolbarLayoutVersion",
+                ["scriptState"] = "ScriptStateVersion",
+                ["projectManifest"] = "ProjectManifestVersion"
+            };
+            foreach (KeyValuePair<string, string> item in persistenceConstants)
+                AssertSourceConstant(projectRoot,
+                    "DDFLanguageEditor.Core/DdfPersistenceContract.cs", item.Value,
+                    persistence[item.Key].GetValue<string>());
+        }
+
+        private static void AssertMsBuildProperty(XElement project, string propertyName,
+            string expected, string projectPath)
+        {
+            string[] values = project.Descendants(propertyName)
+                .Select(element => element.Value.Trim()).Distinct(StringComparer.Ordinal).ToArray();
+            if (values.Length != 1 || values[0] != expected)
+            {
+                throw new InvalidOperationException(Path.GetFileName(projectPath) + " " +
+                    propertyName + " expected <" + expected + "> but was <" +
+                    string.Join(", ", values) + ">");
+            }
+        }
+
+        private static void AssertSourceConstant(string projectRoot, string relativePath,
+            string constantName, string expected)
+        {
+            string source = File.ReadAllText(Path.Combine(projectRoot,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)), Encoding.UTF8);
+            string pattern = @"\b" + Regex.Escape(constantName) +
+                "\\s*=\\s*\"" + Regex.Escape(expected) + "\"";
+            Equal(true, Regex.IsMatch(source, pattern, RegexOptions.CultureInvariant));
+        }
+
+        private static void AssertSourceAttribute(string projectRoot, string relativePath,
+            string attributeName, string expected)
+        {
+            string source = File.ReadAllText(Path.Combine(projectRoot,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)), Encoding.UTF8);
+            string expectedText = "[assembly: " + attributeName + "(\"" + expected + "\")]";
+            Equal(true, source.Contains(expectedText, StringComparison.Ordinal));
+        }
+
+        private static void InspectsAndMigratesPersistedArtifactsAtomically()
+        {
+            DdfPersistenceSchemaContract projectContract =
+                DdfPersistenceSchemaCatalog.Get(
+                    DdfPersistenceArtifactKind.ProjectManifest);
+            Equal("1.2", projectContract.CurrentSchemaVersion);
+            Equal("1.1", projectContract.MigratableVersions.Single());
+
+            var current = new DdfPersistenceArtifact(
+                DdfPersistenceArtifactKind.ProjectManifest, "1.2",
+                "{\"schemaVersion\":\"1.2\"}");
+            DdfPersistenceMigrationResult currentResult =
+                projectContract.Prepare(current);
+            Equal(true, currentResult.Succeeded);
+            Equal(current, currentResult.Original);
+            Equal(current, currentResult.Prepared);
+            Equal(DdfPersistenceInspectionStatus.Current,
+                currentResult.Inspection.Status);
+
+            var readable = new DdfPersistenceArtifact(
+                DdfPersistenceArtifactKind.ProjectManifest, "1.1",
+                "{\"schemaVersion\":\"1.1\",\"name\":\"original\"}");
+            DdfPersistenceInspection inspection = projectContract.Inspect(readable);
+            Equal(DdfPersistenceInspectionStatus.MigrationRequired,
+                inspection.Status);
+            Equal(true, inspection.CanMigrate);
+            Equal(false, inspection.CanLoad);
+
+            var migrator = new TestPersistenceMigrationProvider((source, target) =>
+                new DdfPersistenceArtifact(source.Kind,
+                    target.CurrentSchemaVersion,
+                    "{\"schemaVersion\":\"1.2\",\"name\":\"migrated\"}"));
+            DdfPersistenceMigrationResult migrated = projectContract.Prepare(
+                readable, migrator);
+            Equal(true, migrated.Succeeded);
+            Equal(readable, migrated.Original);
+            Equal("1.1", migrated.Original.SchemaVersion);
+            Equal("{\"schemaVersion\":\"1.1\",\"name\":\"original\"}",
+                migrated.Original.Payload);
+            Equal("1.2", migrated.Prepared.SchemaVersion);
+            Equal(1, migrator.CallCount);
+
+            var unsupported = new DdfPersistenceArtifact(
+                DdfPersistenceArtifactKind.ProjectManifest, "9.0", "future");
+            DdfPersistenceMigrationResult rejected = projectContract.Prepare(
+                unsupported, migrator);
+            Equal(false, rejected.Succeeded);
+            Equal(unsupported, rejected.Original);
+            Equal(null, rejected.Prepared);
+            Equal(DdfPersistenceInspectionStatus.UnsupportedVersion,
+                rejected.Inspection.Status);
+            Equal(1, migrator.CallCount);
+
+            DdfPersistenceMigrationResult wrongKind = projectContract.Prepare(
+                readable, new TestPersistenceMigrationProvider((source, target) =>
+                    new DdfPersistenceArtifact(
+                        DdfPersistenceArtifactKind.ScriptState,
+                        target.CurrentSchemaVersion, "wrong")));
+            Equal(false, wrongKind.Succeeded);
+            Equal(readable, wrongKind.Original);
+            Equal(null, wrongKind.Prepared);
+
+            DdfPersistenceMigrationResult failed = projectContract.Prepare(
+                readable, new TestPersistenceMigrationProvider((source, target) =>
+                    throw new InvalidOperationException("conversione fallita")));
+            Equal(false, failed.Succeeded);
+            Equal(readable, failed.Original);
+            Equal(true, failed.Failure.Contains("conversione fallita",
+                StringComparison.Ordinal));
+
+            Equal(10, DdfPersistenceSchemaCatalog.Contracts.Count);
+            Equal("1.0", DdfPersistenceSchemaCatalog.Get(
+                DdfPersistenceArtifactKind.ScriptState).CurrentSchemaVersion);
+            Equal("1.0", DdfPersistenceSchemaCatalog.Get(
+                DdfPersistenceArtifactKind.PaletteLayout).CurrentSchemaVersion);
+        }
+
         private static void KeepsDdfCandidateBaselineFrozen()
         {
             string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
@@ -3608,11 +6604,20 @@ namespace DDFLanguageEditor.Tests
             Equal("0.12.3", baseline["packageVersion"].GetValue<string>());
             Equal("frozen-evaluation", baseline["status"].GetValue<string>());
             Equal("sha256-utf8-lf", baseline["hashAlgorithm"].GetValue<string>());
+            Equal(40, baseline["frozenCommit"].GetValue<string>().Length);
 
             JsonArray artifacts = baseline["artifacts"].AsArray();
             Equal(17, artifacts.Count);
             string[] paths = artifacts.Select(item => item.AsObject()["path"].GetValue<string>()).ToArray();
             Equal(paths.Length, paths.Distinct(StringComparer.Ordinal).Count());
+            JsonObject currentPackage = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "language-packages", "ddf", "manifest.json"), Encoding.UTF8)).AsObject();
+            bool isCurrentCandidate = currentPackage["languageVersion"].GetValue<string>() ==
+                baseline["languageVersion"].GetValue<string>();
+            Equal(true, isCurrentCandidate ||
+                Version.Parse(currentPackage["languageVersion"].GetValue<string>()) >
+                Version.Parse(baseline["languageVersion"].GetValue<string>()));
+
             foreach (JsonNode node in artifacts)
             {
                 JsonObject artifact = node.AsObject();
@@ -3624,12 +6629,15 @@ namespace DDFLanguageEditor.Tests
                     StringComparison.OrdinalIgnoreCase));
                 Equal(true, File.Exists(fullPath));
 
-                string normalized = File.ReadAllText(fullPath, Encoding.UTF8)
-                    .Replace("\r\n", "\n", StringComparison.Ordinal)
-                    .Replace("\r", "\n", StringComparison.Ordinal);
-                string actual = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))
-                    .ToLowerInvariant();
-                Equal(artifact["sha256"].GetValue<string>(), actual);
+                if (isCurrentCandidate)
+                {
+                    string normalized = File.ReadAllText(fullPath, Encoding.UTF8)
+                        .Replace("\r\n", "\n", StringComparison.Ordinal)
+                        .Replace("\r", "\n", StringComparison.Ordinal);
+                    string actual = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))
+                        .ToLowerInvariant();
+                    Equal(artifact["sha256"].GetValue<string>(), actual);
+                }
             }
 
             string candidateGuide = File.ReadAllText(Path.Combine(projectRoot,
@@ -3974,6 +6982,9 @@ namespace DDFLanguageEditor.Tests
         {
             string projectRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "..", "..", "..", ".."));
+            JsonObject versionMatrix = JsonNode.Parse(File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+            JsonObject boundary = versionMatrix["embeddedBoundary"].AsObject();
             string coreProject = Path.Combine(projectRoot, "DDFLanguageEditor.Core",
                 "DDFLanguageEditor.Core.csproj");
             string winFormsProject = Path.Combine(projectRoot,
@@ -3992,16 +7003,52 @@ namespace DDFLanguageEditor.Tests
             string cliTestsProject = Path.Combine(projectRoot, "tests",
                 "DDFLanguageEditor.Cli.Tests",
                 "DDFLanguageEditor.Cli.Tests.csproj");
+            string editorSmokeTestsProject = Path.Combine(projectRoot, "tests",
+                "DDFLanguageEditor.EditorSmokeTests",
+                "DDFLanguageEditor.EditorSmokeTests.csproj");
 
-            foreach (string forbiddenProject in new[] { coreProject, winFormsProject })
+            string[] boundaryProjects = boundary["projects"].AsArray().Select(node =>
+                Path.GetFullPath(Path.Combine(projectRoot, node.GetValue<string>().Replace('/',
+                    Path.DirectorySeparatorChar)))).ToArray();
+            SequenceEqual(new[] { Path.GetFullPath(coreProject), Path.GetFullPath(winFormsProject) },
+                boundaryProjects);
+            string[] forbiddenProjectSuffixes = boundary["forbiddenProjectSuffixes"].AsArray()
+                .Select(node => node.GetValue<string>()).ToArray();
+            string[] forbiddenPackagePrefixes = boundary["forbiddenPackagePrefixes"].AsArray()
+                .Select(node => node.GetValue<string>()).ToArray();
+            foreach (string forbiddenProject in boundaryProjects)
             {
                 XDocument document = XDocument.Load(forbiddenProject);
                 Equal(false, ProjectItems(document, "PackageReference").Any(item =>
-                    ItemIdentity(item).StartsWith("Microsoft.CodeAnalysis",
-                        StringComparison.OrdinalIgnoreCase)));
+                    forbiddenPackagePrefixes.Any(prefix => ItemIdentity(item).StartsWith(prefix,
+                        StringComparison.OrdinalIgnoreCase))));
                 Equal(false, ProjectItems(document, "ProjectReference").Any(item =>
-                    ItemIdentity(item).EndsWith("DDFLanguageEditor.Compiler.csproj",
-                        StringComparison.OrdinalIgnoreCase)));
+                    forbiddenProjectSuffixes.Any(suffix => ItemIdentity(item).EndsWith(suffix,
+                        StringComparison.OrdinalIgnoreCase))));
+            }
+
+            Regex[] forbiddenSourcePatterns = boundary["forbiddenSourcePatterns"].AsArray()
+                .Select(node => new Regex(node.GetValue<string>(),
+                    RegexOptions.CultureInvariant)).ToArray();
+            foreach (JsonNode node in boundary["sourceScopes"].AsArray())
+            {
+                JsonObject scope = node.AsObject();
+                string sourceRoot = Path.GetFullPath(Path.Combine(projectRoot,
+                    scope["path"].GetValue<string>().Replace('/', Path.DirectorySeparatorChar)));
+                SearchOption search = scope["recursive"].GetValue<bool>()
+                    ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+                var excluded = new HashSet<string>(scope["exclude"].AsArray()
+                    .Select(item => item.GetValue<string>()), StringComparer.OrdinalIgnoreCase);
+                foreach (string sourcePath in Directory.EnumerateFiles(sourceRoot, "*.cs", search)
+                    .Where(path => !path.Contains(Path.DirectorySeparatorChar + "bin" +
+                            Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                        !path.Contains(Path.DirectorySeparatorChar + "obj" +
+                            Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                        !excluded.Contains(Path.GetFileName(path))))
+                {
+                    string source = File.ReadAllText(sourcePath, Encoding.UTF8);
+                    Equal(false, forbiddenSourcePatterns.Any(pattern => pattern.IsMatch(source)));
+                }
             }
 
             XDocument winForms = XDocument.Load(winFormsProject);
@@ -4026,7 +7073,8 @@ namespace DDFLanguageEditor.Tests
                 Path.GetFullPath(runnerProject),
                 Path.GetFullPath(cliProject),
                 Path.GetFullPath(compilerTestsProject),
-                Path.GetFullPath(cliTestsProject)
+                Path.GetFullPath(cliTestsProject),
+                Path.GetFullPath(editorSmokeTestsProject)
             };
             foreach (string project in Directory.EnumerateFiles(projectRoot, "*.csproj",
                 SearchOption.AllDirectories).Where(path => !path.Contains(
@@ -5111,6 +8159,152 @@ namespace DDFLanguageEditor.Tests
             }
         }
 
+        private static void ValidatesDirectModuleVisibilityCollisionsAndDeterministicNavigation()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+
+                DdfProjectManifest WriteModule(string id, string source,
+                    IEnumerable<string> exports,
+                    IEnumerable<DdfProjectDependency> dependencies = null)
+                {
+                    string moduleRoot = Path.Combine(root, ".ddf", "modules", id,
+                        "1.0.0");
+                    Directory.CreateDirectory(moduleRoot);
+                    File.WriteAllText(Path.Combine(moduleRoot, "module.ddf"), source,
+                        new UTF8Encoding(false));
+                    DdfProjectManifest manifest = DdfProjectManifest.CreateImplicit(
+                        id, package, null);
+                    manifest.Module.Id = id;
+                    manifest.Module.Version = "1.0.0";
+                    manifest.EntryPoint = "unused";
+                    manifest.Module.Exports.AddRange(exports);
+                    if (dependencies != null)
+                        manifest.Dependencies.AddRange(dependencies);
+                    File.WriteAllText(Path.Combine(moduleRoot,
+                            DdfProjectManifest.FileName),
+                        JsonSerializer.Serialize(manifest,
+                            new JsonSerializerOptions { WriteIndented = true }),
+                        new UTF8Encoding(false));
+                    return manifest;
+                }
+
+                DdfProjectDependency Dependency(string id) =>
+                    new DdfProjectDependency { Id = id, Version = "1.0.0" };
+
+                WriteModule("example.left",
+                    "int privateValue << 20; hidden() out int { ret privateValue; } " +
+                    "collide() out int { ret 1; } leftOnly() out int { ret 20; }",
+                    new[] { "collide", "leftOnly" });
+                DdfProjectManifest right = WriteModule("example.right",
+                    "int privateValue << 22; hidden() out int { ret privateValue; } " +
+                    "collide() out int { ret 2; } rightOnly() out int { ret 22; }",
+                    new[] { "rightOnly" });
+                WriteModule("example.leaf",
+                    "transitiveOnly() out int { ret 40; }",
+                    new[] { "transitiveOnly" });
+                WriteModule("example.bridge",
+                    "publicBridge() out int { ret transitiveOnly() + 2; }",
+                    new[] { "publicBridge" },
+                    new[] { Dependency("example.leaf") });
+
+                string mainPath = Path.Combine(root, "main.ddf");
+                var application = DdfProjectManifest.CreateImplicit(
+                    "Module visibility matrix", package, "main.ddf");
+                application.Module.Id = "example.application";
+                application.Module.Version = "1.0.0";
+                application.Dependencies.Add(Dependency("example.left"));
+                application.Dependencies.Add(Dependency("example.right"));
+
+                void SaveApplication(string source)
+                {
+                    File.WriteAllText(mainPath, source, new UTF8Encoding(false));
+                    File.WriteAllText(Path.Combine(root,
+                            DdfProjectManifest.FileName),
+                        JsonSerializer.Serialize(application,
+                            new JsonSerializerOptions { WriteIndented = true }),
+                        new UTF8Encoding(false));
+                }
+
+                var service = new DdfBuildService();
+                SaveApplication("main() out int { ret leftOnly() + rightOnly(); }");
+                DdfBuildResult first = service.Validate(root, application, package);
+                DdfBuildResult second = service.Validate(root, application, package);
+                Equal(true, first.Success);
+                Equal(true, second.Success);
+                Equal(first.Artifact.Fingerprint, second.Artifact.Fingerprint);
+                SequenceEqual(first.Artifact.ResolvedModules.Select(item => item.Id),
+                    second.Artifact.ResolvedModules.Select(item => item.Id));
+                Equal(42L, Convert.ToInt64(DdfInterpreter.Execute(
+                    first.Artifact.RuntimeModules, package.Language,
+                    new DdfExecutionOptions { EntryPoint = "main" }).ReturnValue));
+
+                right.Module.Exports.Add("collide");
+                File.WriteAllText(Path.Combine(root, ".ddf", "modules",
+                        "example.right", "1.0.0", DdfProjectManifest.FileName),
+                    JsonSerializer.Serialize(right,
+                        new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+                SaveApplication("main() out int { ret collide(); }");
+                DdfBuildResult collision = service.Validate(root, application,
+                    package);
+                Equal(false, collision.Success);
+                Equal(true, collision.Issues.Any(item => item.Code == "DDF311"));
+
+                SaveApplication(
+                    "main() out int { ret hidden() + privateValue; }");
+                DdfBuildResult privateSymbols = service.Validate(root, application,
+                    package);
+                Equal(false, privateSymbols.Success);
+                Equal(true, privateSymbols.Issues.Any(item =>
+                    item.Code == "DDF312"));
+                Equal(true, privateSymbols.Issues.Any(item =>
+                    item.Code == "DDF313"));
+
+                application.Dependencies.Clear();
+                application.Dependencies.Add(Dependency("example.bridge"));
+                SaveApplication("main() out int { ret publicBridge(); }");
+                DdfBuildResult direct = service.Validate(root, application, package);
+                Equal(true, direct.Success);
+                Equal(42L, Convert.ToInt64(DdfInterpreter.Execute(
+                    direct.Artifact.RuntimeModules, package.Language,
+                    new DdfExecutionOptions { EntryPoint = "main" }).ReturnValue));
+
+                SaveApplication("main() out int { ret transitiveOnly(); }");
+                DdfBuildResult transitive = service.Validate(root, application,
+                    package);
+                Equal(false, transitive.Success);
+                Equal(true, transitive.Issues.Any(item =>
+                    item.Code == "DDF312"));
+
+                SaveApplication("main() out int { ret absent() + absentValue; }");
+                DdfBuildResult absent = service.Validate(root, application, package);
+                Equal(false, absent.Success);
+                Equal(true, absent.Issues.Any(item => item.Code == "DDF312"));
+                Equal(true, absent.Issues.Any(item => item.Code == "DDF313"));
+
+                SaveApplication("main() out int { ret publicBridge(); }");
+                DdfModuleEditorIndex editorIndex = DdfModuleEditorIndex.Load(root,
+                    package);
+                Equal(false, editorIndex.Issues.Any(item =>
+                    item.Severity == DdfDiagnosticSeverity.Error));
+                SequenceEqual(new[] { "publicBridge" }, editorIndex.Documents
+                    .SelectMany(document => document.Symbols)
+                    .Select(symbol => symbol.Name));
+                Equal(1, editorIndex.FindDefinitions("publicBridge").Count);
+                Equal(0, editorIndex.FindDefinitions("transitiveOnly").Count);
+                Equal(0, editorIndex.FindDefinitions("privateValue").Count);
+                Equal(0, editorIndex.FindDefinitions("hidden").Count);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void ValidatesShippedSampleProject()
         {
             string root = Path.Combine(Environment.CurrentDirectory, "samples", "project");
@@ -5190,43 +8384,90 @@ namespace DDFLanguageEditor.Tests
 
             Equal("ddf.sample.debug.large", result.Artifact.ModuleId);
             Equal("main.ddf", result.Artifact.EntrySource);
-            Equal(41, result.Artifact.Sources.Count);
-            Equal(41, result.Artifact.RuntimeModules.Count);
+            Equal(42, result.Artifact.Sources.Count);
+            Equal(42, result.Artifact.RuntimeModules.Count);
 
+            string stage10Path = Path.Combine(root, "stage-10.ddf");
+            string stage20Path = Path.Combine(root, "stage-20.ddf");
+            string stage30Path = Path.Combine(root, "stage-30.ddf");
             string stage40Path = Path.Combine(root, "stage-40.ddf");
+            string activeFeaturesPath = Path.Combine(root, "active-features.ddf");
             int pauses = 0;
-            DdfDebugPauseInfo firstPause = null;
+            int maximumStackDepth = 0;
+            var pausesByDocument = new Dictionary<string, int>(
+                StringComparer.OrdinalIgnoreCase);
+            DdfDebugPauseInfo stage40Pause = null;
+            DdfDebugPauseInfo activeFeaturesPause = null;
             using var debugger = new DdfDebuggerSession();
-            debugger.SetBreakpoints(new[] { new DdfSourceBreakpoint(stage40Path, 14) });
+            debugger.SetBreakpoints(new[]
+            {
+                new DdfSourceBreakpoint(stage10Path, 3),
+                new DdfSourceBreakpoint(stage20Path, 3),
+                new DdfSourceBreakpoint(stage30Path, 3),
+                new DdfSourceBreakpoint(stage40Path, 14),
+                new DdfSourceBreakpoint(activeFeaturesPath, 26)
+            });
             debugger.Paused = pause =>
             {
-                if (Interlocked.Increment(ref pauses) == 1)
-                    firstPause = pause;
+                Interlocked.Increment(ref pauses);
+                maximumStackDepth = Math.Max(maximumStackDepth,
+                    pause.State.CallStack.Count);
+                pausesByDocument[pause.DocumentPath] =
+                    pausesByDocument.TryGetValue(pause.DocumentPath,
+                        out int count) ? count + 1 : 1;
+                if (string.Equals(pause.DocumentPath, stage40Path,
+                        StringComparison.OrdinalIgnoreCase) && stage40Pause == null)
+                    stage40Pause = pause;
+                if (string.Equals(pause.DocumentPath, activeFeaturesPath,
+                        StringComparison.OrdinalIgnoreCase) && activeFeaturesPause == null)
+                    activeFeaturesPause = pause;
                 debugger.Continue();
             };
 
             var output = new List<string>();
+            var stateStore = new DdfStateStore();
             DdfExecutionResult execution = DdfInterpreter.Execute(result.Artifact.RuntimeModules,
                 package.Language, new DdfExecutionOptions
                 {
                     EntryPoint = result.Artifact.EntryPoint,
                     Output = output.Add,
-                    DebuggerSession = debugger
+                    DebuggerSession = debugger,
+                    StateStore = stateStore
                 });
 
             Equal(true, execution.Succeeded);
-            Equal(3344, execution.ReturnValue);
-            Equal(4, pauses);
-            Equal(true, firstPause != null);
-            Equal(14, firstPause.Line);
-            Equal(Path.GetFullPath(stage40Path), Path.GetFullPath(firstPause.DocumentPath));
-            Equal(41, firstPause.State.CallStack.Count);
-            Equal("stage40", firstPause.State.CallStack[0].FunctionName);
-            Equal("main", firstPause.State.CallStack[40].FunctionName);
-            Equal("821", DdfWatch.Evaluate("baseValue", firstPause.State).Value.DisplayValue);
-            Equal("821", DdfWatch.Evaluate("values[0]", firstPause.State).Value.DisplayValue);
-            Equal("851", DdfWatch.Evaluate("values[3]", firstPause.State).Value.DisplayValue);
+            Equal(3387, execution.ReturnValue);
+            Equal(14, pauses);
+            Equal(41, maximumStackDepth);
+            Equal(1, pausesByDocument[stage10Path]);
+            Equal(1, pausesByDocument[stage20Path]);
+            Equal(1, pausesByDocument[stage30Path]);
+            Equal(4, pausesByDocument[stage40Path]);
+            Equal(7, pausesByDocument[activeFeaturesPath]);
+            Equal(true, stage40Pause != null);
+            Equal(14, stage40Pause.Line);
+            Equal(41, stage40Pause.State.CallStack.Count);
+            Equal("stage40", stage40Pause.State.CallStack[0].FunctionName);
+            Equal("main", stage40Pause.State.CallStack[40].FunctionName);
+            Equal("821", DdfWatch.Evaluate("baseValue", stage40Pause.State).Value.DisplayValue);
+            Equal("821", DdfWatch.Evaluate("values[0]", stage40Pause.State).Value.DisplayValue);
+            Equal("851", DdfWatch.Evaluate("values[3]", stage40Pause.State).Value.DisplayValue);
+            Equal(true, activeFeaturesPause != null);
+            Equal("1", DdfWatch.Evaluate("stressRuns", activeFeaturesPause.State).Value.DisplayValue);
+            Equal("8", DdfWatch.Evaluate("StressArrayLength", activeFeaturesPause.State).Value.DisplayValue);
+            Equal("StressMode.Active", DdfWatch.Evaluate("mode", activeFeaturesPause.State).Value.DisplayValue);
+            Equal("1", DdfWatch.Evaluate("values[0]", activeFeaturesPause.State).Value.DisplayValue);
             SequenceEqual(new[] { "Large debugger workspace completed" }, output);
+
+            DdfExecutionResult secondExecution = DdfInterpreter.Execute(
+                result.Artifact.RuntimeModules, package.Language,
+                new DdfExecutionOptions
+                {
+                    EntryPoint = result.Artifact.EntryPoint,
+                    StateStore = stateStore
+                });
+            Equal(true, secondExecution.Succeeded);
+            Equal(3388, secondExecution.ReturnValue);
         }
 
         private static void ValidatesShippedModuleWorkspace()
@@ -5816,6 +9057,91 @@ namespace DDFLanguageEditor.Tests
                 familiarResult.Text, familiar.Language, canonical.Language).Text);
         }
 
+        private static void PlansKeywordMigrationsAndBlocksIdentifierCollisions()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory,
+                "LanguageProfiles");
+            DdfLanguagePackage canonical = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf")).Package;
+            DdfLanguagePackage italian = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf-it-didactic")).Package;
+            const string safeSource =
+                "main() out bool { if(true) { ret false; } ret true; }";
+            DdfLanguageMigrationPlan safe = DdfLanguageMigrationAnalyzer.Analyze(
+                new[] { new DdfLanguageMigrationDocument("main.ddf", safeSource) },
+                canonical, italian);
+            Equal(true, safe.CanActivate);
+            Equal(false, safe.RequiresReview);
+            Equal(true, safe.HasAutomaticConversions);
+            Equal(true, safe.Previews.Single().ConvertedText.Contains(
+                "se(vero)", StringComparison.Ordinal));
+
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-keyword-migration-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                KeepOnlyMinimalDeclarativePackageTest(root);
+                string lexiconPath = Path.Combine(root, "lexicon.json");
+                JsonObject lexicon = JsonNode.Parse(File.ReadAllText(
+                    lexiconPath, Encoding.UTF8)).AsObject();
+                string[] futureKeywords =
+                {
+                    "legacyName", "raises", "attempt", "recover", "always",
+                    "raise", "maybe", "some", "none", "each", "in", "use"
+                };
+                for (int index = 0; index < futureKeywords.Length; index++)
+                    lexicon["keywords"].AsArray().Add(new JsonObject
+                    {
+                        ["text"] = futureKeywords[index],
+                        ["tokenKind"] = "ControlFlowKeyword",
+                        ["role"] = "MigrationReserved" + index
+                    });
+                File.WriteAllText(lexiconPath, lexicon.ToJsonString(
+                    new JsonSerializerOptions { WriteIndented = true }),
+                    new UTF8Encoding(false));
+                DdfLanguagePackageLoadResult loaded =
+                    DdfLanguagePackageLoader.Load(root);
+                if (!loaded.Success)
+                    throw new InvalidOperationException(string.Join(" | ",
+                        loaded.Diagnostics));
+                string collisionSource =
+                    "main() out int\n{\n" +
+                    string.Join("\n", futureKeywords.Select(name =>
+                        "    int " + name + " << 1;")) + "\n" +
+                    "    string protected << \"" +
+                    string.Join(" ", futureKeywords) + "\";\n" +
+                    "    // " + string.Join(" ", futureKeywords) + "\n" +
+                    "    ret 0;\n}\n";
+                DdfLanguageMigrationPlan blocked =
+                    DdfLanguageMigrationAnalyzer.Analyze(new[]
+                    {
+                        new DdfLanguageMigrationDocument("collision.ddf",
+                            collisionSource)
+                    }, canonical, loaded.Package);
+                Equal(false, blocked.CanActivate);
+                Equal(true, blocked.RequiresReview);
+                Equal(futureKeywords.Length, blocked.Diagnostics.Count(item =>
+                    item.Code == "DDFM001"));
+                DdfLanguageMigrationDiagnostic first = blocked.Diagnostics
+                    .First(item => item.Code == "DDFM001");
+                Equal(DdfLanguageMigrationIssueKind.IdentifierCollision,
+                    first.Kind);
+                Equal("collision.ddf", first.DocumentPath);
+                Equal(3, first.Line);
+                Equal("legacyName", first.OriginalText);
+                Equal("legacyName_value", first.SuggestedText);
+                Equal(false, blocked.Diagnostics.Any(item => item.Line ==
+                    futureKeywords.Length + 3 || item.Line ==
+                    futureKeywords.Length + 4));
+                Equal(collisionSource, blocked.Previews.Single().ConvertedText);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void DrivesPresentationFromLanguagePackages()
         {
             string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
@@ -5905,6 +9231,248 @@ namespace DDFLanguageEditor.Tests
             DdfLanguageDefinition canonical = DdfLanguagePackageLoader.Load(Path.Combine(profiles, "ddf")).Package.Language;
             foreach (string removed in new[] { "!!", "&", "|&|", ">><<", "<<>>", "^/" })
                 Equal(false, canonical.TryGetOperator(removed, out _));
+        }
+
+        private static void ValidatesLanguageServiceInteractionMatrix()
+        {
+            string profiles = Path.Combine(AppContext.BaseDirectory,
+                "LanguageProfiles");
+            DdfLanguagePackage canonical = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf")).Package;
+            DdfLanguagePackage italian = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf-it-didactic")).Package;
+            DdfLanguagePackage familiar = DdfLanguagePackageLoader.Load(
+                Path.Combine(profiles, "ddf-c-familiar")).Package;
+            DdfLanguagePackage[] packages = { canonical, italian, familiar };
+
+            var precedenceCases = new[]
+            {
+                new
+                {
+                    Name = "multiplication-before-addition",
+                    Source = "main() out int { ret 1 + 2 * 3; }",
+                    Expected = 7
+                },
+                new
+                {
+                    Name = "explicit-grouping",
+                    Source = "main() out int { ret (1 + 2) * 3; }",
+                    Expected = 9
+                },
+                new
+                {
+                    Name = "right-associative-power",
+                    Source = "main() out int { ret 2 ^ 3 ^ 2; }",
+                    Expected = 512
+                },
+                new
+                {
+                    Name = "logical-precedence",
+                    Source = "main() out int { if(false || true ^^ false && false) " +
+                        "{ ret 42; } ret 0; }",
+                    Expected = 42
+                },
+                new
+                {
+                    Name = "relational-and-arithmetic",
+                    Source = "main() out int { if(1 + 2 * 3 == 7 && 4 > 3) " +
+                        "{ ret 42; } ret 0; }",
+                    Expected = 42
+                },
+                new
+                {
+                    Name = "right-associative-assignment",
+                    Source = "main() out int { int first << 0; int second << 0; " +
+                        "first << second << 21; ret first + second; }",
+                    Expected = 42
+                }
+            };
+
+            foreach (var test in precedenceCases)
+            {
+                DdfParseResult canonicalParse = DdfParser.Parse(test.Source,
+                    canonical.Language);
+                Equal(0, canonicalParse.ValidationDiagnostics.Count);
+                DdfIrBuildResult canonicalIr = DdfIrLowerer.Lower(test.Source,
+                    canonicalParse, canonical.Language);
+                if (!canonicalIr.Success)
+                    throw new InvalidOperationException(test.Name + ": " +
+                        string.Join(" | ", canonicalIr.Diagnostics));
+                string expectedShape = SemanticIrShape(canonicalIr.Program);
+
+                foreach (DdfLanguagePackage package in packages)
+                {
+                    DdfSyntaxProfileConversionResult conversion =
+                        DdfSyntaxProfileConverter.Convert(test.Source,
+                            canonical.Language, package.Language);
+                    string converted = conversion.Text;
+                    Equal(test.Source, DdfSyntaxProfileConverter.Convert(
+                        converted, package.Language, canonical.Language).Text);
+
+                    DdfParseResult parse = DdfParser.Parse(converted,
+                        package.Language);
+                    Equal(0, parse.ValidationDiagnostics.Count);
+                    Equal(0, DdfTypeChecker.Check(converted, parse.Root, null,
+                        package.Language.Types,
+                        package.Language.StandardLibrary, null,
+                        package.Language.Runtime).Diagnostics.Count);
+                    DdfIrBuildResult ir = DdfIrLowerer.Lower(converted, parse,
+                        package.Language);
+                    if (!ir.Success)
+                        throw new InvalidOperationException(test.Name + "/" +
+                            package.Id + ": " + string.Join(" | ",
+                                ir.Diagnostics));
+                    Equal(expectedShape, SemanticIrShape(ir.Program));
+                    DdfExecutionResult execution = DdfInterpreter.Execute(
+                        converted, ir.Program, package.Language);
+                    if (!execution.Succeeded)
+                        throw new InvalidOperationException(test.Name + "/" +
+                            package.Id + " execution: " + string.Join(" | ",
+                                execution.Diagnostics.Select(item =>
+                                    item.Code + " " + item.Message)));
+                    Equal(test.Expected, Convert.ToInt32(execution.ReturnValue,
+                        CultureInfo.InvariantCulture));
+
+                    string formatted = DdfFormatter.Format(converted,
+                        package.Language).Text;
+                    Equal(formatted, DdfFormatter.Format(formatted,
+                        package.Language).Text);
+                    DdfParseResult formattedParse = DdfParser.Parse(formatted,
+                        package.Language);
+                    Equal(0, formattedParse.ValidationDiagnostics.Count);
+                    DdfIrBuildResult formattedIr = DdfIrLowerer.Lower(formatted,
+                        formattedParse, package.Language);
+                    if (!formattedIr.Success)
+                        throw new InvalidOperationException(test.Name + "/" +
+                            package.Id + " formatted IR: " + string.Join(" | ",
+                                formattedIr.Diagnostics));
+                    Equal(expectedShape, SemanticIrShape(formattedIr.Program));
+                }
+            }
+
+            var recoveryCases = new[]
+            {
+                new
+                {
+                    Source = "main( out int{int value<<\"unfinished",
+                    Marker = "\"unfinished"
+                },
+                new
+                {
+                    Source = "main() out int { if(true) { ret 1;",
+                    Marker = "1;"
+                },
+                new
+                {
+                    Source = "main() out int { int value << 1 + ; ret value }",
+                    Marker = "value"
+                }
+            };
+            foreach (var test in recoveryCases)
+            {
+                foreach (DdfLanguagePackage package in packages)
+                {
+                    string converted = DdfSyntaxProfileConverter.Convert(
+                        test.Source, canonical.Language, package.Language).Text;
+                    DdfParseResult recovered = DdfParser.Parse(converted,
+                        package.Language);
+                    if (recovered.Diagnostics.Count == 0 ||
+                        recovered.Root.Members.Count == 0 ||
+                        recovered.Root.Start < 0 ||
+                        recovered.Root.End > converted.Length)
+                        throw new InvalidOperationException(package.Id +
+                            " recovery before format: " + converted);
+
+                    string formatted = DdfFormatter.Format(converted,
+                        package.Language).Text;
+                    if (!formatted.Contains(test.Marker,
+                            StringComparison.Ordinal))
+                        throw new InvalidOperationException(package.Id +
+                            " formatter lost marker " + test.Marker + ": " +
+                            formatted);
+                    Equal(formatted, DdfFormatter.Format(formatted,
+                        package.Language).Text);
+                    DdfParseResult formattedRecovery = DdfParser.Parse(
+                        formatted, package.Language);
+                    if (formattedRecovery.Diagnostics.Count == 0 ||
+                        formattedRecovery.Root.End > formatted.Length)
+                        throw new InvalidOperationException(package.Id +
+                            " recovery after format: " + formatted);
+                }
+            }
+
+            var collisionCases = new[]
+            {
+                new
+                {
+                    Target = italian,
+                    Names = new[]
+                    {
+                        "struttura", "enumerazione", "fisso", "stato",
+                        "restituisci", "interrompi", "continua", "termina",
+                        "restituisce", "se", "altrimenti", "scegli", "caso",
+                        "predefinito", "mentre", "fai", "per", "vero", "falso"
+                    }
+                },
+                new
+                {
+                    Target = familiar,
+                    Names = new[]
+                    {
+                        "const", "return", "break", "exit", "returns",
+                        "switch", "case", "default"
+                    }
+                }
+            };
+            foreach (var test in collisionCases)
+            {
+                string source = "main() out int\n{\n" +
+                    string.Join("\n", test.Names.Select(name =>
+                        "    int " + name + " << 1;")) + "\n" +
+                    "    string protected << \"" +
+                    string.Join(" ", test.Names) + "\";\n" +
+                    "    // " + string.Join(" ", test.Names) + "\n" +
+                    "    ret 0;\n}\n";
+                DdfParseResult sourceParse = DdfParser.Parse(source,
+                    canonical.Language);
+                Equal(0, sourceParse.ValidationDiagnostics.Count);
+                Equal(0, DdfTypeChecker.Check(source, sourceParse.Root, null,
+                    canonical.Language.Types,
+                    canonical.Language.StandardLibrary, null,
+                    canonical.Language.Runtime).Diagnostics.Count);
+
+                DdfLanguageMigrationPlan migration =
+                    DdfLanguageMigrationAnalyzer.Analyze(new[]
+                    {
+                        new DdfLanguageMigrationDocument("collision.ddf",
+                            source)
+                    }, canonical, test.Target);
+                Equal(false, migration.CanActivate);
+                if (!migration.RequiresReview)
+                    throw new InvalidOperationException(test.Target.Id +
+                        " did not require collision review.");
+                DdfLanguageMigrationDiagnostic[] collisions =
+                    migration.Diagnostics.Where(item =>
+                        item.Code == "DDFM001").ToArray();
+                Equal(test.Names.Length, collisions.Length);
+                SequenceEqual(test.Names, collisions.Select(item =>
+                    item.OriginalText));
+                if (!collisions.All(item =>
+                        !string.IsNullOrWhiteSpace(item.SuggestedText)))
+                    throw new InvalidOperationException(test.Target.Id +
+                        " produced an empty collision suggestion.");
+                string preview = migration.Previews.Single().ConvertedText;
+                Equal(DdfSyntaxProfileConverter.Convert(source,
+                    canonical.Language, test.Target.Language).Text, preview);
+                Equal(true, preview.Contains("\"" +
+                    string.Join(" ", test.Names) + "\"",
+                    StringComparison.Ordinal));
+                Equal(true, preview.Contains("// " +
+                    string.Join(" ", test.Names), StringComparison.Ordinal));
+                foreach (string name in test.Names)
+                    Equal(true, preview.Contains("int " + name + " ",
+                        StringComparison.Ordinal));
+            }
         }
 
         private static void RejectsUnreachableLexicalRules()
@@ -6214,6 +9782,36 @@ namespace DDFLanguageEditor.Tests
             }
         }
 
+        private static void IndexesUserDefinedTypeGlobals()
+        {
+            string directory = Path.Combine(Path.GetTempPath(),
+                "ddf-workspace-user-type-global-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(directory);
+                DdfDocumentFile.Save(Path.Combine(directory, "types.ddf"),
+                    "enum Priority { Low, High }\n" +
+                    "fixed Priority DefaultPriority << Priority.High;\n");
+                DdfDocumentFile.Save(Path.Combine(directory, "main.ddf"),
+                    "main() out int { int value << weight(DefaultPriority); ret value; }\n" +
+                    "weight(Priority priority) out int { ret 1; }\n");
+
+                DdfWorkspaceIndex workspace = DdfWorkspaceIndex.Load(directory);
+                IReadOnlyList<DdfWorkspaceSymbol> definitions =
+                    workspace.FindDefinitions("DefaultPriority");
+
+                Equal(1, definitions.Count);
+                Equal("DefaultPriority", definitions[0].Symbol.Name);
+                Equal("Priority", definitions[0].Symbol.Detail);
+                Equal(true, definitions[0].Symbol.IsFixed);
+                Equal(1, workspace.FindDefinitions("Priority").Count);
+            }
+            finally
+            {
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+
         private static void IndexesConfiguredWorkspaceExtensions()
         {
             string root = Path.Combine(Path.GetTempPath(), "ddf-workspace-extension-" + Guid.NewGuid().ToString("N"));
@@ -6421,6 +10019,254 @@ namespace DDFLanguageEditor.Tests
             Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
         }
 
+        private static void TreatsTopLevelFunctionsAsModuleFunctions()
+        {
+            const string source =
+                "static() out int { ret 40; } main() out int { ret static() + 2; }";
+            DdfLexResult lex = DdfLexer.Lex(source);
+            Equal(DdfTokenKind.Identifier, lex.Tokens[0].Kind);
+
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(2, parse.Root.Members.OfType<FunctionDeclarationSyntax>().Count());
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+            Equal(42, DdfInterpreter.Execute(source).ReturnValue);
+
+            const string nested =
+                "main() out int { helper() out int { ret 1; } ret 0; }";
+            Equal(true, DdfParser.Parse(nested).Diagnostics.Count > 0);
+
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            Equal("funzione di modulo",
+                package.Language.Intellisense.GetSymbolLabel(
+                    DdfSymbolKind.Function));
+            Equal(true, package.Language.Intellisense
+                .GetSymbolDocumentation(DdfSymbolKind.Function)
+                .Contains("non richiede né ammette il modificatore static",
+                    StringComparison.Ordinal));
+        }
+
+        private static void EnforcesTypedImmutableFixedValues()
+        {
+            const string valid =
+                "fixed int answer << base + 2; fixed int base << 40; main() out int { fixed int offset << 1 + 1; ret answer + offset - 2; }";
+            DdfParseResult parse = DdfParser.Parse(valid);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(valid, parse.Root).Diagnostics.Count);
+
+            DdfIrBuildResult lowered = DdfIrLowerer.Lower(valid, parse);
+            Equal(true, lowered.Success);
+            DdfIrVariableDeclaration[] globals = lowered.Program.Members
+                .OfType<DdfIrGlobal>()
+                .Select(item => item.Statement)
+                .OfType<DdfIrVariableDeclaration>()
+                .ToArray();
+            Equal(2, globals.Length);
+            Equal(true, globals.All(item => item.IsFixed));
+            Equal(42, globals.Single(item => item.Name == "answer").ConstantValue.Value);
+            DdfIrVariableDeclaration local = lowered.Program.Members
+                .OfType<DdfIrFunction>()
+                .Single()
+                .Body.Statements
+                .OfType<DdfIrVariableDeclaration>()
+                .First();
+            Equal(true, local.IsFixed);
+            Equal(2, local.ConstantValue.Value);
+
+            DdfExecutionResult execution = DdfInterpreter.Execute(valid);
+            Equal(true, execution.Succeeded);
+            Equal(42, execution.ReturnValue);
+
+            const string enumFixed =
+                "enum Color { Red, Green, Blue } " +
+                "fixed Color preferred << Color.Green; " +
+                "main() out int { fixed Color selected << preferred; " +
+                "if(selected == Color.Green) { ret 42; } ret 0; }";
+            DdfParseResult enumParse = DdfParser.Parse(enumFixed);
+            Equal(0, enumParse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(enumFixed,
+                enumParse.Root).Diagnostics.Count);
+            DdfIrBuildResult enumIr = DdfIrLowerer.Lower(enumFixed, enumParse);
+            Equal(true, enumIr.Success);
+            DdfConstantValue enumValue = enumIr.Program.Members
+                .OfType<DdfIrGlobal>()
+                .Select(item => item.Statement)
+                .OfType<DdfIrVariableDeclaration>()
+                .Single().ConstantValue;
+            Equal(DdfConstantKind.Enumeration, enumValue.Kind);
+            Equal(new DdfEnumValue("Color", "Green"), enumValue.Value);
+            DdfExecutionResult enumExecution = DdfInterpreter.Execute(enumFixed);
+            Equal(true, enumExecution.Succeeded);
+            Equal(42, enumExecution.ReturnValue);
+
+            const string invalid =
+                "fixed int value; main() out int { fixed int parsed << toInt(\"2\"); value << 1; value++; ret value; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid);
+            Equal(true, invalidParse.Diagnostics.Any(item => item.Code == "DDF106"));
+            DdfTypeCheckResult invalidTypes = DdfTypeChecker.Check(invalid, invalidParse.Root);
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF314"));
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF315"));
+            Equal(2, invalidTypes.Diagnostics.Count(item => item.Code == "DDF316"));
+
+            const string cyclic =
+                "fixed int left << right + 1; fixed int right << left + 1; main() out int { ret 0; }";
+            DdfIrBuildResult cyclicIr = DdfIrLowerer.Lower(cyclic, DdfParser.Parse(cyclic));
+            Equal(true, cyclicIr.Diagnostics.Any(item => item.Code == "DDF318"));
+
+            const string overflowing =
+                "fixed int tooLarge << 2147483647 + 1; main() out int { ret 0; }";
+            DdfIrBuildResult overflowIr = DdfIrLowerer.Lower(overflowing,
+                DdfParser.Parse(overflowing));
+            Equal(true, overflowIr.Diagnostics.Any(item => item.Code == "DDF319"));
+
+            const string firstDocument = "fixed int combined << baseValue + 2;";
+            const string secondDocument = "fixed int baseValue << 40;";
+            DdfIrBuildResult firstIr = DdfIrLowerer.Lower(firstDocument,
+                DdfParser.Parse(firstDocument));
+            DdfIrBuildResult secondIr = DdfIrLowerer.Lower(secondDocument,
+                DdfParser.Parse(secondDocument));
+            DdfIrVariableDeclaration combined = firstIr.Program.Members
+                .OfType<DdfIrGlobal>().Select(item => item.Statement)
+                .OfType<DdfIrVariableDeclaration>().Single();
+            Equal(null, combined.ConstantValue);
+            IReadOnlyList<DdfConstantEvaluationIssue> multiFileIssues =
+                DdfConstantEvaluator.Evaluate(new[]
+                {
+                    new DdfIrModule("first.ddf", firstDocument, firstIr.Program,
+                        "ddf.application", "1.0.0", Array.Empty<string>(),
+                        new[] { new DdfProjectDependency { Id = "ddf.constants", Version = "1.0.0" } }),
+                    new DdfIrModule("second.ddf", secondDocument, secondIr.Program,
+                        "ddf.constants", "1.0.0", new[] { "baseValue" },
+                        Array.Empty<DdfProjectDependency>())
+                });
+            Equal(0, multiFileIssues.Count);
+            Equal(42, combined.ConstantValue.Value);
+        }
+
+        private static void ExposesFixedAsReadOnlyMetadata()
+        {
+            const string source =
+                "fixed int globalFixed << 40;\n" +
+                "main() out int\n" +
+                "{\n" +
+                "    fixed int localFixed << 2;\n" +
+                "    int mutableValue << 1;\n" +
+                "    ret globalFixed + localFixed + mutableValue - 1;\n" +
+                "}";
+            DdfParseResult parse = DdfParser.Parse(source);
+            DdfSymbolIndex index = DdfSymbolIndex.Create(parse, source);
+            DdfDocumentSymbol global = index.Symbols.Single(item =>
+                item.Name == "globalFixed");
+            DdfDocumentSymbol function = index.Symbols.Single(item =>
+                item.Name == "main");
+            DdfDocumentSymbol local = function.Children.Single(item =>
+                item.Name == "localFixed");
+            DdfDocumentSymbol mutable = function.Children.Single(item =>
+                item.Name == "mutableValue");
+            Equal(true, global.IsReadOnly);
+            Equal(true, global.IsFixed);
+            Equal(true, local.IsReadOnly);
+            Equal(true, local.IsFixed);
+            Equal(false, mutable.IsReadOnly);
+            Equal(false, mutable.IsFixed);
+
+            int completionPosition = source.IndexOf("localFixed + mutableValue",
+                StringComparison.Ordinal) + "localF".Length;
+            DdfCompletionItem completion = DdfCompletionService.GetCompletions(
+                    source, completionPosition)
+                .Items.Single(item => item.DisplayText == "localFixed");
+            Equal(true, completion.IsReadOnly);
+            Equal(true, completion.IsFixed);
+            Equal("fixed · sola lettura", completion.CategoryLabel);
+
+            DdfRuntimeStateSnapshot snapshot = null;
+            using var debugger = new DdfDebuggerSession();
+            debugger.SetBreakpoints(new[] { 6 });
+            debugger.Paused = pause =>
+            {
+                snapshot = pause.State;
+                debugger.Continue();
+            };
+            DdfExecutionResult execution = DdfInterpreter.Execute(source,
+                new DdfExecutionOptions { DebuggerSession = debugger });
+            Equal(true, execution.Succeeded);
+            DdfRuntimeVariableSnapshot runtimeGlobal = snapshot.Variables
+                .Single(item => item.Name == "globalFixed");
+            DdfRuntimeVariableSnapshot runtimeLocal = snapshot.Variables
+                .Single(item => item.Name == "localFixed");
+            DdfRuntimeVariableSnapshot runtimeMutable = snapshot.Variables
+                .Single(item => item.Name == "mutableValue");
+            Equal(true, runtimeGlobal.IsReadOnly);
+            Equal(true, runtimeGlobal.IsFixed);
+            Equal(true, runtimeLocal.IsReadOnly);
+            Equal(true, runtimeLocal.IsFixed);
+            Equal(false, runtimeMutable.IsReadOnly);
+            Equal(false, runtimeMutable.IsFixed);
+        }
+
+        private static void PersistsExplicitIsolatedStateValues()
+        {
+            const string source =
+                "state int counter << 0; main() out int { counter++; ret counter; }";
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+
+            DdfIrBuildResult lowered = DdfIrLowerer.Lower(source, parse);
+            Equal(true, lowered.Success);
+            DdfIrVariableDeclaration state = lowered.Program.Members
+                .OfType<DdfIrGlobal>().Select(item => item.Statement)
+                .OfType<DdfIrVariableDeclaration>().Single();
+            Equal(true, state.IsState);
+            Equal(false, state.IsFixed);
+
+            var store = new DdfStateStore();
+            var options = new DdfExecutionOptions { StateStore = store };
+            Equal(1, DdfInterpreter.Execute(source, options).ReturnValue);
+            Equal(2, DdfInterpreter.Execute(source, options).ReturnValue);
+            Equal(1, store.Count);
+            Equal(2, store.Snapshot().Single().Value);
+
+            Equal(1, DdfInterpreter.Execute(source).ReturnValue);
+            Equal(1, DdfInterpreter.Execute(source).ReturnValue);
+            store.Reset();
+            Equal(1, DdfInterpreter.Execute(source, options).ReturnValue);
+
+            const string busySource =
+                "state int counter << 0; main() out int { while(true) { counter++; } ret counter; }";
+            var busyStore = new DdfStateStore();
+            var cancellation = new CancellationTokenSource();
+            Task<DdfExecutionResult> active = Task.Run(() => DdfInterpreter.Execute(busySource,
+                new DdfExecutionOptions
+                {
+                    StateStore = busyStore,
+                    MaxInstructions = int.MaxValue,
+                    CancellationToken = cancellation.Token
+                }));
+            Equal(true, SpinWait.SpinUntil(() => busyStore.Count == 1 && !active.IsCompleted, 5000));
+            DdfExecutionResult overlapping = DdfInterpreter.Execute(source,
+                new DdfExecutionOptions { StateStore = busyStore });
+            Equal(true, overlapping.Diagnostics.Any(item => item.Code == "DDF423"));
+            cancellation.Cancel();
+            Equal(true, active.Wait(5000));
+            Equal(true, active.Result.WasCancelled);
+
+            const string invalid =
+                "state int missing; struct Box { state int field << 0; } main() out int { state int local << 0; ret local; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid);
+            Equal(true, invalidParse.Diagnostics.Any(item => item.Code == "DDF107"));
+            DdfTypeCheckResult invalidTypes = DdfTypeChecker.Check(invalid, invalidParse.Root);
+            Equal(true, invalidTypes.Diagnostics.Any(item => item.Code == "DDF321"));
+            Equal(2, invalidTypes.Diagnostics.Count(item => item.Code == "DDF320"));
+
+            const string compound =
+                "state int[2] values << 0; main() out int { ret 0; }";
+            DdfParseResult compoundParse = DdfParser.Parse(compound);
+            Equal(true, DdfTypeChecker.Check(compound, compoundParse.Root).Diagnostics
+                .Any(item => item.Code == "DDF322"));
+        }
+
         private static void ReportsIncompatibleInitializersAndAssignments()
         {
             const string source = "main() out int { int value << \"text\"; value << false; ret value; }";
@@ -6587,8 +10433,8 @@ namespace DDFLanguageEditor.Tests
                 Path.Combine(corpus, "corpus.json"), Encoding.UTF8)).AsObject();
             Equal("1.0", manifest["schemaVersion"].GetValue<string>());
             Equal("ddf", manifest["languageId"].GetValue<string>());
-            Equal("0.12", manifest["languageVersion"].GetValue<string>());
-            Equal("0.12.3", manifest["languagePackageVersion"].GetValue<string>());
+            Equal("0.13", manifest["languageVersion"].GetValue<string>());
+            Equal("0.13.0", manifest["languagePackageVersion"].GetValue<string>());
             Equal(DdfVmBuildBackend.BackendId, manifest["oracleBackend"].GetValue<string>());
             Equal("dotnet-roslyn-v1", manifest["futureBackend"].GetValue<string>());
 
@@ -6799,6 +10645,96 @@ namespace DDFLanguageEditor.Tests
             DdfExecutionResult unaryOverflow = DdfInterpreter.Execute(
                 "main() out int { int value << -2147483647 - 1; ret -value; }");
             Equal("DDF417", unaryOverflow.Diagnostics.Single().Code);
+        }
+
+        private static void ValidatesActiveScalarAndConversionCultureMatrix()
+        {
+            CultureInfo originalCulture = CultureInfo.CurrentCulture;
+            CultureInfo originalUiCulture = CultureInfo.CurrentUICulture;
+            try
+            {
+                foreach (string cultureName in new[] { "it-IT", "en-US", "tr-TR" })
+                {
+                    CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+                    CultureInfo.CurrentCulture = culture;
+                    CultureInfo.CurrentUICulture = culture;
+
+                    DdfExecutionResult integerLimits = DdfInterpreter.Execute(
+                        "main() out int { int minimum << toInt(\"-2147483648\"); " +
+                        "int maximum << toInt(\"  +2147483647  \"); " +
+                        "if(minimum < 0 && maximum > 0) { ret 42; } ret 0; }");
+                    if (!integerLimits.Succeeded)
+                        throw new InvalidOperationException("integer limits: " +
+                            string.Join("; ", integerLimits.Diagnostics.Select(
+                                item => item.Code + " " + item.Message)));
+                    Equal(42, integerLimits.ReturnValue);
+
+                    var output = new List<string>();
+                    DdfExecutionResult floating = DdfInterpreter.Execute(
+                        "main() out float { float value << toFloat(\"1.5e1\") + 0.1 + 0.2; " +
+                        "value >> Console; ret value; }", options: new DdfExecutionOptions
+                        {
+                            Output = output.Add
+                        });
+                    if (!floating.Succeeded)
+                        throw new InvalidOperationException("floating conversions: " +
+                            string.Join("; ", floating.Diagnostics.Select(
+                                item => item.Code + " " + item.Message)));
+                    Equal(15d + 0.1d + 0.2d, floating.ReturnValue);
+                    Equal("15.299999999999999", output.Single());
+
+                    string unicodeSource = "main() out int { ret length(\"A" +
+                        char.ConvertFromUtf32(0x1F600) + "\"); }";
+                    DdfExecutionResult utf16 = DdfInterpreter.Execute(unicodeSource);
+                    if (!utf16.Succeeded)
+                        throw new InvalidOperationException("UTF-16 length: " +
+                            string.Join("; ", utf16.Diagnostics.Select(
+                                item => item.Code + " " + item.Message)));
+                    Equal(3, utf16.ReturnValue);
+
+                    DdfExecutionResult characterAndBoolean = DdfInterpreter.Execute(
+                        "main() out int { char letter << \"A\"; string text << \"AZ\"; " +
+                        "bool matches << letter == text[0]; " +
+                        "if(matches) { ret 42; } ret 0; }");
+                    if (!characterAndBoolean.Succeeded)
+                        throw new InvalidOperationException("char/bool: " +
+                            string.Join("; ", characterAndBoolean.Diagnostics.Select(
+                                item => item.Code + " " + item.Message)));
+                    Equal(42, characterAndBoolean.ReturnValue);
+
+                    foreach (string source in new[]
+                    {
+                        "main() out char { string text << \"A\"; ret text[-1]; }",
+                        "main() out char { string text << \"A\"; ret text[1]; }"
+                    })
+                    {
+                        DdfExecutionResult invalidIndex =
+                            DdfInterpreter.Execute(source);
+                        Equal(false, invalidIndex.Succeeded);
+                        Equal("DDF405", invalidIndex.Diagnostics.Single().Code);
+                    }
+
+                    var invalidConversions = new[]
+                    {
+                        "main() out int { ret toInt(\"2147483648\"); }",
+                        "main() out int { ret toInt(\"-2147483649\"); }",
+                        "main() out float { ret toFloat(\"1,5\"); }",
+                        "main() out float { ret toFloat(\"1e309\"); }",
+                        "main() out float { ret toFloat(\"NaN\"); }"
+                    };
+                    foreach (string source in invalidConversions)
+                    {
+                        DdfExecutionResult invalid = DdfInterpreter.Execute(source);
+                        Equal(false, invalid.Succeeded);
+                        Equal("DDF408", invalid.Diagnostics.Single().Code);
+                    }
+                }
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUiCulture;
+            }
         }
 
         private static DdfExecutionResult ExecuteTypeCorpus(string corpus, string fileName)
@@ -7039,7 +10975,7 @@ namespace DDFLanguageEditor.Tests
             DdfCompletionResult result = DdfCompletionService.GetCompletions("wh", 2);
             Equal(0, result.ReplacementStart);
             Equal(2, result.ReplacementLength);
-            SequenceEqual(new[] { "while" }, result.Items
+            SequenceEqual(new[] { "when", "while" }, result.Items
                 .Where(item => item.Kind == DdfCompletionKind.Keyword)
                 .Select(item => item.DisplayText));
         }
@@ -7207,6 +11143,14 @@ namespace DDFLanguageEditor.Tests
             Equal("libreria standard", result.Signature.Origin);
             Equal(0, result.ActiveParameter);
             Equal("string", result.ActiveParameterInformation.DisplayText);
+
+            const string conversion =
+                "main() out int { ret toInt(\"abc\"); }";
+            DdfSignatureHelpResult conversionResult =
+                DdfSignatureHelpService.GetSignatureHelp(conversion,
+                    conversion.IndexOf("abc", StringComparison.Ordinal) + 1);
+            Equal("Errori recuperabili: operation.invalidInput (DDF408)",
+                conversionResult.Signature.ErrorSummary);
         }
 
         private static void TracksNestedCallSignatureHelp()
@@ -7295,6 +11239,11 @@ namespace DDFLanguageEditor.Tests
             Equal("libreria standard", hover.Origin);
             Equal(true, hover.Documentation.Contains("caratteri"));
             Equal(0, hover.ReferenceCount);
+            DdfHoverInfo conversion = DdfHoverService.CreateForStandardFunction(
+                DdfRuntimeCatalog.StandardFunctions.Single(item =>
+                    item.Name == "toInt"));
+            Equal(true, conversion.Documentation.Contains(
+                "operation.invalidInput (DDF408)"));
         }
 
         private static void FormatsCompleteDocument()
@@ -7486,6 +11435,236 @@ main() out int
             Equal(0, DdfSemanticModel.Create(source, DdfParser.Parse(source).Root).Diagnostics.Count);
         }
 
+        private static void ContinuesLoopsAcrossLanguageServices()
+        {
+            const string source = @"main() out int
+{
+    int total << 0;
+    for(int index << 0; index < 6; index++)
+    {
+        if(index == 2)
+        {
+            continue;
+        }
+        total << total + index;
+    }
+    int probe << 0;
+    while(probe < 3)
+    {
+        probe++;
+        if(probe < 3) { continue; }
+        total << total + 10;
+    }
+    do
+    {
+        probe--;
+        if(probe == 1) { continue; }
+        total << total + 100;
+    } while(probe > 0);
+    ret total;
+}";
+            DdfParseResult parse = DdfParser.Parse(source);
+            if (parse.Diagnostics.Count != 0)
+                throw new InvalidOperationException(string.Join(" | ", parse.Diagnostics));
+            Equal(3, parse.Root.Members.OfType<FunctionDeclarationSyntax>()
+                .Sum(function => CountContinueStatements(function.Body)));
+            DdfTypeCheckResult checkedSource = DdfTypeChecker.Check(source, parse.Root);
+            if (checkedSource.Diagnostics.Count != 0)
+                throw new InvalidOperationException(string.Join(" | ", checkedSource.Diagnostics));
+            Equal(223, DdfInterpreter.Execute(source).ReturnValue);
+
+            string formatted = DdfFormatter.Format(source).Text;
+            Equal(true, formatted.Contains("continue;"));
+            Equal(0, DdfParser.Parse(formatted).Diagnostics.Count);
+
+            int continuePauses = 0;
+            using (var debugger = new DdfDebuggerSession())
+            {
+                debugger.SetBreakpoints(new[] { 8 });
+                debugger.Paused = pause =>
+                {
+                    Equal("continue;", source.Substring(pause.Start, pause.Length));
+                    Interlocked.Increment(ref continuePauses);
+                    debugger.Continue();
+                };
+                DdfExecutionResult debugResult = DdfInterpreter.Execute(source,
+                    new DdfExecutionOptions { DebuggerSession = debugger });
+                Equal(true, debugResult.Succeeded);
+                Equal(223, debugResult.ReturnValue);
+                Equal(1, continuePauses);
+            }
+
+            DdfFlowchart flowchart = DdfFlowchartBuilder.Build(source, "main").Flowchart;
+            Equal(3, flowchart.Nodes.Count(node => node.Kind == DdfFlowchartNodeKind.Continue));
+            Equal(3, flowchart.Edges.Count(edge => edge.Kind == DdfFlowchartEdgeKind.Continue));
+            DdfFlowchartNode increment = flowchart.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Process && node.Label.Contains("index++"));
+            Equal(true, flowchart.Edges.Any(edge => edge.Kind ==
+                DdfFlowchartEdgeKind.Continue && edge.To == increment.Id));
+
+            const string invalid = "main() out int { continue; ret 0; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid);
+            Equal("DDF323", DdfTypeChecker.Check(invalid, invalidParse.Root)
+                .Diagnostics.Single().Code);
+
+            string profiles = Path.Combine(AppContext.BaseDirectory, "LanguageProfiles");
+            var profileCases = new[]
+            {
+                new { Id = "ddf", Keyword = "continue", If = "if", For = "for", Out = "out", Return = "ret", Initializer = "<<" },
+                new { Id = "ddf-c-familiar", Keyword = "continue", If = "if", For = "for", Out = "returns", Return = "return", Initializer = "=" },
+                new { Id = "ddf-it-didactic", Keyword = "continua", If = "se", For = "per", Out = "restituisce", Return = "restituisci", Initializer = "<<" }
+            };
+            foreach (var profile in profileCases)
+            {
+                DdfLanguagePackageLoadResult loaded = DdfLanguagePackageLoader.Load(
+                    Path.Combine(profiles, profile.Id));
+                Equal(true, loaded.Success);
+                string profileSource = "main() " + profile.Out + " int { int total " +
+                    profile.Initializer + " 0; " + profile.For + "(int index " + profile.Initializer +
+                    " 0; index < 4; index++) { " + profile.If + "(index == 1) { " + profile.Keyword +
+                    "; } total " + profile.Initializer + " total + index; } " +
+                    profile.Return + " total; }";
+                DdfParseResult profileParse = DdfParser.Parse(profileSource,
+                    loaded.Package.Language);
+                Equal(0, profileParse.Diagnostics.Count);
+                DdfIrBuildResult profileIr = DdfIrLowerer.Lower(profileSource,
+                    profileParse, loaded.Package.Language);
+                Equal(5L, Convert.ToInt64(DdfInterpreter.Execute(profileSource,
+                    profileIr.Program, loaded.Package.Language).ReturnValue));
+            }
+        }
+
+        private static int CountContinueStatements(StatementSyntax statement)
+        {
+            if (statement == null) return 0;
+            if (statement is ContinueStatementSyntax) return 1;
+            if (statement is BlockStatementSyntax block)
+                return block.Statements.Sum(CountContinueStatements);
+            if (statement is IfStatementSyntax conditional)
+                return CountContinueStatements(conditional.Body) +
+                    CountContinueStatements(conditional.ElseBody);
+            if (statement is WhileStatementSyntax loop)
+                return CountContinueStatements(loop.Body);
+            if (statement is DoWhileStatementSyntax postLoop)
+                return CountContinueStatements(postLoop.Body);
+            if (statement is ForStatementSyntax counted)
+                return CountContinueStatements(counted.Body);
+            return 0;
+        }
+
+        private static void ResolvesNestedControlTransfers()
+        {
+            const string source = @"main() out int
+{
+    int total << 0;
+    for(int outer << 0; outer < 3; outer++)
+    {
+        int inner << 0;
+        while(inner < 4)
+        {
+            inner++;
+            if(inner == 1) { continue; }
+            if(outer == 1 && inner == 2) { brk; }
+            total++;
+        }
+
+        int probe << 0;
+        do
+        {
+            probe++;
+            if(probe == 1) { continue; }
+            if(probe == 2) { brk; }
+        } while(probe < 3);
+
+        if(outer == 0) { continue; }
+        select(outer)
+        {
+            when 2
+            {
+                if(total > 0) { ret total + 35; }
+            }
+            otherwise { total++; }
+        }
+    }
+    ret 4000;
+}";
+            DdfParseResult parse = DdfParser.Parse(source);
+            Equal(0, parse.ValidationDiagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(source, parse.Root).Diagnostics.Count);
+            Equal(42, DdfInterpreter.Execute(source).ReturnValue);
+
+            DdfIrBuildResult lowered = DdfIrLowerer.Lower(source, parse);
+            Equal(0, lowered.Diagnostics.Count);
+            DdfFlowchart flow = DdfFlowchartBuilder.Build(source, "main").Flowchart;
+            var transfers = flow.Nodes.Where(node =>
+                node.Kind == DdfFlowchartNodeKind.Continue ||
+                node.Kind == DdfFlowchartNodeKind.Break ||
+                node.Kind == DdfFlowchartNodeKind.Return).ToArray();
+            Equal(7, transfers.Length);
+            Equal(transfers.Length, transfers.Select(node => node.Start).Distinct().Count());
+            Equal(true, transfers.All(node => node.Start >= 0 && node.Length > 0 &&
+                node.Start + node.Length <= source.Length));
+
+            foreach (DdfFlowchartNode transfer in transfers)
+            {
+                DdfFlowchartEdgeKind expected = transfer.Kind == DdfFlowchartNodeKind.Continue
+                    ? DdfFlowchartEdgeKind.Continue
+                    : transfer.Kind == DdfFlowchartNodeKind.Break
+                        ? DdfFlowchartEdgeKind.Break
+                        : DdfFlowchartEdgeKind.Return;
+                DdfFlowchartEdge edge = flow.Edges.Single(item => item.From == transfer.Id);
+                Equal(expected, edge.Kind);
+                Equal(true, flow.FindNode(edge.To) != null);
+            }
+
+            string[] continueTargets = transfers
+                .Where(node => node.Kind == DdfFlowchartNodeKind.Continue)
+                .Select(node => flow.Edges.Single(edge => edge.From == node.Id).To)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            string[] breakTargets = transfers
+                .Where(node => node.Kind == DdfFlowchartNodeKind.Break)
+                .Select(node => flow.Edges.Single(edge => edge.From == node.Id).To)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            Equal(3, continueTargets.Length);
+            Equal(2, breakTargets.Length);
+            Equal(true, transfers.Where(node => node.Kind == DdfFlowchartNodeKind.Return)
+                .All(node => flow.Edges.Single(edge => edge.From == node.Id).To ==
+                    flow.ExitNodeId));
+
+            const string nestedEnd = @"main() out int
+{
+    for(int outer << 0; outer < 2; outer++)
+    {
+        int inner << 0;
+        while(inner < 2)
+        {
+            inner++;
+            select(inner)
+            {
+                when 1 { if(outer == 1) { end; } }
+                otherwise { }
+            }
+        }
+    }
+    ret 0;
+}";
+            DdfExecutionResult ended = DdfInterpreter.Execute(nestedEnd);
+            Equal(true, ended.Succeeded);
+            Equal(true, ended.WasTerminated);
+            DdfFlowchart endFlow = DdfFlowchartBuilder.Build(nestedEnd, "main").Flowchart;
+            DdfFlowchartNode terminate = endFlow.Nodes.Single(node =>
+                node.Kind == DdfFlowchartNodeKind.Terminate);
+            DdfFlowchartEdge terminateEdge = endFlow.Edges.Single(edge =>
+                edge.From == terminate.Id);
+            Equal(DdfFlowchartEdgeKind.Terminate, terminateEdge.Kind);
+            Equal(endFlow.ExitNodeId, terminateEdge.To);
+
+            const string invalid = "main() out int { brk; continue; ret 0; }";
+            DdfParseResult invalidParse = DdfParser.Parse(invalid);
+            Equal(2, DdfTypeChecker.Check(invalid, invalidParse.Root).Diagnostics
+                .Count(diagnostic => diagnostic.Code == "DDF323"));
+        }
+
         private static void ExecutesArraysAndStructureMembers()
         {
             const string source = @"struct Point
@@ -7504,6 +11683,92 @@ main() out int
             DdfExecutionResult result = DdfInterpreter.Execute(source);
             Equal(true, result.Succeeded);
             Equal(7, result.ReturnValue);
+        }
+
+        private static void ValidatesActiveFixedArrayAcceptanceMatrix()
+        {
+            const string identityAndSingleEvaluation = @"int lengthCalls << 0;
+size() out int
+{
+    lengthCalls++;
+    ret 3;
+}
+mutate(int[3] values) out void
+{
+    values[1] << 20;
+}
+replaceLocally(int[3] values) out void
+{
+    int[3] replacement;
+    values << replacement;
+    values[0] << 99;
+}
+main() out int
+{
+    int[size()] values;
+    int[3] alias << values;
+    values[0] << 20;
+    mutate(alias);
+    values[2] << 1;
+    replaceLocally(alias);
+    ret lengthCalls + values[0] + alias[1] + values[2];
+}";
+            DdfParseResult identityParse = DdfParser.Parse(
+                identityAndSingleEvaluation);
+            Equal(0, identityParse.Diagnostics.Count);
+            Equal(0, DdfTypeChecker.Check(identityAndSingleEvaluation,
+                identityParse.Root).Diagnostics.Count);
+            DdfExecutionResult identity = DdfInterpreter.Execute(
+                identityAndSingleEvaluation);
+            Equal(true, identity.Succeeded);
+            Equal(42L, Convert.ToInt64(identity.ReturnValue));
+
+            const string empty =
+                "main() out int { int[0] values; ret 42; }";
+            DdfExecutionResult emptyResult = DdfInterpreter.Execute(empty);
+            Equal(true, emptyResult.Succeeded);
+            Equal(42L, Convert.ToInt64(emptyResult.ReturnValue));
+
+            const string minimum =
+                "main() out int { int[1] values; values[0] << 42; ret values[0]; }";
+            Equal(42L, Convert.ToInt64(
+                DdfInterpreter.Execute(minimum).ReturnValue));
+
+            const string large = @"main() out int
+{
+    int[4096] values;
+    for(int index << 0; index < 4096; index++)
+    {
+        values[index] << index;
+    }
+    ret values[4095] - 4053;
+}";
+            DdfExecutionResult largeResult = DdfInterpreter.Execute(large,
+                new DdfExecutionOptions { MaxInstructions = 200000 });
+            Equal(true, largeResult.Succeeded);
+            Equal(42L, Convert.ToInt64(largeResult.ReturnValue));
+
+            const string invalidTypes =
+                "main() out int { int[1] ints; float[1] floats << ints; " +
+                "ints[\"0\"] << 1; ret 0; }";
+            DdfTypeCheckResult invalidTypeResult = DdfTypeChecker.Check(
+                invalidTypes, DdfParser.Parse(invalidTypes).Root);
+            Equal(true, invalidTypeResult.Diagnostics.Any(item =>
+                item.Code == "DDF301"));
+            Equal(true, invalidTypeResult.Diagnostics.Any(item =>
+                item.Code == "DDF305"));
+
+            foreach (string invalidRuntime in new[]
+            {
+                "main() out int { int[0] values; ret values[0]; }",
+                "main() out int { int[1] values; ret values[-1]; }",
+                "main() out int { int[-1] values; ret 0; }"
+            })
+            {
+                DdfExecutionResult failed = DdfInterpreter.Execute(invalidRuntime);
+                Equal(false, failed.Succeeded);
+                Equal("DDF405", failed.Diagnostics.Single().Code);
+            }
         }
 
         private static void StopsInfiniteExecutionAtInstructionLimit()
@@ -7526,6 +11791,7 @@ main() out int
                 });
             Equal(true, result.WasCancelled);
             Equal(0, result.Diagnostics.Count);
+            Equal("DDF424", result.Error.Code);
         }
 
         private static void DisposesPausedDebuggerWithoutRacingWaiter()
@@ -7749,6 +12015,13 @@ main() out int
                 Equal(Path.GetFullPath(helperPath), Path.GetFullPath(runtimeDiagnostic.DocumentPath));
                 Equal(true, failure.StackTrace.Any(frame =>
                     string.Equals(frame.DocumentPath, mainPath, StringComparison.OrdinalIgnoreCase)));
+                Equal("arithmetic.divisionZero", failure.Error.TypeId);
+                Equal(Path.GetFullPath(helperPath),
+                    Path.GetFullPath(failure.Error.DocumentPath));
+                Equal(true, failure.Error.Stack.Any(frame =>
+                    string.Equals(Path.GetFullPath(frame.DocumentPath),
+                        Path.GetFullPath(mainPath),
+                        StringComparison.OrdinalIgnoreCase)));
             }
             finally
             {
@@ -7865,9 +12138,11 @@ main() out int
             Equal("fail", result.StackTrace[0].FunctionName);
             Equal("middle", result.StackTrace[1].FunctionName);
             Equal("main", result.StackTrace[2].FunctionName);
-            Equal(8, result.StackTrace[0].Line);
-            Equal("fail", source.Substring(result.StackTrace[0].Start, result.StackTrace[0].Length));
-            Equal("middle", source.Substring(result.StackTrace[1].Start, result.StackTrace[1].Length));
+            Equal(4, result.StackTrace[0].Line);
+            Equal("10 / zero", source.Substring(result.StackTrace[0].Start,
+                result.StackTrace[0].Length));
+            Equal("fail", source.Substring(result.StackTrace[1].Start,
+                result.StackTrace[1].Length));
 
             DdfExecutionResult standardFailure = DdfInterpreter.Execute("main() out int { ret toInt(\"abc\"); }");
             Equal(2, standardFailure.StackTrace.Count);
@@ -7915,6 +12190,79 @@ main() out int
             }
         }
 
+        private sealed class TestScriptStatePersistenceProvider :
+            IDdfEditorScriptStatePersistenceProvider,
+            IDdfEditorScriptStateMigrationProvider
+        {
+            public DdfEditorScriptStateSnapshot State { get; set; }
+            public DdfEditorScriptStateSnapshot LastSaved { get; private set; }
+            public int SaveCount { get; private set; }
+            public int LoadCount { get; private set; }
+            public int ClearCount { get; private set; }
+            public int MigrationCount { get; private set; }
+
+            public DdfEditorScriptStateSnapshot Load()
+            {
+                LoadCount++;
+                return State;
+            }
+
+            public void Save(DdfEditorScriptStateSnapshot snapshot)
+            {
+                State = snapshot;
+                LastSaved = snapshot;
+                SaveCount++;
+            }
+
+            public void Clear()
+            {
+                State = null;
+                ClearCount++;
+            }
+
+            public DdfEditorScriptStateSnapshot Migrate(
+                DdfEditorScriptStateSnapshot snapshot, string targetSchemaVersion,
+                string targetLanguageId, string targetLanguagePackageVersion)
+            {
+                MigrationCount++;
+                return new DdfEditorScriptStateSnapshot(targetSchemaVersion,
+                    targetLanguageId, targetLanguagePackageVersion, snapshot.Entries);
+            }
+        }
+
+        private sealed class NonMigratingScriptStatePersistenceProvider :
+            IDdfEditorScriptStatePersistenceProvider
+        {
+            public NonMigratingScriptStatePersistenceProvider(
+                DdfEditorScriptStateSnapshot state) { State = state; }
+            public DdfEditorScriptStateSnapshot State { get; private set; }
+            public DdfEditorScriptStateSnapshot Load() => State;
+            public void Save(DdfEditorScriptStateSnapshot snapshot) => State = snapshot;
+            public void Clear() => State = null;
+        }
+
+        private sealed class TestPersistenceMigrationProvider :
+            IDdfPersistenceMigrationProvider
+        {
+            private readonly Func<DdfPersistenceArtifact,
+                DdfPersistenceSchemaContract, DdfPersistenceArtifact> migrate;
+
+            public TestPersistenceMigrationProvider(Func<DdfPersistenceArtifact,
+                DdfPersistenceSchemaContract, DdfPersistenceArtifact> migrate)
+            {
+                this.migrate = migrate;
+            }
+
+            public int CallCount { get; private set; }
+
+            public DdfPersistenceArtifact Migrate(DdfPersistenceArtifact source,
+                DdfPersistenceSchemaContract targetContract)
+            {
+                CallCount++;
+                return migrate(source, targetContract);
+            }
+        }
+
         private sealed class TrackingHostResource : IDisposable
         {
             private readonly string name;
@@ -7927,6 +12275,34 @@ main() out int
             }
 
             public void Dispose() => releases.Add(name);
+        }
+
+        private sealed class TestResourceLeaseAuthority :
+            IDdfHostResourceLeaseAuthority
+        {
+            private readonly bool grant;
+
+            public TestResourceLeaseAuthority(bool grant)
+            {
+                this.grant = grant;
+            }
+
+            public List<DdfHostResourceLeaseRequest> Requests { get; } = new();
+            public List<DdfHostResourceLeaseSnapshot> Snapshots { get; } = new();
+
+            public ValueTask<DdfHostResourceLeaseDecision> AuthorizeAsync(
+                DdfHostResourceLeaseRequest request,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Requests.Add(request);
+                return ValueTask.FromResult(grant
+                    ? DdfHostResourceLeaseDecision.Grant()
+                    : DdfHostResourceLeaseDecision.Deny("policy"));
+            }
+
+            public void Observe(DdfHostResourceLeaseSnapshot snapshot) =>
+                Snapshots.Add(snapshot);
         }
 
         private sealed class TrackingAsyncHostResource : IAsyncDisposable
@@ -7944,6 +12320,25 @@ main() out int
             {
                 releases.Add(name);
                 return ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class ControllableAsyncHostResource : IAsyncDisposable
+        {
+            private readonly ManualResetEventSlim started;
+            private readonly Task completion;
+
+            public ControllableAsyncHostResource(ManualResetEventSlim started,
+                Task completion)
+            {
+                this.started = started;
+                this.completion = completion;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                started.Set();
+                return new ValueTask(completion);
             }
         }
 
@@ -8077,6 +12472,74 @@ main() out int
             {
                 Disposed = true;
                 return ValueTask.CompletedTask;
+            }
+        }
+
+        private sealed class RecordingExecutionScheduler :
+            IDdfEditorExecutionScheduler
+        {
+            public int ScheduleCount { get; private set; }
+            public int ExecutionThreadId { get; private set; }
+
+            public Task<TResult> ScheduleAsync<TResult>(
+                Func<Task<TResult>> operation)
+            {
+                ScheduleCount++;
+                return Task.Run(async () =>
+                {
+                    ExecutionThreadId = Environment.CurrentManagedThreadId;
+                    return await operation().ConfigureAwait(false);
+                });
+            }
+        }
+
+        private sealed class InlineExecutionScheduler :
+            IDdfEditorExecutionScheduler
+        {
+            public Task<TResult> ScheduleAsync<TResult>(
+                Func<Task<TResult>> operation) => operation();
+        }
+
+        private sealed class ManualEventDispatcher : IDdfEditorEventDispatcher
+        {
+            private readonly Queue<Action> callbacks = new();
+            public bool HasAccess => false;
+            public void Post(Action callback) => callbacks.Enqueue(callback);
+            public void Drain()
+            {
+                while (callbacks.Count > 0) callbacks.Dequeue()();
+            }
+        }
+
+        private sealed class DedicatedEventDispatcher :
+            IDdfEditorEventDispatcher, IDisposable
+        {
+            private readonly BlockingCollection<Action> callbacks = new();
+            private readonly Thread thread;
+
+            public DedicatedEventDispatcher()
+            {
+                using var started = new ManualResetEventSlim();
+                thread = new Thread(() =>
+                {
+                    ThreadId = Environment.CurrentManagedThreadId;
+                    started.Set();
+                    foreach (Action callback in callbacks.GetConsumingEnumerable())
+                        callback();
+                }) { IsBackground = true, Name = "DDF test UI dispatcher" };
+                thread.Start();
+                started.Wait();
+            }
+
+            public int ThreadId { get; private set; }
+            public bool HasAccess =>
+                Environment.CurrentManagedThreadId == ThreadId;
+            public void Post(Action callback) => callbacks.Add(callback);
+            public void Dispose()
+            {
+                callbacks.CompleteAdding();
+                thread.Join(TimeSpan.FromSeconds(5));
+                callbacks.Dispose();
             }
         }
 

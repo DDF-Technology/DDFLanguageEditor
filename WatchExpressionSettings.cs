@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using DDFLanguageEditor.Core;
 
 namespace DDF___Program_Language_Editor
 {
@@ -40,20 +41,42 @@ namespace DDF___Program_Language_Editor
 
         public static WatchExpressionSettings Parse(string value)
         {
-            if (string.IsNullOrWhiteSpace(value)) return new WatchExpressionSettings();
+            return ParseVersioned(value).Value ?? new WatchExpressionSettings();
+        }
+
+        public static DdfPersistenceReadResult<WatchExpressionSettings>
+            ParseVersioned(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return DdfPersistenceReadResult<WatchExpressionSettings>.Success(
+                    value, null, new WatchExpressionSettings());
+            DdfPersistencePreparation preparation =
+                DdfPersistenceSerialization.PrepareJson(
+                    DdfPersistenceArtifactKind.WatchExpressions, value);
+            if (!preparation.Succeeded)
+                return DdfPersistenceReadResult<WatchExpressionSettings>.Failed(
+                    value, preparation, preparation.Failure);
             try
             {
-                WatchExpressionSettings result = JsonSerializer.Deserialize<WatchExpressionSettings>(value);
-                if (result == null || result.FormatVersion != 1) return new WatchExpressionSettings();
+                WatchExpressionSettings result = JsonSerializer
+                    .Deserialize<WatchExpressionSettings>(
+                        preparation.PreparedArtifact.Payload);
+                if (result == null || result.FormatVersion != 1)
+                    return DdfPersistenceReadResult<WatchExpressionSettings>.Failed(
+                        value, preparation,
+                        "Le espressioni Watch non rispettano lo schema corrente.");
                 var sanitized = new WatchExpressionSettings();
                 foreach (WatchProjectExpressions project in (result.Projects ?? new List<WatchProjectExpressions>()).Take(100))
                     sanitized.SetExpressions(project?.ProjectPath, project?.Expressions);
-                return sanitized;
+                return DdfPersistenceReadResult<WatchExpressionSettings>.Success(
+                    value, preparation, sanitized);
             }
             catch (Exception exception) when (exception is JsonException || exception is ArgumentException ||
                                                exception is NotSupportedException || exception is PathTooLongException)
             {
-                return new WatchExpressionSettings();
+                return DdfPersistenceReadResult<WatchExpressionSettings>.Failed(
+                    value, preparation,
+                    "Espressioni Watch non valide: " + exception.Message);
             }
         }
 

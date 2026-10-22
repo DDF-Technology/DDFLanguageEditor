@@ -39,7 +39,7 @@ pacchetto dichiarativo non concede mai tali privilegi.
 1. Copiare un pacchetto valido e assegnargli ID, nome, versione ed estensioni propri.
 2. Modificare lessico, EBNF e adapter mantenendo coerenti i riferimenti.
 3. Aggiungere casi minimi e casi di errore in `tests.json`.
-4. Usare **Help > Linguaggio > Playground linguaggio** durante la progettazione.
+4. Usare **Linguaggio > Playground linguaggio** durante la progettazione.
 5. Usare **Convalida pacchetto attivo** e poi **Gestisci pacchetti** per installarlo.
 6. Distribuire il contenuto della cartella come archivio `.ddflang`.
 

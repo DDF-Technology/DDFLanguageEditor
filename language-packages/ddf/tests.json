@@ -15,6 +15,18 @@
       "expectedReturn": "2"
     },
     {
+      "name": "corpus:fixed-values",
+      "source": "fixed int answer << base + 2;\nfixed int base << 40;\n\nmain() out int\n{\n    fixed int offset << 1 + 1;\n    ret answer + offset - 2;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
+    },
+    {
+      "name": "corpus:state-values",
+      "source": "state int counter << 0;\n\nmain() out int\n{\n    counter++;\n    ret counter;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "1"
+    },
+    {
       "name": "corpus:defaults-and-conversions",
       "source": "main() out float\n{\n    int whole;\n    float promoted << whole + 4;\n    bool disabled;\n    string empty;\n    if(!disabled && empty == \"\")\n    {\n        ret promoted;\n    }\n    ret 0;\n}",
       "expectedDiagnosticCodes": [],
@@ -31,6 +43,30 @@
       "source": "main() out int\n{\n    int value << 0;\n    for(int index; index < 4; index++)\n    {\n        value++;\n    }\n    while(value < 6)\n    {\n        value++;\n    }\n    do\n    {\n        value++;\n        if(value == 8)\n        {\n            brk;\n        }\n    } while(value < 10);\n    ret value;\n}",
       "expectedDiagnosticCodes": [],
       "expectedReturn": "8"
+    },
+    {
+      "name": "corpus:continue",
+      "source": "main() out int\n{\n    int total << 0;\n    for(int index << 0; index < 6; index++)\n    {\n        if(index == 2)\n        {\n            continue;\n        }\n        total << total + index;\n    }\n    ret total;\n}",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "13"
+    },
+    {
+      "name": "corpus:nominal-enums",
+      "source": "enum Color\n{\n    Red,\n    Green,\n    Blue\n}\n\nmain() out int\n{\n    Color selected << Color.Green;\n\n    if(selected == Color.Green)\n    {\n        ret 42;\n    }\n\n    ret 0;\n}\n",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
+    },
+    {
+      "name": "corpus:fixed-enums",
+      "source": "enum Color\n{\n    Red,\n    Green,\n    Blue\n}\n\nfixed Color preferred << Color.Green;\n\nmain() out int\n{\n    fixed Color selected << preferred;\n\n    if(selected == Color.Green)\n    {\n        ret 42;\n    }\n\n    ret 0;\n}\n",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
+    },
+    {
+      "name": "corpus:exhaustive-select",
+      "source": "enum Color\n{\n    Red,\n    Green,\n    Blue\n}\n\nmain() out int\n{\n    Color selected << Color.Red;\n\n    select(selected)\n    {\n        when Color.Red\n        {\n            ret 42;\n        }\n\n        when Color.Green\n        {\n            ret 2;\n        }\n\n        when Color.Blue\n        {\n            ret 3;\n        }\n    }\n}\n",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
     },
     {
       "name": "corpus:structures-and-arrays",

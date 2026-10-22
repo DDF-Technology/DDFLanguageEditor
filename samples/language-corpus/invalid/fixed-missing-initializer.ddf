@@ -1,0 +1,6 @@
+fixed int answer;
+
+main() out int
+{
+    ret 0;
+}

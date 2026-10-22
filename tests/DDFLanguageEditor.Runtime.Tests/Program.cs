@@ -128,6 +128,38 @@ namespace DDFLanguageEditor.Runtime.Tests
             }
         }
 
+        private sealed class SuspendingCapabilityProvider :
+            IDdfRuntimeAsyncCapabilityProvider
+        {
+            private readonly TaskCompletionSource<object> completion = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            internal Task Started => started.Task;
+            private readonly TaskCompletionSource started = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            internal bool SynchronousPathUsed { get; private set; }
+
+            public object Invoke(string capabilityId,
+                IReadOnlyList<object> arguments,
+                CancellationToken cancellationToken)
+            {
+                SynchronousPathUsed = true;
+                throw new InvalidOperationException(
+                    "Il percorso sincrono non deve essere usato.");
+            }
+
+            public async ValueTask<object> InvokeAsync(string capabilityId,
+                IReadOnlyList<object> arguments,
+                DdfRuntimeCapabilityInvocationContext context)
+            {
+                started.TrySetResult();
+                return await completion.Task.WaitAsync(
+                    context.CancellationToken);
+            }
+
+            internal void Resume(object value) => completion.TrySetResult(value);
+        }
+
         private sealed class TrackedTransaction :
             IDdfRuntimeCapabilityTransaction
         {
@@ -229,21 +261,24 @@ namespace DDFLanguageEditor.Runtime.Tests
         private static readonly DdfRuntimeSourceLocation Location =
             new DdfRuntimeSourceLocation("main.ddf", 12, 4, "s_test");
 
-        private static int Main()
+        private static async Task<int> Main()
         {
             try
             {
                 KeepsTheAbiIndependentAndVersioned();
+                ValidatesPortablePersistedState();
                 EnforcesDdfNumericSemantics();
                 PreservesPostfixAndIndexedValueSemantics();
                 EnforcesBudgetCancellationIoAndEnd();
                 DeniesCapabilitiesByDefault();
                 GovernsAsyncCapabilitiesTimeoutsAndResources();
+                await SuspendsAndResumesRuntimeCapabilitiesCooperatively();
                 GovernsCapabilityEffectsAndTransactions();
                 ReportsBoundDebugLocationsAndFrames();
+                CapturesTypedRuntimeErrorFramesBeforeUnwind();
                 CapturesImmutableDebugValuesAndScopes();
                 CapturesStructuredDebugValuesWithinLimits();
-                Console.WriteLine("All 10 runtime ABI tests passed.");
+                Console.WriteLine("All 13 runtime ABI tests passed.");
                 return 0;
             }
             catch (Exception exception)
@@ -255,13 +290,114 @@ namespace DDFLanguageEditor.Runtime.Tests
 
         private static void KeepsTheAbiIndependentAndVersioned()
         {
-            Equal("1.6.0", DdfRuntimeAbi.Version);
+            Equal("1.11.0", DdfRuntimeAbi.Version);
             string[] references = typeof(DdfRuntimeAbi).Assembly.GetReferencedAssemblies()
                 .Select(item => item.Name).ToArray();
             Require(!references.Any(item => item.StartsWith("DDFLanguageEditor",
                     StringComparison.Ordinal)),
                 "La runtime ABI dipende da un altro assembly DDFLanguageEditor.");
-            Console.WriteLine("PASS runtime ABI 1.6.0 indipendente da Core, UI, SDK e Roslyn");
+            Console.WriteLine("PASS runtime ABI 1.11.0 indipendente da Core, UI, SDK e Roslyn");
+        }
+
+        private static void ValidatesPortablePersistedState()
+        {
+            var entries = new[]
+            {
+                new DdfPersistedStateEntry("module@1.0.0::main.ddf::count",
+                    "int", 42),
+                new DdfPersistedStateEntry("module@1.0.0::main.ddf::name",
+                    "string", "DDF")
+            };
+            var snapshot = new DdfPersistedStateSnapshot(
+                DdfPersistedStateSnapshot.CurrentSchemaVersion, "ddf", "0.13.0",
+                entries);
+            Equal(2, snapshot.Entries.Count);
+            Equal(42, snapshot.ByKey[entries[0].Key].RequireValue("int"));
+            bool duplicateRejected = false;
+            try
+            {
+                _ = new DdfPersistedStateSnapshot(
+                    DdfPersistedStateSnapshot.CurrentSchemaVersion, "ddf",
+                    "0.13.0", new[] { entries[0], entries[0] });
+            }
+            catch (ArgumentException) { duplicateRejected = true; }
+            bool mismatchRejected = false;
+            try { entries[0].RequireValue("string"); }
+            catch (InvalidOperationException) { mismatchRejected = true; }
+            Require(duplicateRejected && mismatchRejected,
+                "Lo snapshot state non rifiuta duplicati o tipi incompatibili.");
+            Console.WriteLine("PASS snapshot state portabile, immutabile e tipizzato");
+        }
+
+        private static async Task
+            SuspendsAndResumesRuntimeCapabilitiesCooperatively()
+        {
+            var provider = new SuspendingCapabilityProvider();
+            var context = new DdfRuntimeContext(20,
+                capabilityProvider: provider,
+                capabilityTimeout: TimeSpan.FromSeconds(2));
+            ValueTask<DdfRuntimeExecutionResult> pending = context.ExecuteAsync(
+                async runtime => await runtime.InvokeCapabilityValueAsync<int>(
+                    "async.suspend", Array.Empty<object>(), Location,
+                    DdfRuntimeCapabilityEffectKind.Function));
+            await provider.Started.WaitAsync(TimeSpan.FromSeconds(1));
+            Require(!pending.IsCompleted,
+                "L'esecuzione asincrona non si è sospesa sulla capability.");
+            Require(!provider.SynchronousPathUsed,
+                "L'esecuzione asincrona ha usato il bridge sincrono.");
+            provider.Resume(42);
+            DdfRuntimeExecutionResult result = await pending;
+            Equal(42, result.Value);
+            Equal(DdfRuntimeCapabilityEffectDisposition.Applied,
+                result.CapabilityEffects.Disposition);
+            Equal(DdfRuntimeCapabilityEffectStatus.Applied,
+                result.CapabilityEffects.Effects.Single().Status);
+            Console.WriteLine("PASS sospensione e ripresa capability Runtime ABI senza bridge sincrono");
+        }
+
+        private static void CapturesTypedRuntimeErrorFramesBeforeUnwind()
+        {
+            var context = new DdfRuntimeContext(10);
+            var outerDeclaration = new DdfRuntimeSourceLocation(
+                "main.ddf", 0, 4, "fn_main");
+            var callLocation = new DdfRuntimeSourceLocation(
+                "main.ddf", 24, 6, "call_divide");
+            var innerDeclaration = new DdfRuntimeSourceLocation(
+                "math.ddf", 0, 6, "fn_divide");
+            DdfRuntimeException failure = Capture(() => context.Execute(runtime =>
+            {
+                runtime.EnterFunction("fn_main", outerDeclaration);
+                try
+                {
+                    runtime.Tick(callLocation);
+                    runtime.EnterFunction("fn_divide", innerDeclaration);
+                    try
+                    {
+                        throw new DdfRuntimeException("DDF404",
+                            "Divisione per zero.", new DdfRuntimeSourceLocation(
+                                "math.ddf", 31, 1, "division"));
+                    }
+                    catch (DdfRuntimeException exception)
+                    {
+                        runtime.CaptureError(exception);
+                        throw;
+                    }
+                    finally { runtime.ExitFunction("fn_divide"); }
+                }
+                catch (DdfRuntimeException exception)
+                {
+                    runtime.CaptureError(exception);
+                    throw;
+                }
+                finally { runtime.ExitFunction("fn_main"); }
+            }));
+            Equal("DDF404", failure.Code);
+            Equal(2, failure.Frames.Count);
+            Equal("fn_divide", failure.Frames[0].FunctionSymbolId);
+            Equal("math.ddf", failure.Frames[0].Declaration.DocumentPath);
+            Equal("fn_main", failure.Frames[1].FunctionSymbolId);
+            Equal(callLocation, failure.Frames[1].Location);
+            Console.WriteLine("PASS stack errori runtime tipizzato catturato prima dell'unwind");
         }
 
         private static void EnforcesDdfNumericSemantics()
@@ -601,11 +737,13 @@ namespace DDFLanguageEditor.Runtime.Tests
             var observer = new DebugObserver();
             var context = new DdfRuntimeContext(10, debugObserver: observer);
             int global = 3;
+            int state = 4;
             int parameter = 5;
             int[] values = { 7, 8 };
             context.Execute(runtime =>
             {
                 runtime.RegisterDebugGlobal("g_total", "int", () => global);
+                runtime.RegisterDebugState("s_counter", "int", () => state);
                 runtime.EnterFunction("f_main", Location);
                 try
                 {
@@ -616,6 +754,8 @@ namespace DDFLanguageEditor.Runtime.Tests
                     {
                         runtime.RegisterDebugLocal("l_values", "int[]",
                             () => values);
+                        runtime.RegisterDebugLocal("l_fixed", "int", () => 42,
+                            true, true);
                         runtime.Tick(Location);
                         parameter = 6;
                         values[0] = 9;
@@ -644,6 +784,12 @@ namespace DDFLanguageEditor.Runtime.Tests
             Equal("[2]", firstArray.DisplayValue);
             Equal("7", firstArray.Children[0].DisplayValue);
             Equal("int", firstArray.Children[0].TypeName);
+            DdfRuntimeDebugValue fixedValue = first.Variables.Single(value =>
+                value.SymbolId == "l_fixed");
+            Equal(true, fixedValue.IsReadOnly);
+            Equal(true, fixedValue.IsFixed);
+            Equal(false, first.Variables.Single(value =>
+                value.SymbolId == "g_total").IsReadOnly);
             DdfRuntimeDebugFrame second = observer.Snapshots[1].Frames.Single();
             Equal("6", second.Variables.Single(value =>
                 value.SymbolId == "p_value").DisplayValue);
@@ -656,7 +802,11 @@ namespace DDFLanguageEditor.Runtime.Tests
                 "Un locale uscito dallo scope è rimasto visibile.");
             Equal("3", first.Variables.Single(value =>
                 value.SymbolId == "g_total").DisplayValue);
-            Console.WriteLine("PASS snapshot valori immutabili con parametri, locali, globali, array e scope");
+            DdfRuntimeDebugValue stateValue = first.Variables.Single(value =>
+                value.SymbolId == "s_counter");
+            Equal("4", stateValue.DisplayValue);
+            Equal(DdfRuntimeDebugVariableKind.State, stateValue.Kind);
+            Console.WriteLine("PASS snapshot valori immutabili con parametri, locali, globali, state, array e scope");
         }
 
         private static void CapturesStructuredDebugValuesWithinLimits()

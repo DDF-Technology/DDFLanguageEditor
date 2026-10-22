@@ -226,7 +226,7 @@ espone ID, versione del pacchetto, origine (`cartella`, `archivio` o
 fallback.
 
 Le stesse informazioni sono sempre consultabili da
-`Help > Linguaggio > Informazioni sul pacchetto attivo`, senza dipendere dalla larghezza della barra
+`Linguaggio > Informazioni sul pacchetto attivo`, senza dipendere dalla larghezza della barra
 di stato o dalla comparsa del tooltip. La finestra distingue esplicitamente un
 caricamento esterno riuscito dal fallback incorporato e consente di copiare tutti
 i dettagli.
@@ -295,11 +295,15 @@ testo formattato e valore restituito dal runtime. Se una sola aspettativa fallis
 il pacchetto viene rifiutato atomicamente con diagnostica `DDFT001` e il linguaggio
 attivo resta invariato.
 
-`Help > Linguaggio > Gestisci pacchetti` installa o aggiorna in modo transazionale
+`Linguaggio > Gestisci pacchetti` installa o aggiorna in modo transazionale
 una cartella o un archivio `.ddflang` nel profilo locale, elenca le versioni valide,
 le convalida, le attiva oppure disattiva la selezione esterna tornando alla copia
-DDF incorporata. `Playground linguaggio` prova invece token, albero sintattico,
-diagnostiche e formatter senza modificare il documento aperto.
+DDF incorporata. `Playground linguaggio` prova invece in tempo reale token, albero
+sintattico generico, tipi, diagnostiche, errori recuperabili dichiarati, lowering
+IR con operazioni semantiche e formatter senza attivare il pacchetto selezionato
+né modificare il documento aperto. Il Playground resterà l'accesso rapido alla
+scheda di collaudo del futuro Language Package Studio; lo Studio aggiungerà la
+modifica assistita dei file dichiarativi, non una seconda pipeline di analisi.
 
 Il DDF è l'unico pacchetto collocato accanto all'eseguibile ed è anche incorporato
 come fallback. Gli eventuali profili dimostrativi distribuiti con l'applicazione

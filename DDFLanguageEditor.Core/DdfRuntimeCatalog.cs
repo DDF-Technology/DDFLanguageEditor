@@ -49,6 +49,16 @@ namespace DDFLanguageEditor.Core
                     nameof(errorCodes));
             Effect = effect;
             ErrorCodes = Array.AsReadOnly(errors);
+            ErrorDefinitions = Array.AsReadOnly(errors.Select(code =>
+            {
+                if (!DdfErrorCatalog.TryGetByCode(code, out
+                        DdfErrorDefinition definition) ||
+                    !definition.IsRecoverable)
+                    throw new ArgumentException(
+                        "Il codice non identifica un errore DDF recuperabile: " +
+                        code + ".", nameof(errorCodes));
+                return definition;
+            }).ToArray());
         }
 
         public string Name { get; }
@@ -58,6 +68,7 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<string> ParameterTypes { get; }
         public DdfStandardFunctionEffect Effect { get; }
         public IReadOnlyList<string> ErrorCodes { get; }
+        public IReadOnlyList<DdfErrorDefinition> ErrorDefinitions { get; }
         public string Signature => Name + "(" + string.Join(", ", ParameterTypes) + ") out " + ReturnType;
 
         private static string LegacyBinding(string name)

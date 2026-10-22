@@ -24,18 +24,34 @@ namespace DDFLanguageEditor.Core
             string returnType,
             IReadOnlyList<DdfSignatureParameter> parameters,
             string origin)
+            : this(name, returnType, parameters, origin,
+                Array.Empty<DdfErrorDefinition>())
+        {
+        }
+
+        public DdfSignatureInformation(
+            string name,
+            string returnType,
+            IReadOnlyList<DdfSignatureParameter> parameters,
+            string origin,
+            IReadOnlyList<DdfErrorDefinition> recoverableErrors)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A function name is required.", nameof(name));
             Name = name;
             ReturnType = returnType ?? string.Empty;
             Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
             Origin = origin ?? string.Empty;
+            RecoverableErrors = (recoverableErrors ??
+                Array.Empty<DdfErrorDefinition>()).ToList().AsReadOnly();
         }
 
         public string Name { get; }
         public string ReturnType { get; }
         public IReadOnlyList<DdfSignatureParameter> Parameters { get; }
         public string Origin { get; }
+        public IReadOnlyList<DdfErrorDefinition> RecoverableErrors { get; }
+        public string ErrorSummary => DdfErrorPresentation.FormatDeclarations(
+            RecoverableErrors);
         public string Signature => Name + "(" + string.Join(", ", Parameters.Select(parameter => parameter.DisplayText)) +
                                    ") out " + ReturnType;
     }
@@ -64,7 +80,8 @@ namespace DDFLanguageEditor.Core
             string source,
             int position,
             IEnumerable<CompilationUnitSyntax> externalRoots = null,
-            DdfLanguageDefinition language = null)
+            DdfLanguageDefinition language = null,
+            DdfHostCatalogSnapshot hostCatalog = null)
         {
             source = source ?? string.Empty;
             if (position < 0 || position > source.Length) throw new ArgumentOutOfRangeException(nameof(position));
@@ -132,7 +149,22 @@ namespace DDFLanguageEditor.Core
                     activeCall.OpenParenthesis,
                     activeCall.ActiveParameter,
                     new DdfSignatureInformation(standard.Name, standard.ReturnType, parameters,
-                        language.Intellisense.SignatureStandardLibraryOrigin));
+                        language.Intellisense.SignatureStandardLibraryOrigin,
+                        standard.ErrorDefinitions));
+            }
+
+            if (hostCatalog?.TryGetFunction(activeCall.Name,
+                    out DdfHostFunctionDefinition hostFunction) == true)
+            {
+                var parameters = hostFunction.Parameters.Select(parameter =>
+                        new DdfSignatureParameter(parameter.Name,
+                            parameter.TypeName))
+                    .ToList().AsReadOnly();
+                return new DdfSignatureHelpResult(activeCall.OpenParenthesis,
+                    activeCall.ActiveParameter,
+                    new DdfSignatureInformation(hostFunction.Name,
+                        hostFunction.ReturnType, parameters, "Host",
+                        hostFunction.RecoverableErrors));
             }
 
             return null;

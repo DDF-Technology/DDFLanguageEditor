@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/project-testing-design-1.0.json",
+  "title": "DDF project testing design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "minimumLanguageVersion", "targetEditorSdkContract", "planContract", "adapter", "reportContract", "currentLanguagePackageTestAdapter", "testLibrary", "expectedOutcomeKinds", "caseStatusKinds", "fixtureFields", "reportIdentityFields", "runnerDiagnostics", "rules", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-project-testing-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0040" },
+    "minimumLanguageVersion": { "const": "0.13" },
+    "targetEditorSdkContract": { "const": "0.39" },
+    "planContract": { "const": "ddf-test-plan@1.0" },
+    "adapter": { "const": "ddf-project-tests-v1" },
+    "reportContract": { "const": "ddf-test-report@1.0" },
+    "currentLanguagePackageTestAdapter": { "const": "ddf-tests-v1" },
+    "testLibrary": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "identity", "functions", "maximumFailuresPerCase" ],
+      "properties": {
+        "identity": { "const": "ddf.testing@1" },
+        "functions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+        "maximumFailuresPerCase": { "const": 128 }
+      }
+    },
+    "expectedOutcomeKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "caseStatusKinds": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "fixtureFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "reportIdentityFields": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "runnerDiagnostics": {
+      "type": "array", "minItems": 10, "maxItems": 10, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDFT[0-9]{3}$" }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "testFunctionsUseOrdinaryDdfSyntax", "testSourcesCannotEnterProductionArtifacts", "productionCannotDependOnTestSources", "testLibraryAvailableOnlyInTestMode", "assertionsRecordTypedFailures", "assertionsNeverThrowClrExceptions", "approximateFloatComparisonRequiresExplicitTolerance", "engineFaultCannotBeExpectedSuccess", "messagesAndClrStacksCannotBeOracles", "emptyTestsAreRejected", "eachCaseUsesFreshState", "fixturesAreImmutableAndFingerprinted", "undeclaredCapabilitiesAreDenied", "realExternalEffectsDeniedByDefault", "simulatedEffectsAlwaysRollback", "arbitrarySetupAndTeardownInitiallyForbidden", "caseOrderCannotAffectResults", "parallelismRequiresProvenIsolation", "vmAndRoslynResultsMustMatch", "adapterFramesHiddenFromDebugger", "skipRequiresDeclaredReason", "missingProviderNeverAutoSkips", "telemetryExcludedFromOutcomeFingerprint" ],
+      "properties": {
+        "testFunctionsUseOrdinaryDdfSyntax": { "const": true },
+        "testSourcesCannotEnterProductionArtifacts": { "const": true },
+        "productionCannotDependOnTestSources": { "const": true },
+        "testLibraryAvailableOnlyInTestMode": { "const": true },
+        "assertionsRecordTypedFailures": { "const": true },
+        "assertionsNeverThrowClrExceptions": { "const": true },
+        "approximateFloatComparisonRequiresExplicitTolerance": { "const": true },
+        "engineFaultCannotBeExpectedSuccess": { "const": true },
+        "messagesAndClrStacksCannotBeOracles": { "const": true },
+        "emptyTestsAreRejected": { "const": true },
+        "eachCaseUsesFreshState": { "const": true },
+        "fixturesAreImmutableAndFingerprinted": { "const": true },
+        "undeclaredCapabilitiesAreDenied": { "const": true },
+        "realExternalEffectsDeniedByDefault": { "const": true },
+        "simulatedEffectsAlwaysRollback": { "const": true },
+        "arbitrarySetupAndTeardownInitiallyForbidden": { "const": true },
+        "caseOrderCannotAffectResults": { "const": true },
+        "parallelismRequiresProvenIsolation": { "const": true },
+        "vmAndRoslynResultsMustMatch": { "const": true },
+        "adapterFramesHiddenFromDebugger": { "const": true },
+        "skipRequiresDeclaredReason": { "const": true },
+        "missingProviderNeverAutoSkips": { "const": true },
+        "telemetryExcludedFromOutcomeFingerprint": { "const": true }
+      }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "standardLibraryBindingV2Required", "typedErrorsUsedWhenAvailable", "clockAndRandomSnapshotsSupported", "hostCapabilitySimulationSupported", "editorAndCliShareReport", "debugTestSupported" ],
+      "properties": {
+        "standardLibraryBindingV2Required": { "const": true },
+        "typedErrorsUsedWhenAvailable": { "const": true },
+        "clockAndRandomSnapshotsSupported": { "const": true },
+        "hostCapabilitySimulationSupported": { "const": true },
+        "editorAndCliShareReport": { "const": true },
+        "debugTestSupported": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

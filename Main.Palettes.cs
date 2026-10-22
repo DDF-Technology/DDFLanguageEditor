@@ -32,7 +32,14 @@ namespace DDF___Program_Language_Editor
 
         private void initializePaletteBehavior()
         {
-            PaletteLayoutSettings layout = PaletteLayoutSettings.Parse(AppSettingsStore.LoadPaletteLayout());
+            string persistedLayout = AppSettingsStore.LoadPaletteLayout();
+            DdfPersistenceReadResult<PaletteLayoutSettings> layoutRead =
+                PaletteLayoutSettings.ParseVersioned(persistedLayout);
+            PaletteLayoutSettings layout = layoutRead.Value ?? PaletteLayoutSettings.Default;
+            if (!layoutRead.Succeeded && !string.IsNullOrWhiteSpace(persistedLayout))
+                statusFileLabel.ToolTipText =
+                    "Layout palette non applicato; i dati originali sono stati conservati. " +
+                    layoutRead.Failure;
             outlineExpandedWidth = layout.OutlineWidth;
             diagnosticsExpandedHeight = layout.DiagnosticsHeight;
             outlinePinned = layout.OutlinePinned;

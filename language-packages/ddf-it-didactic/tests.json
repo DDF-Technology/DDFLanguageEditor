@@ -13,6 +13,12 @@
       ],
       "expectedDiagnosticCodes": [],
       "expectedReturn": "2"
+    },
+    {
+      "name": "fisso e stato equivalenti",
+      "source": "fisso int risposta << 42;\nstato int contatore << 0;\nmain() restituisce int { contatore++; restituisci risposta + contatore - 1; }",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
     }
   ],
   "description": "Corpus normativo minimo del profilo DDF didattico italiano."

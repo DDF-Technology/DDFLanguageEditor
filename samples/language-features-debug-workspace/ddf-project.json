@@ -1,0 +1,26 @@
+{
+  "$schema": "../../ddf-project.schema.json",
+  "schemaVersion": "1.2",
+  "name": "DDF language features debug workspace",
+  "module": {
+    "id": "ddf.sample.language.features",
+    "version": "0.1.0",
+    "exports": []
+  },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.13.0",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "references": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": {
+    "directory": ".ddf-build",
+    "artifact": "language-features-debug.ddfbuild.json"
+  },
+  "options": {
+    "useUnsavedBuffers": true,
+    "maxInstructions": 100000
+  }
+}

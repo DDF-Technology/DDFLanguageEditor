@@ -86,17 +86,15 @@ namespace DDF___Program_Language_Editor
                 statusFileLabel.ToolTipText = "Impossibile leggere la sessione precedente: " + exception.Message;
                 return;
             }
-            WorkspaceSessionSnapshot snapshot = WorkspaceSessionSnapshot.Parse(serialized);
+            DdfPersistenceReadResult<WorkspaceSessionSnapshot> read =
+                WorkspaceSessionSnapshot.ParseVersioned(serialized);
+            WorkspaceSessionSnapshot snapshot = read.Value;
             if (snapshot == null)
             {
                 if (!string.IsNullOrWhiteSpace(serialized))
-                {
-                    try { clearWorkspaceSessionSetting?.Invoke(); }
-                    catch (Exception exception) when (isSettingsStorageException(exception))
-                    {
-                        statusFileLabel.ToolTipText = "Impossibile rimuovere una sessione non valida: " + exception.Message;
-                    }
-                }
+                    statusFileLabel.ToolTipText =
+                        "Sessione precedente non applicata; il file originale è stato conservato. " +
+                        read.Failure;
                 return;
             }
 

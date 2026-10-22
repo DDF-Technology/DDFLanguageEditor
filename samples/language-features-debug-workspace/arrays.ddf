@@ -1,0 +1,24 @@
+fillValues(int seed) out int
+{
+    int[4] values;
+    values[0] << seed;
+    values[1] << seed + 1;
+    values[2] << add(values[0], values[1]);
+    values[3] << values[2] + globalAdjustment;
+
+    int index << 0;
+    int total << 0;
+
+    while(index < 4)
+    {
+        total << total + values[index];
+        index++;
+    }
+
+    ret total;
+}
+
+isIndexValid(int index, int count) out bool
+{
+    ret index >= 0 && index < count;
+}

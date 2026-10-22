@@ -256,7 +256,10 @@ namespace DDF___Program_Language_Editor
                     ? " · " + Math.Round(flowchartCanvas.ZoomFactor * 100) + "%"
                     : string.Empty) + (educationalModeEnabled ? " · DIDATTICA" : string.Empty) +
                 flowchartStatusSuffix() +
-                (flowchartCanvas.ExecutionNode != null ? " · DEBUG IN PAUSA" : string.Empty);
+                (flowchartCanvas.ExecutionNode == null ? string.Empty :
+                    panelEditor.DebugService?.State == DdfEditorDebugState.AwaitingCapability
+                        ? " · DEBUG IN ATTESA"
+                        : " · DEBUG IN PAUSA");
             updateFlowchartViewNotice();
         }
 

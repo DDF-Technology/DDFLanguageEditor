@@ -95,6 +95,8 @@ namespace DDF___Program_Language_Editor
                     .OrderBy(variable => variable.ScopeDepth).ThenBy(variable => variable.Name, StringComparer.Ordinal));
                 addVariableGroup("Variabili globali", "globals", selectedVariables
                     .Where(variable => variable.Kind == DdfRuntimeVariableKind.Global));
+                addVariableGroup("State (run corrente)", "states", selectedVariables
+                    .Where(variable => variable.Kind == DdfRuntimeVariableKind.State));
 
                 foreach (TreeNode node in treeViewVariables.Nodes.Cast<TreeNode>().SelectMany(flattenVariableNodes))
                 {
@@ -113,8 +115,10 @@ namespace DDF___Program_Language_Editor
         {
             if (watchSnapshot == null) return Enumerable.Empty<DdfEditorDebugVariableSnapshot>();
             IEnumerable<DdfEditorDebugVariableSnapshot> globals = watchSnapshot.Globals;
+            IEnumerable<DdfEditorDebugVariableSnapshot> states = watchSnapshot.States;
             if (selectedCallStackFrameIndex >= 0 && selectedCallStackFrameIndex < watchSnapshot.CallStack.Count)
-                return watchSnapshot.CallStack[selectedCallStackFrameIndex].Variables.Concat(globals);
+                return watchSnapshot.CallStack[selectedCallStackFrameIndex].Variables
+                    .Concat(globals).Concat(states);
             return watchSnapshot.Variables;
         }
 
@@ -132,7 +136,10 @@ namespace DDF___Program_Language_Editor
             string scope = variable.Kind == DdfRuntimeVariableKind.Local && variable.ScopeDepth > 0
                 ? " — scope +" + variable.ScopeDepth
                 : string.Empty;
-            var node = new TreeNode(variable.Name + " : " + variable.TypeName + " = " + variable.DisplayValue + scope)
+            string mutability = variable.IsFixed ? " — fixed · sola lettura" :
+                variable.IsReadOnly ? " — sola lettura" : string.Empty;
+            var node = new TreeNode(variable.Name + " : " + variable.TypeName + " = " +
+                variable.DisplayValue + scope + mutability)
             {
                 Name = variable.Name,
                 Tag = variable

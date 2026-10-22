@@ -244,14 +244,19 @@ namespace DDFLanguageEditor.Compiler
                 MethodDefinitionHandle methodHandle =
                     MetadataTokens.MethodDefinitionHandle(row);
                 MethodDefinition method = metadata.GetMethodDefinition(methodHandle);
-                string storageName = metadata.GetString(method.Name);
+                MethodDebugInformation debug = pdb.GetMethodDebugInformation(
+                    debugHandle);
+                MethodDefinitionHandle kickoffHandle =
+                    debug.GetStateMachineKickoffMethod();
+                MethodDefinition symbolMethod = method;
+                if (!kickoffHandle.IsNil)
+                    symbolMethod = metadata.GetMethodDefinition(kickoffHandle);
+                string storageName = metadata.GetString(symbolMethod.Name);
                 if (!symbolsByStorage.TryGetValue(storageName,
                         out DdfDotNetDebugSymbolInfo function) ||
                     function.Kind != DdfBoundSymbolKind.Function.ToString())
                     continue;
                 int methodToken = MetadataTokens.GetToken(methodHandle);
-                MethodDebugInformation debug = pdb.GetMethodDebugInformation(
-                    debugHandle);
                 var points = new List<DdfDotNetDebugLocation>();
                 DocumentHandle currentDocument = debug.Document;
                 foreach (SequencePoint point in debug.GetSequencePoints())
@@ -271,7 +276,7 @@ namespace DDFLanguageEditor.Compiler
                 if (points.Count == 0) continue;
                 frames.Add(new DdfDotNetDebugFrameInfo(methodToken, function,
                     points));
-                parameters[methodToken] = method.GetParameters()
+                parameters[methodToken] = symbolMethod.GetParameters()
                     .Select(handle => metadata.GetParameter(handle))
                     .Where(parameter => parameter.SequenceNumber > 0)
                     .Select(parameter => metadata.GetString(parameter.Name))

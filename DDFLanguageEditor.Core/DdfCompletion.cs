@@ -57,6 +57,22 @@ namespace DDFLanguageEditor.Core
             string origin,
             int proximity,
             DdfSnippetTemplate snippet)
+            : this(displayText, insertionText, kind, detail, typeName, origin,
+                proximity, snippet, false, false)
+        {
+        }
+
+        public DdfCompletionItem(
+            string displayText,
+            string insertionText,
+            DdfCompletionKind kind,
+            string detail,
+            string typeName,
+            string origin,
+            int proximity,
+            DdfSnippetTemplate snippet,
+            bool isReadOnly,
+            bool isFixed)
         {
             if (string.IsNullOrWhiteSpace(displayText)) throw new ArgumentException("Display text is required.", nameof(displayText));
             if (string.IsNullOrEmpty(insertionText)) throw new ArgumentException("Insertion text is required.", nameof(insertionText));
@@ -68,6 +84,8 @@ namespace DDFLanguageEditor.Core
             Origin = origin ?? string.Empty;
             Proximity = Math.Max(0, proximity);
             Snippet = snippet;
+            IsReadOnly = isReadOnly;
+            IsFixed = isFixed;
         }
 
         public string DisplayText { get; }
@@ -78,7 +96,10 @@ namespace DDFLanguageEditor.Core
         public string Origin { get; }
         public int Proximity { get; }
         public DdfSnippetTemplate Snippet { get; }
-        public string CategoryLabel => DescribeKind(Kind);
+        public bool IsReadOnly { get; }
+        public bool IsFixed { get; }
+        public string CategoryLabel => IsFixed ? "fixed · sola lettura" :
+            IsReadOnly ? DescribeKind(Kind) + " · sola lettura" : DescribeKind(Kind);
         public string Glyph => KindGlyph(Kind);
 
         public override string ToString()
@@ -239,7 +260,9 @@ namespace DDFLanguageEditor.Core
                         standard.Name,
                         standard.Name,
                         DdfCompletionKind.Function,
-                        language.Intellisense.StandardFunctionDetailPrefix + standard.Signature,
+                        DdfErrorPresentation.AppendDeclarations(
+                            language.Intellisense.StandardFunctionDetailPrefix +
+                            standard.Signature, standard.ErrorDefinitions),
                         standard.ReturnType,
                         language.Intellisense.StandardLibraryOrigin,
                         int.MaxValue));
@@ -264,7 +287,11 @@ namespace DDFLanguageEditor.Core
                 }
                 if (externalItems != null) candidates.AddRange(externalItems);
                 if (context == DdfCompletionContextKind.Member)
+                {
+                    AddEnumMemberItems(candidates, source, prefixStart, symbols,
+                        externalSymbols, language.Intellisense);
                     AddHostMemberItems(candidates, source, prefixStart, hostCatalog);
+                }
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -314,6 +341,27 @@ namespace DDFLanguageEditor.Core
                         ? string.Empty : " — " + field.Documentation),
                     field.TypeName, "Host", int.MaxValue));
             }
+        }
+
+        private static void AddEnumMemberItems(ICollection<DdfCompletionItem> result,
+            string source, int prefixStart, IEnumerable<DdfDocumentSymbol> symbols,
+            IEnumerable<DdfDocumentSymbol> externalSymbols,
+            DdfIntellisenseDefinition intellisense)
+        {
+            if (prefixStart <= 1 || source[prefixStart - 1] != '.') return;
+            int end = prefixStart - 1;
+            int start = end;
+            while (start > 0 && (char.IsLetterOrDigit(source[start - 1]) ||
+                                 source[start - 1] == '_')) start--;
+            if (start == end) return;
+            string typeName = source.Substring(start, end - start);
+            IEnumerable<DdfDocumentSymbol> all = (symbols ?? Array.Empty<DdfDocumentSymbol>())
+                .Concat(externalSymbols ?? Array.Empty<DdfDocumentSymbol>());
+            foreach (DdfDocumentSymbol enumeration in all.Where(item =>
+                item.Kind == DdfSymbolKind.Enumeration && item.Name == typeName))
+                foreach (DdfDocumentSymbol value in enumeration.Children.Where(item =>
+                    item.Kind == DdfSymbolKind.EnumerationMember))
+                    AddSymbol(result, value, intellisense.CurrentDocumentOrigin, 0);
         }
 
         private static bool IsInProtectedToken(DdfLexResult lexResult, int position)
@@ -403,10 +451,11 @@ namespace DDFLanguageEditor.Core
             if (symbol == null) throw new ArgumentNullException(nameof(symbol));
             DdfCompletionKind kind = ToCompletionKind(symbol.Kind);
             return new DdfCompletionItem(symbol.Name, symbol.Name, kind, symbol.Detail,
-                SymbolType(symbol, kind), origin, proximity);
+                SymbolType(symbol, kind), origin, proximity, null,
+                symbol.IsReadOnly, symbol.IsFixed);
         }
 
-        private static void AddSymbol(List<DdfCompletionItem> result, DdfDocumentSymbol symbol, string origin, int proximity)
+        private static void AddSymbol(ICollection<DdfCompletionItem> result, DdfDocumentSymbol symbol, string origin, int proximity)
         {
             result.Add(CreateSymbolItem(symbol, origin, proximity));
         }
@@ -417,6 +466,8 @@ namespace DDFLanguageEditor.Core
             {
                 case DdfSymbolKind.Library: return DdfCompletionKind.Library;
                 case DdfSymbolKind.Structure: return DdfCompletionKind.Structure;
+                case DdfSymbolKind.Enumeration: return DdfCompletionKind.Structure;
+                case DdfSymbolKind.EnumerationMember: return DdfCompletionKind.Field;
                 case DdfSymbolKind.Function: return DdfCompletionKind.Function;
                 case DdfSymbolKind.Parameter: return DdfCompletionKind.Parameter;
                 case DdfSymbolKind.Field: return DdfCompletionKind.Field;

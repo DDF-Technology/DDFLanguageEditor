@@ -3,7 +3,7 @@
 main() out int
 {
     int seed << 1;
-    int result << stage01(seed);
+    int result << applyActiveStress(stage01(seed));
     print("Large debugger workspace completed");
     ret result;
 }

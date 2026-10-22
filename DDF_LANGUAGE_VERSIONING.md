@@ -1,6 +1,6 @@
 # Versionamento, compatibilità e migrazione DDF
 
-Stato: **normativo** per DDF `0.12`, pacchetto canonico `0.12.3`.
+Stato: **normativo** per DDF `0.13`, pacchetto canonico `0.13.0`.
 
 La rappresentazione eseguibile di questa policy è
 `ddf-language-version-policy.json`; il relativo schema è
@@ -15,7 +15,7 @@ Le versioni non sono intercambiabili:
 | Dominio | Significato | Regola corrente |
 | --- | --- | --- |
 | prodotto | editor standalone e SDK | non determina la semantica del sorgente |
-| `languageVersion` | grammatica e comportamento osservabile DDF | `MAJOR.MINOR`; DDF corrente `0.12` |
+| `languageVersion` | grammatica e comportamento osservabile DDF | `MAJOR.MINOR`; DDF corrente `0.13` |
 | `packageVersion` | revisione riproducibile di un pacchetto | `MAJOR.MINOR.PATCH`; selezione esatta |
 | `engineApi` | contratto richiesto al loader/motore | versione non supportata rifiutata prima dell'attivazione |
 | `schemaVersion` | forma di ciascun documento JSON | validata indipendentemente per sezione |
@@ -88,9 +88,31 @@ Una migrazione può essere candidata all'automazione soltanto quando è:
 
 Sono candidate, ma **non ancora implementate**, le conversioni token-aware
 `!! -> !=`, `& -> &&`, `|&| -> ^^` e l'aggiornamento guidato del manifesto
-progetto `1.0 -> 1.1`. Il convertitore di profilo già presente è una funzione
-distinta: opera sui buffer aperti fra sintassi equivalenti e non dichiara una
-migrazione di versione.
+progetto `1.0 -> 1.1`.
+
+Il cambio fra profili sintattici equivalenti dispone invece di un preflight
+implementato e distinto dalla migrazione di versione. Per ogni buffer produce
+un'anteprima token-aware senza modificare testo o file. Una keyword può cambiare
+grafia soltanto conservando il proprio ruolo semantico; ruoli mancanti,
+ambigui o associati a un significato differente bloccano l'attivazione. Se una
+nuova parola riservata collide con un identificatore valido nel profilo di
+origine, `DDFM001` indica documento, posizione e una proposta di rinomina ma non
+applica correzioni automatiche. Commenti, stringhe e occorrenze già riconosciute
+come keyword non vengono trattati come identificatori.
+
+Le diagnostiche del preflight sono:
+
+| Codice | Condizione | Esito |
+| --- | --- | --- |
+| `DDFM001` | un identificatore diventa keyword o letterale booleano | attivazione bloccata, rinomina manuale |
+| `DDFM002` | il profilo destinazione non contiene un ruolo richiesto | attivazione bloccata |
+| `DDFM003` | un ruolo possiede più grafie di destinazione | attivazione bloccata |
+| `DDFM004` | la stessa grafia cambia ruolo semantico | attivazione bloccata |
+
+Lo standalone esegue questo controllo prima di cambiare profilo su tutti i
+documenti aperti. L'Editor SDK espone la stessa analisi mediante
+`DdfEditorView.AnalyzeLanguageMigration`; l'host decide come presentare la
+revisione e quando autorizzare l'attivazione.
 
 Richiedono invece revisione umana gli operatori beta di intervallo e radice,
 `dict`, array multidimensionali, dichiarazioni in shadowing e qualsiasi modifica

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.2",
+  "name": "Normative active features workspace",
+  "module": { "id": "ddf.corpus.active-features", "version": "1.0.0", "exports": [ "main" ] },
+  "languageId": "ddf",
+  "languagePackageVersion": "0.13.0",
+  "sources": [ "**/*.ddf" ],
+  "entrySource": "main.ddf",
+  "entryPoint": "main",
+  "dependencies": [],
+  "references": [],
+  "backend": "ddf-vm-ir-v1",
+  "output": { "directory": ".ddf-build", "artifact": "active-features.ddfbuild.json" },
+  "options": { "useUnsavedBuffers": false, "maxInstructions": 100000 }
+}

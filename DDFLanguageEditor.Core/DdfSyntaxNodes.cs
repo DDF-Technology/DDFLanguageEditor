@@ -65,6 +65,41 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<VariableDeclarationStatementSyntax> Fields { get; }
     }
 
+    public sealed class EnumDeclarationSyntax : MemberSyntax
+    {
+        public EnumDeclarationSyntax(string name, int nameStart, int nameLength,
+            int openBraceStart, int closeBraceStart, bool hasCloseBrace,
+            IReadOnlyList<EnumMemberSyntax> members, int start, int length)
+            : base(start, length)
+        {
+            Name = name;
+            NameStart = nameStart;
+            NameLength = nameLength;
+            OpenBraceStart = openBraceStart;
+            CloseBraceStart = closeBraceStart;
+            HasCloseBrace = hasCloseBrace;
+            Members = members;
+        }
+
+        public string Name { get; }
+        public int NameStart { get; }
+        public int NameLength { get; }
+        public int OpenBraceStart { get; }
+        public int CloseBraceStart { get; }
+        public bool HasCloseBrace { get; }
+        public IReadOnlyList<EnumMemberSyntax> Members { get; }
+    }
+
+    public sealed class EnumMemberSyntax : DdfSyntaxNode
+    {
+        public EnumMemberSyntax(string name, int start, int length) : base(start, length)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+    }
+
     public sealed class FunctionDeclarationSyntax : MemberSyntax
     {
         public FunctionDeclarationSyntax(string name, int nameStart, int nameLength, IReadOnlyList<ParameterSyntax> parameters, TypeReferenceSyntax returnType, BlockStatementSyntax body, int start, int length)
@@ -145,7 +180,7 @@ namespace DDFLanguageEditor.Core
 
     public sealed class VariableDeclarationStatementSyntax : StatementSyntax
     {
-        public VariableDeclarationStatementSyntax(TypeReferenceSyntax type, string name, int nameStart, int nameLength, ExpressionSyntax initializer, int start, int length)
+        public VariableDeclarationStatementSyntax(TypeReferenceSyntax type, string name, int nameStart, int nameLength, ExpressionSyntax initializer, int start, int length, bool isFixed = false, bool isState = false)
             : base(start, length)
         {
             Type = type;
@@ -153,6 +188,8 @@ namespace DDFLanguageEditor.Core
             NameStart = nameStart;
             NameLength = nameLength;
             Initializer = initializer;
+            IsFixed = isFixed;
+            IsState = isState;
         }
 
         public TypeReferenceSyntax Type { get; }
@@ -160,6 +197,8 @@ namespace DDFLanguageEditor.Core
         public int NameStart { get; }
         public int NameLength { get; }
         public ExpressionSyntax Initializer { get; }
+        public bool IsFixed { get; }
+        public bool IsState { get; }
     }
 
     public sealed class IfStatementSyntax : StatementSyntax
@@ -180,6 +219,35 @@ namespace DDFLanguageEditor.Core
         public ExpressionSyntax Condition { get; }
         public StatementSyntax Body { get; }
         public StatementSyntax ElseBody { get; }
+    }
+
+    public sealed class SelectClauseSyntax : DdfSyntaxNode
+    {
+        public SelectClauseSyntax(ExpressionSyntax value, StatementSyntax body,
+            bool isOtherwise, int start, int length) : base(start, length)
+        {
+            Value = value;
+            Body = body;
+            IsOtherwise = isOtherwise;
+        }
+
+        public ExpressionSyntax Value { get; }
+        public StatementSyntax Body { get; }
+        public bool IsOtherwise { get; }
+    }
+
+    public sealed class SelectStatementSyntax : StatementSyntax
+    {
+        public SelectStatementSyntax(ExpressionSyntax expression,
+            IReadOnlyList<SelectClauseSyntax> clauses, int start, int length)
+            : base(start, length)
+        {
+            Expression = expression;
+            Clauses = clauses;
+        }
+
+        public ExpressionSyntax Expression { get; }
+        public IReadOnlyList<SelectClauseSyntax> Clauses { get; }
     }
 
     public sealed class WhileStatementSyntax : StatementSyntax
@@ -236,6 +304,11 @@ namespace DDFLanguageEditor.Core
     public sealed class BreakStatementSyntax : StatementSyntax
     {
         public BreakStatementSyntax(int start, int length) : base(start, length) { }
+    }
+
+    public sealed class ContinueStatementSyntax : StatementSyntax
+    {
+        public ContinueStatementSyntax(int start, int length) : base(start, length) { }
     }
 
     public sealed class EndStatementSyntax : StatementSyntax

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/temporal-random-design-1.0.json",
+  "title": "DDF temporal and random design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "targetStandardLibraryVersion", "types", "resolutionNanoseconds", "calendar", "yearRange", "instantEpoch", "utcOffsetMinutesRange", "functions", "providers", "canonicalFormats", "rules", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-temporal-random-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0037" },
+    "targetLanguageVersion": { "const": "0.22" },
+    "targetStandardLibraryVersion": { "const": "0.22.0" },
+    "types": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "resolutionNanoseconds": { "const": 100 },
+    "calendar": { "const": "proleptic-gregorian" },
+    "yearRange": { "const": "0001..9999" },
+    "instantEpoch": { "const": "1970-01-01T00:00:00.0000000Z" },
+    "utcOffsetMinutesRange": { "const": "-840..840" },
+    "functions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "providers": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "clock", "random" ],
+      "properties": {
+        "clock": { "const": "ddf.clock.v1" },
+        "random": { "const": "ddf.random.v1" }
+      }
+    },
+    "canonicalFormats": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "date", "time", "datetime", "instant", "duration" ],
+      "properties": {
+        "date": { "const": "yyyy-MM-dd" },
+        "time": { "const": "HH:mm:ss.fffffff" },
+        "datetime": { "const": "yyyy-MM-ddTHH:mm:ss.fffffff" },
+        "instant": { "const": "yyyy-MM-ddTHH:mm:ss.fffffffZ" },
+        "duration": { "const": "signed-ticks+ticks" }
+      }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "valuesAreNonNull", "leapSecondsExcluded", "implicitDatetimeToInstantForbidden", "systemTimezoneForbidden", "ianaTimezoneRequiresVersionedModule", "temporalArithmeticIsChecked", "temporalOperatorsInitiallyForbidden", "canonicalParsingIsCultureIndependent", "currentInstantRequiresProvider", "randomRequiresProvider", "randomIntegerUpperBoundIsExclusive", "randomFloatIsZeroInclusiveOneExclusive", "moduloBiasedRandomForbidden", "globalRandomStateForbidden", "sleepAndTimersInitiallyExcluded", "fixedCallsInitiallyForbidden", "clrTemporalTypesForbiddenInIr" ],
+      "properties": {
+        "valuesAreNonNull": { "const": true },
+        "leapSecondsExcluded": { "const": true },
+        "implicitDatetimeToInstantForbidden": { "const": true },
+        "systemTimezoneForbidden": { "const": true },
+        "ianaTimezoneRequiresVersionedModule": { "const": true },
+        "temporalArithmeticIsChecked": { "const": true },
+        "temporalOperatorsInitiallyForbidden": { "const": true },
+        "canonicalParsingIsCultureIndependent": { "const": true },
+        "currentInstantRequiresProvider": { "const": true },
+        "randomRequiresProvider": { "const": true },
+        "randomIntegerUpperBoundIsExclusive": { "const": true },
+        "randomFloatIsZeroInclusiveOneExclusive": { "const": true },
+        "moduloBiasedRandomForbidden": { "const": true },
+        "globalRandomStateForbidden": { "const": true },
+        "sleepAndTimersInitiallyExcluded": { "const": true },
+        "fixedCallsInitiallyForbidden": { "const": true },
+        "clrTemporalTypesForbiddenInIr": { "const": true }
+      }
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 7, "maxItems": 7, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "maybeAndStringLibrariesRequired", "extendedNumericsRequired", "stateRequiresVersionedSchema", "providersAreRevocableAndQuotaBound", "deterministicSnapshotsSupported", "vmRoslynAndFutureVmMustBeEquivalent" ],
+      "properties": {
+        "maybeAndStringLibrariesRequired": { "const": true },
+        "extendedNumericsRequired": { "const": true },
+        "stateRequiresVersionedSchema": { "const": true },
+        "providersAreRevocableAndQuotaBound": { "const": true },
+        "deterministicSnapshotsSupported": { "const": true },
+        "vmRoslynAndFutureVmMustBeEquivalent": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

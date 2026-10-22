@@ -16,7 +16,9 @@ namespace DDFLanguageEditor.Compiler
     /// compiled out-of-process worker. The reusable WinForms surface never
     /// references this assembly.
     /// </summary>
-    public sealed class DdfDotNetEditorDebugService : IDdfEditorDebugService
+    public sealed class DdfDotNetEditorDebugService : IDdfEditorDebugService,
+        IDdfEditorCooperativeExecutionService,
+        IDdfDotNetWorkerCooperativeExecutionObserver
     {
         private readonly object sync = new();
         private readonly Func<IDdfEditorDocumentService> documentsProvider;
@@ -25,6 +27,7 @@ namespace DDFLanguageEditor.Compiler
             IReadOnlyList<DdfEditorBuildDocumentSnapshot>, DdfLanguagePackage,
             DdfEditorExecutionBuildContext> build;
         private readonly string workerPath;
+        private readonly IDdfEditorEventDispatcher eventDispatcher;
         private IReadOnlyList<DdfEditorBreakpoint> breakpoints =
             Array.Empty<DdfEditorBreakpoint>();
         private IReadOnlyList<string> watches = Array.Empty<string>();
@@ -33,6 +36,11 @@ namespace DDFLanguageEditor.Compiler
         private DdfEditorDebugState state;
         private bool disposed;
         private long generation;
+        private Guid executionId;
+        private IReadOnlyList<DdfEditorBuildDocumentSnapshot> activeDocuments =
+            Array.Empty<DdfEditorBuildDocumentSnapshot>();
+        private DdfEditorCooperativeExecutionSnapshot cooperativeSnapshot =
+            new(Guid.Empty, 0, DdfEditorCooperativeExecutionState.Idle);
 
         public DdfDotNetEditorDebugService(
             Func<IDdfEditorDocumentService> documentsProvider,
@@ -40,7 +48,8 @@ namespace DDFLanguageEditor.Compiler
             Func<DdfEditorExecutionRequest,
                 IReadOnlyList<DdfEditorBuildDocumentSnapshot>,
                 DdfLanguagePackage, DdfEditorExecutionBuildContext> build,
-            string workerPath = null)
+            string workerPath = null,
+            IDdfEditorEventDispatcher eventDispatcher = null)
         {
             this.documentsProvider = documentsProvider ?? throw new
                 ArgumentNullException(nameof(documentsProvider));
@@ -48,6 +57,8 @@ namespace DDFLanguageEditor.Compiler
                 ArgumentNullException(nameof(languageProvider));
             this.build = build ?? throw new ArgumentNullException(nameof(build));
             this.workerPath = ResolveWorkerPath(workerPath);
+            this.eventDispatcher = eventDispatcher ??
+                DdfEditorInlineEventDispatcher.Instance;
         }
 
         public DdfEditorDebugState State { get { lock (sync) return state; } }
@@ -59,11 +70,17 @@ namespace DDFLanguageEditor.Compiler
         public DdfEditorDebugLocation CurrentLocation { get; private set; }
         public DdfEditorDebugSnapshot CurrentSnapshot { get; private set; }
         public DdfEditorExecutionCompletion LastCompletion { get; private set; }
+        public DdfEditorCooperativeExecutionSnapshot CooperativeSnapshot
+        {
+            get { lock (sync) return cooperativeSnapshot; }
+        }
 
         public event EventHandler<DdfEditorDebugStateChangedEventArgs> StateChanged;
         public event EventHandler<DdfEditorDebugPausedEventArgs> Paused;
         public event EventHandler<DdfEditorExecutionOutputEventArgs> OutputReceived;
         public event EventHandler<DdfEditorExecutionCompletedEventArgs> DebugCompleted;
+        public event EventHandler<DdfEditorCooperativeStateChangedEventArgs>
+            CooperativeStateChanged;
 
         public void SetBreakpoints(IEnumerable<DdfEditorBreakpoint> values)
         {
@@ -99,21 +116,30 @@ namespace DDFLanguageEditor.Compiler
             DdfLanguagePackage package = languageProvider()?.ActivePackage;
             long current;
             CancellationTokenSource source;
+            DdfEditorCooperativeExecutionSnapshot previousCooperative;
+            DdfEditorCooperativeExecutionSnapshot nextCooperative;
             lock (sync)
             {
                 ThrowIfDisposed();
                 if (state != DdfEditorDebugState.Idle) throw new
                     InvalidOperationException("Una sessione di debug è già attiva.");
                 current = ++generation;
+                executionId = Guid.NewGuid();
                 source = new CancellationTokenSource();
                 if (request.Timeout.HasValue) source.CancelAfter(request.Timeout.Value);
                 cancellation = source;
                 CurrentLocation = null;
                 CurrentSnapshot = null;
+                activeDocuments = documents;
                 state = DdfEditorDebugState.Running;
+                previousCooperative = cooperativeSnapshot;
+                cooperativeSnapshot = nextCooperative = new(
+                    executionId, current,
+                    DdfEditorCooperativeExecutionState.Running);
             }
             RaiseState(current, DdfEditorDebugState.Idle,
                 DdfEditorDebugState.Running);
+            RaiseCooperative(previousCooperative, nextCooperative);
             return RunCoreAsync(current, request, documents, package, source);
         }
 
@@ -130,7 +156,8 @@ namespace DDFLanguageEditor.Compiler
             {
                 ThrowIfDisposed();
                 if (state is not (DdfEditorDebugState.Running or
-                    DdfEditorDebugState.Paused)) return false;
+                    DdfEditorDebugState.Paused or
+                    DdfEditorDebugState.AwaitingCapability)) return false;
                 previous = state;
                 state = DdfEditorDebugState.Stopping;
                 command = pendingCommand;
@@ -140,6 +167,7 @@ namespace DDFLanguageEditor.Compiler
             command?.TrySetResult(DdfDotNetDebugCommand.Stop);
             cancellation?.Cancel();
             RaiseState(Generation, previous, DdfEditorDebugState.Stopping);
+            SetCooperativeState(DdfEditorCooperativeExecutionState.Cancelling);
             return true;
         }
 
@@ -225,9 +253,18 @@ namespace DDFLanguageEditor.Compiler
                     var environment = new DdfDotNetRuntimeEnvironment(
                         DdfDotNetArtifactHostKind.Standalone, "net10.0",
                         DdfRuntimeAbi.Version);
-                    var debugPlan = new DdfDotNetWorkerDebugPlan
+                    List<DdfDotNetWorkerDebugBreakpoint> workerBreakpoints =
+                        CreateBreakpoints(documents, artifact);
+                    bool hasRequestedBreakpoints = Breakpoints.Any(value =>
+                        value.Enabled);
+                    if (hasRequestedBreakpoints && workerBreakpoints.Count == 0)
+                        throw new InvalidOperationException(
+                            "Nessun breakpoint attivo può essere associato ai sorgenti compilati. " +
+                            "Aprire il relativo documento e riposizionare il breakpoint su una riga eseguibile.");
+                    DdfDotNetWorkerDebugPlan debugPlan =
+                        workerBreakpoints.Count == 0 ? null : new()
                     {
-                        Breakpoints = CreateBreakpoints(documents, artifact),
+                        Breakpoints = workerBreakpoints,
                         Interactive = true,
                         MaxPauses = 256,
                         PauseTimeoutMilliseconds = 30000
@@ -235,6 +272,7 @@ namespace DDFLanguageEditor.Compiler
                     DdfDotNetWorkerRequest workerRequest =
                         DdfDotNetWorkerProtocol.CreateRequest(bundled.Bundle,
                             references, environment, artifact.MaxInstructions,
+                            correlationId: executionId.ToString("D"),
                             debugPlan: debugPlan);
                     var handler = new DdfDotNetWorkerInteractiveDebugHandler(
                         (pause, token) => WaitForCommandAsync(current, pause,
@@ -243,11 +281,11 @@ namespace DDFLanguageEditor.Compiler
                         DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
                             workerRequest, new DdfDotNetWorkerResourceLimits(
                                 request.Timeout ?? TimeSpan.FromMinutes(5)),
-                            handler, source.Token).ConfigureAwait(false);
+                            handler, this, source.Token).ConfigureAwait(false);
                     foreach (string output in executed.Response?.Output ??
                              new List<string>())
-                        OutputReceived?.Invoke(this,
-                            new DdfEditorExecutionOutputEventArgs(current, output));
+                        Dispatch(() => OutputReceived?.Invoke(this,
+                            new DdfEditorExecutionOutputEventArgs(current, output)));
                     bool cancelled = source.IsCancellationRequested ||
                         executed.Response?.ErrorCode == "DDFC550";
                     if (!executed.Success && !cancelled)
@@ -259,12 +297,64 @@ namespace DDFLanguageEditor.Compiler
                     object returnValue = executed.Response?.ResultJson == null
                         ? null : JsonSerializer.Deserialize<JsonElement>(
                             executed.Response.ResultJson);
+                    IReadOnlyList<DdfDiagnostic> diagnostics =
+                        Array.Empty<DdfDiagnostic>();
+                    IReadOnlyList<DdfRuntimeStackFrame> stackTrace =
+                        Array.Empty<DdfRuntimeStackFrame>();
+                    DdfErrorValue error = null;
+                    if (executed.Response != null &&
+                        DdfErrorCatalog.TryGetByCode(
+                            executed.Response.ErrorCode,
+                            out DdfErrorDefinition definition))
+                    {
+                        DdfEditorDebugLocation errorLocation = Location(
+                            executed.Response.ErrorLocation, documents);
+                        string message = string.IsNullOrWhiteSpace(
+                            executed.Response.ErrorMessage)
+                            ? definition.Documentation
+                            : executed.Response.ErrorMessage;
+                        DdfDiagnostic diagnostic = new DdfDiagnostic(
+                            definition.Code, message, errorLocation.Start,
+                            Math.Max(1, errorLocation.Length),
+                            Math.Max(1, errorLocation.Line),
+                            Math.Max(1, errorLocation.Column),
+                            domain: DdfDiagnosticDomain.Runtime,
+                            documentPath: errorLocation.FilePath);
+                        diagnostics = new[] { diagnostic };
+                        var runtimeFrames = new List<DdfRuntimeStackFrame>();
+                        var errorFrames = new List<DdfErrorStackFrame>();
+                        foreach (DdfDotNetWorkerErrorFrame frame in
+                                 executed.Response.ErrorStack ??
+                                 new List<DdfDotNetWorkerErrorFrame>())
+                        {
+                            DdfEditorDebugLocation frameLocation = Location(
+                                frame.Location ?? frame.Declaration, documents);
+                            string functionName = string.IsNullOrWhiteSpace(
+                                frame.SymbolId) ? "<funzione>" : frame.SymbolId;
+                            runtimeFrames.Add(new DdfRuntimeStackFrame(
+                                functionName, frameLocation.Start,
+                                Math.Max(1, frameLocation.Length),
+                                Math.Max(1, frameLocation.Line),
+                                Math.Max(1, frameLocation.Column),
+                                frameLocation.FilePath));
+                            errorFrames.Add(new DdfErrorStackFrame(functionName,
+                                frameLocation.FilePath, frameLocation.Start,
+                                Math.Max(1, frameLocation.Length),
+                                Math.Max(1, frameLocation.Line),
+                                Math.Max(1, frameLocation.Column),
+                                frame.SymbolId));
+                        }
+                        stackTrace = runtimeFrames.AsReadOnly();
+                        error = new DdfErrorValue(definition, message,
+                            errorLocation.FilePath, errorLocation.Start,
+                            Math.Max(1, errorLocation.Length), errorFrames);
+                    }
                     runtimeResult = new DdfExecutionResult(returnValue,
                         checked((int)Math.Min(int.MaxValue,
                             executed.Response?.Instructions ?? 0)), cancelled,
                         executed.Response?.Ended == true,
-                        Array.Empty<DdfDiagnostic>(),
-                        Array.Empty<DdfRuntimeStackFrame>());
+                        diagnostics, stackTrace, Array.Empty<DdfHostValueResult>(),
+                        null, error);
                 }
             }
             catch (OperationCanceledException)
@@ -277,10 +367,14 @@ namespace DDFLanguageEditor.Compiler
             {
                 internalError = exception.Message;
             }
+            SetCooperativeState(
+                DdfEditorCooperativeExecutionState.CleaningUp);
             var completion = new DdfEditorExecutionCompletion(current, started,
                 DateTimeOffset.UtcNow, runtimeResult, buildIssues, internalError,
                 request.Mode, artifact);
             DdfEditorDebugState previous;
+            DdfEditorCooperativeExecutionSnapshot previousCooperative;
+            DdfEditorCooperativeExecutionSnapshot nextCooperative;
             lock (sync)
             {
                 previous = state;
@@ -289,13 +383,82 @@ namespace DDFLanguageEditor.Compiler
                 CurrentLocation = null;
                 CurrentSnapshot = null;
                 state = DdfEditorDebugState.Idle;
+                activeDocuments = Array.Empty<
+                    DdfEditorBuildDocumentSnapshot>();
+                previousCooperative = cooperativeSnapshot;
+                cooperativeSnapshot = nextCooperative = new(executionId,
+                    current, DdfEditorCooperativeExecutionState.Idle);
                 LastCompletion = completion;
             }
             source.Dispose();
-            DebugCompleted?.Invoke(this,
-                new DdfEditorExecutionCompletedEventArgs(completion));
+            Dispatch(() => DebugCompleted?.Invoke(this,
+                new DdfEditorExecutionCompletedEventArgs(completion)));
             RaiseState(current, previous, DdfEditorDebugState.Idle);
+            RaiseCooperative(previousCooperative, nextCooperative);
             return completion;
+        }
+
+        public void OnAwaitingCapability(
+            DdfDotNetWorkerCooperativeSuspension suspension)
+        {
+            if (suspension?.DebugSnapshot == null) return;
+            DdfEditorDebugSnapshot debugSnapshot;
+            DdfEditorDebugState previousState;
+            DdfEditorCooperativeExecutionSnapshot previousCooperative;
+            DdfEditorCooperativeExecutionSnapshot nextCooperative;
+            long current;
+            lock (sync)
+            {
+                if (disposed || state != DdfEditorDebugState.Running) return;
+                debugSnapshot = CreateSnapshot(suspension.DebugSnapshot,
+                    activeDocuments);
+                previousState = state;
+                state = DdfEditorDebugState.AwaitingCapability;
+                CurrentSnapshot = debugSnapshot;
+                CurrentLocation = debugSnapshot.Location;
+                current = generation;
+                Guid correlation = Guid.TryParse(suspension.CorrelationId,
+                    out Guid parsed) ? parsed : executionId;
+                var pending = new DdfEditorCooperativeSuspensionSnapshot(
+                    correlation, suspension.CapabilityId,
+                    suspension.CapabilityId,
+                    suspension.ArgumentsJson.Select(DeserializeArgument)
+                        .ToList().AsReadOnly(),
+                    debugSnapshot.Location.DocumentId,
+                    debugSnapshot.Location.Start,
+                    debugSnapshot.Location.Length);
+                previousCooperative = cooperativeSnapshot;
+                cooperativeSnapshot = nextCooperative = new(executionId,
+                    current,
+                    DdfEditorCooperativeExecutionState.AwaitingCapability,
+                    pending);
+            }
+            RaiseState(current, previousState,
+                DdfEditorDebugState.AwaitingCapability);
+            RaiseCooperative(previousCooperative, nextCooperative);
+        }
+
+        public void OnCapabilityResumed(
+            DdfDotNetWorkerCooperativeSuspension suspension)
+        {
+            DdfEditorCooperativeExecutionSnapshot previousCooperative;
+            DdfEditorCooperativeExecutionSnapshot nextCooperative;
+            long current;
+            lock (sync)
+            {
+                if (disposed || state !=
+                    DdfEditorDebugState.AwaitingCapability) return;
+                state = DdfEditorDebugState.Running;
+                CurrentSnapshot = null;
+                CurrentLocation = null;
+                current = generation;
+                previousCooperative = cooperativeSnapshot;
+                cooperativeSnapshot = nextCooperative = new(executionId,
+                    current, DdfEditorCooperativeExecutionState.Running);
+            }
+            RaiseState(current, DdfEditorDebugState.AwaitingCapability,
+                DdfEditorDebugState.Running);
+            RaiseCooperative(previousCooperative, nextCooperative);
         }
 
         private ValueTask<DdfDotNetDebugCommand> WaitForCommandAsync(long current,
@@ -318,8 +481,8 @@ namespace DDFLanguageEditor.Compiler
             }
             RaiseState(current, DdfEditorDebugState.Running,
                 DdfEditorDebugState.Paused);
-            Paused?.Invoke(this, new DdfEditorDebugPausedEventArgs(current,
-                snapshot));
+            Dispatch(() => Paused?.Invoke(this,
+                new DdfEditorDebugPausedEventArgs(current, snapshot)));
             token.Register(() => command.TrySetCanceled(token));
             return new ValueTask<DdfDotNetDebugCommand>(command.Task);
         }
@@ -362,8 +525,33 @@ namespace DDFLanguageEditor.Compiler
                     variable.Kind == DdfRuntimeVariableKind.Global)
                 .GroupBy(variable => variable.Name, StringComparer.Ordinal)
                 .Select(group => group.First()).ToList().AsReadOnly();
+            IReadOnlyList<DdfEditorDebugVariableSnapshot> states = frames
+                .SelectMany(frame => frame.Variables).Where(variable =>
+                    variable.Kind == DdfRuntimeVariableKind.State)
+                .GroupBy(variable => variable.Name, StringComparer.Ordinal)
+                .Select(group => group.First()).ToList().AsReadOnly();
             return new DdfEditorDebugSnapshot(location, frames, variables,
-                globals);
+                globals, states);
+        }
+
+        private static object DeserializeArgument(string json)
+        {
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(json ?? "null");
+                return document.RootElement.ValueKind switch
+                {
+                    JsonValueKind.String => document.RootElement.GetString(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Number when document.RootElement.TryGetInt64(
+                        out long integer) => integer,
+                    JsonValueKind.Number => document.RootElement.GetDouble(),
+                    JsonValueKind.Null => null,
+                    _ => document.RootElement.GetRawText()
+                };
+            }
+            catch (JsonException) { return json ?? string.Empty; }
         }
 
         private static DdfEditorDebugLocation Location(
@@ -388,7 +576,8 @@ namespace DDFLanguageEditor.Compiler
             (values ?? Array.Empty<DdfDotNetWorkerDebugVariable>()).Select(value =>
                 new DdfEditorDebugVariableSnapshot(value.Name,
                     value.DisplayValue, value.TypeName, 0, MapKind(value.Kind),
-                    Variables(value.Children), value.IsTruncated)).ToList()
+                    Variables(value.Children), value.IsTruncated,
+                    value.IsReadOnly, value.IsFixed)).ToList()
                 .AsReadOnly();
 
         private static DdfRuntimeVariableKind MapKind(
@@ -396,6 +585,7 @@ namespace DDFLanguageEditor.Compiler
             {
                 DdfRuntimeDebugVariableKind.Parameter => DdfRuntimeVariableKind.Parameter,
                 DdfRuntimeDebugVariableKind.Global => DdfRuntimeVariableKind.Global,
+                DdfRuntimeDebugVariableKind.State => DdfRuntimeVariableKind.State,
                 DdfRuntimeDebugVariableKind.Field => DdfRuntimeVariableKind.Field,
                 DdfRuntimeDebugVariableKind.Element => DdfRuntimeVariableKind.Element,
                 _ => DdfRuntimeVariableKind.Local
@@ -536,8 +726,51 @@ namespace DDFLanguageEditor.Compiler
         }
 
         private void RaiseState(long current, DdfEditorDebugState previous,
-            DdfEditorDebugState next) => StateChanged?.Invoke(this,
-                new DdfEditorDebugStateChangedEventArgs(current, previous, next));
+            DdfEditorDebugState next) => Dispatch(() => StateChanged?.Invoke(this,
+                new DdfEditorDebugStateChangedEventArgs(current, previous, next)));
+
+        private void SetCooperativeState(
+            DdfEditorCooperativeExecutionState nextState)
+        {
+            DdfEditorCooperativeExecutionSnapshot previous;
+            DdfEditorCooperativeExecutionSnapshot next;
+            lock (sync)
+            {
+                if (cooperativeSnapshot.State == nextState) return;
+                previous = cooperativeSnapshot;
+                cooperativeSnapshot = next = new(executionId, generation,
+                    nextState);
+            }
+            RaiseCooperative(previous, next);
+        }
+
+        private void RaiseCooperative(
+            DdfEditorCooperativeExecutionSnapshot previous,
+            DdfEditorCooperativeExecutionSnapshot next) =>
+            Dispatch(() => CooperativeStateChanged?.Invoke(this,
+                new DdfEditorCooperativeStateChangedEventArgs(previous, next)));
+
+        private void Dispatch(Action callback)
+        {
+            if (callback == null) return;
+            lock (sync)
+            {
+                if (disposed) return;
+            }
+            if (eventDispatcher.HasAccess)
+            {
+                callback();
+                return;
+            }
+            eventDispatcher.Post(() =>
+            {
+                lock (sync)
+                {
+                    if (disposed) return;
+                }
+                callback();
+            });
+        }
 
         private void ThrowIfDisposed()
         {

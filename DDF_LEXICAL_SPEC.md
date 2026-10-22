@@ -1,8 +1,10 @@
-# Specifica lessicale DDF 0.12
+# Specifica lessicale DDF 0.13
 
 Stato: specifica di area del nucleo lessicale approvato nella `0.12.1` e
 consolidato nel contratto `0.12.3`. Operatori e significato della direttiva sono
-stati chiusi rispettivamente nelle milestone `0.12.1` e `0.12.3`.
+stati chiusi rispettivamente nelle milestone `0.12.1` e `0.12.3`. DDF `0.13`
+aggiunge le parole riservate `fixed` per le costanti tipizzate e `state` per lo
+stato mutabile esplicito dell'istanza.
 
 Questa specifica di area è consolidata dalla specifica autonoma
 `DDF_LANGUAGE_SPEC.md`, che prevale in caso di divergenza accidentale.

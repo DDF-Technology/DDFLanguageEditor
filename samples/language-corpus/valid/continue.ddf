@@ -1,0 +1,13 @@
+main() out int
+{
+    int total << 0;
+    for(int index << 0; index < 6; index++)
+    {
+        if(index == 2)
+        {
+            continue;
+        }
+        total << total + index;
+    }
+    ret total;
+}

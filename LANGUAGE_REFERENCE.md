@@ -48,12 +48,22 @@ int float char bool
 Tipi e costrutti complessi:
 
 ```text
-void string dict struct
+void string dict struct enum
 ```
 
 Le forme array utilizzano parentesi quadre, ad esempio `int[10] values`; la
 dimensione e gli indici devono avere tipo `int`. I campi delle strutture si
 accedono con `.`, ad esempio `point.x`.
+
+Gli enum sono nominali e usano valori qualificati:
+
+```ddf
+enum Color { Red, Green, Blue }
+Color selected << Color.Green;
+```
+
+Due enum diversi sono incompatibili anche se dichiarano membri con lo stesso
+nome. Non esiste conversione implicita verso numeri o stringhe.
 
 ## Letterali
 
@@ -68,13 +78,13 @@ Le grafie storiche `True` e `False` non sono più letterali nel pacchetto 0.12.
 Controllo di flusso:
 
 ```text
-if while do for
+if select when otherwise while do for
 ```
 
 Operatori di funzione:
 
 ```text
-ret brk end out
+ret brk continue end out
 ```
 
 ## Operatori riconosciuti
@@ -103,6 +113,9 @@ considerata un operatore perché sarebbe indistinguibile da un identificatore.
 - inizializzazioni, assegnazioni, argomenti e ritorni compatibili con il tipo atteso;
 - stringhe di un singolo carattere accettate come inizializzatori `char`;
 - firme e tipi globali condivisi tra i file del workspace.
+- enum nominali confrontabili per uguaglianza soltanto con lo stesso tipo.
+- `select` senza fall-through, con casi costanti univoci e controllo di
+  esaustività per `bool` ed enum nominali.
 
 ## Regole runtime implementate nella fase storica
 
@@ -110,7 +123,8 @@ considerata un operatore perché sarebbe indistinguibile da un identificatore.
   sorgenti selezionati dal manifest, inclusi i buffer non salvati;
 - `<<` assegna un valore, mentre `espressione >> Console` scrive nella palette Output;
 - funzioni, blocchi e cicli usano scope lessicali distinti;
-- `ret` restituisce dalla funzione, `brk` interrompe il ciclo corrente ed `end` termina il programma;
+- `ret` restituisce dalla funzione, `brk` interrompe il ciclo corrente,
+  `continue` passa all'iterazione successiva ed `end` termina il programma;
 - array e campi di struttura sono modificabili tramite `[]` e `.`;
 - ogni esecuzione può essere cancellata e si arresta dopo 100.000 istruzioni;
 - gli errori runtime usano i codici `DDF401`–`DDF408` con riga e colonna.

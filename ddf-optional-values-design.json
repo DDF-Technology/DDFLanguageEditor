@@ -1,0 +1,49 @@
+{
+  "$schema": "./ddf-optional-values-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0030",
+  "targetLanguageVersion": "0.15",
+  "keywords": [ "maybe", "some", "none" ],
+  "grammar": {
+    "optionalType": "maybe type",
+    "presentExpression": "some '(' expression ')'",
+    "absentExpression": "none",
+    "optionalSelection": "select '(' expression ')' '{' when-some-clause when-none-clause '}'",
+    "whenSomeClause": "when some '(' identifier ')' block",
+    "whenNoneClause": "when none block"
+  },
+  "rules": {
+    "nullIsNeverAValue": true,
+    "implicitWrapForbidden": true,
+    "implicitUnwrapForbidden": true,
+    "unsafePayloadAccessForbidden": true,
+    "presenceAndAbsenceMustBothBeHandled": true,
+    "otherwiseForbiddenForOptionalSelection": true,
+    "someBindingImmutableAndScoped": true,
+    "noneIsContextuallyTyped": true,
+    "uninitializedOptionalDefaultsToNone": true,
+    "absenceIsNotAnError": true,
+    "clrNullConversionForbidden": true,
+    "backendNeutralRepresentationRequired": true
+  },
+  "initialRestrictions": {
+    "nestedOptional": "forbidden",
+    "voidPayload": "forbidden",
+    "errorPayload": "forbidden",
+    "stateOptional": "deferred-until-persistence-schema-support"
+  },
+  "equality": {
+    "requiresSameOptionalType": true,
+    "payloadMustSupportEquality": true,
+    "noneEqualsNone": true,
+    "presenceDiffersFromAbsence": true
+  },
+  "integration": {
+    "irRepresentation": "backend-neutral tagged value with hasValue and payload",
+    "debuggerDisplay": "some(value) or none",
+    "flowchartBranches": [ "Present", "Absent" ],
+    "hostBoundary": "explicit optional adapters; CLR null is never converted implicitly",
+    "fingerprintsIncludeOptionalShape": true
+  }
+}

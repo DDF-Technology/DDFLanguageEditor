@@ -1,0 +1,51 @@
+{
+  "$schema": "./ddf-string-library-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0035",
+  "targetLanguageVersion": "0.20",
+  "targetStandardLibraryVersion": "0.20.0",
+  "concatenationOperator": "+",
+  "functions": [ "compareOrdinal", "contains", "startsWith", "endsWith", "find", "substring", "replace", "trim", "upper", "lower", "split", "join", "format", "intText", "floatText", "longText", "decimalText", "boolText", "charText" ],
+  "rules": {
+    "stringsAreNonNull": true,
+    "indicesUseUtf16CodeUnits": true,
+    "automaticNormalizationForbidden": true,
+    "implicitNonStringConcatenationForbidden": true,
+    "comparisonsAreOrdinal": true,
+    "searchesAreOrdinal": true,
+    "emptySearchMatchesAtZero": true,
+    "replaceRequiresNonEmptyOldValue": true,
+    "splitRequiresNonEmptySeparator": true,
+    "splitPreservesEmptySegments": true,
+    "operationsArePure": true,
+    "failuresAreAtomic": true,
+    "clrStringOperationsForbiddenInIr": true
+  },
+  "unicode": {
+    "version": "15.1",
+    "caseMapping": "default-case-conversion",
+    "trimProperty": "White_Space",
+    "cultureIndependent": true,
+    "versionChangeRequiresLibraryUpgrade": true
+  },
+  "format": {
+    "signature": "format(string, sequence<string>) out string",
+    "placeholders": "zero-based-decimal-index",
+    "escapedOpenBrace": "{{",
+    "escapedCloseBrace": "}}",
+    "alignmentForbidden": true,
+    "formatSpecifiersForbidden": true,
+    "expressionEvaluationForbidden": true,
+    "reflectionForbidden": true
+  },
+  "limits": [ "inputCodeUnits", "outputCodeUnits", "splitSegments", "formatPlaceholders" ],
+  "diagnostics": [ "DDF353", "DDF354", "DDF355", "DDF356", "DDF357" ],
+  "integration": {
+    "findReturnsMaybeInt": true,
+    "splitReturnsStringSequence": true,
+    "joinAcceptsStringSequence": true,
+    "formatAcceptsPreconvertedStrings": true,
+    "vmAndRoslynMustBeEquivalent": true
+  }
+}

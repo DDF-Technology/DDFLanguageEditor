@@ -1,0 +1,8 @@
+fixed int answer << base + 2;
+fixed int base << 40;
+
+main() out int
+{
+    fixed int offset << 1 + 1;
+    ret answer + offset - 2;
+}

@@ -20,8 +20,11 @@ namespace DDFLanguageEditor.Core
             if (parseResult.GenericRoot != null && parseResult.Grammar != null &&
                 parseResult.GrammarDiagnostics.Count == 0)
             {
-                return new DdfSymbolIndex(DdfGenericIdeService.CreateSymbols(
-                    parseResult.GenericRoot, parseResult.Grammar, source));
+                IReadOnlyList<DdfDocumentSymbol> generic =
+                    DdfGenericIdeService.CreateSymbols(parseResult.GenericRoot,
+                        parseResult.Grammar, source);
+                IReadOnlyList<DdfDocumentSymbol> typed = Create(parseResult.Root).Symbols;
+                return new DdfSymbolIndex(ReconcileTypedSymbols(generic, typed));
             }
             return Create(parseResult.Root);
         }
@@ -60,6 +63,19 @@ namespace DDFLanguageEditor.Core
                         structure.NameStart,
                         structure.NameLength,
                         fields));
+                }
+                else if (member is EnumDeclarationSyntax enumeration &&
+                         !string.IsNullOrWhiteSpace(enumeration.Name))
+                {
+                    List<DdfDocumentSymbol> values = enumeration.Members
+                        .Where(value => !string.IsNullOrWhiteSpace(value.Name))
+                        .Select(value => CreateSymbol(value.Name,
+                            DdfSymbolKind.EnumerationMember, enumeration.Name,
+                            value, value.Start, value.Length))
+                        .ToList();
+                    symbols.Add(CreateSymbol(enumeration.Name,
+                        DdfSymbolKind.Enumeration, "enum", enumeration,
+                        enumeration.NameStart, enumeration.NameLength, values));
                 }
                 else if (member is FunctionDeclarationSyntax function && !string.IsNullOrWhiteSpace(function.Name))
                 {
@@ -116,6 +132,11 @@ namespace DDFLanguageEditor.Core
                 AddStatementSymbols(symbols, ifStatement.Body);
                 AddStatementSymbols(symbols, ifStatement.ElseBody);
             }
+            else if (statement is SelectStatementSyntax selection)
+            {
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    AddStatementSymbols(symbols, clause.Body);
+            }
             else if (statement is WhileStatementSyntax whileStatement)
             {
                 AddStatementSymbols(symbols, whileStatement.Body);
@@ -140,7 +161,10 @@ namespace DDFLanguageEditor.Core
                 FormatType(variable.Type),
                 variable,
                 variable.NameStart,
-                variable.NameLength));
+                variable.NameLength,
+                null,
+                variable.IsFixed,
+                variable.IsFixed));
         }
 
         private static DdfDocumentSymbol CreateSymbol(
@@ -150,7 +174,9 @@ namespace DDFLanguageEditor.Core
             DdfSyntaxNode node,
             int selectionStart,
             int selectionLength,
-            List<DdfDocumentSymbol> children = null)
+            List<DdfDocumentSymbol> children = null,
+            bool isReadOnly = false,
+            bool isFixed = false)
         {
             return new DdfDocumentSymbol(
                 name,
@@ -160,7 +186,72 @@ namespace DDFLanguageEditor.Core
                 node.Length,
                 selectionStart,
                 selectionLength,
-                (children ?? new List<DdfDocumentSymbol>()).AsReadOnly());
+                (children ?? new List<DdfDocumentSymbol>()).AsReadOnly(),
+                isReadOnly,
+                isFixed);
+        }
+
+        private static IReadOnlyList<DdfDocumentSymbol> ReconcileTypedSymbols(
+            IReadOnlyList<DdfDocumentSymbol> symbols,
+            IReadOnlyList<DdfDocumentSymbol> typedSymbols)
+        {
+            var flattened = Flatten(typedSymbols).ToList();
+            var typedByIdentity = flattened
+                .GroupBy(item => item.SelectionStart + ":" + item.Name,
+                    StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(),
+                    StringComparer.Ordinal);
+            var typedByDeclaration = flattened
+                .GroupBy(DeclarationKey, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(),
+                    StringComparer.Ordinal);
+            return symbols.Select(item => ReconcileTypedSymbol(item,
+                    typedByIdentity, typedByDeclaration))
+                .ToList().AsReadOnly();
+        }
+
+        private static DdfDocumentSymbol ReconcileTypedSymbol(
+            DdfDocumentSymbol symbol,
+            IReadOnlyDictionary<string, DdfDocumentSymbol> typedByIdentity,
+            IReadOnlyDictionary<string, DdfDocumentSymbol> typedByDeclaration)
+        {
+            if (!typedByIdentity.TryGetValue(
+                    symbol.SelectionStart + ":" + symbol.Name,
+                    out DdfDocumentSymbol match))
+                typedByDeclaration.TryGetValue(DeclarationKey(symbol), out match);
+
+            // A declarative grammar identifies fields by source rule. When a
+            // declaration contains two identifiers (for example
+            // `fixed Priority DefaultPriority`) both `type` and `name` can
+            // otherwise point at the first token. The typed tree owns the
+            // canonical declaration identity; grammar metadata still owns the
+            // hierarchy and presentation for language-package extensibility.
+            string name = match?.Name ?? symbol.Name;
+            string detail = match?.Detail ?? symbol.Detail;
+            int selectionStart = match?.SelectionStart ?? symbol.SelectionStart;
+            int selectionLength = match?.SelectionLength ?? symbol.SelectionLength;
+            return new DdfDocumentSymbol(name, symbol.Kind, detail,
+                symbol.Start, symbol.Length, selectionStart,
+                selectionLength,
+                symbol.Children.Select(item => ReconcileTypedSymbol(item,
+                        typedByIdentity, typedByDeclaration))
+                    .ToList().AsReadOnly(),
+                match?.IsReadOnly ?? symbol.IsReadOnly,
+                match?.IsFixed ?? symbol.IsFixed);
+        }
+
+        private static string DeclarationKey(DdfDocumentSymbol symbol) =>
+            symbol.Start + ":" + symbol.Length + ":" + (int)symbol.Kind;
+
+        private static IEnumerable<DdfDocumentSymbol> Flatten(
+            IEnumerable<DdfDocumentSymbol> symbols)
+        {
+            foreach (DdfDocumentSymbol symbol in symbols)
+            {
+                yield return symbol;
+                foreach (DdfDocumentSymbol child in Flatten(symbol.Children))
+                    yield return child;
+            }
         }
 
         private static string FormatType(TypeReferenceSyntax type)

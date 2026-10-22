@@ -1,0 +1,38 @@
+{
+  "$schema": "./ddf-error-handling-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0029",
+  "targetLanguageVersion": "0.14",
+  "keywords": [ "attempt", "recover", "always", "raises", "raise", "error" ],
+  "grammar": {
+    "protectedStatement": "attempt block { recover-clause } [ always-clause ]",
+    "recoverClause": "recover error-selector identifier block",
+    "alwaysClause": "always block",
+    "functionErrors": "raises error-selector { ',' error-selector }",
+    "raiseStatement": "raise identifier ';'",
+    "errorSelector": "qualified-error-type | error"
+  },
+  "rules": {
+    "requiresRecoverOrAlways": true,
+    "exactTypedMatching": true,
+    "genericRecoverMustBeLast": true,
+    "duplicateRecoverRejected": true,
+    "handlerValueImmutable": true,
+    "functionDeclarationsRequired": true,
+    "engineFaultsBypassRecover": true,
+    "alwaysRunsExactlyOnce": true,
+    "raisePreservesIdentityAndStack": true,
+    "stateCommitsOnlyAfterSuccessfulCompletion": true
+  },
+  "errorValueMembers": [ "type", "code", "message", "document", "start", "length" ],
+  "cleanupPrecedence": {
+    "normalOrHandled": "an error raised by always becomes the current outcome",
+    "recoverablePending": "the original error remains primary and the cleanup error is attached as suppressed",
+    "engineFaultPending": "the engine fault remains primary and the cleanup error is attached as suppressed"
+  },
+  "guarantees": {
+    "cooperativeRuntime": "always executes for normal flow, ret, brk, continue, end, recoverable errors, engine faults, timeout and cooperative cancellation",
+    "processTermination": "no cleanup guarantee exists after process termination, operating-system failure or power loss"
+  }
+}

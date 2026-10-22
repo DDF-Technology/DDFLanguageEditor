@@ -1,0 +1,42 @@
+{
+  "$schema": "./ddf-standard-library-binding-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0038",
+  "futureSectionSchemaVersion": "2.0",
+  "futureAdapter": "ddf-standard-library-v4",
+  "activationBeforeLanguageVersion": "0.20",
+  "currentContract": {
+    "sectionSchemaVersion": "1.1",
+    "adapter": "ddf-standard-library-v3",
+    "libraryVersion": "0.12.3"
+  },
+  "functionIdentityPattern": "^ddf\\.standard/[a-z][a-z0-9-]*/[a-z][A-Za-z0-9]*@[1-9][0-9]*$",
+  "requiredFunctionFields": [ "functionId", "sourceName", "parameters", "returnType", "documentation", "effects", "capabilities", "recoverableErrors", "engineFaults", "determinism", "portability", "cost", "constantEvaluation", "binding", "dependencies", "since", "deprecation" ],
+  "effectKinds": [ "input", "output", "clock", "random", "capability" ],
+  "determinismKinds": [ "deterministic", "provider-deterministic" ],
+  "portabilityKinds": [ "portable", "provider-bound" ],
+  "constantEvaluationKinds": [ "forbidden", "eligible-shared-evaluator" ],
+  "bindingFields": [ "operationId", "irOperation", "adapterId", "adapterVersion", "backendContract" ],
+  "fingerprintedFields": [ "identity", "signature", "effects", "capabilities", "recoverableErrors", "engineFaults", "determinism", "portability", "cost", "constantEvaluation", "binding", "dependencies", "since", "deprecation" ],
+  "rules": {
+    "functionNamesAreUniqueWithoutOverloads": true,
+    "unknownFieldsRejected": true,
+    "loadingIsAtomic": true,
+    "catalogSnapshotIsImmutable": true,
+    "emptyEffectsMeansPure": true,
+    "pureFunctionsCannotRequireCapabilities": true,
+    "recoverableErrorsUseTypedIdentities": true,
+    "undeclaredRecoverableErrorsForbidden": true,
+    "platformBoundFunctionsExcluded": true,
+    "clrAndNativeBindingsForbidden": true,
+    "constantEvaluationDefaultsForbidden": true,
+    "constantEvaluationUsesSharedEvaluator": true,
+    "semanticMetadataIsFingerprinted": true,
+    "artifactWorkerNegotiationIsFailClosed": true,
+    "parserAndUiNameSwitchesForbidden": true,
+    "syntaxProfilesPreserveSemanticIdentity": true
+  },
+  "loaderDiagnostics": [ "DDFL135", "DDFL136", "DDFL137", "DDFL138", "DDFL139", "DDFL140" ],
+  "consumers": [ "symbol-resolution", "type-checker", "completion", "signature-help", "hover", "ir-lowering", "constant-evaluator", "vm", "roslyn", "future-vm", "debugger", "watch", "flowchart", "playground", "package-studio", "artifact-worker" ]
+}

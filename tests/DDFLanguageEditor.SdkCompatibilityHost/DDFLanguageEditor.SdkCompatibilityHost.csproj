@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>DDFLanguageEditor.SdkCompatibilityHost</RootNamespace>
+    <AssemblyName>DDFLanguageEditor.SdkCompatibilityHost</AssemblyName>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DefineConstants Condition="'$(DdfUpdatedHost)' == 'true'">$(DefineConstants);UPDATED_HOST</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="DDFLanguageEditor.Core">
+      <HintPath>$(DdfSdkReferenceRoot)\DDFLanguageEditor.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="DDFLanguageEditor.WinForms">
+      <HintPath>$(DdfSdkReferenceRoot)\DDFLanguageEditor.WinForms.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="RequireDdfSdkReferenceRoot" BeforeTargets="ResolveReferences"
+          Condition="'$(DdfSdkReferenceRoot)' == '' Or !Exists('$(DdfSdkReferenceRoot)\DDFLanguageEditor.Core.dll') Or !Exists('$(DdfSdkReferenceRoot)\DDFLanguageEditor.WinForms.dll')">
+    <Error Text="DdfSdkReferenceRoot deve contenere DDFLanguageEditor.Core.dll e DDFLanguageEditor.WinForms.dll." />
+  </Target>
+</Project>

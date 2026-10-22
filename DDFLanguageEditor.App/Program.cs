@@ -16,7 +16,8 @@ namespace DDF___Program_Language_Editor
             var debugService = new DdfDotNetEditorDebugService(
                 () => form.EmbeddedEditor.DocumentService,
                 () => form.EmbeddedEditor.LanguageSession,
-                form.PrepareStandaloneBackendExecution);
+                form.PrepareStandaloneBackendExecution,
+                eventDispatcher: form.EmbeddedEditor.EventDispatcher);
             form.AttachStandaloneDebugService(debugService);
             Application.Run(form);
         }

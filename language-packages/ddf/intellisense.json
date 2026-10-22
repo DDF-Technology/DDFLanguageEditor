@@ -23,7 +23,9 @@
   "symbolKinds": [
     { "kind": "Library", "label": "libreria", "documentation": "Direttiva di libreria DDF." },
     { "kind": "Structure", "label": "struttura", "documentation": "Struttura dati dichiarata nel sorgente DDF." },
-    { "kind": "Function", "label": "funzione", "documentation": "Funzione dichiarata nel sorgente DDF." },
+    { "kind": "Enumeration", "label": "enum", "documentation": "Insieme nominale di valori simbolici tipizzati." },
+    { "kind": "EnumerationMember", "label": "valore enum", "documentation": "Valore simbolico appartenente a un enum DDF." },
+    { "kind": "Function", "label": "funzione di modulo", "documentation": "Funzione top-level appartenente al modulo DDF; non richiede né ammette il modificatore static." },
     { "kind": "Parameter", "label": "parametro", "documentation": "Parametro della funzione corrente." },
     { "kind": "Field", "label": "campo", "documentation": "Campo di una struttura DDF." },
     { "kind": "Variable", "label": "variabile", "documentation": "Variabile visibile nel relativo ambito DDF." }
@@ -38,6 +40,7 @@
       "Process": "Istruzione sequenziale {code}: viene eseguita e il flusso prosegue.", "Call": "Chiamata {code}: il controllo entra nella funzione e poi torna al passo seguente.",
       "Decision": "Decisione {code}: {true} indica condizione vera, {false} condizione falsa.", "LoopDecision": "Controllo di ciclo {code}: decide se ripetere il corpo o uscire.",
       "Return": "Ritorno {code}: termina la funzione e restituisce il valore.", "Break": "Interruzione: il flusso esce dal ciclo più vicino.",
+      "Continue": "Continuazione: il flusso salta il resto dell'iterazione e passa alla verifica successiva del ciclo.",
       "Terminate": "Terminazione esplicita del percorso corrente.", "Partial": "Nodo parziale: il codice è ancora incompleto.",
       "Group": "Gruppo compatto di istruzioni sequenziali; un doppio clic mostra i passaggi."
     }
@@ -46,19 +49,34 @@
     "DDF001": "Stringa non terminata.", "DDF002": "Commento a blocchi non terminato.", "DDF003": "Direttiva di libreria non terminata.",
     "DDF004": "Carattere non valido nel sorgente.", "DDF005": "Sequenza di escape non prevista.",
     "DDF101": "Elemento sintattico inatteso.", "DDF102": "Manca un elemento sintattico richiesto.", "DDF103": "Espressione attesa.",
-    "DDF104": "Tipo atteso.", "DDF105": "Identificatore atteso.", "DDF201": "Simbolo non risolto.", "DDF202": "Dichiarazione duplicata nello stesso ambito.",
+    "DDF104": "Tipo atteso.", "DDF105": "Identificatore atteso.", "DDF106": "Una dichiarazione fixed richiede un inizializzatore.", "DDF107": "Una dichiarazione state richiede un inizializzatore.", "DDF201": "Simbolo non risolto.", "DDF202": "Dichiarazione duplicata nello stesso ambito.",
     "DDF301": "I tipi non sono compatibili.", "DDF302": "Operatore non valido per i tipi coinvolti.", "DDF303": "Argomenti della chiamata non validi.",
     "DDF304": "Valore restituito non compatibile.", "DDF305": "Uso del tipo non valido.", "DDF306": "La condizione deve essere booleana.",
-    "DDF307": "La funzione deve restituire un valore.", "DDF308": "La destinazione non è modificabile.", "DDF309": "Accesso host non compatibile con il tipo dichiarato."
+    "DDF307": "La funzione deve restituire un valore.", "DDF308": "La destinazione non è modificabile.", "DDF309": "Accesso host non compatibile con il tipo dichiarato.",
+    "DDF314": "Una dichiarazione fixed richiede un inizializzatore.", "DDF315": "L'inizializzatore fixed non è costante e puro.",
+    "DDF316": "Un valore fixed non è modificabile.", "DDF317": "La forma fixed non è ammessa per questo tipo o contesto.",
+    "DDF318": "Dipendenza ciclica fra valori fixed.", "DDF319": "Inizializzatore fixed non rappresentabile: overflow, divisione per zero o risultato non finito.",
+    "DDF320": "state è consentito soltanto per valori di modulo.", "DDF321": "Una dichiarazione state richiede un inizializzatore.",
+    "DDF322": "La prima versione di state accetta soltanto tipi primitivi scalari.",
+    "DDF323": "L'istruzione può essere usata soltanto all'interno di un ciclo.",
+    "DDF324": "Un enum deve dichiarare almeno un valore.", "DDF325": "Un valore enum è duplicato.",
+    "DDF326": "Il caso when non è costante o compatibile con il valore select.", "DDF327": "Il caso when è duplicato.",
+    "DDF328": "select deve essere esaustivo o avere otherwise.", "DDF329": "otherwise deve essere unico e ultimo.",
+    "DDF423": "Lo stesso store state non può essere usato da esecuzioni sovrapposte."
   },
   "snippets": [
     { "prefix": "if", "displayText": "if — blocco", "description": "Blocco condizionale", "body": "if(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "while", "displayText": "while — ciclo", "description": "Ciclo con condizione iniziale", "body": "while(${1:condition})\n{\n    ${2:statement};\n}${0}", "requiresKeyword": true },
     { "prefix": "do", "displayText": "do — ciclo", "description": "Ciclo con condizione finale", "body": "do\n{\n    ${1:statement};\n} while(${2:condition});${0}", "requiresKeyword": true },
     { "prefix": "for", "displayText": "for — ciclo", "description": "Ciclo indicizzato", "body": "for(int ${1:index}; ${2:index} < ${3:limit}; ${4:index}++)\n{\n    ${5:statement};\n}${0}", "requiresKeyword": true },
+    { "prefix": "continue", "displayText": "continue — iterazione successiva", "description": "Salta il resto dell'iterazione corrente", "body": "continue;${0}", "requiresKeyword": true },
     { "prefix": "function", "displayText": "function — dichiarazione", "description": "Dichiarazione di funzione", "body": "${1:name}(${2:int} ${3:parameter}) out ${4:void}\n{\n    ${5:statement};\n}${0}" },
     { "prefix": "main", "displayText": "main — entry point", "description": "Funzione principale", "body": "main() out ${1:int}\n{\n    ${2:ret 0};\n}${0}" },
-    { "prefix": "struct", "displayText": "struct — dichiarazione", "description": "Dichiarazione di struttura", "body": "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", "requiresKeyword": true }
+    { "prefix": "struct", "displayText": "struct — dichiarazione", "description": "Dichiarazione di struttura", "body": "struct ${1:Name}\n{\n    ${2:int} ${3:field};\n}${0}", "requiresKeyword": true },
+    { "prefix": "enum", "displayText": "enum — dichiarazione", "description": "Insieme nominale di valori simbolici", "body": "enum ${1:Name}\n{\n    ${2:First},\n    ${3:Second}\n}${0}", "requiresKeyword": true },
+    { "prefix": "select", "displayText": "select — selezione multipla", "description": "Scelta esaustiva senza fall-through", "body": "select (${1:value})\n{\n    when ${2:case}\n    {\n        ${3}\n    }\n    otherwise\n    {\n        ${0}\n    }\n}", "requiresKeyword": true },
+    { "prefix": "fixed", "displayText": "fixed — costante tipizzata", "description": "Valore immutabile locale o di modulo", "body": "fixed ${1:int} ${2:name} << ${3:0};${0}", "requiresKeyword": true },
+    { "prefix": "state", "displayText": "state — stato di istanza", "description": "Valore di modulo persistente soltanto nello store esplicito dell'istanza", "body": "state ${1:int} ${2:name} << ${3:0};${0}", "requiresKeyword": true }
   ],
   "description": "Presentazione dichiarativa dei servizi IntelliSense DDF."
 }

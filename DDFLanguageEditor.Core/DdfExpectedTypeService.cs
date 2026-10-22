@@ -55,6 +55,20 @@ namespace DDFLanguageEditor.Core
                     ? FindInStatement(conditional.ElseBody, position, returnType, types, booleanType)
                     : branch;
             }
+            if (statement is SelectStatementSyntax selection)
+            {
+                DdfTypedSpan selected = types.FindTypeAt(selection.Expression.Start);
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                {
+                    if (Contains(clause.Value, position))
+                        return selected == null || selected.Type.IsError
+                            ? string.Empty : selected.Type.DisplayName;
+                    string nested = FindInStatement(clause.Body, position,
+                        returnType, types, booleanType);
+                    if (!string.IsNullOrEmpty(nested)) return nested;
+                }
+                return string.Empty;
+            }
             if (statement is WhileStatementSyntax whileStatement)
             {
                 if (Contains(whileStatement.Condition, position)) return booleanType;

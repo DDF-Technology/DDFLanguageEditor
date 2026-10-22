@@ -243,8 +243,7 @@ namespace DDF___Program_Language_Editor
             try
             {
                 File.WriteAllText(temporaryPath, value ?? string.Empty, new UTF8Encoding(false));
-                if (File.Exists(path)) File.Copy(temporaryPath, path, true);
-                else File.Move(temporaryPath, path);
+                File.Move(temporaryPath, path, true);
             }
             finally
             {

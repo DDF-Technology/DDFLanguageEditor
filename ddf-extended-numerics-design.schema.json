@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/extended-numerics-design-1.0.json",
+  "title": "DDF extended numerics design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "keywords", "types", "implicitConversions", "forbiddenImplicitConversions", "conversionFunctions", "rules", "diagnostics", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-extended-numerics-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0034" },
+    "targetLanguageVersion": { "const": "0.19" },
+    "keywords": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "types": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "long", "decimal" ],
+      "properties": {
+        "long": {
+          "type": "object", "additionalProperties": false,
+          "required": [ "minimum", "maximum", "literalSuffix", "checkedArithmetic" ],
+          "properties": {
+            "minimum": { "const": "-9223372036854775808" },
+            "maximum": { "const": "9223372036854775807" },
+            "literalSuffix": { "const": "i64" },
+            "checkedArithmetic": { "const": true }
+          }
+        },
+        "decimal": {
+          "type": "object", "additionalProperties": false,
+          "required": [ "coefficientBits", "minimumScale", "maximumScale", "literalSuffix", "rounding", "checkedArithmetic" ],
+          "properties": {
+            "coefficientBits": { "const": 96 },
+            "minimumScale": { "const": 0 },
+            "maximumScale": { "const": 28 },
+            "literalSuffix": { "const": "dec" },
+            "rounding": { "const": "nearest-ties-to-even" },
+            "checkedArithmetic": { "const": true }
+          }
+        }
+      }
+    },
+    "implicitConversions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "forbiddenImplicitConversions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "conversionFunctions": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "plainIntegerLiteralRemainsInt", "plainFractionLiteralRemainsFloat", "literalSuffixesAreLowercase", "mixedFloatLongRequiresExplicitConversion", "mixedFloatDecimalRequiresExplicitConversion", "decimalToIntegerRequiresZeroFraction", "fixedUsesCommonCheckedEvaluator", "stateRequiresVersionedPersistenceSchema", "longMayBeMapKey", "decimalInitiallyForbiddenAsMapKey", "irMustNotExposeClrTypes" ],
+      "properties": {
+        "plainIntegerLiteralRemainsInt": { "const": true },
+        "plainFractionLiteralRemainsFloat": { "const": true },
+        "literalSuffixesAreLowercase": { "const": true },
+        "mixedFloatLongRequiresExplicitConversion": { "const": true },
+        "mixedFloatDecimalRequiresExplicitConversion": { "const": true },
+        "decimalToIntegerRequiresZeroFraction": { "const": true },
+        "fixedUsesCommonCheckedEvaluator": { "const": true },
+        "stateRequiresVersionedPersistenceSchema": { "const": true },
+        "longMayBeMapKey": { "const": true },
+        "decimalInitiallyForbiddenAsMapKey": { "const": true },
+        "irMustNotExposeClrTypes": { "const": true }
+      }
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF[0-9]{3}$" }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "irLongKind", "irDecimalKind", "roslynLongType", "roslynDecimalType", "invariantFormatting", "vmAndRoslynMustBeEquivalent" ],
+      "properties": {
+        "irLongKind": { "const": "Int64" },
+        "irDecimalKind": { "const": "Decimal96" },
+        "roslynLongType": { "const": "System.Int64" },
+        "roslynDecimalType": { "const": "System.Decimal" },
+        "invariantFormatting": { "const": true },
+        "vmAndRoslynMustBeEquivalent": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

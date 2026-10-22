@@ -38,6 +38,8 @@ namespace DDFLanguageEditor.Compiler
                 throw new ArgumentNullException(nameof(containerTypeName));
             ModuleInitializerName = "DdfGenerated_Helper_ModuleInitialize";
             InitializationStateName = "DdfGenerated_Helper_ModuleInitialized";
+            StateCaptureName = "DdfGenerated_Helper_StateCapture";
+            StateApplyName = "DdfGenerated_Helper_StateApply";
             var values = (symbols ?? Array.Empty<DdfDotNetGeneratedName>()).ToList();
             if (values.Select(item => item.SymbolId).Distinct(StringComparer.Ordinal).Count() !=
                 values.Count)
@@ -56,6 +58,8 @@ namespace DDFLanguageEditor.Compiler
         public string ContainerTypeName { get; }
         public string ModuleInitializerName { get; }
         public string InitializationStateName { get; }
+        public string StateCaptureName { get; }
+        public string StateApplyName { get; }
         public IReadOnlyList<DdfDotNetGeneratedName> Symbols { get; }
 
         public string GetIdentifier(string symbolId)
@@ -69,6 +73,16 @@ namespace DDFLanguageEditor.Compiler
 
         public string GetDocumentInitializerName(string relativePath) =>
             "DdfGenerated_Helper_DocumentInitialize_" +
+            DdfDotNetNameMangler.HashValue((relativePath ?? string.Empty)
+                .Replace('\\', '/'), 24);
+
+        public string GetDocumentStateCaptureName(string relativePath) =>
+            "DdfGenerated_Helper_DocumentStateCapture_" +
+            DdfDotNetNameMangler.HashValue((relativePath ?? string.Empty)
+                .Replace('\\', '/'), 24);
+
+        public string GetDocumentStateApplyName(string relativePath) =>
+            "DdfGenerated_Helper_DocumentStateApply_" +
             DdfDotNetNameMangler.HashValue((relativePath ?? string.Empty)
                 .Replace('\\', '/'), 24);
     }
@@ -183,9 +197,17 @@ namespace DDFLanguageEditor.Compiler
                 containerTypeName, names);
             ValidateIdentifier(result.ModuleInitializerName);
             ValidateIdentifier(result.InitializationStateName);
+            ValidateIdentifier(result.StateCaptureName);
+            ValidateIdentifier(result.StateApplyName);
             foreach (DdfBoundIrDocument document in unit.Documents)
+            {
                 ValidateIdentifier(result.GetDocumentInitializerName(
                     document.RelativePath));
+                ValidateIdentifier(result.GetDocumentStateCaptureName(
+                    document.RelativePath));
+                ValidateIdentifier(result.GetDocumentStateApplyName(
+                    document.RelativePath));
+            }
             return result;
         }
 
@@ -223,6 +245,8 @@ namespace DDFLanguageEditor.Compiler
             string prefix = symbol.Kind switch
             {
                 DdfBoundSymbolKind.Structure => "T",
+                DdfBoundSymbolKind.Enumeration => "E",
+                DdfBoundSymbolKind.EnumerationMember => "EV",
                 DdfBoundSymbolKind.HostType => "HT",
                 DdfBoundSymbolKind.Function => "F",
                 DdfBoundSymbolKind.StandardFunction => "SF",

@@ -1,0 +1,49 @@
+{
+  "$schema": "./ddf-typed-collections-design.schema.json",
+  "schemaVersion": "1.0",
+  "status": "accepted-design-not-implemented",
+  "decisionId": "DDF-0033",
+  "targetLanguageVersion": "0.18",
+  "keywords": [ "sequence", "map", "view", "entry" ],
+  "typeForms": {
+    "sequence": "sequence<T>",
+    "map": "map<K,V>",
+    "view": "view<T>",
+    "mapEntry": "entry<K,V>"
+  },
+  "rules": {
+    "closedTypeFamiliesOnly": true,
+    "universalGenericsForbidden": true,
+    "collectionsAreTyped": true,
+    "collectionsAreNonNull": true,
+    "sequencePreservesInsertionOrder": true,
+    "mapPreservesFirstInsertionOrder": true,
+    "mapUpdateDoesNotReorder": true,
+    "mapReinsertAppends": true,
+    "iterationUsesShallowSnapshot": true,
+    "collectionEqualityForbidden": true,
+    "fixedCollectionsInitiallyForbidden": true,
+    "stateCollectionsInitiallyDeferred": true,
+    "clrCollectionTypesForbiddenInIr": true
+  },
+  "sequenceMembers": [ "count", "index", "add", "insert", "removeAt", "clear" ],
+  "mapMembers": [ "count", "set", "find", "contains", "remove", "clear" ],
+  "viewMembers": [ "count", "readIndex", "iterate" ],
+  "mapKeyKinds": [ "int", "char", "bool", "string", "enum" ],
+  "viewContract": {
+    "ordered": true,
+    "readonly": true,
+    "boundedSnapshot": true,
+    "requiresCapability": true,
+    "neverExposesHostObject": true,
+    "failureIsAtomic": true
+  },
+  "diagnostics": [ "DDF342", "DDF343", "DDF344", "DDF345", "DDF346", "DDF347" ],
+  "integration": {
+    "mapFindReturnsMaybe": true,
+    "mapIterationUsesImmutableEntry": true,
+    "vmAndRoslynMustBeEquivalent": true,
+    "debuggerExpansionIsBounded": true,
+    "languageProfilesOwnPresentation": true
+  }
+}

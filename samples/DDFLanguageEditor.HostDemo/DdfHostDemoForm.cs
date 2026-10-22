@@ -272,7 +272,8 @@ namespace DDFLanguageEditor.HostDemo
             toolbar.Controls.Add(CreateButton("⚡ Evento", () =>
                 InvokeProcedure(editor, output, status, true),
                 "Simula un evento esplicito dell'host che richiama la stessa procedura DDF."));
-            toolbar.Controls.Add(CreateButton("■ Arresta", () => editor.ExecutionService.Stop(),
+            toolbar.Controls.Add(CreateButton("■ Arresta", () =>
+                StopProfile(editor.ExecutionService, editor, status),
                 "Richiede l'arresto della sola sessione appartenente a questa istanza."));
             toolbar.Controls.Add(CreateButton("◆ Debug qui", () => DebugProfile(editor, output, status),
                 "Avvia il debug impostando un breakpoint sulla riga corrente del documento attivo."));
@@ -284,7 +285,8 @@ namespace DDFLanguageEditor.HostDemo
                 "Esegue la prossima istruzione senza entrare nelle funzioni chiamate (Step Over)."));
             toolbar.Controls.Add(CreateButton("↑ Fuori", () => editor.DebugService.StepOut(),
                 "Continua fino al ritorno nella funzione chiamante (Step Out)."));
-            toolbar.Controls.Add(CreateButton("■ Stop debug", () => editor.DebugService.Stop(),
+            toolbar.Controls.Add(CreateButton("■ Stop debug", () =>
+                StopProfile(editor.DebugService, editor, status),
                 "Arresta la sessione di debug appartenente a questa istanza."));
             var watchExpression = new TextBox
             {
@@ -694,6 +696,38 @@ namespace DDFLanguageEditor.HostDemo
             string mode = editor.ExperienceState.EducationalModeEnabled ? "didattica ON" : "didattica OFF";
             string document = editor.DocumentService?.ActiveDocumentInfo?.DisplayName ?? "buffer locale";
             status.Text = document + " · " + mode + " · " + message;
+        }
+
+        private static async void StopProfile(object service,
+            DdfEditorView editor, Label status)
+        {
+            try
+            {
+                if (service is IDdfEditorAsyncLifecycleService lifecycle)
+                {
+                    DdfEditorLifecycleResult result = await lifecycle.StopAsync(
+                        TimeSpan.FromSeconds(5));
+                    UpdateStatus(editor, status, result.Succeeded
+                        ? "Sessione arrestata"
+                        : result.ErrorCode + ": " + result.Message);
+                    return;
+                }
+
+                bool requested = service switch
+                {
+                    IDdfEditorExecutionService execution => execution.Stop(),
+                    IDdfEditorDebugService debugging => debugging.Stop(),
+                    _ => false
+                };
+                UpdateStatus(editor, status, requested
+                    ? "Arresto legacy richiesto"
+                    : "Nessuna sessione attiva");
+            }
+            catch (Exception exception)
+            {
+                UpdateStatus(editor, status,
+                    "Arresto non riuscito: " + exception.Message);
+            }
         }
     }
 }

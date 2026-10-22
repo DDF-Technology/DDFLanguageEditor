@@ -6,6 +6,26 @@ using System.Threading.Tasks;
 
 namespace DDFLanguageEditor.Core
 {
+    public sealed class DdfHostErrorException : Exception
+    {
+        public DdfHostErrorException(DdfErrorDefinition definition,
+            string message, Exception innerException = null)
+            : base(message ?? string.Empty, innerException)
+        {
+            Definition = definition ?? throw new ArgumentNullException(
+                nameof(definition));
+            if (!definition.IsRecoverable)
+                throw new ArgumentException(
+                    "Un adapter host può produrre soltanto errori recuperabili dichiarati.",
+                    nameof(definition));
+            if (string.IsNullOrWhiteSpace(message))
+                throw new ArgumentException("Il messaggio è obbligatorio.",
+                    nameof(message));
+        }
+
+        public DdfErrorDefinition Definition { get; }
+    }
+
     public enum DdfHostObjectLifetime
     {
         ExecutionSnapshot,
@@ -24,10 +44,24 @@ namespace DDFLanguageEditor.Core
         HostMutation
     }
 
+    public enum DdfHostFunctionDispatchTarget
+    {
+        Worker,
+        Ui
+    }
+
     public enum DdfHostMemberKind
     {
         Field,
         Property
+    }
+
+    public enum DdfHostValueAdapterKind
+    {
+        Legacy,
+        Identity,
+        Scalar,
+        Enumeration
     }
 
     /// <summary>
@@ -37,16 +71,111 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfHostValueAdapter
     {
         private static readonly DdfHostValueAdapter identity = new DdfHostValueAdapter(
-            value => value, value => value);
+            value => value, value => value, DdfHostValueAdapterKind.Identity,
+            string.Empty);
 
+        [DdfEditorDeprecatedApi(
+            DdfEditorApiLifecycleCatalog.LegacyAdapterConstructorId,
+            "0.41", DdfEditorApiLifecycleCatalog.EarliestBreakingContractVersion,
+            "DDFLanguageEditor.Core.DdfHostValueAdapter.Create<THost,TScript>(string,Func<THost,TScript>,Func<TScript,THost>)",
+            "Usare Create per scalari tipizzati oppure Enumeration<TEnum> e dichiarare il tipo DDF nominale.")]
         public DdfHostValueAdapter(Func<object, object> toScriptValue,
             Func<object, object> fromScriptValue)
+            : this(toScriptValue, fromScriptValue,
+                DdfHostValueAdapterKind.Legacy, string.Empty)
+        {
+        }
+
+        private DdfHostValueAdapter(Func<object, object> toScriptValue,
+            Func<object, object> fromScriptValue,
+            DdfHostValueAdapterKind kind, string scriptTypeName)
         {
             ToScriptValue = toScriptValue ?? throw new ArgumentNullException(nameof(toScriptValue));
             FromScriptValue = fromScriptValue ?? throw new ArgumentNullException(nameof(fromScriptValue));
+            Kind = kind;
+            ScriptTypeName = scriptTypeName ?? string.Empty;
         }
 
         public static DdfHostValueAdapter Identity => identity;
+        public DdfHostValueAdapterKind Kind { get; }
+        public string ScriptTypeName { get; }
+        public bool IsTyped => Kind == DdfHostValueAdapterKind.Scalar ||
+                               Kind == DdfHostValueAdapterKind.Enumeration;
+
+        public static DdfHostValueAdapter Create<THost, TScript>(
+            string scriptTypeName, Func<THost, TScript> toScriptValue,
+            Func<TScript, THost> fromScriptValue)
+        {
+            string validatedTypeName = DdfHostCatalogValidation.TypeName(
+                scriptTypeName, nameof(scriptTypeName));
+            if (toScriptValue == null)
+                throw new ArgumentNullException(nameof(toScriptValue));
+            if (fromScriptValue == null)
+                throw new ArgumentNullException(nameof(fromScriptValue));
+            return new DdfHostValueAdapter(
+                value => toScriptValue(RequireExact<THost>(value, "host")),
+                value => fromScriptValue(RequireExact<TScript>(value, "script")),
+                DdfHostValueAdapterKind.Scalar, validatedTypeName);
+        }
+
+        public static DdfHostValueAdapter Enumeration<TEnum>(
+            string scriptTypeName, IReadOnlyDictionary<TEnum, string> members)
+            where TEnum : struct, Enum
+        {
+            string validatedTypeName = DdfHostCatalogValidation.TypeName(
+                scriptTypeName, nameof(scriptTypeName));
+            if (members == null) throw new ArgumentNullException(nameof(members));
+            if (members.Count == 0) throw new ArgumentException(
+                "La tabella enum deve dichiarare almeno un membro.", nameof(members));
+
+            var hostToScript = new Dictionary<TEnum, string>();
+            var scriptToHost = new Dictionary<string, TEnum>(StringComparer.Ordinal);
+            foreach (KeyValuePair<TEnum, string> member in members)
+            {
+                string memberName = DdfHostCatalogValidation.Identifier(
+                    member.Value, nameof(members));
+                if (memberName.Contains(".", StringComparison.Ordinal) ||
+                    !scriptToHost.TryAdd(memberName, member.Key))
+                    throw new ArgumentException(
+                        "La tabella enum contiene nomi DDF non validi o duplicati.",
+                        nameof(members));
+                hostToScript.Add(member.Key, memberName);
+            }
+
+            return new DdfHostValueAdapter(
+                value =>
+                {
+                    TEnum hostValue = RequireExact<TEnum>(value, "host enum");
+                    if (!hostToScript.TryGetValue(hostValue, out string memberName))
+                        throw new InvalidOperationException(
+                            "Valore enum host non registrato per '" +
+                            validatedTypeName + "'.");
+                    return new DdfEnumValue(validatedTypeName, memberName);
+                },
+                value =>
+                {
+                    DdfEnumValue scriptValue = RequireExact<DdfEnumValue>(
+                        value, "script enum");
+                    if (!string.Equals(scriptValue.TypeName, validatedTypeName,
+                            StringComparison.Ordinal) ||
+                        !scriptToHost.TryGetValue(scriptValue.MemberName,
+                            out TEnum hostValue))
+                        throw new InvalidOperationException(
+                            "Valore enum DDF non registrato per '" +
+                            validatedTypeName + "'.");
+                    return hostValue;
+                }, DdfHostValueAdapterKind.Enumeration, validatedTypeName);
+        }
+
+        private static T RequireExact<T>(object value, string boundary)
+        {
+            if (value is T typedValue) return typedValue;
+            string actualType = value == null ? "null" : value.GetType().FullName;
+            throw new InvalidOperationException("L'adapter tipizzato richiede '" +
+                typeof(T).FullName + "' al confine " + boundary +
+                ", ma ha ricevuto '" + actualType + "'.");
+        }
+
         internal Func<object, object> ToScriptValue { get; }
         internal Func<object, object> FromScriptValue { get; }
     }
@@ -137,7 +266,8 @@ namespace DDFLanguageEditor.Core
             Name = DdfHostCatalogValidation.Identifier(name, nameof(name));
             TypeName = DdfHostCatalogValidation.TypeName(typeName, nameof(typeName));
             Documentation = documentation ?? string.Empty;
-            ValueAdapter = valueAdapter ?? DdfHostValueAdapter.Identity;
+            ValueAdapter = DdfHostCatalogValidation.Adapter(TypeName,
+                valueAdapter, nameof(valueAdapter));
         }
 
         public string Name { get; }
@@ -157,10 +287,15 @@ namespace DDFLanguageEditor.Core
             DdfHostFunctionEffect effect = DdfHostFunctionEffect.Pure,
             Func<IReadOnlyList<object>, object> simulate = null,
             Func<DdfHostInvocationContext, IReadOnlyList<object>, ValueTask<object>> invokeAsync = null,
-            Func<DdfHostInvocationContext, IReadOnlyList<object>, ValueTask<object>> simulateAsync = null)
+            Func<DdfHostInvocationContext, IReadOnlyList<object>, ValueTask<object>> simulateAsync = null,
+            DdfHostFunctionDispatchTarget dispatchTarget =
+                DdfHostFunctionDispatchTarget.Worker)
         {
             if (!Enum.IsDefined(typeof(DdfHostFunctionEffect), effect))
                 throw new ArgumentOutOfRangeException(nameof(effect));
+            if (!Enum.IsDefined(typeof(DdfHostFunctionDispatchTarget),
+                dispatchTarget)) throw new ArgumentOutOfRangeException(
+                    nameof(dispatchTarget));
             Name = DdfHostCatalogValidation.Identifier(name, nameof(name));
             ReturnType = DdfHostCatalogValidation.TypeName(returnType,
                 nameof(returnType));
@@ -174,10 +309,38 @@ namespace DDFLanguageEditor.Core
             Documentation = documentation ?? string.Empty;
             RequiredPermissions = DdfHostCatalogValidation.PermissionIds(
                 requiredPermissions, nameof(requiredPermissions));
-            ReturnValueAdapter = returnValueAdapter ?? DdfHostValueAdapter.Identity;
+            if (dispatchTarget == DdfHostFunctionDispatchTarget.Ui &&
+                RequiredPermissions.Count(permission => permission.StartsWith(
+                    "ui.", StringComparison.Ordinal)) != 1)
+                throw new ArgumentException(
+                    "Una funzione UI deve dichiarare esattamente una capability nel namespace 'ui.'.",
+                    nameof(requiredPermissions));
+            ReturnValueAdapter = DdfHostCatalogValidation.Adapter(ReturnType,
+                returnValueAdapter, nameof(returnValueAdapter));
             Effect = effect;
             Simulate = simulate;
             SimulateAsync = simulateAsync;
+            DispatchTarget = dispatchTarget;
+            RecoverableErrors = Array.Empty<DdfErrorDefinition>();
+        }
+
+        private DdfHostFunctionDefinition(DdfHostFunctionDefinition source,
+            IEnumerable<DdfErrorDefinition> recoverableErrors)
+        {
+            Name = source.Name;
+            ReturnType = source.ReturnType;
+            Parameters = source.Parameters;
+            Invoke = source.Invoke;
+            InvokeAsync = source.InvokeAsync;
+            Documentation = source.Documentation;
+            RequiredPermissions = source.RequiredPermissions;
+            ReturnValueAdapter = source.ReturnValueAdapter;
+            Effect = source.Effect;
+            Simulate = source.Simulate;
+            SimulateAsync = source.SimulateAsync;
+            DispatchTarget = source.DispatchTarget;
+            RecoverableErrors = DdfErrorCatalog.ValidateRecoverable(
+                recoverableErrors, nameof(recoverableErrors));
         }
 
         public string Name { get; }
@@ -187,6 +350,8 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<string> RequiredPermissions { get; }
         public DdfHostValueAdapter ReturnValueAdapter { get; }
         public DdfHostFunctionEffect Effect { get; }
+        public DdfHostFunctionDispatchTarget DispatchTarget { get; }
+        public IReadOnlyList<DdfErrorDefinition> RecoverableErrors { get; }
         public bool CanSimulate => Effect == DdfHostFunctionEffect.Pure ||
                                    Simulate != null || SimulateAsync != null;
         internal Func<IReadOnlyList<object>, object> Invoke { get; }
@@ -196,6 +361,9 @@ namespace DDFLanguageEditor.Core
         public string Signature => Name + "(" + string.Join(", ",
             Parameters.Select(item => item.TypeName + " " + item.Name)) +
             ") out " + ReturnType;
+
+        public DdfHostFunctionDefinition DeclaresRecoverableErrors(
+            params DdfErrorDefinition[] errors) => new(this, errors);
     }
 
     public sealed class DdfHostObjectDefinition
@@ -217,7 +385,8 @@ namespace DDFLanguageEditor.Core
                 requiredPermissions, nameof(requiredPermissions));
             WriteValue = writeValue;
             Lifetime = lifetime;
-            ValueAdapter = valueAdapter ?? DdfHostValueAdapter.Identity;
+            ValueAdapter = DdfHostCatalogValidation.Adapter(TypeName,
+                valueAdapter, nameof(valueAdapter));
         }
 
         public string Name { get; }
@@ -464,6 +633,18 @@ namespace DDFLanguageEditor.Core
             while (baseName.EndsWith("[]", StringComparison.Ordinal))
                 baseName = baseName.Substring(0, baseName.Length - 2);
             Identifier(baseName, parameterName);
+            return result;
+        }
+
+        internal static DdfHostValueAdapter Adapter(string typeName,
+            DdfHostValueAdapter adapter, string parameterName)
+        {
+            DdfHostValueAdapter result = adapter ?? DdfHostValueAdapter.Identity;
+            if (result.IsTyped && !string.Equals(result.ScriptTypeName,
+                    typeName, StringComparison.Ordinal))
+                throw new ArgumentException("L'adapter tipizzato per '" +
+                    result.ScriptTypeName + "' non può essere associato al tipo DDF '" +
+                    typeName + "'.", parameterName);
             return result;
         }
 

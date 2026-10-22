@@ -21,7 +21,7 @@ namespace DDF___Program_Language_Editor
                 Visible = false,
                 BackColor = AppTheme.Surface,
                 BorderStyle = BorderStyle.FixedSingle,
-                Size = new Size(560, 62),
+                Size = new Size(560, 82),
                 TabStop = false
             };
             signatureHelpLabel = new Label
@@ -32,7 +32,7 @@ namespace DDF___Program_Language_Editor
                 ForeColor = AppTheme.Text,
                 Font = new Font("Consolas", 10F),
                 Location = new Point(8, 5),
-                Size = new Size(542, 22),
+                Size = new Size(542, 42),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             signatureParameterLabel = new Label
@@ -42,7 +42,7 @@ namespace DDF___Program_Language_Editor
                 BackColor = AppTheme.Surface,
                 ForeColor = Color.FromArgb(35, 100, 170),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Location = new Point(8, 31),
+                Location = new Point(8, 53),
                 Size = new Size(542, 22),
                 TextAlign = ContentAlignment.MiddleLeft
             };
@@ -84,7 +84,9 @@ namespace DDF___Program_Language_Editor
             DdfSignatureHelpResult result = DdfSignatureHelpService.GetSignatureHelp(
                 richTextBoxMainEditor.Text,
                 richTextBoxMainEditor.SelectionStart,
-                getWorkspaceTypeRoots());
+                getWorkspaceTypeRoots(),
+                editorLanguageSession.ActivePackage.Language,
+                panelEditor.HostCatalog?.Snapshot);
             if (result == null)
             {
                 hideSignatureHelp();
@@ -95,7 +97,11 @@ namespace DDF___Program_Language_Editor
             signatureHelpLabel.Text = result.Signature.Signature +
                                       (string.IsNullOrEmpty(result.Signature.Origin)
                                           ? string.Empty
-                                          : "  —  " + result.Signature.Origin);
+                                           : "  —  " + result.Signature.Origin) +
+                                       (string.IsNullOrEmpty(result.Signature.ErrorSummary)
+                                           ? string.Empty
+                                           : Environment.NewLine +
+                                             result.Signature.ErrorSummary);
             DdfSignatureParameter parameter = result.ActiveParameterInformation;
             if (result.Signature.Parameters.Count == 0)
             {

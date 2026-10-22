@@ -1,6 +1,13 @@
 # Audit di compatibilità DDF con .NET e Roslyn
 
-Stato: baseline verificata il 2026-09-28, prima del backend `0.13.x`.
+Stato: baseline verificata il 2026-09-28; confine embedded ricontrollato e
+reso machine-readable il 2026-10-16 dopo l'introduzione del backend `0.13.x`.
+
+Evoluzione pianificata: `DDF-0034` assegna a `long` e `decimal` primitive IR
+backend-neutral (`Int64` e `Decimal96`). Il futuro mapping verso
+`System.Int64`/`System.Decimal` appartiene esclusivamente al backend e dovrà
+superare test differenziali su overflow, scala e arrotondamento prima
+dell'attivazione DDF `0.19`.
 
 ## Esito
 
@@ -82,6 +89,15 @@ Un test architetturale deve fallire se Core o WinForms acquisiscono riferimenti
 al compilatore/Roslyn, e uno smoke deve continuare a verificare l'assenza dei
 comandi di compilazione nella shell embedded.
 
+Stato corrente: completato. `embeddedBoundary` in `ddf-version-matrix@1.0`
+identifica i due progetti e vieta dipendenze di progetto Compiler/Runner,
+pacchetti e AssemblyRef `Microsoft.CodeAnalysis`, namespace di emit/load e
+payload compilatore. La suite Core verifica grafo e sorgenti; il pack apre i
+due `.nupkg`, legge nuspec e metadati PE e fallisce anche per una dipendenza
+transitiva o una DLL Roslyn inclusa accidentalmente. Compiler, Runner, CLI e
+standalone restano fuori da questo perimetro e sono gli unici consumatori del
+backend consentiti.
+
 ### R1 — IR bound e tipizzata
 
 Stato: implementata come formato in memoria `2.1` nella pipeline Core; oltre a
@@ -140,7 +156,7 @@ C# arbitrari.
 
 ### R5 — Runtime ABI standalone e bridge VM dell'host
 
-Stato: ABI standalone `1.6.0` implementata in un assembly indipendente; il
+Stato: ABI standalone `1.8.0` implementata in un assembly indipendente; il
 percorso embedded continua a usare esclusivamente la VM governata dall'host.
 
 Creare una piccola libreria runtime versionata, indipendente dalla UI, che
@@ -240,7 +256,7 @@ evolve il linguaggio.
 3. Risolto lato VM il 2026-09-29: i gap della `0.12.2` sono protetti dal corpus; il backend dovrà dimostrare parità.
 4. Le strutture ricorsive non-null devono essere diagnosticate.
 5. Risolto il 2026-10-01: name map e primo generatore derivano esclusivamente dalla IR bound, usano `SyntaxFactory` e superano il corpus ostile senza injection; resta da estendere la copertura della IR.
-6. Risolto il 2026-10-01/04: `DDFLanguageEditor.Runtime` espone la ABI standalone `1.6.0` indipendente dalla UI, con observer debugger opzionale, stack bound, scope, snapshot dei valori, accessi capability tipizzati, asincronia governata, timeout, budget, cleanup LIFO e transazioni degli effetti.
+6. Risolto il 2026-10-01/13: `DDFLanguageEditor.Runtime` espone la ABI standalone `1.8.0` indipendente dalla UI, con observer debugger opzionale, stack bound, scope, snapshot dei valori, identità distinta dello `state`, posizione/stack degli errori catturati prima dell'unwind, accessi capability tipizzati, asincronia governata, timeout, budget, cleanup LIFO e transazioni degli effetti.
 7. Risolto il 2026-09-30: backend isolato e Roslyn 5.9.0 sono presenti soltanto nell'assembly Compiler.
 8. Risolto il 2026-10-03: Portable PDB, sequence point DDF e source map `1.1`
    sono letti dall'adapter; controller cooperativo, snapshot dei valori e gate

@@ -13,6 +13,12 @@
       ],
       "expectedDiagnosticCodes": [],
       "expectedReturn": "2"
+    },
+    {
+      "name": "const e state equivalenti",
+      "source": "const int answer = 42;\nstate int counter = 0;\nmain() returns int { counter++; return answer + counter - 1; }",
+      "expectedDiagnosticCodes": [],
+      "expectedReturn": "42"
     }
   ],
   "description": "Corpus normativo minimo del profilo DDF con sintassi familiare C."

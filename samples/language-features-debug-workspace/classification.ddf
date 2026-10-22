@@ -1,0 +1,67 @@
+priorityWeight(Priority priority) out int
+{
+    select(priority)
+    {
+        when Priority.Low
+        {
+            ret 1;
+        }
+
+        when Priority.Normal
+        {
+            ret 5;
+        }
+
+        when Priority.High
+        {
+            ret 10;
+        }
+    }
+}
+
+statusCode(OperationStatus status) out int
+{
+    select(status)
+    {
+        when OperationStatus.Ok
+        {
+            ret 0;
+        }
+
+        when OperationStatus.InvalidDivisor
+        {
+            ret 1;
+        }
+
+        when OperationStatus.InvalidText
+        {
+            ret 2;
+        }
+
+        when OperationStatus.InvalidIndex
+        {
+            ret 3;
+        }
+    }
+}
+
+describeNumber(int value) out int
+{
+    select(value)
+    {
+        when 0
+        {
+            ret 100;
+        }
+
+        when 1
+        {
+            ret 200;
+        }
+
+        otherwise
+        {
+            ret 300;
+        }
+    }
+}

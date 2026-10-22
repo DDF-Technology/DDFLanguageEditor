@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf/resource-lifetime-design-1.0.json",
+  "title": "DDF resource lifetime design 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "$schema", "schemaVersion", "status", "decisionId", "targetLanguageVersion", "targetEditorSdkContract", "syntax", "resourceDescriptorContract", "runtimeProviderContract", "handleStates", "irOperations", "cleanupTriggers", "diagnostics", "rules", "integration" ],
+  "properties": {
+    "$schema": { "const": "./ddf-resource-lifetime-design.schema.json" },
+    "schemaVersion": { "const": "1.0" },
+    "status": { "const": "accepted-design-not-implemented" },
+    "decisionId": { "const": "DDF-0041" },
+    "targetLanguageVersion": { "const": "0.23" },
+    "targetEditorSdkContract": { "const": "0.40" },
+    "syntax": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "keyword", "assignmentOperator", "shape", "multipleResourcesRequireNesting", "genericDeferSupported" ],
+      "properties": {
+        "keyword": { "const": "use" },
+        "assignmentOperator": { "const": "<<" },
+        "shape": { "const": "use resource-type identifier << acquisition-expression block" },
+        "multipleResourcesRequireNesting": { "const": true },
+        "genericDeferSupported": { "const": false }
+      }
+    },
+    "resourceDescriptorContract": { "const": "ddf-resource-descriptor@1.0" },
+    "runtimeProviderContract": { "const": "ddf.resource.provider.v1" },
+    "handleStates": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "irOperations": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "cleanupTriggers": { "$ref": "#/$defs/nonEmptyUniqueStrings" },
+    "diagnostics": {
+      "type": "array", "minItems": 10, "maxItems": 10, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^DDF3[0-9]{2}$" }
+    },
+    "rules": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "acquisitionEvaluatedOnce", "failedAcquisitionCreatesNoScope", "bindingIsImmutable", "bindingIsLexicallyScoped", "handlesAreOpaqueNominalValues", "handlesAreNonCopyable", "handlesAreNonComparable", "handlesAreNonSerializable", "handlesCannotEscapeScope", "handlesCannotBeFixedStateGlobalParameterResultFieldOrElement", "borrowsMustBeDeclaredAndNonRetaining", "ownershipDoesNotGrantCapabilities", "cleanupAttemptedExactlyOnce", "cleanupOrderIsLifo", "remainingCleanupContinuesAfterFailure", "existingOutcomeHasPrecedence", "additionalCleanupFailuresAreSuppressed", "cleanupUsesIndependentBoundedContext", "stateCommitsOnlyAfterSuccessfulCleanup", "clrTypesNeverCrossLanguageBoundary", "vmAndRoslynOrderMustMatch", "debuggerHidesTokensAndNativeObjects", "currentExecutionRegistryRemainsSafetyFallback" ],
+      "properties": {
+        "acquisitionEvaluatedOnce": { "const": true },
+        "failedAcquisitionCreatesNoScope": { "const": true },
+        "bindingIsImmutable": { "const": true },
+        "bindingIsLexicallyScoped": { "const": true },
+        "handlesAreOpaqueNominalValues": { "const": true },
+        "handlesAreNonCopyable": { "const": true },
+        "handlesAreNonComparable": { "const": true },
+        "handlesAreNonSerializable": { "const": true },
+        "handlesCannotEscapeScope": { "const": true },
+        "handlesCannotBeFixedStateGlobalParameterResultFieldOrElement": { "const": true },
+        "borrowsMustBeDeclaredAndNonRetaining": { "const": true },
+        "ownershipDoesNotGrantCapabilities": { "const": true },
+        "cleanupAttemptedExactlyOnce": { "const": true },
+        "cleanupOrderIsLifo": { "const": true },
+        "remainingCleanupContinuesAfterFailure": { "const": true },
+        "existingOutcomeHasPrecedence": { "const": true },
+        "additionalCleanupFailuresAreSuppressed": { "const": true },
+        "cleanupUsesIndependentBoundedContext": { "const": true },
+        "stateCommitsOnlyAfterSuccessfulCleanup": { "const": true },
+        "clrTypesNeverCrossLanguageBoundary": { "const": true },
+        "vmAndRoslynOrderMustMatch": { "const": true },
+        "debuggerHidesTokensAndNativeObjects": { "const": true },
+        "currentExecutionRegistryRemainsSafetyFallback": { "const": true }
+      }
+    },
+    "integration": {
+      "type": "object", "additionalProperties": false,
+      "required": [ "typedErrorsRequired", "standardLibraryBindingV2Required", "cooperativeCancellationRequired", "asyncCleanupPrepared", "standaloneAndEmbeddedShareSemantics", "nonCooperativeNativeCodeRequiresWorker" ],
+      "properties": {
+        "typedErrorsRequired": { "const": true },
+        "standardLibraryBindingV2Required": { "const": true },
+        "cooperativeCancellationRequired": { "const": true },
+        "asyncCleanupPrepared": { "const": true },
+        "standaloneAndEmbeddedShareSemantics": { "const": true },
+        "nonCooperativeNativeCodeRequiresWorker": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

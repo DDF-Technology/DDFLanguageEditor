@@ -121,6 +121,7 @@ namespace DDF___Program_Language_Editor
             if (refreshingCallStack || callStackListView.SelectedItems.Count == 0) return;
             selectedCallStackFrameIndex = (int)callStackListView.SelectedItems[0].Tag;
             refreshVariablesTree(executionRunning);
+            refreshWatchValues();
             updateSelectedVariableFrameStatus();
         }
 

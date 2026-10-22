@@ -24,10 +24,28 @@ classi `*Syntax`.
 
 ## Modello 1.0
 
-La IR espone membri di programma, librerie, strutture, funzioni, parametri,
+La IR espone membri di programma, librerie, strutture, enum nominali, funzioni, parametri,
 tipi, dichiarazioni, blocchi, condizioni, cicli, salti ed espressioni. Ogni nodo
 conserva `Start`, `Length` ed `End`. Queste coordinate sono usate direttamente
 per breakpoint, pausa, diagnostiche runtime e stack trace navigabile.
+
+I salti di ciclo sono nodi distinti: `DdfIrBreak` punta semanticamente
+all'uscita del ciclo più interno, mentre `DdfIrContinue` punta alla sua prossima
+verifica; nel `for` la destinazione attraversa prima l'incremento. VM, backend
+Roslyn e Flowchart consumano la stessa distinzione e non la ricostruiscono dal
+testo della keyword.
+
+Gli enum usano `DdfIrEnum` e `DdfIrEnumMember`; la IR conserva identità e membri
+simbolici, non un valore numerico Roslyn. La IR bound distingue i simboli
+`Enumeration` e `EnumerationMember`, marca questi ultimi in sola lettura e
+permette ai backend di generare la propria rappresentazione senza cambiare la
+semantica nominale.
+
+La selezione multipla usa `DdfIrSelect` e `DdfIrSelectClause`. Il valore
+selezionato compare una sola volta nella IR, ogni clausola conserva valore,
+corpo e natura `otherwise`, e non esiste un arco di fall-through. VM e Roslyn
+consumano la stessa struttura; il backend compilato materializza un temporaneo
+per garantire la singola valutazione dell'espressione.
 
 `DdfIrBuildResult` contiene programma e diagnostiche di lowering. Il flusso di
 analisi dell'editor unisce tali diagnostiche a lexer, parser, risoluzione e type
@@ -55,6 +73,20 @@ Le espressioni unarie, binarie e postfix conservano il token soltanto per
 diagnostica, ma la VM esegue esclusivamente il relativo `OperationId`.
 
 ## Compatibilità e passo successivo
+
+La futura gestione risorse `DDF-0041` richiederà regioni cleanup esplicite e le
+operazioni backend-neutral `resource.acquire`, `resource.scope.enter`,
+`resource.borrow` e `resource.release`. La IR dovrà conservare ownership e ordine
+LIFO senza incorporare `IDisposable`, `using`, `try/finally` C# o handle nativi;
+VM e Roslyn consumeranno lo stesso piano già verificato.
+
+La sospensione cooperativa `DDF-0042` aggiungerà le operazioni
+`suspend.request`, `suspend.resume`, `suspend.cancel` e `suspend.discard`. Un
+punto di ripresa conserverà identità sorgente e soli valori DDF o lease opachi,
+mai `Task`, `ValueTask`, delegate, eccezioni o frame CLR. La continuazione sarà
+legata alla generazione dell'esecuzione, così una risposta tardiva o duplicata
+non potrà riattivare un programma terminato. VM e Roslyn dovranno attraversare
+gli stessi sequence point prima e dopo l'attesa.
 
 La prima implementazione usa un lowerer DDF dalla proiezione AST legacy per
 garantire equivalenza completa con il runtime esistente. Il contratto pubblico

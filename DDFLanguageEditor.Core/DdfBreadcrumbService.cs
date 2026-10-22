@@ -6,8 +6,10 @@ namespace DDFLanguageEditor.Core
     public enum DdfBreadcrumbKind
     {
         Structure,
+        Enumeration,
         Function,
         If,
+        Select,
         While,
         DoWhile,
         For
@@ -64,6 +66,13 @@ namespace DDFLanguageEditor.Core
                         structure.NameStart,
                         structure.NameLength));
                 }
+                else if (member is EnumDeclarationSyntax enumeration)
+                {
+                    path.Add(new DdfBreadcrumbItem(enumeration.Name,
+                        DdfBreadcrumbKind.Enumeration, enumeration.Start,
+                        enumeration.Length, enumeration.NameStart,
+                        enumeration.NameLength));
+                }
                 else if (member is FunctionDeclarationSyntax function)
                 {
                     path.Add(new DdfBreadcrumbItem(
@@ -98,6 +107,13 @@ namespace DDFLanguageEditor.Core
                 AddControl(path, "if", DdfBreadcrumbKind.If, ifStatement, 2);
                 if (!AddStatementPath(ifStatement.Body, position, path) && ifStatement.ElseBody != null)
                     AddStatementPath(ifStatement.ElseBody, position, path);
+                return true;
+            }
+            if (statement is SelectStatementSyntax selection)
+            {
+                AddControl(path, "select", DdfBreadcrumbKind.Select, selection, 6);
+                foreach (SelectClauseSyntax clause in selection.Clauses)
+                    if (AddStatementPath(clause.Body, position, path)) break;
                 return true;
             }
             if (statement is WhileStatementSyntax whileStatement)

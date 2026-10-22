@@ -1,0 +1,29 @@
+enum OperationStatus
+{
+    Ok,
+    InvalidDivisor,
+    InvalidText,
+    InvalidIndex
+}
+
+enum Priority
+{
+    Low,
+    Normal,
+    High
+}
+
+struct OperationResult
+{
+    int value;
+    OperationStatus status;
+}
+
+struct SampleRecord
+{
+    int identifier;
+    float measurement;
+    char initial;
+    bool accepted;
+    string label;
+}

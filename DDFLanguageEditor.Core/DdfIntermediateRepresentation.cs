@@ -83,6 +83,31 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<DdfIrVariableDeclaration> Fields { get; }
     }
 
+    public sealed class DdfIrEnum : DdfIrMember
+    {
+        internal DdfIrEnum(string name, int nameStart, int nameLength,
+            IEnumerable<DdfIrEnumMember> members, int start, int length) : base(start, length)
+        {
+            Name = name;
+            NameStart = nameStart;
+            NameLength = nameLength;
+            Members = members.ToList().AsReadOnly();
+        }
+        public string Name { get; }
+        public int NameStart { get; }
+        public int NameLength { get; }
+        public IReadOnlyList<DdfIrEnumMember> Members { get; }
+    }
+
+    public sealed class DdfIrEnumMember : DdfIrNode
+    {
+        internal DdfIrEnumMember(string name, int start, int length) : base(start, length)
+        {
+            Name = name;
+        }
+        public string Name { get; }
+    }
+
     public sealed class DdfIrFunction : DdfIrMember
     {
         internal DdfIrFunction(string name, int nameStart, int nameLength,
@@ -141,11 +166,14 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfIrVariableDeclaration : DdfIrStatement
     {
         internal DdfIrVariableDeclaration(DdfIrType type, string name, DdfIrExpression initializer,
-            int start, int length) : base(start, length)
-        { Type = type; Name = name; Initializer = initializer; }
+            int start, int length, bool isFixed = false, bool isState = false) : base(start, length)
+        { Type = type; Name = name; Initializer = initializer; IsFixed = isFixed; IsState = isState; }
         public DdfIrType Type { get; }
         public string Name { get; }
         public DdfIrExpression Initializer { get; }
+        public bool IsFixed { get; }
+        public bool IsState { get; }
+        public DdfConstantValue ConstantValue { get; internal set; }
     }
 
     public sealed class DdfIrExpressionStatement : DdfIrStatement
@@ -163,6 +191,26 @@ namespace DDFLanguageEditor.Core
         public DdfIrExpression Condition { get; }
         public DdfIrStatement Body { get; }
         public DdfIrStatement ElseBody { get; }
+    }
+
+    public sealed class DdfIrSelectClause : DdfIrNode
+    {
+        internal DdfIrSelectClause(DdfIrExpression value, DdfIrStatement body,
+            bool isOtherwise, int start, int length) : base(start, length)
+        { Value = value; Body = body; IsOtherwise = isOtherwise; }
+        public DdfIrExpression Value { get; }
+        public DdfIrStatement Body { get; }
+        public bool IsOtherwise { get; }
+    }
+
+    public sealed class DdfIrSelect : DdfIrStatement
+    {
+        internal DdfIrSelect(DdfIrExpression expression,
+            IEnumerable<DdfIrSelectClause> clauses, int start, int length)
+            : base(start, length)
+        { Expression = expression; Clauses = clauses.ToList().AsReadOnly(); }
+        public DdfIrExpression Expression { get; }
+        public IReadOnlyList<DdfIrSelectClause> Clauses { get; }
     }
 
     public sealed class DdfIrWhile : DdfIrStatement
@@ -198,6 +246,7 @@ namespace DDFLanguageEditor.Core
         public DdfIrExpression Expression { get; }
     }
     public sealed class DdfIrBreak : DdfIrStatement { internal DdfIrBreak(int start, int length) : base(start, length) { } }
+    public sealed class DdfIrContinue : DdfIrStatement { internal DdfIrContinue(int start, int length) : base(start, length) { } }
     public sealed class DdfIrEnd : DdfIrStatement { internal DdfIrEnd(int start, int length) : base(start, length) { } }
 
     public abstract class DdfIrExpression : DdfIrNode
@@ -314,6 +363,9 @@ namespace DDFLanguageEditor.Core
             }
             var program = new DdfIrProgram(members,
                 semanticOperations ?? Array.Empty<DdfPlannedSemanticOperation>(), root.Length);
+            var module = new DdfIrModule(string.Empty, source, program);
+            foreach (DdfConstantEvaluationIssue issue in DdfConstantEvaluator.Evaluate(new[] { module }))
+                diagnostics.Add(issue.Diagnostic);
             return new DdfIrBuildResult(program, diagnostics);
         }
 
@@ -326,6 +378,11 @@ namespace DDFLanguageEditor.Core
                 return new DdfIrStructure(structure.Name, structure.NameStart, structure.NameLength,
                     structure.Fields.Select(field => LowerVariable(source, field, diagnostics, runtime)),
                     structure.Start, structure.Length);
+            if (member is EnumDeclarationSyntax enumeration)
+                return new DdfIrEnum(enumeration.Name, enumeration.NameStart,
+                    enumeration.NameLength, enumeration.Members.Select(value =>
+                        new DdfIrEnumMember(value.Name, value.Start, value.Length)),
+                    enumeration.Start, enumeration.Length);
             if (member is FunctionDeclarationSyntax function)
                 return new DdfIrFunction(function.Name, function.NameStart, function.NameLength,
                     function.Parameters.Select(parameter => new DdfIrParameter(LowerType(source, parameter.Type, diagnostics, runtime),
@@ -349,7 +406,7 @@ namespace DDFLanguageEditor.Core
             VariableDeclarationStatementSyntax variable, ICollection<DdfDiagnostic> diagnostics, DdfRuntimeDefinition runtime) =>
             new DdfIrVariableDeclaration(LowerType(source, variable.Type, diagnostics, runtime), variable.Name,
                 variable.Initializer == null ? null : LowerExpression(source, variable.Initializer, diagnostics, runtime),
-                variable.Start, variable.Length);
+                variable.Start, variable.Length, variable.IsFixed, variable.IsState);
 
         private static DdfIrStatement LowerStatement(string source, StatementSyntax statement,
             ICollection<DdfDiagnostic> diagnostics, DdfRuntimeDefinition runtime)
@@ -364,6 +421,14 @@ namespace DDFLanguageEditor.Core
                 return new DdfIrIf(LowerExpression(source, conditional.Condition, diagnostics, runtime),
                     LowerStatement(source, conditional.Body, diagnostics, runtime), LowerStatement(source, conditional.ElseBody, diagnostics, runtime),
                     conditional.Start, conditional.Length);
+            if (statement is SelectStatementSyntax selection)
+                return new DdfIrSelect(LowerExpression(source, selection.Expression,
+                        diagnostics, runtime),
+                    selection.Clauses.Select(clause => new DdfIrSelectClause(
+                        LowerExpression(source, clause.Value, diagnostics, runtime),
+                        LowerStatement(source, clause.Body, diagnostics, runtime),
+                        clause.IsOtherwise, clause.Start, clause.Length)),
+                    selection.Start, selection.Length);
             if (statement is WhileStatementSyntax loop)
                 return new DdfIrWhile(LowerExpression(source, loop.Condition, diagnostics, runtime),
                     LowerStatement(source, loop.Body, diagnostics, runtime), loop.Start, loop.Length);
@@ -377,6 +442,7 @@ namespace DDFLanguageEditor.Core
             if (statement is ReturnStatementSyntax returned)
                 return new DdfIrReturn(LowerExpression(source, returned.Expression, diagnostics, runtime), returned.Start, returned.Length);
             if (statement is BreakStatementSyntax) return new DdfIrBreak(statement.Start, statement.Length);
+            if (statement is ContinueStatementSyntax) return new DdfIrContinue(statement.Start, statement.Length);
             if (statement is EndStatementSyntax) return new DdfIrEnd(statement.Start, statement.Length);
             ReportUnsupported(source, statement, diagnostics, "statement");
             return null;
