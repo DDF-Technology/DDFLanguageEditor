@@ -46,11 +46,17 @@ namespace DDF___Program_Language_Editor
         public const int RealisticPackageKeywords = 256;
         public const int RealisticPackageSnippets = 96;
         public const int RealisticPackageSwitches = 6;
+        public const int RealisticCompletionSamples = 10;
+        public const int RealisticDebuggerSamples = 10;
         public const int EnduranceIterations = 160;
         public const double EnduranceP95CeilingMilliseconds = 750D;
         public const long EnduranceManagedGrowthBytes = 64L * 1024L * 1024L;
         public const int EnduranceHandleGrowth = 24;
         public const int EnduranceGuiResourceGrowth = 16;
+        public const int LifecycleEnduranceIterations = 12;
+        public const long LifecycleEnduranceManagedGrowthBytes = 96L * 1024L * 1024L;
+        public const int LifecycleEnduranceHandleGrowth = 36;
+        public const int LifecycleEnduranceGuiResourceGrowth = 24;
 
         public static readonly EditorPerformanceBudget Input = new EditorPerformanceBudget(
             "input", "Input editor", 16D, 120D,
@@ -80,9 +86,17 @@ namespace DDF___Program_Language_Editor
             "analysis-dispatch", "Dispatch analisi grande documento", 16D, 120D,
             "avvio cancellabile dell'analisi di un documento DDF di 2000 righe");
 
+        public static readonly EditorPerformanceBudget BackgroundAnalysisCompletion = new EditorPerformanceBudget(
+            "analysis-completion", "Analisi completa grande documento", 500D, 12000D,
+            "analisi, diagnostiche e applicazione UI di un documento DDF di 2000 righe");
+
         public static readonly EditorPerformanceBudget WorkspaceLoadDispatch = new EditorPerformanceBudget(
             "workspace-dispatch", "Dispatch caricamento workspace", 50D, 250D,
             "avvio e sostituzione del caricamento di 40 file DDF da 100 righe");
+
+        public static readonly EditorPerformanceBudget WorkspaceLoadCompletion = new EditorPerformanceBudget(
+            "workspace-completion", "Caricamento completo workspace", 500D, 12000D,
+            "indicizzazione, pubblicazione e aggiornamento UI di 40 file DDF da 100 righe");
 
         public static readonly EditorPerformanceBudget LargeWorkspaceInput = new EditorPerformanceBudget(
             "large-workspace-input", "Input documento/workspace realistico", 16D, 120D,
@@ -91,6 +105,18 @@ namespace DDF___Program_Language_Editor
         public static readonly EditorPerformanceBudget LanguagePackageSwitch = new EditorPerformanceBudget(
             "language-package-switch", "Cambio pacchetto linguaggio realistico", 500D, 5000D,
             "6 attivazioni con 256 keyword, 96 snippet, documento da 2000 righe e workspace da 40 file");
+
+        public static readonly EditorPerformanceBudget Completion = new EditorPerformanceBudget(
+            "completion", "Completamento workspace realistico", 100D, 1500D,
+            "10 richieste end-to-end in 2000 righe con indice workspace di 40 file");
+
+        public static readonly EditorPerformanceBudget DebugStartToBreakpoint = new EditorPerformanceBudget(
+            "debug-start", "Debug fino al breakpoint", 250D, 5000D,
+            "10 avvii VM su 500 righe fino a un breakpoint intermedio");
+
+        public static readonly EditorPerformanceBudget DebugStep = new EditorPerformanceBudget(
+            "debug-step", "Step Over debugger", 50D, 1000D,
+            "10 Step Over con snapshot, variabili e posizione sorgente aggiornati");
 
         public static IReadOnlyList<EditorPerformanceBudget> All { get; } = new[]
         {
@@ -101,9 +127,14 @@ namespace DDF___Program_Language_Editor
             Popup,
             Flowchart,
             BackgroundAnalysisDispatch,
+            BackgroundAnalysisCompletion,
             WorkspaceLoadDispatch,
+            WorkspaceLoadCompletion,
             LargeWorkspaceInput,
-            LanguagePackageSwitch
+            LanguagePackageSwitch,
+            Completion,
+            DebugStartToBreakpoint,
+            DebugStep
         };
     }
 }

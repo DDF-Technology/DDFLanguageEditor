@@ -199,7 +199,8 @@ namespace DDFLanguageEditor.Core
                 return Empty(prefixStart, prefix.Length);
             }
 
-            DdfParseResult parseResult = DdfParser.Parse(source, lexResult, language);
+            DdfParseResult parseResult = DdfParser.ParseForEditorFeatures(
+                source, lexResult, language);
             cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parseResult, source).Symbols;
             DdfSemanticModel semanticModel = DdfSemanticModel.Create(source, parseResult.Root);
@@ -279,9 +280,17 @@ namespace DDFLanguageEditor.Core
                 }
                 if (externalSymbols != null)
                 {
+                    var presentedExternalNames = new HashSet<string>(
+                        (externalItems ?? Array.Empty<DdfCompletionItem>())
+                            .Select(item => item.DisplayText),
+                        StringComparer.Ordinal);
                     foreach (DdfDocumentSymbol symbol in externalSymbols)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
+                        // The workspace item carries the precise source file.
+                        // Keep the raw symbol for enum/member discovery, but do
+                        // not let its generic origin replace that richer item.
+                        if (presentedExternalNames.Contains(symbol.Name)) continue;
                         AddSymbol(candidates, symbol, language.Intellisense.WorkspaceOrigin, int.MaxValue - 1);
                     }
                 }

@@ -203,6 +203,11 @@ namespace DDF___Program_Language_Editor
             }
 
             var changedEditor = sender as RichTextBox;
+            if (changedEditor == null) return;
+            // RichTextBox.Text crosses the native RichEdit boundary and copies the
+            // complete document. Keep one snapshot for the synchronous edit path:
+            // large documents previously paid for the same copy several times per key.
+            string currentSource = changedEditor.Text;
             DocumentView changedView = findDocumentView(changedEditor);
             changedView?.SelectionHistory.Clear();
             if (!isApplyingMultiEdit && changedView != null && changedView.MultiSelections.Count > 0)
@@ -219,30 +224,34 @@ namespace DDF___Program_Language_Editor
                     changedView.LastEditUtc = getUtcNow?.Invoke() ?? DateTime.UtcNow;
                     markCrashRecoveryChanged();
                     string previousSource = changedView.Buffer.Source;
+                    bool wasDirty = changedView.Buffer.Session.IsDirty;
                     if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
-                        updateSnippetSession(previousSource, changedEditor.Text);
-                    if (changedView.Buffer.BreakpointLines.Count > 0)
+                        updateSnippetSession(previousSource, currentSource);
+                    bool breakpointsChanged = changedView.Buffer.BreakpointLines.Count > 0;
+                    if (breakpointsChanged)
                     {
                         DdfBreakpointRemapResult remap = DdfBreakpointService.Remap(
-                            previousSource, changedEditor.Text, changedView.Buffer.BreakpointLines);
+                            previousSource, currentSource, changedView.Buffer.BreakpointLines);
                         changedView.Buffer.BreakpointLines.Clear();
                         foreach (int line in remap.Lines) changedView.Buffer.BreakpointLines.Add(line);
                         changedView.Buffer.UnboundBreakpointLines.Clear();
                         foreach (int line in remap.UnboundLines) changedView.Buffer.UnboundBreakpointLines.Add(line);
                     }
-                    changedView.Buffer.UpdateSource(changedEditor.Text);
-                    updateWorkspaceDocument(changedView.Buffer.Session.CurrentPath, changedEditor.Text);
-                    updateDocumentTab(changedView);
-                    refreshBreakpointsPalette();
+                    changedView.Buffer.UpdateSource(currentSource);
+                    updateWorkspaceDocument(changedView.Buffer.Session.CurrentPath, currentSource);
+                    bool dirtyStateChanged = wasDirty != changedView.Buffer.Session.IsDirty;
+                    if (dirtyStateChanged) updateDocumentTab(changedView);
+                    if (breakpointsChanged) refreshBreakpointsPalette();
+                    if (ReferenceEquals(changedEditor, richTextBoxMainEditor) && dirtyStateChanged)
+                        updateDocumentUi();
                 }
-                if (ReferenceEquals(changedEditor, richTextBoxMainEditor)) updateDocumentUi();
             }
 
             if (!ReferenceEquals(changedEditor, richTextBoxMainEditor)) return;
 
-            updateLineNumbers();
+            updateLineNumbersFromSource(currentSource);
             overviewDiagnosticsSource = string.Empty;
-            refreshEditorOverview();
+            refreshEditorOverviewFromSource(currentSource);
             updateCaretPosition();
             highlightTimer.Stop();
             highlightTimer.Start();
@@ -272,7 +281,10 @@ namespace DDF___Program_Language_Editor
             int changedStart = lexUpdate.RelexStart;
             DdfEditorAnalysisRequest request = createHostAnalysisRequest(
                 text, richTextBoxMainEditor.SelectionStart, version, getWorkspaceTypeRoots(), lexUpdate.Result);
+            var coreStopwatch = System.Diagnostics.Stopwatch.StartNew();
             DdfEditorAnalysisSnapshot snapshot = panelEditor.AnalysisService.Analyze(request);
+            coreStopwatch.Stop();
+            lastAnalysisCoreMilliseconds = coreStopwatch.Elapsed.TotalMilliseconds;
             applyAnalysisSnapshot(snapshot, changedStart, version, languageRevision);
         }
 
@@ -294,8 +306,11 @@ namespace DDF___Program_Language_Editor
 
             try
             {
+                var coreStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 DdfEditorAnalysisSnapshot snapshot = await analysisService.RequestAsync(
                     request, TimeSpan.Zero, cancellation.Token);
+                coreStopwatch.Stop();
+                lastAnalysisCoreMilliseconds = coreStopwatch.Elapsed.TotalMilliseconds;
                 if (cancellation.IsCancellationRequested || version != analysisRequestVersion ||
                     !analysisService.IsCurrent(snapshot) ||
                     languageRevision != editorLanguageSession.Revision) return;
@@ -351,12 +366,17 @@ namespace DDF___Program_Language_Editor
                 languageRevision != editorLanguageSession.Revision ||
                 !string.Equals(snapshot.Source, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
+            var applyStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var phaseStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            lastAnalysisProfile = snapshot.Profile;
             int selectionStart = richTextBoxMainEditor.SelectionStart;
             int selectionLength = richTextBoxMainEditor.SelectionLength;
             string text = snapshot.Source;
             validateBreakpoints(openDocuments.ActiveDocument, text, snapshot.ParseResult.Root);
             if (documentSession.IsDirty)
-                updateWorkspaceDocument(documentSession.CurrentPath, text, snapshot.ParseResult.Root);
+                updateWorkspaceDocument(documentSession.CurrentPath, text,
+                    snapshot.ParseResult.Root, snapshot.Symbols);
+            lastAnalysisPreparationMilliseconds = phaseStopwatch.Elapsed.TotalMilliseconds;
 
             // Consume the normalized diagnostic set produced by the shared analysis service.
             // Reassembling parser/IR diagnostics here used to reintroduce generic DDFG101
@@ -371,33 +391,87 @@ namespace DDF___Program_Language_Editor
             int delimiterFormatStart = activeDelimiterMatch == null
                 ? int.MaxValue
                 : Math.Min(activeDelimiterMatch.OpenStart, activeDelimiterMatch.CloseStart);
+            DocumentView formattingView = activeDocumentView;
+            string syntaxFormattingStyle = createSyntaxFormattingStyle();
+            bool syntaxFormattingCurrent = activeDelimiterMatch == null &&
+                formattingView != null && formattingView.MultiSelections.Count < 2 &&
+                formattingView.SyntaxFormattedLanguageRevision == languageRevision &&
+                string.Equals(formattingView.SyntaxFormattedSource, text,
+                    StringComparison.Ordinal) &&
+                string.Equals(formattingView.SyntaxFormattingStyle,
+                    syntaxFormattingStyle, StringComparison.Ordinal);
             int formatStart = Math.Min(changedStart, Math.Min(diagnosticsFormatStart, Math.Min(currentDiagnosticStart, delimiterFormatStart)));
             formatStart = Math.Min(formatStart, text.Length);
             diagnosticsFormatStart = currentDiagnosticStart;
             activeDelimiterMatch = null;
+            lastAnalysisFormatStart = formatStart;
+            lastAnalysisUsedRtf = !syntaxFormattingCurrent && formatStart == 0 &&
+                !richTextBoxMainEditor.CanUndo && !richTextBoxMainEditor.CanRedo;
+            lastSyntaxRtfBuildMilliseconds = 0;
+            lastSyntaxRtfStreamMilliseconds = 0;
 
             isApplyingHighlighting = true;
+            phaseStopwatch.Restart();
             try
             {
                 using (RichTextBoxUpdateScope.Begin(richTextBoxMainEditor))
                 {
-                    richTextBoxMainEditor.Select(formatStart, text.Length - formatStart);
-                    richTextBoxMainEditor.SelectionColor = editorDefaultForeground;
-                    richTextBoxMainEditor.SelectionBackColor = richTextBoxMainEditor.BackColor;
-                    RichTextBoxDiagnosticDecoration.ClearSelection(richTextBoxMainEditor);
-
-                    foreach (DdfToken token in snapshot.LexResult.Tokens)
+                    if (syntaxFormattingCurrent)
                     {
-                        if (token.End <= formatStart)
+                        // The native control already contains the exact syntax
+                        // projection for this document, language and visual
+                        // style. Diagnostics remain independent and are
+                        // cleared/reapplied below.
+                        if (formattingView.HasDiagnosticDecorations)
                         {
-                            continue;
+                            richTextBoxMainEditor.Select(0, text.Length);
+                            RichTextBoxDiagnosticDecoration.ClearSelection(
+                                richTextBoxMainEditor);
                         }
-
-                        SyntaxKind? kind = DdfSyntaxClassifier.ToSyntaxKind(token.Kind);
-                        if (kind.HasValue)
+                    }
+                    else if (lastAnalysisUsedRtf)
+                    {
+                        // A complete RTF stream replaces every prior character
+                        // format. Clearing diagnostic waves before this branch
+                        // would format the whole document twice.
+                        RichTextBoxSyntaxRtf.Apply(richTextBoxMainEditor, text,
+                            snapshot.LexResult.Tokens, editorDefaultForeground, getColor);
+                        lastSyntaxRtfBuildMilliseconds =
+                            RichTextBoxSyntaxRtf.LastBuildMilliseconds;
+                        lastSyntaxRtfStreamMilliseconds =
+                            RichTextBoxSyntaxRtf.LastStreamMilliseconds;
+                        if (formattingView?.HasDiagnosticDecorations == true)
                         {
-                            richTextBoxMainEditor.Select(token.Start, token.Length);
-                            richTextBoxMainEditor.SelectionColor = getColor(kind.Value);
+                            // RichEdit may preserve a native wave underline even
+                            // when the replacement RTF starts with \ulnone. Avoid
+                            // this full-document native pass on a clean first load.
+                            richTextBoxMainEditor.Select(0, text.Length);
+                            RichTextBoxDiagnosticDecoration.ClearSelection(
+                                richTextBoxMainEditor);
+                        }
+                    }
+                    else
+                    {
+                        // Undo may restore character formatting together with
+                        // text, so the incremental branch must explicitly
+                        // remove stale waves before recoloring the changed tail.
+                        richTextBoxMainEditor.Select(0, text.Length);
+                        RichTextBoxDiagnosticDecoration.ClearSelection(
+                            richTextBoxMainEditor);
+                        RichTextBoxCharacterFormatting.ApplyColors(
+                            richTextBoxMainEditor, formatStart, text.Length - formatStart,
+                            editorDefaultForeground, richTextBoxMainEditor.BackColor);
+                        foreach (DdfToken token in snapshot.LexResult.Tokens)
+                        {
+                            if (token.End <= formatStart) continue;
+
+                            SyntaxKind? kind = DdfSyntaxClassifier.ToSyntaxKind(token.Kind);
+                            if (kind.HasValue)
+                            {
+                                RichTextBoxCharacterFormatting.ApplyTextColor(
+                                    richTextBoxMainEditor, token.Start, token.Length,
+                                    getColor(kind.Value));
+                            }
                         }
                     }
 
@@ -420,12 +494,26 @@ namespace DDF___Program_Language_Editor
                     int safeLength = Math.Min(selectionLength, richTextBoxMainEditor.TextLength - safeStart);
                     richTextBoxMainEditor.Select(safeStart, safeLength);
                 }
+                if (formattingView != null)
+                {
+                    formattingView.SyntaxFormattedSource = text;
+                    formattingView.SyntaxFormattedLanguageRevision = languageRevision;
+                    formattingView.SyntaxFormattingStyle = syntaxFormattingStyle;
+                    formattingView.HasDiagnosticDecorations = allDiagnostics.Any(
+                        diagnostic => diagnostic.Length > 0);
+                }
+                // A complete RTF assignment resets RichEdit's control-level zoom
+                // after the document stream is loaded. Reapply the persisted
+                // editor setting once the native update scope has completed.
+                richTextBoxMainEditor.ZoomFactor = editorSettings.ZoomPercent / 100F;
             }
             finally
             {
                 isApplyingHighlighting = false;
             }
+            lastAnalysisFormattingMilliseconds = phaseStopwatch.Elapsed.TotalMilliseconds;
 
+            phaseStopwatch.Restart();
             overviewDiagnosticsSource = text;
             updateDiagnostics(allDiagnostics);
             updateOutline(snapshot.Symbols);
@@ -443,6 +531,22 @@ namespace DDF___Program_Language_Editor
             refreshEditorOverviewViewport();
             refreshDelimiterHighlight();
             updateNavigationCommandState();
+            lastAnalysisUiServicesMilliseconds = phaseStopwatch.Elapsed.TotalMilliseconds;
+            applyStopwatch.Stop();
+            lastAnalysisApplyMilliseconds = applyStopwatch.Elapsed.TotalMilliseconds;
+        }
+
+        private string createSyntaxFormattingStyle()
+        {
+            var signature = new StringBuilder();
+            signature.Append(richTextBoxMainEditor.Font.Name).Append('|')
+                .Append(richTextBoxMainEditor.Font.SizeInPoints).Append('|')
+                .Append(editorDefaultForeground.ToArgb()).Append('|')
+                .Append(richTextBoxMainEditor.BackColor.ToArgb());
+            foreach (SyntaxKind kind in Enum.GetValues(typeof(SyntaxKind)))
+                signature.Append('|').Append((int)kind).Append(':')
+                    .Append(getColor(kind).ToArgb());
+            return signature.ToString();
         }
 
         private void cancelBackgroundAnalysis()
@@ -1024,6 +1128,11 @@ namespace DDF___Program_Language_Editor
 
         private void updateLineNumbers()
         {
+            updateLineNumbersFromSource(null);
+        }
+
+        private void updateLineNumbersFromSource(string currentSource)
+        {
             if (richTextBoxMainEditor == null || richTextBoxLineNumbers == null ||
                 richTextBoxMainEditor.IsDisposed || richTextBoxLineNumbers.IsDisposed)
             {
@@ -1057,7 +1166,7 @@ namespace DDF___Program_Language_Editor
             // border even when the next logical line is already partially visible.
             // Extend the range from real line starts so the gutter never leaves a
             // visible source row without its number after a viewport restore.
-            string visibleSource = richTextBoxMainEditor.Text;
+            string visibleSource = currentSource ?? richTextBoxMainEditor.Text;
             int currentLineStart = richTextBoxMainEditor.GetFirstCharIndexFromLine(lastLine);
             int nextNewline = currentLineStart < 0
                 ? -1 : visibleSource.IndexOf('\n', currentLineStart);

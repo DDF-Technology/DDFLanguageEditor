@@ -44,6 +44,16 @@ namespace DDF___Program_Language_Editor
         private long analysisRequestVersion;
         private long analysisAppliedVersion;
         private long analysisAppliedLanguageRevision;
+        private double lastAnalysisCoreMilliseconds;
+        private double lastAnalysisApplyMilliseconds;
+        private double lastAnalysisPreparationMilliseconds;
+        private double lastAnalysisFormattingMilliseconds;
+        private double lastAnalysisUiServicesMilliseconds;
+        private DdfEditorAnalysisProfile lastAnalysisProfile;
+        private double lastSyntaxRtfBuildMilliseconds;
+        private double lastSyntaxRtfStreamMilliseconds;
+        private bool lastAnalysisUsedRtf;
+        private int lastAnalysisFormatStart;
         private bool isApplyingHighlighting;
         private bool isUpdatingDelimiterHighlight;
         private bool isMouseSelecting;
@@ -157,6 +167,7 @@ namespace DDF___Program_Language_Editor
             initializeWorkspaceNavigation();
             initializeBreadcrumb();
             initializeEditorSettings();
+            initializeProductUpdates();
             initializeEditorVisuals();
             initializeEditorOverview();
             initializeCommandPalette();
@@ -289,6 +300,7 @@ namespace DDF___Program_Language_Editor
             applyHighlighting();
             updateLineNumbers();
             refreshEditorOverview();
+            scheduleAutomaticProductUpdateCheck();
         }
 
         private void applyApplicationTheme()
@@ -341,6 +353,8 @@ namespace DDF___Program_Language_Editor
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
+            if (panelOutline != null && splitterOutline != null && outlinePinned)
+                expandOutlinePalette();
             updateLineNumbers();
             refreshEditorOverviewViewport();
         }
@@ -368,6 +382,7 @@ namespace DDF___Program_Language_Editor
         {
             if (embeddedHostMode)
             {
+                stopProductUpdates();
                 stopExecution();
                 return;
             }
@@ -389,6 +404,7 @@ namespace DDF___Program_Language_Editor
             persistWatchExpressions();
             persistWorkspaceSession();
             clearCrashRecoverySafely();
+            stopProductUpdates();
         }
 
         private void aboutMenuItem_Click(object sender, EventArgs e)
@@ -762,7 +778,8 @@ namespace DDF___Program_Language_Editor
             formatDocumentMenuItem.Enabled = richTextBoxMainEditor.TextLength > 0;
             DdfSymbolOccurrence occurrence = getCurrentSymbolOccurrence();
             goToDefinitionMenuItem.Enabled = occurrence != null || getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
-            renameSymbolMenuItem.Enabled = occurrence != null;
+            renameSymbolMenuItem.Enabled = occurrence != null ||
+                getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart) != null;
             toggleLineCommentMenuItem.Enabled = true;
             duplicateLinesMenuItem.Enabled = true;
             moveLinesUpMenuItem.Enabled = EditorEditing.CreateMoveLinesEdit(

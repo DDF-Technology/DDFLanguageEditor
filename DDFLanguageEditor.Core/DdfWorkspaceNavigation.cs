@@ -129,6 +129,50 @@ namespace DDFLanguageEditor.Core
                 .AsReadOnly();
         }
 
+        public static IReadOnlyList<DdfWorkspaceReplacementChange> CreateRenameChanges(
+            IEnumerable<DdfWorkspaceSearchDocument> documents,
+            string declarationDocumentId,
+            int declarationStart,
+            string newName,
+            DdfLanguageDefinition language = null,
+            CancellationToken cancellationToken = default)
+        {
+            DdfLanguageDefinition effectiveLanguage = language ?? DdfLanguageCatalog.Default;
+            if (!DdfSemanticModel.IsValidIdentifier(newName, effectiveLanguage))
+                throw new ArgumentException("Il nuovo nome non è un identificatore valido.", nameof(newName));
+            if (effectiveLanguage.TryGetKeyword(newName, out DdfKeywordDefinition keyword))
+                throw new ArgumentException("Il nuovo nome è una parola riservata.", nameof(newName));
+
+            List<DdfWorkspaceSearchDocument> snapshots = documents?.ToList()
+                ?? throw new ArgumentNullException(nameof(documents));
+            IReadOnlyList<DdfWorkspaceNavigationLocation> references = FindReferences(
+                snapshots, declarationDocumentId, declarationStart, cancellationToken);
+            var changes = new List<DdfWorkspaceReplacementChange>();
+            foreach (IGrouping<string, DdfWorkspaceNavigationLocation> group in references.GroupBy(
+                location => location.Document.Id, StringComparer.OrdinalIgnoreCase))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                List<DdfWorkspaceNavigationLocation> locations = group
+                    .OrderByDescending(location => location.Start).ToList();
+                if (locations.Count == 0) continue;
+                DdfWorkspaceSearchDocument document = locations[0].Document;
+                string updatedSource = document.Source;
+                int previousStart = updatedSource.Length + 1;
+                foreach (DdfWorkspaceNavigationLocation location in locations)
+                {
+                    if (location.Start < 0 || location.Length <= 0 ||
+                        location.Start + location.Length > updatedSource.Length ||
+                        location.Start + location.Length > previousStart)
+                        throw new ArgumentException("I riferimenti del simbolo contengono intervalli non validi.", nameof(documents));
+                    updatedSource = updatedSource.Remove(location.Start, location.Length)
+                        .Insert(location.Start, newName);
+                    previousStart = location.Start;
+                }
+                changes.Add(new DdfWorkspaceReplacementChange(document, updatedSource, locations.Count));
+            }
+            return changes.AsReadOnly();
+        }
+
         public static bool TryParseLineColumn(string value, int lineCount, out int line, out int column)
         {
             line = 0;

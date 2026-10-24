@@ -45,6 +45,18 @@ namespace DDFLanguageEditor.Compiler.Tests
             try
             {
                 if ((args ?? Array.Empty<string>()).Contains(
+                        "--determinism-probe", StringComparer.Ordinal))
+                {
+                    RunDeterminismProbe(args);
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
+                        "--deterministic-build-only", StringComparer.Ordinal))
+                {
+                    VerifiesIsolatedDeterministicBuildsAcrossCulturesAndSourceOrders();
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
                         "--worker-write-gate", StringComparer.Ordinal))
                 {
                     RunsTransactionalFileBrokerOutOfProcess(
@@ -74,18 +86,16 @@ namespace DDFLanguageEditor.Compiler.Tests
                     RunsInteractiveInputOverDuplexWorker();
                     return 0;
                 }
+                if ((args ?? Array.Empty<string>()).Contains(
+                        "--backend-equivalence-only", StringComparer.Ordinal))
+                {
+                    EnforcesCompleteBackendEquivalenceGate();
+                    return 0;
+                }
                 RoundTripsVersionedDotNetArtifactContracts();
                 RejectsUnsafeOrIncompatibleArtifactMetadata();
                 KeepsJsonSchemasAlignedWithRuntimeContracts();
-                PlansModulesAndLibrariesThroughTheSharedPipeline();
-                MatchesVmOnDifferentialExecutionCorpus();
-                MatchesVersionedNormativeLanguageCorpus();
-                BridgesExplicitStandaloneHostCapabilities();
-                VerifiesCompiledCapabilitySuspension();
-                MatchesCleanupOrderAcrossVmAndCompiledBackend();
-                PersistsStateAcrossVmAndCompiledSessions();
-                PreservesTypedErrorsAcrossVmAndCompiledFiles();
-                VerifiesGovernedAdaptersAcrossVmAndCompiledBackend();
+                EnforcesCompleteBackendEquivalenceGate();
                 RunsReadOnlyFileBrokerOutOfProcess();
                 RunsTransactionalFileBrokerOutOfProcess();
                 GovernsHostSideHttpAcquisition();
@@ -97,13 +107,13 @@ namespace DDFLanguageEditor.Compiler.Tests
                 BindsStableSymbolsTypesConversionsLocationsAndCalls();
                 CreatesSafeDeterministicGeneratedNames();
                 PinsCompilerProfileAndExplicitReferences();
+                VerifiesIsolatedDeterministicBuildsAcrossCulturesAndSourceOrders();
                 BuildsVerifiedManagedExternalReferenceSets();
                 BuildsEditorArtifactsThroughStandaloneBridge();
                 StressesShippedLargeWorkspaceAcrossVmAndCompiledBackend();
                 DebugsShippedLanguageFeaturesWorkspace();
-                DebugsActiveLanguageConstructsMatrix();
                 GeneratesSafeSyntaxTreesAndModuleInitializers();
-                Console.WriteLine("All 30 compiler contract tests passed.");
+                Console.WriteLine("All 31 compiler contract tests passed.");
                 return 0;
             }
             catch (Exception exception)
@@ -111,6 +121,170 @@ namespace DDFLanguageEditor.Compiler.Tests
                 Console.Error.WriteLine(exception);
                 return 1;
             }
+        }
+
+        private static void VerifiesIsolatedDeterministicBuildsAcrossCulturesAndSourceOrders()
+        {
+            string baseline = RunDeterminismProbeProcess("en-US", false);
+            string repeated = RunDeterminismProbeProcess("en-US", false);
+            string italianReversed = RunDeterminismProbeProcess("it-IT", true);
+            string turkishReversed = RunDeterminismProbeProcess("tr-TR", true);
+            Require(string.Equals(baseline, repeated, StringComparison.Ordinal) &&
+                    string.Equals(baseline, italianReversed, StringComparison.Ordinal) &&
+                    string.Equals(baseline, turkishReversed, StringComparison.Ordinal),
+                "Fingerprint, assembly, PDB, mappe, manifest o risultato dipendono " +
+                "dal processo, dalla cultura o dall'ordine dei file.\n" +
+                "baseline=" + baseline + "\nit-IT=" + italianReversed +
+                "\ntr-TR=" + turkishReversed);
+            Console.WriteLine("PASS build isolate deterministiche: 4 processi, " +
+                "culture en-US/it-IT/tr-TR, ordine file diretto/inverso, " +
+                "fingerprint, DLL, PDB, mappe, manifest e risultato identici");
+        }
+
+        private static string RunDeterminismProbeProcess(string culture,
+            bool reverseOrder)
+        {
+            string executable = Environment.ProcessPath;
+            Require(!string.IsNullOrWhiteSpace(executable),
+                "Processo corrente non individuabile per il probe deterministico.");
+            var start = new ProcessStartInfo
+            {
+                FileName = executable,
+                WorkingDirectory = RepositoryRoot(),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            if (string.Equals(Path.GetFileNameWithoutExtension(executable),
+                    "dotnet", StringComparison.OrdinalIgnoreCase))
+                start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+            start.ArgumentList.Add("--determinism-probe");
+            start.ArgumentList.Add(culture);
+            start.ArgumentList.Add(reverseOrder ? "reverse" : "forward");
+            using Process process = Process.Start(start);
+            Require(process != null, "Impossibile avviare il probe deterministico.");
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            Require(process.WaitForExit(30000),
+                "Timeout del probe deterministico " + culture + ".");
+            Require(process.ExitCode == 0 && string.IsNullOrWhiteSpace(error),
+                "Probe deterministico fallito (" + culture + "): " + error);
+            string payload = output.Trim();
+            using JsonDocument parsed = JsonDocument.Parse(payload);
+            Require(parsed.RootElement.GetProperty("result").GetInt32() == 42,
+                "Il probe deterministico non produce il risultato normativo 42.");
+            return payload;
+        }
+
+        private static void RunDeterminismProbe(string[] args)
+        {
+            int marker = Array.IndexOf(args, "--determinism-probe");
+            string cultureName = marker >= 0 && marker + 1 < args.Length
+                ? args[marker + 1] : "en-US";
+            bool reverseOrder = marker >= 0 && marker + 2 < args.Length &&
+                string.Equals(args[marker + 2], "reverse",
+                    StringComparison.Ordinal);
+            CultureInfo culture = CultureInfo.GetCultureInfo(cultureName);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-determinism-probe-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var sources = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["a.ddf"] = "first() out int\n{\n    ret 20;\n}\n",
+                    ["main.ddf"] = "main() out int\n{\n    int value << first() + second();\n    value >> Console;\n    ret value;\n}\n",
+                    ["z.ddf"] = "second() out int\n{\n    ret 22;\n}\n"
+                };
+                IEnumerable<KeyValuePair<string, string>> creationOrder =
+                    reverseOrder ? sources.Reverse() : sources;
+                foreach (KeyValuePair<string, string> source in creationOrder)
+                    File.WriteAllText(Path.Combine(root, source.Key), source.Value,
+                        new UTF8Encoding(false));
+
+                DdfLanguagePackage package = DdfLanguagePackageLoader
+                    .LoadEmbeddedDefault().Package;
+                DdfProjectManifest project = DdfProjectManifest.CreateImplicit(
+                    "Deterministic isolated build", package, "main.ddf");
+                project.Module.Id = "ddf.test.deterministic-isolated";
+                project.Module.Version = "1.0.0";
+                project.Module.Exports.Add("main");
+                project.Sources = (reverseOrder
+                        ? sources.Keys.Reverse()
+                        : sources.Keys)
+                    .ToList();
+                DdfBuildResult prepared = new DdfBuildService().Validate(root,
+                    project, package);
+                Require(prepared.Success, "Preparazione probe fallita: " +
+                    string.Join("; ", prepared.Issues));
+                DdfDotNetReferenceSet references =
+                    DdfDotNetReferencePackResolver.Resolve(
+                        FindNet10ReferencePack(),
+                        typeof(DdfRuntimeAbi).Assembly.Location);
+                DdfDotNetCompilationPlanResult planned =
+                    DdfDotNetCompilationPlanner.Create(prepared,
+                        new DdfDotNetCompilationOptions("net10.0",
+                            DdfRuntimeAbi.Version, referenceSet: references));
+                Require(planned.Success, "Piano probe deterministico non valido.");
+                DdfDotNetArtifactEmissionResult emission =
+                    DdfDotNetArtifactEmitter.Emit(planned.Plan,
+                        package.Language.Types.ClrMapping);
+                Require(emission.Success, "Emit probe deterministico fallito: " +
+                    string.Join("; ", emission.Issues.Select(issue =>
+                        issue.Code + " " + issue.Message)));
+                var output = new List<string>();
+                DdfRuntimeExecutionResult execution = ExecuteForVerification(
+                    planned.Plan, emission, output);
+                var artifacts = emission.Artifacts
+                    .OrderBy(item => item.ModuleIdentity, StringComparer.Ordinal)
+                    .Select(item => new
+                    {
+                        identity = item.ModuleIdentity,
+                        assembly = HashBytes(item.AssemblyBytes),
+                        pdb = HashBytes(item.PortablePdbBytes),
+                        sourceMap = HashBytes(item.SourceMapBytes),
+                        manifest = HashBytes(item.ManifestBytes)
+                    }).ToArray();
+                Console.WriteLine(JsonSerializer.Serialize(new
+                {
+                    plan = planned.Plan.Fingerprint,
+                    workItems = planned.Plan.WorkItems.Select(item =>
+                        item.Identity).ToArray(),
+                    artifacts,
+                    result = Convert.ToInt32(execution.Value,
+                        CultureInfo.InvariantCulture),
+                    ended = execution.Ended,
+                    output = output.ToArray()
+                }));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static string HashBytes(byte[] bytes) =>
+            Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+        private static void EnforcesCompleteBackendEquivalenceGate()
+        {
+            PlansModulesAndLibrariesThroughTheSharedPipeline();
+            MatchesVmOnDifferentialExecutionCorpus();
+            MatchesVersionedNormativeLanguageCorpus();
+            BridgesExplicitStandaloneHostCapabilities();
+            VerifiesCompiledCapabilitySuspension();
+            MatchesCleanupOrderAcrossVmAndCompiledBackend();
+            PersistsStateAcrossVmAndCompiledSessions();
+            PreservesTypedErrorsAcrossVmAndCompiledFiles();
+            VerifiesGovernedAdaptersAcrossVmAndCompiledBackend();
+            DebugsActiveLanguageConstructsMatrix();
+            Console.WriteLine("PASS gate completo equivalenza VM/Roslyn: " +
+                "valore, Output, errori, effetti host, ordine di valutazione, " +
+                "aliasing, cleanup, state, sospensioni e debug DDF");
         }
 
         private static void DebugsShippedLanguageFeaturesWorkspace()

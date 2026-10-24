@@ -34,6 +34,8 @@
     <None Update="EDITOR_SDK.md" Pack="true" PackagePath="" />
     <None Update="ddf-version-matrix.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Update="ddf-version-matrix.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Update="ddf-product-update-result.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Update="ddf-release-manifest.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Update="DDF_LANGUAGE_INTEGRATION.md" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Update="DDF_BACKEND_EQUIVALENCE.md" Pack="true" PackagePath="contentFiles\any\any\" />
   </ItemGroup>
@@ -51,6 +53,8 @@
     <Content Include="ddf-language-integration.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
     <Content Include="ddf-backend-equivalence.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
     <Content Include="ddf-backend-equivalence.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles\any\any\" />
+    <Content Include="ddf-product-update-result.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="ddf-release-manifest.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="language-build.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="language-tests.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="type-system-corpus.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -85,6 +89,8 @@
     <Compile Update="Main.Breadcrumb.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.CommandPalette.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Settings.cs" DependentUpon="Main.cs" />
+    <Compile Update="Main.ProductUpdates.cs" DependentUpon="Main.cs" />
+    <Compile Update="ProductUpdateForm.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Accessibility.cs" DependentUpon="Main.cs" />
     <Compile Update="TextBoxEditingSupport.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.Palettes.cs" DependentUpon="Main.cs" />

@@ -9,6 +9,13 @@
     "fileVersion": "0.12.5.0",
     "informationalVersion": "0.12.5"
   },
+  "productUpdate": {
+    "productId": "ddf-language-editor",
+    "repository": "DDF-Technology/DDFLanguageEditor",
+    "defaultChannel": "beta",
+    "standaloneComponentId": "standalone",
+    "embeddedComponentIds": [ "core-sdk", "winforms-sdk" ]
+  },
   "language": {
     "id": "ddf",
     "languageVersion": "0.13",
@@ -220,6 +227,8 @@
     "externalApi": "1.1",
     "artifactManifest": "1.1",
     "sourceMap": "1.1",
+    "productUpdateResult": "1.0",
+    "releaseManifest": "1.0",
     "linkedPackage": "1.1"
   },
   "persistence": {
@@ -231,6 +240,7 @@
     "watchExpressions": "1.0",
     "paletteLayout": "1.0",
     "toolbarLayout": "1.0",
+    "productUpdateSettings": "1.0",
     "scriptState": "1.0",
     "projectManifest": "1.2"
   }

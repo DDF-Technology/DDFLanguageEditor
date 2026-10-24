@@ -12,6 +12,7 @@ namespace DDF___Program_Language_Editor
         private const int DiagnosticsAutoHideLogicalHeight = 26;
         private const int MinimumOutlineExpandedLogicalWidth = 300;
         private const int MinimumDiagnosticsExpandedLogicalHeight = 116;
+        private const int MaximumOutlineClientPercentage = 40;
 
         private Timer paletteAutoHideTimer;
         private ToolTip paletteToolTip;
@@ -178,9 +179,13 @@ namespace DDF___Program_Language_Editor
         private void expandOutlinePalette()
         {
             int minimum = scaled(MinimumOutlineExpandedLogicalWidth);
-            int maximum = Math.Max(minimum,
-                ClientSize.Width - splitterOutline.Width - splitterOutline.MinExtra);
-            panelOutline.Width = Math.Min(maximum, Math.Max(minimum, scaled(outlineExpandedWidth)));
+            int available = Math.Max(minimum,
+                ClientSize.Width - splitterOutline.Width);
+            int editorMaximum = Math.Max(minimum, available - splitterOutline.MinExtra);
+            int responsiveWidth = DpiLayout.ClampToClientPercentage(
+                scaled(outlineExpandedWidth), available, minimum,
+                MaximumOutlineClientPercentage);
+            panelOutline.Width = Math.Min(editorMaximum, responsiveWidth);
             splitterOutline.Enabled = outlinePinned;
             buttonOutlinePin.BringToFront();
         }

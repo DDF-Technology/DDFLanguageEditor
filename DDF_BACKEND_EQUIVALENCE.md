@@ -22,12 +22,21 @@ osservabile, il contratto e il gate devono essere aggiornati insieme.
 
 ## Copertura corrente
 
-Valore restituito, output, errori runtime, effetti host, ordine di cleanup,
-stato persistibile e punti di debug sono `enforced`. Il confronto dei punti di debug comprende
-documento, intervallo, Call Stack e valori DDF visibili durante Step Into, Over
-e Out. Il gate cleanup attraversa la stessa sorgente e le stesse capability su
-VM e Roslyn con successo, errore runtime, timeout, Stop e cleanup fallito;
-verifica ordine LIFO, rilascio singolo e prosecuzione dopo un errore di rilascio.
+Valore restituito, output, errori runtime, effetti host, ordine di valutazione,
+aliasing degli array, ordine di cleanup, stato persistibile, sospensioni e punti
+di debug sono `enforced`. Il comando di rilascio
+`DDFLanguageEditor.Compiler.Tests --backend-equivalence-only` esegue l'intero
+gate senza attraversare le prove estranee al confronto dei backend; qualsiasi
+divergenza produce un exit code diverso da zero.
+
+Il confronto dei punti di debug comprende documento, intervallo, Call Stack e
+valori DDF visibili durante Step Into, Over e Out. Il gate cleanup attraversa
+la stessa sorgente e le stesse capability su VM e Roslyn con successo, errore
+runtime, timeout, Stop e cleanup fallito; verifica ordine LIFO, rilascio singolo
+e prosecuzione dopo un errore di rilascio. Le sospensioni coprono ripresa,
+timeout, Stop, risposta tardiva e cleanup; l'ordine di valutazione comprende la
+valutazione singola delle dimensioni degli array e l'aliasing distingue la
+mutazione dell'istanza condivisa dalla riassegnazione locale del parametro.
 
 Lo stato persistibile usa lo stesso insieme scalare e le stesse chiavi stabili
 `modulo@versione::documento::nome` della VM. La Runtime ABI espone snapshot

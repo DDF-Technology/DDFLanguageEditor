@@ -301,10 +301,13 @@ namespace DDF___Program_Language_Editor
             workspaceIndex = workspaceIndex.WithDocumentSource(path, source);
         }
 
-        private void updateWorkspaceDocument(string path, string source, CompilationUnitSyntax root)
+        private void updateWorkspaceDocument(string path, string source,
+            CompilationUnitSyntax root, IReadOnlyList<DdfDocumentSymbol> symbols = null)
         {
             if (workspaceIndex == null || string.IsNullOrEmpty(path) || !workspaceIndex.ContainsPath(path)) return;
-            workspaceIndex = workspaceIndex.WithDocument(path, source, root);
+            workspaceIndex = symbols == null
+                ? workspaceIndex.WithDocument(path, source, root)
+                : workspaceIndex.WithDocument(path, source, root, symbols);
         }
 
         private IReadOnlyList<DdfCompletionItem> getWorkspaceCompletionItems()

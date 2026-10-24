@@ -24,6 +24,9 @@
     <EmbeddedResource Include="..\language-packages\ddf\*.*"
                       Link="LanguagePackages\Ddf\%(Filename)%(Extension)"
                       LogicalName="DDFLanguageEditor.Core.LanguagePackages.Ddf.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\ddf-version-matrix.json"
+                      Link="Versioning\ddf-version-matrix.json"
+                      LogicalName="DDFLanguageEditor.Core.Versioning.ddf-version-matrix.json" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="" />
@@ -31,6 +34,8 @@
     <None Include="..\ddf-adapter-family-catalog.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-version-matrix.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-version-matrix.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-product-update-result.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-release-manifest.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\DDF_LANGUAGE_INTEGRATION.md" Pack="true" PackagePath="contentFiles\any\any\" />

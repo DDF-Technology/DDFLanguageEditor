@@ -104,6 +104,16 @@ futuro entry wrapper dovrà chiamare questo coordinatore prima di `main`.
 emette una DLL gestita per work item in ordine topologico e crea il manifest
 soltanto dopo il successo. Due emissioni dello stesso piano sono verificate
 byte-per-byte; la ricevuta registra piano, profilo, Roslyn, C# e reference set.
+Il gate autonomo
+`DDFLanguageEditor.Compiler.Tests --deterministic-build-only` estende la prova
+oltre il singolo processo: quattro processi nuovi compilano lo stesso progetto
+con culture `en-US`, `it-IT` e `tr-TR`, creando i file e fornendo i pattern del
+manifest sia in ordine diretto sia inverso. Fingerprint del piano, ordine delle
+work item, DLL, Portable PDB, source map, manifest, Output e risultato devono
+essere identici byte-per-byte; il processo termina con errore alla prima
+divergenza. Percorsi temporanei, cultura corrente, ordine di enumerazione e
+stato statico di una compilazione precedente non fanno quindi parte del
+contratto osservabile.
 Un errore `DDFC407`/`DDFC408` invalida l'intero risultato e non restituisce un
 insieme parziale. `DdfDotNetArtifactPublisher` controlla nuovamente coerenza e
 hash, pubblica tramite staging e rinomina atomica e rifiuta destinazioni già

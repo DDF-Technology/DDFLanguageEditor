@@ -286,9 +286,11 @@ namespace DDF___Program_Language_Editor
                 toolStripPanelMain.PerformLayout();
                 int middleY = first.Group.Strip.Top + Math.Max(1, first.Group.Strip.Height / 2);
                 int nextX = first.Group.Strip.Right + 4;
+                int availableWidth = Math.Max(1, toolStripPanelMain.DisplayRectangle.Width);
                 foreach (ToolbarRestorePlacement placement in row.Skip(1))
                 {
-                    int requestedX = Math.Max(nextX, placement.Location.X);
+                    int requestedX = compactToolbarLocation(nextX, placement.Location.X,
+                        placement.Group.Strip.PreferredSize.Width, availableWidth);
                     toolStripPanelMain.Join(placement.Group.Strip, new Point(requestedX, middleY));
                     toolStripPanelMain.PerformLayout();
                     nextX = placement.Group.Strip.Right + 4;
@@ -299,6 +301,16 @@ namespace DDF___Program_Language_Editor
             updateEditorChromeInset();
             suppressToolbarLayoutSave = false;
             toolbarLayoutReady = true;
+        }
+
+        private static int compactToolbarLocation(int nextX, int persistedX,
+            int toolbarWidth, int availableWidth)
+        {
+            int sequentialX = Math.Max(0, nextX);
+            int preferredX = Math.Max(sequentialX, persistedX);
+            return preferredX + Math.Max(0, toolbarWidth) <= Math.Max(1, availableWidth)
+                ? preferredX
+                : sequentialX;
         }
 
         private IReadOnlyList<ToolbarRestorePlacement> createToolbarRestorePlacements()

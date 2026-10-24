@@ -407,6 +407,13 @@ namespace DDF___Program_Language_Editor
             lastAnalyzedText = string.Empty;
             activeDelimiterMatch = null;
             diagnosticsFormatStart = int.MaxValue;
+            DocumentView view = activeDocumentView;
+            if (view != null)
+            {
+                view.SyntaxFormattedSource = string.Empty;
+                view.SyntaxFormattedLanguageRevision = -1;
+                view.SyntaxFormattingStyle = string.Empty;
+            }
             outlineRenderSignature = null;
             diagnosticsRenderSignature = null;
             collapsedFoldStarts.Clear();

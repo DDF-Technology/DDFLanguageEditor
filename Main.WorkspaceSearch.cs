@@ -270,11 +270,19 @@ namespace DDF___Program_Language_Editor
         private void scheduleWorkspaceSearch()
         {
             if (workspaceSearchTimer == null || IsDisposed || Disposing) return;
+            bool emptyQuery = string.IsNullOrWhiteSpace(workspaceSearchTextBox.Text);
+            bool hasPublishedResults = (activeWorkspaceSearchResults?.Count ?? 0) > 0 ||
+                                       workspaceSearchResultsListView.Items.Count > 0;
+            bool hasPendingSearch = workspaceSearchTimer.Enabled || workspaceSearchCancellation != null;
+            // Ordinary editor input also reaches this method. With no search in
+            // progress there is nothing to invalidate; avoid clearing controls and
+            // refreshing the overview on every keystroke.
+            if (emptyQuery && !hasPublishedResults && !hasPendingSearch && !isWorkspaceReplacementMode) return;
             workspaceSearchTimer.Stop();
             workspaceSearchRequestVersion++;
             workspaceSearchCancellation?.Cancel();
             workspaceReplacementApplyButton.Enabled = false;
-            if (string.IsNullOrWhiteSpace(workspaceSearchTextBox.Text))
+            if (emptyQuery)
             {
                 activeWorkspaceSearchResults = Array.Empty<DdfWorkspaceSearchResult>();
                 workspaceSearchResultsListView.Items.Clear();

@@ -6,6 +6,36 @@ using System.Threading.Tasks;
 
 namespace DDFLanguageEditor.Core
 {
+    public sealed class DdfEditorAnalysisProfile
+    {
+        internal DdfEditorAnalysisProfile(double lexMilliseconds,
+            double parseMilliseconds, double semanticMilliseconds,
+            double typeCheckMilliseconds, double irMilliseconds,
+            double symbolMilliseconds, double foldingMilliseconds,
+            double completionMilliseconds, double diagnosticsMilliseconds)
+        {
+            LexMilliseconds = lexMilliseconds;
+            ParseMilliseconds = parseMilliseconds;
+            SemanticMilliseconds = semanticMilliseconds;
+            TypeCheckMilliseconds = typeCheckMilliseconds;
+            IrMilliseconds = irMilliseconds;
+            SymbolMilliseconds = symbolMilliseconds;
+            FoldingMilliseconds = foldingMilliseconds;
+            CompletionMilliseconds = completionMilliseconds;
+            DiagnosticsMilliseconds = diagnosticsMilliseconds;
+        }
+
+        public double LexMilliseconds { get; }
+        public double ParseMilliseconds { get; }
+        public double SemanticMilliseconds { get; }
+        public double TypeCheckMilliseconds { get; }
+        public double IrMilliseconds { get; }
+        public double SymbolMilliseconds { get; }
+        public double FoldingMilliseconds { get; }
+        public double CompletionMilliseconds { get; }
+        public double DiagnosticsMilliseconds { get; }
+    }
+
     /// <summary>
     /// Immutable input captured by an editor host before starting analysis.
     /// The language and workspace collections are copied so a request cannot
@@ -82,6 +112,7 @@ namespace DDFLanguageEditor.Core
             IReadOnlyList<DdfFoldingRange> foldingRanges,
             DdfCompletionResult completions,
             IReadOnlyList<DdfDiagnostic> diagnostics,
+            DdfEditorAnalysisProfile profile,
             DateTimeOffset createdAtUtc)
         {
             RequestId = requestId;
@@ -95,6 +126,7 @@ namespace DDFLanguageEditor.Core
             FoldingRanges = foldingRanges ?? throw new ArgumentNullException(nameof(foldingRanges));
             Completions = completions ?? throw new ArgumentNullException(nameof(completions));
             Diagnostics = diagnostics ?? throw new ArgumentNullException(nameof(diagnostics));
+            Profile = profile ?? throw new ArgumentNullException(nameof(profile));
             CreatedAtUtc = createdAtUtc;
         }
 
@@ -116,6 +148,7 @@ namespace DDFLanguageEditor.Core
         public DdfCompletionResult Completions { get; }
         public bool CompletionsComputed => Request.ComputeCompletions;
         public IReadOnlyList<DdfDiagnostic> Diagnostics { get; }
+        public DdfEditorAnalysisProfile Profile { get; }
         public DateTimeOffset CreatedAtUtc { get; }
         public bool HasErrors => Diagnostics.Any(item => item.Severity == DdfDiagnosticSeverity.Error);
     }
@@ -240,9 +273,14 @@ namespace DDFLanguageEditor.Core
         {
             DdfLanguageDefinition language = request.LanguagePackage.Language;
             cancellationToken.ThrowIfCancellationRequested();
+            var phase = System.Diagnostics.Stopwatch.StartNew();
             DdfLexResult lex = request.PrecomputedLexResult ?? DdfLexer.Lex(request.Source, language);
+            double lexMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
-            DdfParseResult parse = DdfParser.Parse(request.Source, lex, language);
+            phase.Restart();
+            DdfParseResult parse = DdfParser.Parse(request.Source, lex, language,
+                cancellationToken);
+            double parseMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
             IEnumerable<string> hostNames = request.HostCatalog == null
                 ? Array.Empty<string>()
@@ -250,20 +288,31 @@ namespace DDFLanguageEditor.Core
                     request.HostCatalog.Functions.Select(item => item.Name));
             IEnumerable<string> knownExternalNames = request.ExternalSymbols
                 .Select(item => item.Name).Concat(hostNames);
+            phase.Restart();
             DdfSemanticModel semantics = DdfSemanticModel.Create(request.Source,
                 parse.Root, knownExternalNames);
+            double semanticMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
+            phase.Restart();
             DdfTypeCheckResult types = DdfTypeChecker.Check(request.Source, parse.Root,
                 request.ExternalRoots, language.Types, language.StandardLibrary,
                 request.HostCatalog, language.Runtime);
+            double typeCheckMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
+            phase.Restart();
             DdfIrBuildResult ir = DdfIrLowerer.Lower(request.Source, parse, language);
+            double irMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
+            phase.Restart();
             IReadOnlyList<DdfDocumentSymbol> symbols = DdfSymbolIndex.Create(parse, request.Source).Symbols;
+            double symbolMilliseconds = phase.Elapsed.TotalMilliseconds;
+            phase.Restart();
             IReadOnlyList<DdfFoldingRange> folding = DdfFoldingRangeProvider.Create(parse, request.Source);
+            double foldingMilliseconds = phase.Elapsed.TotalMilliseconds;
             cancellationToken.ThrowIfCancellationRequested();
             IEnumerable<DdfCompletionItem> hostItems = CreateHostCompletionItems(
                 request.HostCatalog);
+            phase.Restart();
             DdfCompletionResult completions = request.ComputeCompletions
                 ? DdfCompletionService.GetCompletions(
                     request.Source, request.Position, request.IncludeAllCompletions, language,
@@ -271,6 +320,7 @@ namespace DDFLanguageEditor.Core
                     request.ExternalRoots, cancellationToken, request.HostCatalog)
                 : new DdfCompletionResult(request.Position, 0,
                     Array.Empty<DdfCompletionItem>());
+            double completionMilliseconds = phase.Elapsed.TotalMilliseconds;
             // The generic grammar diagnostic is useful when the typed parser accepts a construct
             // that the package grammar forbids. When the typed parser already reports a concrete
             // missing token, however, DDFG101 is only a remote and misleading duplicate.
@@ -280,11 +330,18 @@ namespace DDFLanguageEditor.Core
             IEnumerable<DdfDiagnostic> irDiagnostics = parse.Diagnostics.Count == 0
                 ? ir.Diagnostics
                 : ir.Diagnostics.Except(parse.GrammarDiagnostics);
+            phase.Restart();
             IReadOnlyList<DdfDiagnostic> diagnostics = MergeDiagnostics(
                 syntaxDiagnostics, semantics.Diagnostics, types.Diagnostics, irDiagnostics);
             diagnostics = diagnostics.Select(language.Intellisense.Diagnostics.Apply).ToList().AsReadOnly();
+            double diagnosticsMilliseconds = phase.Elapsed.TotalMilliseconds;
+            var profile = new DdfEditorAnalysisProfile(lexMilliseconds,
+                parseMilliseconds, semanticMilliseconds, typeCheckMilliseconds,
+                irMilliseconds, symbolMilliseconds, foldingMilliseconds,
+                completionMilliseconds, diagnosticsMilliseconds);
             return new DdfEditorAnalysisSnapshot(requestId, request, lex, parse, semantics, types,
-                ir, symbols, folding, completions, diagnostics, DateTimeOffset.UtcNow);
+                ir, symbols, folding, completions, diagnostics, profile,
+                DateTimeOffset.UtcNow);
         }
 
         private static IEnumerable<DdfCompletionItem> CreateHostCompletionItems(

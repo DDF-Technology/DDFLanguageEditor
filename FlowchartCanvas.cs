@@ -50,6 +50,8 @@ namespace DDF___Program_Language_Editor
         public DdfFlowchartNode SelectedNode => FindSelectedNode(diagram)?.Node;
         public DdfFlowchartNode ExecutionNode => diagram?.Flowchart.FindNode(executionNodeId);
         public float ZoomFactor => zoomFactor;
+        private float DisplayScale => zoomFactor * DpiScaleFor(DeviceDpi);
+        internal static float DpiScaleFor(int dpi) => Math.Max(96, dpi) / 96F;
         public string ViewNotice => viewNotice;
         public string TrueLabel => trueLabel;
         public string FalseLabel => falseLabel;
@@ -123,8 +125,8 @@ namespace DDF___Program_Language_Editor
                 string.Equals(previous.Flowchart.DocumentPath, value.Flowchart.DocumentPath,
                     StringComparison.OrdinalIgnoreCase);
             PointF anchorInClient = previousAnchor == null ? PointF.Empty : new PointF(
-                (float)((previousAnchor.X + previousAnchor.Width / 2) * zoomFactor) + previousScroll.X,
-                (float)((previousAnchor.Y + previousAnchor.Height / 2) * zoomFactor) + previousScroll.Y);
+                (float)((previousAnchor.X + previousAnchor.Width / 2) * DisplayScale) + previousScroll.X,
+                (float)((previousAnchor.Y + previousAnchor.Height / 2) * DisplayScale) + previousScroll.Y);
             PointF relativeCenter = RelativeViewportCenter(previousExtent, previousScroll);
 
             diagram = value;
@@ -140,8 +142,8 @@ namespace DDF___Program_Language_Editor
                     ? anchorInClient
                     : new PointF(ClientSize.Width / 2F, ClientSize.Height / 2F);
                 RestoreScrollOffset(
-                    (float)((nextAnchor.X + nextAnchor.Width / 2) * zoomFactor) - desiredClient.X,
-                    (float)((nextAnchor.Y + nextAnchor.Height / 2) * zoomFactor) - desiredClient.Y);
+                    (float)((nextAnchor.X + nextAnchor.Width / 2) * DisplayScale) - desiredClient.X,
+                    (float)((nextAnchor.Y + nextAnchor.Height / 2) * DisplayScale) - desiredClient.Y);
             }
             else if (sameFunction && previous != null)
             {
@@ -504,9 +506,10 @@ namespace DDF___Program_Language_Editor
 
         private void UpdateScrollSize()
         {
+            float displayScale = DisplayScale;
             AutoScrollMinSize = diagram == null ? Size.Empty : new Size(
-                (int)Math.Ceiling(RenderWidth() * zoomFactor),
-                (int)Math.Ceiling(diagram.Height * zoomFactor));
+                (int)Math.Ceiling(RenderWidth() * displayScale),
+                (int)Math.Ceiling(diagram.Height * displayScale));
         }
 
         private double RenderWidth()
@@ -615,12 +618,13 @@ namespace DDF___Program_Language_Editor
         {
             if (node == null || ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
             const int margin = 18;
+            float displayScale = DisplayScale;
             float currentX = -AutoScrollPosition.X;
             float currentY = -AutoScrollPosition.Y;
-            float left = (float)(node.X * zoomFactor);
-            float top = (float)(node.Y * zoomFactor);
-            float right = (float)((node.X + node.Width) * zoomFactor);
-            float bottom = (float)((node.Y + node.Height) * zoomFactor);
+            float left = (float)(node.X * displayScale);
+            float top = (float)(node.Y * displayScale);
+            float right = (float)((node.X + node.Width) * displayScale);
+            float bottom = (float)((node.Y + node.Height) * displayScale);
             float nextX = currentX;
             float nextY = currentY;
             if (left < currentX + margin) nextX = left - margin;
@@ -706,8 +710,9 @@ namespace DDF___Program_Language_Editor
 
         private DdfFlowchartLayoutNode HitTest(Point location)
         {
-            PointF translated = new PointF((location.X - AutoScrollPosition.X) / zoomFactor,
-                (location.Y - AutoScrollPosition.Y) / zoomFactor);
+            float displayScale = DisplayScale;
+            PointF translated = new PointF((location.X - AutoScrollPosition.X) / displayScale,
+                (location.Y - AutoScrollPosition.Y) / displayScale);
             return diagram?.Nodes.FirstOrDefault(item =>
                 new RectangleF((float)item.X, (float)item.Y, (float)item.Width, (float)item.Height)
                     .Contains(translated));
@@ -762,8 +767,16 @@ namespace DDF___Program_Language_Editor
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            DrawDiagram(e.Graphics, AutoScrollPosition, zoomFactor);
+            float dpiScale = DpiScaleFor(DeviceDpi);
+            DrawDiagram(e.Graphics, AutoScrollPosition, zoomFactor * dpiScale, 1F / dpiScale);
             DrawViewNotice(e.Graphics);
+        }
+
+        protected override void OnDpiChangedAfterParent(EventArgs e)
+        {
+            base.OnDpiChangedAfterParent(e);
+            UpdateScrollSize();
+            Invalidate();
         }
 
         private void DrawViewNotice(Graphics graphics)
@@ -792,53 +805,64 @@ namespace DDF___Program_Language_Editor
                 TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
         }
 
-        private void DrawDiagram(Graphics graphics, Point offset, float scale)
+        private void DrawDiagram(Graphics graphics, Point offset, float scale, float fontScale = 1F)
         {
             if (diagram == null) return;
+            Font diagramFont = Math.Abs(fontScale - 1F) < 0.001F
+                ? Font
+                : new Font(Font.FontFamily, Math.Max(1F, Font.Size * fontScale),
+                    Font.Style, GraphicsUnit.Point);
             GraphicsState state = graphics.Save();
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.TranslateTransform(offset.X, offset.Y);
-            graphics.ScaleTransform(scale, scale);
-            var byId = diagram.Nodes.ToDictionary(item => item.Node.Id, StringComparer.Ordinal);
-            IReadOnlyList<RoutedEdge> routes = BuildRoutes(byId);
-            IReadOnlyList<MergeArrow> mergeArrows = BuildMergeArrows(routes);
-            var labels = new List<EdgeLabel>();
-            using (var edgePen = new Pen(Color.FromArgb(105, 112, 120), 1.5F) { EndCap = LineCap.ArrowAnchor })
-            using (var backPen = new Pen(Color.FromArgb(86, 120, 166), 1.5F) { DashStyle = DashStyle.Dash })
-            using (var backSegmentPen = new Pen(Color.FromArgb(86, 120, 166), 1.5F) { DashStyle = DashStyle.Dash })
-            using (var trueTeachingPen = new Pen(Color.FromArgb(22, 130, 66), 3F) { EndCap = LineCap.ArrowAnchor })
-            using (var falseTeachingPen = new Pen(Color.FromArgb(190, 55, 55), 3F) { EndCap = LineCap.ArrowAnchor })
+            try
             {
-                foreach (RoutedEdge route in routes.Where(item => !item.Edge.IsBackEdge))
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.TranslateTransform(offset.X, offset.Y);
+                graphics.ScaleTransform(scale, scale);
+                var byId = diagram.Nodes.ToDictionary(item => item.Node.Id, StringComparer.Ordinal);
+                IReadOnlyList<RoutedEdge> routes = BuildRoutes(byId);
+                IReadOnlyList<MergeArrow> mergeArrows = BuildMergeArrows(routes);
+                var labels = new List<EdgeLabel>();
+                using (var edgePen = new Pen(Color.FromArgb(105, 112, 120), 1.5F) { EndCap = LineCap.ArrowAnchor })
+                using (var backPen = new Pen(Color.FromArgb(86, 120, 166), 1.5F) { DashStyle = DashStyle.Dash })
+                using (var backSegmentPen = new Pen(Color.FromArgb(86, 120, 166), 1.5F) { DashStyle = DashStyle.Dash })
+                using (var trueTeachingPen = new Pen(Color.FromArgb(22, 130, 66), 3F) { EndCap = LineCap.ArrowAnchor })
+                using (var falseTeachingPen = new Pen(Color.FromArgb(190, 55, 55), 3F) { EndCap = LineCap.ArrowAnchor })
                 {
-                    bool selectedDecisionEdge = educationalModeEnabled &&
-                        string.Equals(route.Edge.From, selectedNodeId, StringComparison.Ordinal) &&
-                        (route.Edge.Kind == DdfFlowchartEdgeKind.True ||
-                         route.Edge.Kind == DdfFlowchartEdgeKind.False);
-                    Pen routePen = !selectedDecisionEdge ? edgePen :
-                        route.Edge.Kind == DdfFlowchartEdgeKind.True ? trueTeachingPen : falseTeachingPen;
-                    graphics.DrawLines(routePen, route.Points);
+                    foreach (RoutedEdge route in routes.Where(item => !item.Edge.IsBackEdge))
+                    {
+                        bool selectedDecisionEdge = educationalModeEnabled &&
+                            string.Equals(route.Edge.From, selectedNodeId, StringComparison.Ordinal) &&
+                            (route.Edge.Kind == DdfFlowchartEdgeKind.True ||
+                             route.Edge.Kind == DdfFlowchartEdgeKind.False);
+                        Pen routePen = !selectedDecisionEdge ? edgePen :
+                            route.Edge.Kind == DdfFlowchartEdgeKind.True ? trueTeachingPen : falseTeachingPen;
+                        graphics.DrawLines(routePen, route.Points);
+                    }
+
+                    List<LineSegment> solidSegments = routes.Where(item => !item.Edge.IsBackEdge)
+                        .SelectMany(item => Segments(item.Points)).ToList();
+                    foreach (RoutedEdge route in routes.Where(item => item.Edge.IsBackEdge))
+                        DrawDashedRoute(graphics, route.Points, solidSegments, backSegmentPen, backPen);
+
+                    foreach (RoutedEdge route in routes)
+                    {
+                        string label = route.Edge.Kind == DdfFlowchartEdgeKind.True ? trueLabel :
+                            route.Edge.Kind == DdfFlowchartEdgeKind.False ? falseLabel : string.Empty;
+                        if (label.Length > 0) labels.Add(new EdgeLabel(label, route.LabelPoint,
+                            route.Edge.Kind == DdfFlowchartEdgeKind.True));
+                    }
                 }
 
-                List<LineSegment> solidSegments = routes.Where(item => !item.Edge.IsBackEdge)
-                    .SelectMany(item => Segments(item.Points)).ToList();
-                foreach (RoutedEdge route in routes.Where(item => item.Edge.IsBackEdge))
-                    DrawDashedRoute(graphics, route.Points, solidSegments, backSegmentPen, backPen);
-
-                foreach (RoutedEdge route in routes)
-                {
-                    string label = route.Edge.Kind == DdfFlowchartEdgeKind.True ? trueLabel :
-                        route.Edge.Kind == DdfFlowchartEdgeKind.False ? falseLabel : string.Empty;
-                    if (label.Length > 0) labels.Add(new EdgeLabel(label, route.LabelPoint,
-                        route.Edge.Kind == DdfFlowchartEdgeKind.True));
-                }
+                foreach (MergeArrow arrow in mergeArrows) DrawMergeArrow(graphics, arrow);
+                foreach (DdfFlowchartLayoutNode item in diagram.Nodes) DrawNode(graphics, item, diagramFont);
+                foreach (EdgeLabel label in labels)
+                    DrawEdgeLabel(graphics, label.Text, label.Center, label.Positive, diagramFont);
             }
-
-            foreach (MergeArrow arrow in mergeArrows) DrawMergeArrow(graphics, arrow);
-            foreach (DdfFlowchartLayoutNode item in diagram.Nodes) DrawNode(graphics, item);
-            foreach (EdgeLabel label in labels)
-                DrawEdgeLabel(graphics, label.Text, label.Center, label.Positive);
-            graphics.Restore(state);
+            finally
+            {
+                graphics.Restore(state);
+                if (!ReferenceEquals(diagramFont, Font)) diagramFont.Dispose();
+            }
         }
 
         private IReadOnlyList<RoutedEdge> BuildRoutes(
@@ -1161,9 +1185,10 @@ namespace DDF___Program_Language_Editor
             return new PointF(centerX, (float)(from.Y + from.Height));
         }
 
-        private void DrawEdgeLabel(Graphics graphics, string text, PointF center, bool positive)
+        private void DrawEdgeLabel(Graphics graphics, string text, PointF center, bool positive,
+            Font diagramFont)
         {
-            SizeF measured = graphics.MeasureString(text, Font);
+            SizeF measured = graphics.MeasureString(text, diagramFont);
             var bounds = new RectangleF(center.X - measured.Width / 2 - 3,
                 center.Y - measured.Height / 2 - 1, measured.Width + 6, measured.Height + 2);
             Color foreground = positive ? Color.FromArgb(22, 104, 55) : Color.FromArgb(155, 46, 46);
@@ -1174,7 +1199,7 @@ namespace DDF___Program_Language_Editor
             {
                 graphics.FillRectangle(fill, bounds);
                 graphics.DrawRectangle(border, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                graphics.DrawString(text, Font, brush, center.X - measured.Width / 2,
+                graphics.DrawString(text, diagramFont, brush, center.X - measured.Width / 2,
                     center.Y - measured.Height / 2);
             }
         }
@@ -1220,7 +1245,7 @@ namespace DDF___Program_Language_Editor
                 : new LineSegment(new PointF(first, Start.Y), new PointF(second, Start.Y));
         }
 
-        private void DrawNode(Graphics graphics, DdfFlowchartLayoutNode item)
+        private void DrawNode(Graphics graphics, DdfFlowchartLayoutNode item, Font diagramFont)
         {
             RectangleF bounds = new RectangleF((float)item.X, (float)item.Y, (float)item.Width, (float)item.Height);
             bool selected = string.Equals(item.Node.Id, selectedNodeId, StringComparison.Ordinal);
@@ -1239,7 +1264,7 @@ namespace DDF___Program_Language_Editor
                 graphics.FillPath(brush, path);
                 graphics.DrawPath(border, path);
                 RectangleF textBounds = RectangleF.Inflate(bounds, -10, -6);
-                graphics.DrawString(item.Node.Label, Font, textBrush, textBounds, format);
+                graphics.DrawString(item.Node.Label, diagramFont, textBrush, textBounds, format);
                 if (item.Node.IsCollapsedGroup)
                 {
                     var badge = new RectangleF(bounds.Right - 18F, bounds.Top + 5F, 12F, 12F);

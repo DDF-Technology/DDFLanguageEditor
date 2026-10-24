@@ -37,16 +37,21 @@ namespace DDF___Program_Language_Editor
         private void settingsMenuItem_Click(object sender, EventArgs e)
         {
             using (var dialog = new SettingsForm(editorSettings, shortcutDefinitions, shortcutSettings,
-                editorLanguageSession.ActivePackage))
+                editorLanguageSession.ActivePackage,
+                embeddedHostMode ? null : productUpdateSettings))
             {
                 if (showSettingsDialog(dialog) != DialogResult.OK) return;
                 editorSettings = dialog.SelectedSettings;
                 shortcutSettings = dialog.SelectedShortcuts;
+                if (!embeddedHostMode)
+                    productUpdateSettings = dialog.SelectedProductUpdateSettings;
             }
             synchronizeEditorHostConfiguration();
             persistEditorSettings();
             persistShortcutSettings();
+            persistProductUpdateSettings();
             applyEditorSettings();
+            scheduleAutomaticProductUpdateCheck();
             applyShortcutSettings();
             updateAutoSaveBehavior();
             updateWorkspaceSessionBehavior();
@@ -85,6 +90,11 @@ namespace DDF___Program_Language_Editor
             diagnosticsFormatStart = 0;
             applyHighlighting();
             updateLineNumbers();
+            float zoomFactor = editorSettings.ZoomPercent / 100F;
+            foreach (DocumentView view in documentViews.Values)
+                view.Editor.ZoomFactor = zoomFactor;
+            richTextBoxFoldedView.ZoomFactor = zoomFactor;
+            richTextBoxLineNumbers.ZoomFactor = zoomFactor;
         }
 
         private void applyEditorControlSettings(RichTextBox control, Color background, Color foreground, bool configureTabs)

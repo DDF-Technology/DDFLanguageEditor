@@ -27,8 +27,15 @@ jobs:
       - name: Build Release
         run: dotnet build "DDF - Program Language Editor.sln" --configuration Release --no-restore --disable-build-servers --maxcpucount:1
 
-      - name: Publish self-contained Windows x64 package
-        run: .\tools\publish-release.ps1
+      - name: Publish unsigned self-contained verification candidate
+        if: github.event_name != 'workflow_dispatch'
+        run: .\tools\publish-release.ps1 -SkipSignedManifest
+
+      - name: Publish signed self-contained Windows x64 release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DDF_RELEASE_SIGNING_KEY_PKCS8_BASE64: ${{ secrets.DDF_RELEASE_SIGNING_KEY_PKCS8_BASE64 }}
+        run: .\tools\publish-release.ps1 -SigningKeyId official-2026
 
       - name: Upload self-contained package
         if: github.event_name == 'workflow_dispatch'
@@ -38,5 +45,6 @@ jobs:
           path: |
             .artifacts/release/*.zip
             .artifacts/release/*.sha256
+            .artifacts/release/ddf-release-manifest.json
           if-no-files-found: error
           retention-days: 1

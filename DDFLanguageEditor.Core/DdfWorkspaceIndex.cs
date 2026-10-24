@@ -80,13 +80,21 @@ namespace DDFLanguageEditor.Core
             }
             paths = paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             paths.Sort(StringComparer.OrdinalIgnoreCase);
-            foreach (string path in paths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                string fullPath = Path.GetFullPath(path);
-                documents.Add(CreateDocument(normalizedRoot, fullPath, DdfDocumentFile.Load(fullPath)));
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+            // Each source is immutable and independent while the index is built.
+            // Parse them concurrently, but retain the sorted path order so symbol
+            // lookup and UI presentation stay deterministic.
+            documents.AddRange(paths
+                .AsParallel()
+                .AsOrdered()
+                .WithCancellation(cancellationToken)
+                .Select(path =>
+                {
+                    string fullPath = Path.GetFullPath(path);
+                    return CreateDocument(normalizedRoot, fullPath,
+                        DdfDocumentFile.Load(fullPath));
+                })
+                .ToList());
+            cancellationToken.ThrowIfCancellationRequested();
 
             return new DdfWorkspaceIndex(normalizedRoot, documents.AsReadOnly(), normalizedExtensions);
         }
@@ -120,8 +128,18 @@ namespace DDFLanguageEditor.Core
 
         public DdfWorkspaceIndex WithDocument(string path, string source, CompilationUnitSyntax root)
         {
+            if (root == null) throw new ArgumentNullException(nameof(root));
+            DdfParseResult parseResult = DdfParser.Parse(source ?? string.Empty);
+            return WithDocument(path, source, root,
+                DdfSymbolIndex.Create(parseResult, source ?? string.Empty).Symbols);
+        }
+
+        public DdfWorkspaceIndex WithDocument(string path, string source,
+            CompilationUnitSyntax root, IReadOnlyList<DdfDocumentSymbol> symbols)
+        {
             if (path == null) throw new ArgumentNullException(nameof(path));
             if (root == null) throw new ArgumentNullException(nameof(root));
+            if (symbols == null) throw new ArgumentNullException(nameof(symbols));
             string fullPath = Path.GetFullPath(path);
             if (!ContainsPath(fullPath) || !fileExtensions.Contains(
                 Path.GetExtension(fullPath), StringComparer.OrdinalIgnoreCase))
@@ -132,7 +150,8 @@ namespace DDFLanguageEditor.Core
             var documents = Documents
                 .Where(document => !string.Equals(document.Path, fullPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            documents.Add(CreateDocument(RootPath, fullPath, source ?? string.Empty, root));
+            documents.Add(CreateDocument(RootPath, fullPath, source ?? string.Empty,
+                root, symbols));
             documents.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath));
             return new DdfWorkspaceIndex(RootPath, documents.AsReadOnly(), fileExtensions);
         }

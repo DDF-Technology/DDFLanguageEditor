@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/release-manifest-1.0.json",
+  "title": "DDF signed release manifest 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [ "schemaVersion", "productId", "repository", "version", "channel", "publishedAtUtc", "releaseNotes", "compatibility", "assets", "signature" ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "productId": { "const": "ddf-language-editor" },
+    "repository": { "const": "DDF-Technology/DDFLanguageEditor" },
+    "version": { "$ref": "#/$defs/semver" },
+    "channel": { "enum": [ "stable", "beta" ] },
+    "publishedAtUtc": { "type": "string", "format": "date-time" },
+    "releaseNotes": { "type": "string", "maxLength": 65536 },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "minimumSdkContractVersion", "maximumSdkContractVersion", "persistenceVersions" ],
+      "properties": {
+        "minimumSdkContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "maximumSdkContractVersion": { "$ref": "#/$defs/majorMinor" },
+        "persistenceVersions": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/majorMinor" }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [ "componentKind", "componentId", "version", "runtimeIdentifier", "architecture", "uri", "size", "sha256" ],
+        "properties": {
+          "componentKind": { "enum": [ "standalone", "embeddedSdk", "languagePackage", "module", "plugin" ] },
+          "componentId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "version": { "$ref": "#/$defs/semver" },
+          "runtimeIdentifier": { "type": "string", "minLength": 1 },
+          "architecture": { "type": "string", "minLength": 1 },
+          "uri": { "type": "string", "format": "uri", "pattern": "^https://" },
+          "size": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "algorithm", "keyId", "value" ],
+      "properties": {
+        "algorithm": { "const": "ECDSA-P256-SHA256" },
+        "keyId": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "majorMinor": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" }
+  }
+}

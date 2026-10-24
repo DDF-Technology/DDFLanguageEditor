@@ -112,5 +112,16 @@ namespace DDF___Program_Language_Editor
 
         public static int ToLogical(int devicePixels, int dpi) =>
             Math.Max(1, (int)Math.Round(devicePixels * 96D / Math.Max(96, dpi)));
+
+        public static int ClampToClientPercentage(int requestedPixels, int clientPixels,
+            int minimumPixels, int percentage)
+        {
+            int safeMinimum = Math.Max(1, minimumPixels);
+            int safeClient = Math.Max(safeMinimum, clientPixels);
+            int safePercentage = Math.Max(1, Math.Min(100, percentage));
+            int proportionalMaximum = Math.Max(safeMinimum,
+                (int)Math.Floor(safeClient * safePercentage / 100D));
+            return Math.Min(proportionalMaximum, Math.Max(safeMinimum, requestedPixels));
+        }
     }
 }

@@ -112,6 +112,8 @@ try {
 
             foreach ($required in @('ddf-version-matrix.json',
                     'ddf-version-matrix.schema.json',
+                    'ddf-product-update-result.schema.json',
+                    'ddf-release-manifest.schema.json',
                     'ddf-language-integration.json',
                     'ddf-language-integration.schema.json',
                     'DDF_LANGUAGE_INTEGRATION.md',
@@ -123,6 +125,30 @@ try {
                 }
                 if ($null -eq $entry) {
                     throw "Artefatto autorevole mancante in $($component.packageId): $required"
+                }
+                if ($required -in @('ddf-version-matrix.json',
+                        'ddf-version-matrix.schema.json')) {
+                    $sourcePath = Join-Path $repositoryRoot $required
+                    $sourceHash = (Get-FileHash -LiteralPath $sourcePath `
+                        -Algorithm SHA256).Hash
+                    $entryStream = $entry.Open()
+                    try {
+                        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+                        try {
+                            $entryHashBytes = $sha256.ComputeHash($entryStream)
+                        }
+                        finally {
+                            $sha256.Dispose()
+                        }
+                    }
+                    finally {
+                        $entryStream.Dispose()
+                    }
+                    $entryHash = ([System.BitConverter]::ToString(
+                        $entryHashBytes)).Replace('-', '')
+                    if ($entryHash -ne $sourceHash) {
+                        throw "Artefatto autorevole divergente in $($component.packageId): $required"
+                    }
                 }
             }
 

@@ -30,6 +30,10 @@ namespace DDF___Program_Language_Editor
         private readonly DataGridView settingsShortcutGrid;
         private readonly TextBox settingsShortcutTextBox;
         private readonly Label settingsShortcutStatusLabel;
+        private readonly CheckBox settingsAutomaticUpdateCheckBox;
+        private readonly ComboBox settingsUpdateChannelComboBox;
+        private readonly NumericUpDown settingsUpdateCadenceNumeric;
+        private readonly ProductUpdateSettings originalProductUpdateSettings;
         private readonly IReadOnlyList<ShortcutCommandDefinition> shortcutDefinitions;
         private readonly Dictionary<string, Keys> shortcutValues;
         private Keys capturedShortcut;
@@ -41,12 +45,14 @@ namespace DDF___Program_Language_Editor
         }
 
         public SettingsForm(EditorSettings settings, IReadOnlyList<ShortcutCommandDefinition> definitions,
-            ShortcutSettings shortcuts, DdfLanguagePackage languagePackage = null)
+            ShortcutSettings shortcuts, DdfLanguagePackage languagePackage = null,
+            ProductUpdateSettings productUpdateSettings = null)
         {
             settings = settings ?? EditorSettings.Default;
             shortcutDefinitions = definitions ?? Array.Empty<ShortcutCommandDefinition>();
             shortcuts = shortcuts ?? ShortcutSettings.Default(shortcutDefinitions);
             shortcutValues = shortcutDefinitions.ToDictionary(item => item.Id, item => shortcuts.Get(item.Id), StringComparer.OrdinalIgnoreCase);
+            originalProductUpdateSettings = productUpdateSettings;
 
             Name = "SettingsForm";
             Text = "Impostazioni";
@@ -81,10 +87,29 @@ namespace DDF___Program_Language_Editor
             settingsShowIndentGuidesCheckBox = new CheckBox { Name = "settingsShowIndentGuidesCheckBox", Text = "Mostra guide di indentazione", Checked = settings.ShowIndentGuides, Dock = DockStyle.Fill };
             settingsWordWrapCheckBox = new CheckBox { Name = "settingsWordWrapCheckBox", Text = "A capo automatico delle righe lunghe", Checked = settings.WordWrap, Dock = DockStyle.Fill };
             settingsShowOverviewCheckBox = new CheckBox { Name = "settingsShowOverviewCheckBox", Text = "Mostra overview di diagnostica, ricerca e breakpoint", Checked = settings.ShowOverview, Dock = DockStyle.Fill };
+            if (productUpdateSettings != null)
+            {
+                settingsAutomaticUpdateCheckBox = new CheckBox
+                {
+                    Name = "settingsAutomaticUpdateCheckBox",
+                    Text = "Controlla automaticamente dopo l'avvio",
+                    Checked = productUpdateSettings.AutomaticCheckEnabled,
+                    Dock = DockStyle.Fill
+                };
+                settingsUpdateChannelComboBox = createChoice(
+                    "settingsUpdateChannelComboBox", new[] { "Stable", "Beta" },
+                    productUpdateSettings.Channel ==
+                        DdfProductUpdateChannel.Stable ? 0 : 1);
+                settingsUpdateCadenceNumeric = createNumeric(
+                    "settingsUpdateCadenceNumeric", 1, 30,
+                    productUpdateSettings.CadenceDays, 1);
+            }
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
             tabs.TabPages.Add(createLanguageTab(languagePackage));
+            if (productUpdateSettings != null)
+                tabs.TabPages.Add(createProductUpdatesTab());
             var shortcutTab = new TabPage("Scorciatoie") { Name = "settingsShortcutsTab", Padding = new Padding(12) };
             settingsShortcutGrid = createShortcutGrid();
             settingsShortcutTextBox = new TextBox { Name = "settingsShortcutTextBox", Dock = DockStyle.Fill, ReadOnly = true, Text = "Premi una combinazione", ShortcutsEnabled = false };
@@ -149,9 +174,28 @@ namespace DDF___Program_Language_Editor
 
         public ShortcutSettings SelectedShortcuts => new ShortcutSettings(shortcutDefinitions, shortcutValues);
 
+        public ProductUpdateSettings SelectedProductUpdateSettings =>
+            originalProductUpdateSettings == null
+                ? null
+                : originalProductUpdateSettings.WithPreferences(
+                    settingsAutomaticUpdateCheckBox.Checked,
+                    settingsUpdateChannelComboBox.SelectedIndex == 0
+                        ? DdfProductUpdateChannel.Stable
+                        : DdfProductUpdateChannel.Beta,
+                    (int)settingsUpdateCadenceNumeric.Value);
+
         public void ResetToDefaults()
         {
             load(EditorSettings.Default);
+            if (originalProductUpdateSettings != null)
+            {
+                ProductUpdateSettings defaults = ProductUpdateSettings.Default;
+                settingsAutomaticUpdateCheckBox.Checked =
+                    defaults.AutomaticCheckEnabled;
+                settingsUpdateChannelComboBox.SelectedIndex =
+                    defaults.Channel == DdfProductUpdateChannel.Stable ? 0 : 1;
+                settingsUpdateCadenceNumeric.Value = defaults.CadenceDays;
+            }
             foreach (ShortcutCommandDefinition definition in shortcutDefinitions) shortcutValues[definition.Id] = definition.DefaultShortcut;
             populateShortcutGrid();
             settingsShortcutStatusLabel.Text = "Preset predefinito ripristinato.";
@@ -233,6 +277,54 @@ namespace DDF___Program_Language_Editor
                 Text = "Per cambiare pacchetto usa Help > Linguaggio o il pulsante Linguaggio nella barra strumenti."
             };
             layout.Controls.Add(note, 0, 5);
+            layout.SetColumnSpan(note, 2);
+            page.Controls.Add(layout);
+            return page;
+        }
+
+        private TabPage createProductUpdatesTab()
+        {
+            var page = new TabPage("Aggiornamenti")
+            {
+                Name = "settingsProductUpdatesTab",
+                Padding = new Padding(18)
+            };
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 2,
+                RowCount = 5,
+                Padding = new Padding(8)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            addRow(layout, 0, "Controllo automatico",
+                settingsAutomaticUpdateCheckBox);
+            addRow(layout, 1, "Canale", settingsUpdateChannelComboBox);
+            addRow(layout, 2, "Cadenza (giorni)",
+                settingsUpdateCadenceNumeric);
+            string lastCheck = originalProductUpdateSettings.LastCheckUtc.HasValue
+                ? originalProductUpdateSettings.LastCheckUtc.Value.ToLocalTime()
+                    .ToString("g")
+                : "Mai";
+            addRow(layout, 3, "Ultimo controllo", new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Text = lastCheck
+            });
+            var note = new Label
+            {
+                AutoSize = true,
+                Dock = DockStyle.Fill,
+                ForeColor = AppTheme.MutedText,
+                Margin = new Padding(3, 18, 3, 3),
+                Text = "Il controllo avviene in background e non invia sorgenti, " +
+                    "workspace o dati dell'host. Download e installazione richiedono " +
+                    "sempre un'azione esplicita."
+            };
+            layout.Controls.Add(note, 0, 4);
             layout.SetColumnSpan(note, 2);
             page.Controls.Add(layout);
             return page;

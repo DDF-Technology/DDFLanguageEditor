@@ -4,7 +4,7 @@
   "title": "DDFLanguageEditor authoritative version matrix 1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "$schema", "schemaVersion", "product", "language", "editorSdk", "hostSupport", "embeddedBoundary", "components", "runtime", "worker", "formats", "schemas", "persistence" ],
+  "required": [ "$schema", "schemaVersion", "product", "productUpdate", "language", "editorSdk", "hostSupport", "embeddedBoundary", "components", "runtime", "worker", "formats", "schemas", "persistence" ],
   "properties": {
     "$schema": { "const": "./ddf-version-matrix.schema.json" },
     "schemaVersion": { "const": "1.0" },
@@ -19,6 +19,23 @@
         "assemblyVersion": { "$ref": "#/$defs/assemblyVersion" },
         "fileVersion": { "$ref": "#/$defs/assemblyVersion" },
         "informationalVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "productUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "productId", "repository", "defaultChannel", "standaloneComponentId", "embeddedComponentIds" ],
+      "properties": {
+        "productId": { "const": "ddf-language-editor" },
+        "repository": { "const": "DDF-Technology/DDFLanguageEditor" },
+        "defaultChannel": { "enum": [ "stable", "beta" ] },
+        "standaloneComponentId": { "type": "string", "minLength": 1 },
+        "embeddedComponentIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
       }
     },
     "language": {

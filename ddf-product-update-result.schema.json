@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/product-update-result-1.0.json",
+  "title": "DDF product update result 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "componentKind", "componentId", "currentVersion",
+    "channel", "state", "compatibility", "checkedAtUtc"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "componentKind": { "enum": [ "standalone", "embeddedSdk", "languagePackage", "module", "plugin" ] },
+    "componentId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "currentVersion": { "$ref": "#/$defs/semver" },
+    "availableVersion": { "oneOf": [ { "$ref": "#/$defs/semver" }, { "type": "null" } ] },
+    "channel": { "enum": [ "stable", "beta" ] },
+    "state": { "enum": [ "unknown", "upToDate", "updateAvailable", "incompatible" ] },
+    "compatibility": { "enum": [ "unknown", "compatible", "incompatible" ] },
+    "checkedAtUtc": { "type": "string", "format": "date-time" },
+    "releasedAtUtc": { "oneOf": [ { "type": "string", "format": "date-time" }, { "type": "null" } ] },
+    "releaseNotes": { "type": [ "string", "null" ] },
+    "verifiedReleaseUri": { "oneOf": [ { "type": "string", "format": "uri", "pattern": "^https://" }, { "type": "null" } ] },
+    "statusDetail": { "type": [ "string", "null" ] },
+    "compatibilityReasons": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      ]
+    }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" }
+  }
+}

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -40,17 +41,27 @@ namespace DDF___Program_Language_Editor
         private void renameSymbolMenuItem_Click(object sender, EventArgs e)
         {
             DdfSymbolOccurrence occurrence = getCurrentSymbolOccurrence();
-            if (occurrence == null) return;
+            DdfWorkspaceSymbol workspaceSymbol = occurrence == null
+                ? getWorkspaceSymbolAtCaret(richTextBoxMainEditor.SelectionStart)
+                : null;
+            if (occurrence == null && workspaceSymbol == null) return;
 
             leaveFoldedView();
             hideCompletion();
             hideSignatureHelp();
             cancelSnippetSession(false);
-            string newName = requestSymbolRename(occurrence.Symbol.Name);
+            string currentName = occurrence?.Symbol.Name ?? workspaceSymbol.Symbol.Name;
+            string newName = requestSymbolRename(currentName);
             if (newName == null) return;
 
             try
             {
+                if (workspaceIndex != null && documentSession.HasPath)
+                {
+                    renameWorkspaceSymbol(occurrence, workspaceSymbol, newName);
+                    return;
+                }
+
                 DdfRenameResult result = lastSemanticModel.Rename(occurrence.Start, newName);
                 if (string.Equals(result.Text, richTextBoxMainEditor.Text, StringComparison.Ordinal)) return;
 
@@ -69,6 +80,88 @@ namespace DDF___Program_Language_Editor
             {
                 MessageBox.Show(this, exception.Message, "Rinomina simbolo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void renameWorkspaceSymbol(DdfSymbolOccurrence occurrence,
+            DdfWorkspaceSymbol workspaceSymbol, string newName)
+        {
+            IReadOnlyList<DdfWorkspaceSearchDocument> documents = createWorkspaceSearchDocuments();
+            string declarationDocumentId = openDocuments.ActiveDocument?.Id;
+            int declarationStart = occurrence?.Symbol.SelectionStart ?? -1;
+            if (workspaceSymbol != null)
+            {
+                DdfWorkspaceSearchDocument declarationDocument = documents.FirstOrDefault(document =>
+                    string.Equals(document.Path, workspaceSymbol.Document.Path, StringComparison.OrdinalIgnoreCase));
+                if (declarationDocument == null) return;
+                declarationDocumentId = declarationDocument.Id;
+                declarationStart = workspaceSymbol.Symbol.SelectionStart;
+            }
+
+            IReadOnlyList<DdfWorkspaceNavigationLocation> references =
+                DdfWorkspaceNavigationService.FindReferences(documents, declarationDocumentId, declarationStart);
+            if (references.Count == 0) return;
+            IReadOnlyList<DdfWorkspaceReplacementChange> changes =
+                DdfWorkspaceNavigationService.CreateRenameChanges(documents, declarationDocumentId,
+                    declarationStart, newName, editorLanguageSession.ActivePackage.Language);
+            if (changes.All(change => string.Equals(change.UpdatedSource, change.Document.Source,
+                StringComparison.Ordinal))) return;
+
+            string originalDocumentId = openDocuments.ActiveDocument?.Id;
+            string originalPath = documentSession.CurrentPath;
+            int originalPosition = richTextBoxMainEditor.SelectionStart;
+            DdfWorkspaceNavigationLocation selectedReference = references.FirstOrDefault(reference =>
+                string.Equals(reference.Document.Path, originalPath, StringComparison.OrdinalIgnoreCase) &&
+                originalPosition >= reference.Start && originalPosition <= reference.Start + reference.Length);
+
+            var targetBuffers = new Dictionary<string, OpenDocumentBuffer>(StringComparer.OrdinalIgnoreCase);
+            foreach (DdfWorkspaceReplacementChange change in changes)
+            {
+                OpenDocumentBuffer buffer = findReplacementBuffer(change.Document);
+                if (buffer == null)
+                {
+                    if (string.IsNullOrEmpty(change.Document.Path) || !openDocument(change.Document.Path))
+                    {
+                        restoreRenamedDocument(originalDocumentId, selectedReference, references, newName);
+                        return;
+                    }
+                    buffer = openDocuments.FindByPath(change.Document.Path);
+                }
+                if (buffer == null || !documentViews.ContainsKey(buffer.Id)) return;
+                targetBuffers[change.Document.Id] = buffer;
+            }
+
+            foreach (DdfWorkspaceReplacementChange change in changes)
+            {
+                OpenDocumentBuffer buffer = targetBuffers[change.Document.Id];
+                if (!documentViews.TryGetValue(buffer.Id, out DocumentView view)) return;
+                if (ReferenceEquals(view.Editor, richTextBoxMainEditor))
+                {
+                    incrementalLexer.Reset();
+                    diagnosticsFormatStart = 0;
+                }
+                view.Editor.SelectAll();
+                view.Editor.SelectedText = change.UpdatedSource;
+            }
+
+            restoreRenamedDocument(originalDocumentId, selectedReference, references, newName);
+            scheduleWorkspaceSearch();
+        }
+
+        private void restoreRenamedDocument(string originalDocumentId,
+            DdfWorkspaceNavigationLocation selectedReference,
+            IReadOnlyList<DdfWorkspaceNavigationLocation> references, string newName)
+        {
+            if (originalDocumentId != null && documentViews.TryGetValue(originalDocumentId, out DocumentView original))
+                activateDocument(original);
+            if (selectedReference == null) return;
+            int renamedStart = selectedReference.Start + references.Count(reference =>
+                string.Equals(reference.Document.Id, selectedReference.Document.Id, StringComparison.OrdinalIgnoreCase) &&
+                reference.Start < selectedReference.Start) * (newName.Length - selectedReference.Length);
+            renamedStart = Math.Max(0, Math.Min(renamedStart, richTextBoxMainEditor.TextLength));
+            richTextBoxMainEditor.Select(renamedStart,
+                Math.Min(newName.Length, richTextBoxMainEditor.TextLength - renamedStart));
+            richTextBoxMainEditor.ScrollToCaret();
+            richTextBoxMainEditor.Focus();
         }
 
         private void richTextBoxMainEditor_MouseMove(object sender, MouseEventArgs e)

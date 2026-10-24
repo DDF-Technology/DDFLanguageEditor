@@ -22,6 +22,8 @@ namespace DDF___Program_Language_Editor
         private const string EducationalModeSettingsFileName = "educational-mode.txt";
         private const string BuildConfigurationSettingsFileName = "build-configuration.txt";
         private const string PublishIconSettingsFileName = "publish-icon.txt";
+        private const string ProductUpdateSettingsFileName =
+            "product-updates.txt";
 
         public static string LoadRecentFiles()
         {
@@ -218,6 +220,16 @@ namespace DDF___Program_Language_Editor
         public static void SavePublishIconPath(string value)
         {
             Save(PublishIconSettingsFileName, value ?? string.Empty);
+        }
+
+        public static string LoadProductUpdateSettings()
+        {
+            return Load(ProductUpdateSettingsFileName);
+        }
+
+        public static void SaveProductUpdateSettings(string value)
+        {
+            Save(ProductUpdateSettingsFileName, value ?? string.Empty);
         }
 
         private static string Load(string fileName)

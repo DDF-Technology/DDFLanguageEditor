@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace DDFLanguageEditor.Core
 {
@@ -46,13 +47,41 @@ namespace DDFLanguageEditor.Core
 
         public static DdfParseResult Parse(string text, DdfLexResult lexResult, DdfLanguageDefinition language)
         {
+            return ParseCore(text, lexResult, language, true, CancellationToken.None);
+        }
+
+        public static DdfParseResult Parse(string text, DdfLexResult lexResult,
+            DdfLanguageDefinition language, CancellationToken cancellationToken)
+        {
+            return ParseCore(text, lexResult, language, true, cancellationToken);
+        }
+
+        /// <summary>
+        /// Builds the typed syntax tree used by interactive IDE features without
+        /// also running the package grammar validator. Full document analysis
+        /// still uses <see cref="Parse(string,DdfLexResult,DdfLanguageDefinition)"/>;
+        /// completion only needs the typed tree and parser diagnostics.
+        /// </summary>
+        public static DdfParseResult ParseForEditorFeatures(string text,
+            DdfLexResult lexResult, DdfLanguageDefinition language)
+        {
+            return ParseCore(text, lexResult, language, false, CancellationToken.None);
+        }
+
+        private static DdfParseResult ParseCore(string text,
+            DdfLexResult lexResult, DdfLanguageDefinition language,
+            bool validatePackageGrammar, CancellationToken cancellationToken)
+        {
             if (text == null) throw new ArgumentNullException(nameof(text));
             if (lexResult == null) throw new ArgumentNullException(nameof(lexResult));
             if (language == null) throw new ArgumentNullException(nameof(language));
 
             var parser = new DdfParser(text, lexResult, language);
             CompilationUnitSyntax root = parser.ParseCompilationUnit();
-            DdfGenericParseResult generic = language.Grammar?.Parse(text, lexResult);
+            cancellationToken.ThrowIfCancellationRequested();
+            DdfGenericParseResult generic = validatePackageGrammar
+                ? language.Grammar?.Parse(text, lexResult, cancellationToken)
+                : null;
             return new DdfParseResult(root, lexResult.Diagnostics, parser.diagnostics.AsReadOnly(),
                 generic?.Root, generic?.Diagnostics, language.Grammar);
         }

@@ -71,11 +71,16 @@ namespace DDF___Program_Language_Editor
 
         private void refreshEditorOverview()
         {
+            refreshEditorOverviewFromSource(null);
+        }
+
+        private void refreshEditorOverviewFromSource(string currentSource)
+        {
             if (editorOverviewBar == null || !editorOverviewBar.Visible || richTextBoxMainEditor == null) return;
             int lineCount = Math.Max(1, richTextBoxMainEditor.GetLineFromCharIndex(richTextBoxMainEditor.TextLength) + 1);
             var markers = new List<EditorOverviewMarker>();
             bool diagnosticsCurrent = string.Equals(
-                overviewDiagnosticsSource, richTextBoxMainEditor.Text, StringComparison.Ordinal);
+                overviewDiagnosticsSource, currentSource ?? richTextBoxMainEditor.Text, StringComparison.Ordinal);
             foreach (DdfDiagnostic diagnostic in diagnosticsCurrent
                 ? activeDiagnostics ?? Array.Empty<DdfDiagnostic>()
                 : Array.Empty<DdfDiagnostic>())

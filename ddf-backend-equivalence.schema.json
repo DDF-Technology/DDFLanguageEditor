@@ -47,7 +47,7 @@
         "evidence": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(core|compiler):[A-Za-z][A-Za-z0-9]*$" }
+          "items": { "type": "string", "pattern": "^(core|compiler|runtime):[A-Za-z][A-Za-z0-9]*$" }
         },
         "remainingGap": { "type": [ "string", "null" ] }
       }

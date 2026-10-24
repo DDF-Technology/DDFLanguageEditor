@@ -162,6 +162,12 @@ namespace DDF___Program_Language_Editor
             else collapseDiagnosticsPalette();
             updateLineNumbers();
             refreshEditorOverview();
+            if (toolbarInitialLayoutApplied)
+            {
+                toolbarInitialLayoutApplied = false;
+                toolbarLayoutReady = false;
+                applyInitialToolbarPositions();
+            }
         }
     }
 }

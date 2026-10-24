@@ -30,6 +30,10 @@ namespace DDF___Program_Language_Editor
         public DateTime? LastEditUtc { get; set; }
         public Point ScrollPosition { get; set; }
         public bool HasScrollPosition { get; set; }
+        public string SyntaxFormattedSource { get; set; } = string.Empty;
+        public long SyntaxFormattedLanguageRevision { get; set; } = -1;
+        public string SyntaxFormattingStyle { get; set; } = string.Empty;
+        public bool HasDiagnosticDecorations { get; set; }
     }
 
     /// <summary>

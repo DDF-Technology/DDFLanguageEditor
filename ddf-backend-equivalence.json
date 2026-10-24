@@ -10,8 +10,11 @@
       "output",
       "runtime-errors",
       "host-effects",
+      "evaluation-order",
+      "aliasing",
       "cleanup-order",
       "persistable-state",
+      "suspensions",
       "debug-points"
     ]
   },
@@ -20,6 +23,7 @@
       "id": "value",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "compiler:MatchesVmOnDifferentialExecutionCorpus",
         "compiler:MatchesVersionedNormativeLanguageCorpus"
       ],
@@ -29,6 +33,7 @@
       "id": "output",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "compiler:MatchesVmOnDifferentialExecutionCorpus",
         "compiler:MatchesVersionedNormativeLanguageCorpus"
       ],
@@ -38,6 +43,7 @@
       "id": "runtime-errors",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "compiler:MatchesVmOnDifferentialExecutionCorpus",
         "compiler:MatchesVersionedNormativeLanguageCorpus"
       ],
@@ -47,8 +53,27 @@
       "id": "host-effects",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "compiler:BridgesExplicitStandaloneHostCapabilities",
         "compiler:VerifiesGovernedAdaptersAcrossVmAndCompiledBackend"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "evaluation-order",
+      "status": "enforced",
+      "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
+        "compiler:MatchesVmOnDifferentialExecutionCorpus"
+      ],
+      "remainingGap": null
+    },
+    {
+      "id": "aliasing",
+      "status": "enforced",
+      "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
+        "compiler:MatchesVmOnDifferentialExecutionCorpus"
       ],
       "remainingGap": null
     },
@@ -56,6 +81,7 @@
       "id": "cleanup-order",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "compiler:MatchesCleanupOrderAcrossVmAndCompiledBackend"
       ],
       "remainingGap": null
@@ -64,6 +90,7 @@
       "id": "persistable-state",
       "status": "enforced",
       "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
         "core:OwnsTransactionalStatePerEditorHostInstance",
         "compiler:PersistsStateAcrossVmAndCompiledSessions",
         "runtime:ValidatesPortablePersistedState"
@@ -71,10 +98,22 @@
       "remainingGap": null
     },
     {
+      "id": "suspensions",
+      "status": "enforced",
+      "evidence": [
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
+        "compiler:VerifiesCompiledCapabilitySuspension",
+        "compiler:MatchesCleanupOrderAcrossVmAndCompiledBackend"
+      ],
+      "remainingGap": null
+    },
+    {
       "id": "debug-points",
       "status": "enforced",
       "evidence": [
-        "compiler:PlansModulesAndLibrariesThroughTheSharedPipeline"
+        "compiler:EnforcesCompleteBackendEquivalenceGate",
+        "compiler:PlansModulesAndLibrariesThroughTheSharedPipeline",
+        "compiler:DebugsActiveLanguageConstructsMatrix"
       ],
       "remainingGap": null
     }

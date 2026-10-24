@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace DDFLanguageEditor.Core
 {
@@ -151,9 +152,16 @@ namespace DDFLanguageEditor.Core
 
         public DdfGenericParseResult Parse(string source, DdfLexResult lexResult)
         {
+            return Parse(source, lexResult, CancellationToken.None);
+        }
+
+        public DdfGenericParseResult Parse(string source, DdfLexResult lexResult,
+            CancellationToken cancellationToken)
+        {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (lexResult == null) throw new ArgumentNullException(nameof(lexResult));
-            return new GenericParser(source, lexResult, rules, nodes).Parse(StartRule);
+            return new GenericParser(source, lexResult, rules, nodes,
+                cancellationToken).Parse(StartRule);
         }
 
         private sealed class GenericParser
@@ -162,16 +170,21 @@ namespace DDFLanguageEditor.Core
             private readonly List<DdfToken> tokens;
             private readonly IReadOnlyDictionary<string, GrammarExpression> rules;
             private readonly IReadOnlyDictionary<string, DdfGrammarNodeDefinition> nodes;
-            private readonly Dictionary<string, Match> memo = new Dictionary<string, Match>(StringComparer.Ordinal);
-            private readonly HashSet<string> active = new HashSet<string>(StringComparer.Ordinal);
+            private readonly CancellationToken cancellationToken;
+            private readonly Dictionary<(string Rule, int Position), Match> memo =
+                new Dictionary<(string Rule, int Position), Match>();
+            private readonly HashSet<(string Rule, int Position)> active =
+                new HashSet<(string Rule, int Position)>();
             private int farthest;
             private string expected = "regola valida";
 
             public GenericParser(string source, DdfLexResult lexResult,
                 IReadOnlyDictionary<string, GrammarExpression> rules,
-                IReadOnlyDictionary<string, DdfGrammarNodeDefinition> nodes)
+                IReadOnlyDictionary<string, DdfGrammarNodeDefinition> nodes,
+                CancellationToken cancellationToken)
             {
                 this.source = source; this.rules = rules; this.nodes = nodes;
+                this.cancellationToken = cancellationToken;
                 tokens = lexResult.Tokens.Where(item => item.Kind != DdfTokenKind.LineComment &&
                     item.Kind != DdfTokenKind.BlockComment).ToList();
             }
@@ -199,7 +212,8 @@ namespace DDFLanguageEditor.Core
 
             private Match MatchRule(string name, int position)
             {
-                string key = name + "@" + position;
+                cancellationToken.ThrowIfCancellationRequested();
+                var key = (Rule: name, Position: position);
                 if (memo.TryGetValue(key, out Match cached)) return cached;
                 if (!active.Add(key)) return Match.Failed(position);
                 Match inner = MatchExpression(rules[name], position);
@@ -216,7 +230,7 @@ namespace DDFLanguageEditor.Core
                 if (expression is EmptyExpression) return Match.Succeeded(position);
                 if (expression is TerminalExpression terminal)
                 {
-                    if (position < tokens.Count && TokenText(tokens[position]) == terminal.Text)
+                    if (position < tokens.Count && TokenMatches(tokens[position], terminal.Text))
                         return Match.Succeeded(position + 1, new[] { TokenNode(tokens[position]) });
                     RecordFailure(position, "'" + terminal.Text + "'"); return Match.Failed(position);
                 }
@@ -277,12 +291,33 @@ namespace DDFLanguageEditor.Core
                 var fields = new Dictionary<string, IReadOnlyList<DdfGenericSyntaxNode>>(StringComparer.Ordinal);
                 if (definition != null)
                 {
-                    foreach (DdfGrammarFieldDefinition field in definition.Fields)
+                    var matchesByField = new List<DdfGenericSyntaxNode>[definition.Fields.Count];
+                    for (int fieldIndex = 0; fieldIndex < matchesByField.Length; fieldIndex++)
+                        matchesByField[fieldIndex] = new List<DdfGenericSyntaxNode>();
+                    if (matchesByField.Length > 0)
                     {
-                        List<DdfGenericSyntaxNode> matches = Descendants(childList)
-                            .Where(item => item.RuleName == field.SourceRule).ToList();
-                        if (!field.Multiple && matches.Count > 1) matches = matches.Take(1).ToList();
-                        fields[field.Name] = matches.AsReadOnly();
+                        foreach (DdfGenericSyntaxNode child in Descendants(childList))
+                        {
+                            for (int fieldIndex = 0;
+                                fieldIndex < definition.Fields.Count; fieldIndex++)
+                            {
+                                if (string.Equals(child.RuleName,
+                                    definition.Fields[fieldIndex].SourceRule,
+                                    StringComparison.Ordinal))
+                                {
+                                    matchesByField[fieldIndex].Add(child);
+                                }
+                            }
+                        }
+                    }
+                    for (int fieldIndex = 0;
+                        fieldIndex < definition.Fields.Count; fieldIndex++)
+                    {
+                        DdfGrammarFieldDefinition field = definition.Fields[fieldIndex];
+                        List<DdfGenericSyntaxNode> matches = matchesByField[fieldIndex];
+                        fields[field.Name] = !field.Multiple && matches.Count > 1
+                            ? new List<DdfGenericSyntaxNode> { matches[0] }.AsReadOnly()
+                            : matches.AsReadOnly();
                     }
                 }
                 return new DdfGenericSyntaxNode(rule, definition?.Kind ?? rule, start, Math.Max(0, end - start),
@@ -296,7 +331,11 @@ namespace DDFLanguageEditor.Core
             }
             private DdfGenericSyntaxNode TokenNode(DdfToken token) => new DdfGenericSyntaxNode(string.Empty,
                 token.Kind.ToString(), token.Start, token.Length, null, false, null);
-            private string TokenText(DdfToken token) => source.Substring(token.Start, token.Length);
+            private bool TokenMatches(DdfToken token, string value)
+            {
+                return token.Length == value.Length && string.CompareOrdinal(
+                    source, token.Start, value, 0, value.Length) == 0;
+            }
             private void RecordFailure(int position, string value) { if (position >= farthest) { farthest = position; expected = value; } }
         }
 

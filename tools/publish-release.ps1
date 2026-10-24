@@ -1,19 +1,22 @@
 param(
     [string]$Configuration = 'Release',
     [string]$RuntimeIdentifier = 'win-x64',
-    [switch]$SkipArchive
+    [switch]$SkipArchive,
+    [switch]$SkipSignedManifest,
+    [string]$SigningKeyId = 'official-2026'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot 'DDFLanguageEditor.App\DDFLanguageEditor.App.csproj'
-$assemblyInfoPath = Join-Path $repositoryRoot 'Properties\AssemblyInfo.cs'
-$versionMatch = [regex]::Match(
-    (Get-Content -LiteralPath $assemblyInfoPath -Raw),
-    'AssemblyInformationalVersion\("(?<version>[^"+]+)')
-if (-not $versionMatch.Success) { throw 'AssemblyInformationalVersion non trovata.' }
-$applicationVersion = $versionMatch.Groups['version'].Value
+$versionMatrixPath = Join-Path $repositoryRoot 'ddf-version-matrix.json'
+$versionMatrix = Get-Content -LiteralPath $versionMatrixPath -Raw |
+    ConvertFrom-Json
+$applicationVersion = [string]$versionMatrix.product.version
+if ([string]::IsNullOrWhiteSpace($applicationVersion)) {
+    throw 'Versione prodotto non trovata nella matrice autorevole.'
+}
 $artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot '.artifacts'))
 $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'publish'))
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'release'))
@@ -21,6 +24,7 @@ $packageName = "DDFLanguageEditor-$applicationVersion-$RuntimeIdentifier-self-co
 $publishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot $packageName))
 $archivePath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
+$releaseManifestPath = Join-Path $releaseRoot 'ddf-release-manifest.json'
 
 function Assert-PathUnderArtifactRoot([string]$Path) {
     $prefix = $artifactRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
@@ -32,8 +36,10 @@ function Assert-PathUnderArtifactRoot([string]$Path) {
 Assert-PathUnderArtifactRoot $publishDirectory
 Assert-PathUnderArtifactRoot $archivePath
 Assert-PathUnderArtifactRoot $checksumPath
+Assert-PathUnderArtifactRoot $releaseManifestPath
 
-foreach ($path in @($publishDirectory, $archivePath, $checksumPath)) {
+foreach ($path in @($publishDirectory, $archivePath, $checksumPath,
+        $releaseManifestPath)) {
     if (Test-Path -LiteralPath $path) {
         Remove-Item -LiteralPath $path -Recurse -Force
     }
@@ -105,7 +111,9 @@ $requiredSchemas = @(
     'language-build.schema.json',
     'language-tests.schema.json',
     'ddf-project.schema.json',
-    'ddf-references-lock.schema.json'
+    'ddf-references-lock.schema.json',
+    'ddf-product-update-result.schema.json',
+    'ddf-release-manifest.schema.json'
 )
 $missingSchemas = @($requiredSchemas | Where-Object {
     -not (Test-Path -LiteralPath (Join-Path $publishDirectory $_) -PathType Leaf)
@@ -137,8 +145,98 @@ if (-not $SkipArchive) {
     Set-Content -LiteralPath $checksumPath -Value "$checksum  $([System.IO.Path]::GetFileName($archivePath))" -Encoding ascii
 }
 
+if (-not $SkipArchive -and -not $SkipSignedManifest) {
+    $privateKeyBase64 = [Environment]::GetEnvironmentVariable(
+        'DDF_RELEASE_SIGNING_KEY_PKCS8_BASE64')
+    if ([string]::IsNullOrWhiteSpace($privateKeyBase64)) {
+        throw 'Secret DDF_RELEASE_SIGNING_KEY_PKCS8_BASE64 mancante: il manifesto firmato è obbligatorio per una release.'
+    }
+    if ([string]::IsNullOrWhiteSpace($SigningKeyId)) {
+        throw 'SigningKeyId richiesto.'
+    }
+    $coreAssembly = Join-Path $publishDirectory 'DDFLanguageEditor.Core.dll'
+    Add-Type -Path $coreAssembly
+    $privateKeyBytes = [Convert]::FromBase64String($privateKeyBase64)
+    $signingKey = [System.Security.Cryptography.ECDsa]::Create()
+    try {
+        $bytesRead = 0
+        $signingKey.ImportPkcs8PrivateKey($privateKeyBytes, [ref]$bytesRead)
+        if ($bytesRead -ne $privateKeyBytes.Length -or $signingKey.KeySize -ne 256) {
+            throw 'La chiave release deve essere ECDSA P-256 PKCS#8.'
+        }
+        $persistence = [System.Collections.Generic.Dictionary[string,string]]::new(
+            [System.StringComparer]::Ordinal)
+        foreach ($property in $versionMatrix.persistence.PSObject.Properties) {
+            $persistence.Add([string]$property.Name, [string]$property.Value)
+        }
+        $compatibility = [DDFLanguageEditor.Core.DdfReleaseCompatibility]::new(
+            [string]$versionMatrix.editorSdk.legacyContractVersion,
+            [string]$versionMatrix.editorSdk.contractVersion,
+            $persistence)
+        $archiveName = [System.IO.Path]::GetFileName($archivePath)
+        $assetUri = [Uri]::new(
+            "https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v$applicationVersion/$archiveName")
+        $asset = [DDFLanguageEditor.Core.DdfReleaseManifestAsset]::new(
+            [DDFLanguageEditor.Core.DdfProductUpdateComponentKind]::Standalone,
+            [string]$versionMatrix.productUpdate.productId,
+            $applicationVersion,
+            $RuntimeIdentifier,
+            ($RuntimeIdentifier -split '-')[-1],
+            $assetUri,
+            (Get-Item -LiteralPath $archivePath).Length,
+            $checksum)
+        $releaseNotesPath = Join-Path $repositoryRoot 'RELEASE_NOTES.md'
+        $releaseNotes = Get-Content -LiteralPath $releaseNotesPath -Raw
+        $channel = if ([string]$versionMatrix.productUpdate.defaultChannel -eq
+            'stable') {
+            [DDFLanguageEditor.Core.DdfProductUpdateChannel]::Stable
+        } else {
+            [DDFLanguageEditor.Core.DdfProductUpdateChannel]::Beta
+        }
+        $unsigned = [DDFLanguageEditor.Core.DdfReleaseManifest]::CreateUnsigned(
+            [string]$versionMatrix.productUpdate.productId,
+            $applicationVersion,
+            $channel,
+            [DateTimeOffset]::UtcNow,
+            $releaseNotes,
+            $compatibility,
+            [DDFLanguageEditor.Core.DdfReleaseManifestAsset[]]@($asset))
+        $signed = [DDFLanguageEditor.Core.DdfReleaseManifestSigner]::Sign(
+            $unsigned, $SigningKeyId, $signingKey)
+        $manifestJson = [DDFLanguageEditor.Core.DdfReleaseManifestCodec]::Serialize(
+            $signed)
+        [System.IO.File]::WriteAllText($releaseManifestPath, $manifestJson,
+            [System.Text.UTF8Encoding]::new($false))
+
+        $publicKey = $signingKey.ExportSubjectPublicKeyInfo()
+        $keys = [System.Collections.Generic.Dictionary[string,byte[]]]::new(
+            [System.StringComparer]::Ordinal)
+        $keys.Add($SigningKeyId, $publicKey)
+        $trust = [DDFLanguageEditor.Core.DdfReleaseTrustStore]::new($keys)
+        $verification = [DDFLanguageEditor.Core.DdfReleaseManifestVerifier]::Verify(
+            $manifestJson, $trust)
+        if (-not $verification.Success) {
+            throw "Verifica del manifesto appena firmato fallita: $($verification.Issues -join '; ')"
+        }
+        $publicKeyFingerprint = [Convert]::ToHexString(
+            [System.Security.Cryptography.SHA256]::HashData($publicKey)
+        ).ToLowerInvariant()
+    }
+    finally {
+        $signingKey.Dispose()
+        [Array]::Clear($privateKeyBytes, 0, $privateKeyBytes.Length)
+    }
+}
+
 Write-Host "Pubblicazione self-contained verificata: $publishDirectory"
 if (-not $SkipArchive) {
     Write-Host "Pacchetto: $archivePath"
     Write-Host "SHA-256: $checksum"
+    if ($SkipSignedManifest) {
+        Write-Host 'Manifesto: omesso esplicitamente; artefatto candidato non distribuibile come release.'
+    }
+    else {
+        Write-Host "Manifesto firmato: $releaseManifestPath"
+        Write-Host "Signing key: $SigningKeyId ($publicKeyFingerprint)"
+    }
 }
