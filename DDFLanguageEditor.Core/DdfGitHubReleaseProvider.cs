@@ -92,6 +92,15 @@ namespace DDFLanguageEditor.Core
             DateTimeOffset checkedAtUtc);
     }
 
+    public interface IDdfAsyncProductReleaseEvaluator
+    {
+        Task<DdfProductUpdateResult> EvaluateAsync(
+            DdfProductUpdateRequest request,
+            IReadOnlyList<DdfRemoteRelease> releases,
+            DateTimeOffset checkedAtUtc,
+            CancellationToken cancellationToken = default);
+    }
+
     public interface IDdfProductUpdateProvider
     {
         Task<DdfProductUpdateResult> CheckAsync(DdfProductUpdateRequest request,
@@ -146,8 +155,10 @@ namespace DDFLanguageEditor.Core
 
         private readonly HttpClient client;
         private readonly IDdfProductReleaseEvaluator evaluator;
+        private readonly IDdfAsyncProductReleaseEvaluator asyncEvaluator;
         private readonly DdfGitHubReleaseProviderOptions options;
         private readonly Func<DateTimeOffset> clock;
+        private readonly Uri releasesEndpoint;
         private readonly SemaphoreSlim fetchGate = new SemaphoreSlim(1, 1);
         private byte[] cachedPayload;
         private string cachedEntityTag = string.Empty;
@@ -160,16 +171,50 @@ namespace DDFLanguageEditor.Core
         {
         }
 
+        public DdfGitHubReleaseProvider(
+            IDdfAsyncProductReleaseEvaluator evaluator,
+            DdfGitHubReleaseProviderOptions options = null)
+            : this(evaluator, CreateDefaultHandler(), options, null,
+                ReleasesEndpoint)
+        {
+        }
+
         public DdfGitHubReleaseProvider(IDdfProductReleaseEvaluator evaluator,
             HttpMessageHandler handler,
             DdfGitHubReleaseProviderOptions options = null,
             Func<DateTimeOffset> clock = null)
+            : this(evaluator, handler, options, clock, ReleasesEndpoint)
+        {
+        }
+
+        internal DdfGitHubReleaseProvider(IDdfProductReleaseEvaluator evaluator,
+            HttpMessageHandler handler, DdfGitHubReleaseProviderOptions options,
+            Func<DateTimeOffset> clock, Uri releasesEndpoint)
         {
             this.evaluator = evaluator ?? throw new ArgumentNullException(
                 nameof(evaluator));
             this.options = (options ?? new DdfGitHubReleaseProviderOptions())
                 .CopyAndValidate();
             this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+            this.releasesEndpoint = ValidateConfiguredEndpoint(releasesEndpoint);
+            client = new HttpClient(handler ?? throw new ArgumentNullException(
+                nameof(handler)), disposeHandler: true)
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+        }
+
+        internal DdfGitHubReleaseProvider(
+            IDdfAsyncProductReleaseEvaluator evaluator,
+            HttpMessageHandler handler, DdfGitHubReleaseProviderOptions options,
+            Func<DateTimeOffset> clock, Uri releasesEndpoint)
+        {
+            asyncEvaluator = evaluator ?? throw new ArgumentNullException(
+                nameof(evaluator));
+            this.options = (options ?? new DdfGitHubReleaseProviderOptions())
+                .CopyAndValidate();
+            this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+            this.releasesEndpoint = ValidateConfiguredEndpoint(releasesEndpoint);
             client = new HttpClient(handler ?? throw new ArgumentNullException(
                 nameof(handler)), disposeHandler: true)
             {
@@ -225,8 +270,11 @@ namespace DDFLanguageEditor.Core
                 DdfProductUpdateResult result;
                 try
                 {
-                    result = evaluator.Evaluate(request, releases,
-                        clock().ToUniversalTime());
+                    DateTimeOffset checkedAt = clock().ToUniversalTime();
+                    result = asyncEvaluator == null
+                        ? evaluator.Evaluate(request, releases, checkedAt)
+                        : await asyncEvaluator.EvaluateAsync(request, releases,
+                            checkedAt, timeout.Token).ConfigureAwait(false);
                 }
                 catch (Exception exception) when (exception is not
                     OperationCanceledException)
@@ -250,12 +298,14 @@ namespace DDFLanguageEditor.Core
             if (disposed) return;
             disposed = true;
             client.Dispose();
+            if (asyncEvaluator is IDisposable disposableEvaluator)
+                disposableEvaluator.Dispose();
             fetchGate.Dispose();
         }
 
         private async Task<byte[]> FetchAsync(CancellationToken cancellationToken)
         {
-            var endpoint = new UriBuilder(ReleasesEndpoint)
+            var endpoint = new UriBuilder(releasesEndpoint)
             {
                 Query = "per_page=" + options.MaximumReleases
             }.Uri;
@@ -274,7 +324,8 @@ namespace DDFLanguageEditor.Core
             using HttpResponseMessage response = await client.SendAsync(request,
                 HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);
-            ValidateFinalEndpoint(response.RequestMessage?.RequestUri);
+            ValidateFinalEndpoint(response.RequestMessage?.RequestUri,
+                releasesEndpoint);
             if (response.StatusCode == HttpStatusCode.NotModified)
             {
                 if (cachedPayload == null)
@@ -402,13 +453,26 @@ namespace DDFLanguageEditor.Core
                 UseProxy = true
             };
 
-        private static void ValidateFinalEndpoint(Uri value)
+        private static Uri ValidateConfiguredEndpoint(Uri value)
         {
-            if (value == null || value.Scheme != Uri.UriSchemeHttps ||
-                !string.Equals(value.Host, "api.github.com",
+            if (value == null || !value.IsAbsoluteUri ||
+                (value.Scheme != Uri.UriSchemeHttps &&
+                    value.Scheme != Uri.UriSchemeHttp) ||
+                value.UserInfo.Length != 0 || value.Fragment.Length != 0)
+                throw new ArgumentException("Endpoint release di test non valido.",
+                    nameof(value));
+            return value;
+        }
+
+        private static void ValidateFinalEndpoint(Uri value, Uri expected)
+        {
+            if (value == null || expected == null ||
+                value.Scheme != expected.Scheme ||
+                !string.Equals(value.Host, expected.Host,
                     StringComparison.OrdinalIgnoreCase) ||
-                !value.AbsolutePath.Equals(ReleasesEndpoint.AbsolutePath,
-                    StringComparison.Ordinal))
+                value.Port != expected.Port ||
+                !value.AbsolutePath.Equals(expected.AbsolutePath,
+                    StringComparison.Ordinal) || value.UserInfo.Length != 0)
                 throw new DdfUpdateProviderException(
                     "Endpoint GitHub inatteso o redirect non autorizzato.");
         }

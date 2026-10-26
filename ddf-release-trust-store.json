@@ -1,0 +1,13 @@
+{
+  "$schema": "./ddf-release-trust-store.schema.json",
+  "schemaVersion": "1.0",
+  "keys": [
+    {
+      "keyId": "official-2026",
+      "algorithm": "ECDSA-P256-SHA256",
+      "publicKeySpkiBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdp/8Y1fTLi5N9Xh9oSI0hvQ5kw9EE/lU4Q8Yrp4iwXMicfCx9Vf8ylrNrAxYQqKRfDSH3ZykU3LmqGgLXMp7Nw==",
+      "sha256": "cef7cb71ca0c95d06a4cf8b56d1996fe4e2dea0fd94ee490fa7184753465e204",
+      "status": "active"
+    }
+  ]
+}

@@ -41,6 +41,8 @@
     <Content Include="..\ddf-version-matrix.schema.json" Link="ddf-version-matrix.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\ddf-product-update-result.schema.json" Link="ddf-product-update-result.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\ddf-release-manifest.schema.json" Link="ddf-release-manifest.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-release-trust-store.json" Link="ddf-release-trust-store.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\ddf-release-trust-store.schema.json" Link="ddf-release-trust-store.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\ddf-language-integration.json" Link="ddf-language-integration.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\ddf-language-integration.schema.json" Link="ddf-language-integration.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\ddf-backend-equivalence.json" Link="ddf-backend-equivalence.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

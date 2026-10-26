@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/product-update-staging-seal-1.0.json",
+  "title": "DDF product update staging seal 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "planSha256", "inventorySha256", "assetSha256",
+    "fileCount", "totalFileBytes", "stagedUtc"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "planSha256": { "$ref": "#/$defs/hash" },
+    "inventorySha256": { "$ref": "#/$defs/hash" },
+    "assetSha256": { "$ref": "#/$defs/hash" },
+    "fileCount": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "totalFileBytes": { "type": "integer", "minimum": 0 },
+    "stagedUtc": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

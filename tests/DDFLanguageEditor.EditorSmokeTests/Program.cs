@@ -556,18 +556,55 @@ namespace DDFLanguageEditor.EditorSmokeTests
             using (var view = new DdfEditorView())
             {
                 var provider = (IDdfEditorCapabilityProvider)view;
-                Require(provider.KnownCapabilities.Count == 4 &&
+                Require(provider.KnownCapabilities.Count == 5 &&
                         provider.KnownCapabilities.Select(item => item.Id)
-                            .Distinct(StringComparer.Ordinal).Count() == 4,
+                            .Distinct(StringComparer.Ordinal).Count() == 5,
                     "Il catalogo capability SDK non è stabile o contiene duplicati.");
                 foreach (DdfEditorCapabilityDescriptor descriptor in
                     provider.KnownCapabilities)
                 {
-                    DdfEditorCapabilityResult available =
+                    DdfEditorCapabilityResult inspected =
                         provider.InspectCapability(descriptor.Id);
-                    Require(available.IsAvailable && available.Issue == null,
-                        "La superficie predefinita non espone " + descriptor.Id + ".");
+                    if (descriptor.Id == DdfEditorCapabilityIds.ProductUpdates)
+                    {
+                        Require(!inspected.IsAvailable && inspected.Issue?.Code ==
+                                DdfEditorCapabilityCatalog.UnavailableDiagnosticCode,
+                            "L'embedded non configurato abilita implicitamente gli aggiornamenti.");
+                    }
+                    else
+                    {
+                        Require(inspected.IsAvailable && inspected.Issue == null,
+                            "La superficie predefinita non espone " + descriptor.Id + ".");
+                    }
                 }
+
+                DdfProductComponentVersion sdkComponent =
+                    DdfProductVersionCatalog.Current.EmbeddedComponents.Single(
+                        item => item.Id == "winforms-sdk");
+                DdfProductUpdateResult sdkCurrent =
+                    DdfProductUpdateResult.UpToDate(
+                        DdfProductUpdateComponentKind.EmbeddedSdk,
+                        sdkComponent.Id, sdkComponent.Version,
+                        sdkComponent.Version, DdfProductUpdateChannel.Beta,
+                        DateTimeOffset.UtcNow);
+                var updateProvider = new FixedProductUpdateProvider(sdkCurrent);
+                view.AttachProductUpdateService(
+                    DdfEditorProductUpdateService.ForEmbeddedComponent(
+                        updateProvider, sdkComponent.Id));
+                DdfEditorCapabilityResult updateCapability =
+                    provider.InspectCapability(DdfEditorCapabilityIds.ProductUpdates);
+                Require(updateCapability.TryGetService(
+                            out IDdfEditorProductUpdateService updateService) &&
+                        updateProvider.CheckCount == 0,
+                    "Il servizio aggiornamenti embedded non è opt-in o esegue rete al collegamento.");
+                Require(updateService.CheckAsync(DdfProductUpdateChannel.Beta)
+                            .GetAwaiter().GetResult().State ==
+                            DdfProductUpdateState.UpToDate &&
+                        updateProvider.CheckCount == 1 &&
+                        view.DetachProductUpdateService() &&
+                        !provider.InspectCapability(
+                            DdfEditorCapabilityIds.ProductUpdates).IsAvailable,
+                    "Il servizio aggiornamenti embedded non rispetta invocazione esplicita o revoca.");
 
                 DdfEditorCapabilityResult unknown = provider.InspectCapability(
                     "editor.capability.unknown");
@@ -1867,7 +1904,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
         {
             DdfEditorView shellSurface = FindControl<DdfEditorView>(form, "panelEditor");
             Require(shellSurface.ContractVersion == DdfEditorSdkContract.CurrentVersion &&
-                    shellSurface.ContractVersion == "0.41" &&
+                    shellSurface.ContractVersion == "0.42" &&
                     ReferenceEquals(shellSurface.DocumentService,
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments")) &&
                     shellSurface.SourceText == editor.Text &&
@@ -1983,9 +2020,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         isolated.AnalysisService.IsCurrent(analysis),
                     "Il servizio di analisi pubblico non restituisce uno snapshot coerente con il documento host.");
                 IDdfEditorCommandService commands = isolated.CommandService;
-                Require(DdfEditorSdkContract.CurrentVersion == "0.41" &&
+                Require(DdfEditorSdkContract.CurrentVersion == "0.42" &&
                         typeof(DdfEditorView).GetProperty("PreparationService") != null &&
                         typeof(DdfEditorView).GetProperty("EventDispatcher") != null &&
+                         typeof(DdfEditorView).GetProperty(
+                             "ProductUpdateService") != null &&
                          typeof(DdfEditorView).GetProperty(
                              "ScriptStatePersistenceService") != null &&
                         typeof(DdfEditorView).GetMethod("ValidateScript") != null &&
@@ -1998,6 +2037,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                          typeof(DdfEditorView).GetMethod("RestoreScriptState") != null &&
                          typeof(DdfEditorView).GetMethod(
                              "ResetPersistedScriptState") != null &&
+                         typeof(DdfEditorView).GetMethod(
+                             "AttachProductUpdateService") != null &&
+                         typeof(DdfEditorView).GetMethod(
+                             "DetachProductUpdateService") != null &&
                         typeof(DdfEditorView).GetProperty("BuildService") == null &&
                         typeof(DdfEditorView).GetMethod("BuildProject") == null &&
                         typeof(DdfEditorView).GetMethod("AttachBuildService") == null,
@@ -2408,7 +2451,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             shellSurface.SetSelection(0, 0);
             Require(shellSurface.PersistenceProvider == null,
                 "La shell associa implicitamente una persistenza SDK al profilo applicativo.");
-            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.41, snapshot cooperativi opzionali, errori recuperabili tipizzati, preparazione script separata dalla compilazione, state persistibile opt-in per istanza, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
+            Console.WriteLine("PASS superficie DdfEditorView incorporabile con contratti pubblici 0.42, aggiornamenti embedded opt-in, snapshot cooperativi opzionali, errori recuperabili tipizzati, preparazione script separata dalla compilazione, state persistibile opt-in per istanza, shell completa embedded, transazioni degli effetti host, librerie di funzioni, servizi database parametrizzati, procedure ed eventi host tipizzati, risultati host, catalogo, progetti, persistenza, analisi, navigazione, esecuzione e debug isolati");
         }
 
         private static List<FlowchartRouteSnapshot> BuildFlowchartRoutes(Control canvas,
@@ -8304,6 +8347,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             var updateStatus = (ToolStripStatusLabel)status.Items[
                 "statusUpdateLabel"];
             Require(updateStatus.Visible && updateStatus.IsLink &&
+                    updateStatus.AccessibleName.Length > 0 &&
                     updateStatus.Text.Contains("0.12.6",
                         StringComparison.Ordinal),
                 "La release verificata non produce una notifica non modale.");
@@ -8312,9 +8356,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
             ProductUpdateForm details = form.OwnedForms
                 .OfType<ProductUpdateForm>().Single();
             Require(details.StartPosition == FormStartPosition.CenterScreen &&
+                    details.AccessibleName.Length > 0 &&
                     details.Result.IsActionable &&
                     FindControl<Button>(details,
-                        "productUpdateOpenReleaseButton").Enabled,
+                        "productUpdateOpenReleaseButton").Enabled &&
+                    FindControl<Button>(details,
+                        "productUpdateOpenReleaseButton").AccessibleName.Length > 0 &&
+                    FindControl<TextBox>(details,
+                        "productUpdateDetailsTextBox").AccessibleName.Length > 0,
                 "Il popup aggiornamenti non espone la release verificata.");
             details.Close();
 

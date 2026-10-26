@@ -12,7 +12,7 @@
     <FileVersion>0.12.5.0</FileVersion>
     <AssemblyVersion>0.12.5.0</AssemblyVersion>
     <InformationalVersion>0.12.5</InformationalVersion>
-    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Cli\**;DDFLanguageEditor.Compiler\**;DDFLanguageEditor.Core\**;DDFLanguageEditor.Data\**;DDFLanguageEditor.Network\**;DDFLanguageEditor.Storage\**;DDFLanguageEditor.Hardware\**;DDFLanguageEditor.Runtime\**;DDFLanguageEditor.Runner\**;tests\**;samples\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);DDFLanguageEditor.App\**;DDFLanguageEditor.Cli\**;DDFLanguageEditor.Compiler\**;DDFLanguageEditor.Core\**;DDFLanguageEditor.Data\**;DDFLanguageEditor.Network\**;DDFLanguageEditor.Storage\**;DDFLanguageEditor.Hardware\**;DDFLanguageEditor.Runtime\**;DDFLanguageEditor.Runner\**;DDFLanguageEditor.Updater\**;tests\**;samples\**</DefaultItemExcludes>
     <IsPackable>true</IsPackable>
     <PackageId>DDFLanguageEditor.WinForms</PackageId>
     <PackageVersion>0.12.5-beta</PackageVersion>

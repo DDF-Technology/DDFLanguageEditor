@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -20,6 +21,7 @@ namespace DDF___Program_Language_Editor
         private Action<Uri> openProductUpdateUri;
         private Action<string> saveProductUpdateSettingsSetting;
         private DdfProductUpdateResult lastProductUpdateResult;
+        private DdfProductUpdateStartupRecoveryStatus productUpdateRecoveryStatus;
         private ProductUpdateForm productUpdateForm;
         private bool productUpdateCheckRunning;
 
@@ -29,7 +31,9 @@ namespace DDF___Program_Language_Editor
                 embeddedHostMode ? string.Empty :
                 AppSettingsStore.LoadProductUpdateSettings());
             productUpdateClock = () => DateTimeOffset.UtcNow;
-            createProductUpdateProvider = () => null;
+            createProductUpdateProvider = () => new DdfGitHubReleaseProvider(
+                new DdfSignedGitHubReleaseEvaluator(
+                    DdfOfficialReleaseTrustStore.Create()));
             saveProductUpdateSettingsSetting =
                 AppSettingsStore.SaveProductUpdateSettings;
             openProductUpdateUri = uri => Process.Start(new ProcessStartInfo
@@ -42,6 +46,7 @@ namespace DDF___Program_Language_Editor
                 "Controlla &aggiornamenti...")
             {
                 Name = "checkProductUpdatesMenuItem",
+                AccessibleName = "Controlla aggiornamenti del prodotto",
                 Available = !embeddedHostMode
             };
             checkProductUpdatesMenuItem.Click +=
@@ -53,13 +58,23 @@ namespace DDF___Program_Language_Editor
             statusUpdateLabel = new ToolStripStatusLabel
             {
                 Name = "statusUpdateLabel",
+                AccessibleName = "Aggiornamento del prodotto disponibile",
                 IsLink = true,
                 Visible = false,
                 Available = !embeddedHostMode,
                 ToolTipText = "Apri i dettagli dell'aggiornamento"
             };
             statusUpdateLabel.Click += (sender, args) =>
+            {
+                if (productUpdateRecoveryStatus?.RequiresAttention == true)
+                {
+                    MessageBox.Show(this, productUpdateRecoveryStatus.Detail,
+                        "Aggiornamento da recuperare", MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
                 showProductUpdateResult(lastProductUpdateResult);
+            };
             int positionIndex = statusStripMain.Items.IndexOf(statusPositionLabel);
             statusStripMain.Items.Insert(Math.Max(0, positionIndex),
                 statusUpdateLabel);
@@ -154,19 +169,23 @@ namespace DDF___Program_Language_Editor
                 DdfProductVersionCatalog.Current.ProductId,
                 DdfProductVersionCatalog.Current.CurrentVersion,
                 productUpdateSettings.Channel, productUpdateClock(),
-                "La verifica firmata non è ancora attiva: la chiave pubblica " +
-                "ufficiale della release non è stata provisionata.");
+                "Il provider firmato degli aggiornamenti non è disponibile.");
 
         private void presentProductUpdateResult(DdfProductUpdateResult result,
             bool manual)
         {
-            statusUpdateLabel.Visible = result.IsActionable;
-            statusUpdateLabel.Text = result.IsActionable
-                ? "Aggiornamento " + result.AvailableVersion + " disponibile"
-                : string.Empty;
-            statusUpdateLabel.ToolTipText = result.IsActionable
-                ? "Apri i dettagli della release verificata"
-                : result.StatusDetail;
+            if (productUpdateRecoveryStatus?.RequiresAttention == true)
+                presentProductUpdateRecoveryStatus();
+            else
+            {
+                statusUpdateLabel.Visible = result.IsActionable;
+                statusUpdateLabel.Text = result.IsActionable
+                    ? "Aggiornamento " + result.AvailableVersion + " disponibile"
+                    : string.Empty;
+                statusUpdateLabel.ToolTipText = result.IsActionable
+                    ? "Apri i dettagli della release verificata"
+                    : result.StatusDetail;
+            }
 
             if (result.State == DdfProductUpdateState.Unknown)
                 appendOutput("Aggiornamenti: " + result.StatusDetail);
@@ -174,6 +193,54 @@ namespace DDF___Program_Language_Editor
                 appendOutput("Aggiornamenti: release " + result.AvailableVersion +
                     " non compatibile con questa installazione.");
             if (manual) showProductUpdateResult(result);
+        }
+
+        private void inspectPendingProductUpdateRecovery()
+        {
+            if (embeddedHostMode) return;
+            string stateDirectory = AppSettingsStore.GetProductUpdateStateDirectory();
+            productUpdateRecoveryStatus = DdfProductUpdateStartupRecovery.Inspect(
+                Path.Combine(stateDirectory, "plan.json"),
+                Path.Combine(stateDirectory, "journal.json"));
+            if (!productUpdateRecoveryStatus.HasState ||
+                productUpdateRecoveryStatus.Action ==
+                    DdfProductUpdateRecoveryAction.None) return;
+
+            appendOutput("Aggiornamenti: " +
+                productUpdateRecoveryStatus.Detail + " Azione prevista: " +
+                describeProductUpdateRecoveryAction(
+                    productUpdateRecoveryStatus.Action) + ".");
+            if (productUpdateRecoveryStatus.RequiresAttention)
+                presentProductUpdateRecoveryStatus();
+        }
+
+        private void presentProductUpdateRecoveryStatus()
+        {
+            statusUpdateLabel.Visible = true;
+            statusUpdateLabel.Text = "Aggiornamento da recuperare";
+            statusUpdateLabel.ToolTipText = productUpdateRecoveryStatus.Detail;
+            statusUpdateLabel.AccessibleName =
+                "Aggiornamento incompleto che richiede attenzione";
+        }
+
+        private static string describeProductUpdateRecoveryAction(
+            DdfProductUpdateRecoveryAction action)
+        {
+            switch (action)
+            {
+                case DdfProductUpdateRecoveryAction.DiscardStaging:
+                    return "rimozione dello staging incompleto";
+                case DdfProductUpdateRecoveryAction.RestoreBackup:
+                    return "ripristino del backup";
+                case DdfProductUpdateRecoveryAction.VerifyOrRollback:
+                    return "verifica o rollback";
+                case DdfProductUpdateRecoveryAction.CleanupDeferred:
+                    return "pulizia differita";
+                case DdfProductUpdateRecoveryAction.ManualIntervention:
+                    return "intervento manuale";
+                default:
+                    return "nessuna";
+            }
         }
 
         private void showProductUpdateResult(DdfProductUpdateResult result)

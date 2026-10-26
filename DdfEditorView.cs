@@ -39,6 +39,7 @@ namespace DDF___Program_Language_Editor
         private bool ownsExecutionService;
         private IDdfEditorDebugService debugService;
         private bool ownsDebugService;
+        private IDdfEditorProductUpdateService productUpdateService;
         private readonly IDdfEditorEventDispatcher eventDispatcher;
 
         public DdfEditorView() : this(true)
@@ -246,6 +247,11 @@ namespace DDF___Program_Language_Editor
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IDdfEditorProductUpdateService ProductUpdateService =>
+            productUpdateService;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public IReadOnlyList<DdfEditorCapabilityDescriptor> KnownCapabilities =>
             DdfEditorCapabilityCatalog.Known;
 
@@ -261,6 +267,7 @@ namespace DDF___Program_Language_Editor
                     executionService as IDdfEditorCooperativeExecutionService,
                 DdfEditorCapabilityIds.AsyncLifecycle =>
                     executionService as IDdfEditorAsyncLifecycleService,
+                DdfEditorCapabilityIds.ProductUpdates => productUpdateService,
                 _ => null
             };
             return DdfEditorCapabilityCatalog.Find(capabilityId) == null
@@ -754,6 +761,24 @@ namespace DDF___Program_Language_Editor
             AttachDebugService(service, false);
         }
 
+        /// <summary>
+        /// Attaches an opt-in verification service supplied and owned by the host.
+        /// Merely attaching it performs no network request and creates no timer or UI.
+        /// </summary>
+        public void AttachProductUpdateService(
+            IDdfEditorProductUpdateService service)
+        {
+            productUpdateService = service ??
+                throw new ArgumentNullException(nameof(service));
+        }
+
+        public bool DetachProductUpdateService()
+        {
+            bool detached = productUpdateService != null;
+            productUpdateService = null;
+            return detached;
+        }
+
         private void AttachAnalysisService(IDdfEditorAnalysisService service, bool ownsService)
         {
             if (service == null) throw new ArgumentNullException(nameof(service));
@@ -845,6 +870,7 @@ namespace DDF___Program_Language_Editor
                 persistenceProvider = null;
                 projectContainer = null;
                 currentProject = null;
+                productUpdateService = null;
                 if (preparationService != null)
                 {
                     preparationService.StateChanged -= preparationService_StateChanged;

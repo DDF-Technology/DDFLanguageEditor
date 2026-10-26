@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -25,8 +26,12 @@ namespace DDFLanguageEditor.Tests
         private static readonly List<string> Failures = new List<string>();
         private static int passedTests;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
+            if (args?.Contains("--product-update-github-only",
+                    StringComparer.Ordinal) == true)
+                return RunRealGitHubProductUpdateSmoke();
+
             Run("classifies complete line comments", ClassifiesCompleteLineComments);
             Run("classifies complete numbers", ClassifiesCompleteNumbers);
             Run("protects strings from nested classification", ProtectsStrings);
@@ -164,7 +169,16 @@ namespace DDFLanguageEditor.Tests
             Run("keeps the DDF version policy aligned", KeepsDdfVersionPolicyAligned);
             Run("keeps the authoritative version matrix aligned", KeepsAuthoritativeVersionMatrixAligned);
             Run("models immutable versioned product update results", ModelsImmutableVersionedProductUpdateResults);
+            Run("persists update installation plans and crash journals atomically", PersistsUpdateInstallationPlansAndCrashJournalsAtomically);
+            Run("downloads and seals verified update staging safely", DownloadsAndSealsVerifiedUpdateStagingSafely);
+            Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
+            Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
+            Run("completes updates only after a successful health check", CompletesUpdatesOnlyAfterSuccessfulHealthCheck);
+            Run("keeps embedded product update checks host controlled", KeepsEmbeddedProductUpdateChecksHostControlled);
             Run("checks the fixed GitHub release feed safely", ChecksFixedGitHubReleaseFeedSafely);
+            Run("exercises product updates through an isolated loopback server", ExercisesProductUpdatesThroughIsolatedLoopbackServer);
+            Run("loads the official release trust store fail closed", LoadsOfficialReleaseTrustStoreFailClosed);
+            Run("evaluates only signed correlated GitHub releases", EvaluatesOnlySignedCorrelatedGitHubReleases);
             Run("signs and verifies canonical release manifests", SignsAndVerifiesCanonicalReleaseManifests);
             Run("inspects and migrates persisted artifacts atomically", InspectsAndMigratesPersistedArtifactsAtomically);
             Run("keeps the DDF candidate baseline frozen", KeepsDdfCandidateBaselineFrozen);
@@ -192,6 +206,10 @@ namespace DDFLanguageEditor.Tests
             Run("exposes direct module exports to live editor analysis", ExposesModuleExportsToEditorAnalysis);
             Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
             Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
+            Run("models language package authoring independently from the UI", ModelsLanguagePackageAuthoringIndependently);
+            Run("previews language package transformations before applying them", PreviewsLanguagePackageTransformations);
+            Run("undoes and redoes authoring operations deterministically", UndoesAndRedoesAuthoringOperations);
+            Run("creates and clones detached language authoring projects", CreatesAndClonesLanguageAuthoringProjects);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
@@ -6678,6 +6696,606 @@ namespace DDFLanguageEditor.Tests
                 matrix["schemas"]["productUpdateResult"].GetValue<string>());
         }
 
+        private static void PersistsUpdateInstallationPlansAndCrashJournalsAtomically()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-journal-" +
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 12, 0, 0,
+                    TimeSpan.Zero);
+                var plan = new DdfProductUpdateInstallationPlan(
+                    "portable-main", "standalone", "0.12.5", "0.13.0-beta.1",
+                    "win-x64", "x64", new string('a', 64), "official-2026",
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.0/package.zip"),
+                    4096, new string('b', 64), Path.Combine(root, "target"),
+                    Path.Combine(root, "staging"), Path.Combine(root, "backup"),
+                    "DDFLanguageEditor.exe", 1234, now.AddMinutes(-1),
+                    new string('c', 64), true, new[]
+                    {
+                        new DdfProductUpdateInstallationFile("support/core.dll", 20,
+                            new string('d', 64)),
+                        new DdfProductUpdateInstallationFile("DDFLanguageEditor.exe",
+                            10, new string('e', 64))
+                    }, now);
+
+                string json = DdfProductUpdateInstallationJson.SerializePlan(plan);
+                DdfProductUpdateInstallationPlan restored =
+                    DdfProductUpdateInstallationJson.ParsePlan(json);
+                Equal(plan.TargetVersion, restored.TargetVersion);
+                Equal("DDFLanguageEditor.exe", restored.Inventory[0].RelativePath);
+                Equal(DdfProductUpdateInstallationJson.ComputePlanSha256(plan),
+                    DdfProductUpdateInstallationJson.ComputePlanSha256(restored));
+                Equal(false, json.Contains("workspace", StringComparison.OrdinalIgnoreCase));
+
+                string planPath = Path.Combine(root, "state", "plan.json");
+                DdfProductUpdateInstallationJournalStore.WritePlan(planPath, plan);
+                Equal(plan.TargetRoot,
+                    DdfProductUpdateInstallationJournalStore.ReadPlan(planPath)
+                        .TargetRoot);
+                Throws<IOException>(() =>
+                    DdfProductUpdateInstallationJournalStore.WritePlan(planPath, plan));
+
+                string planHash = DdfProductUpdateInstallationJson
+                    .ComputePlanSha256(plan);
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    Path.Combine(root, "state", "journal.json"));
+                DdfProductUpdateInstallationJournal journal = store.Create(planHash,
+                    now);
+                Equal(DdfProductUpdateInstallationState.Checked, journal.State);
+                Equal(DdfProductUpdateRecoveryAction.DiscardStaging,
+                    DdfProductUpdateRecoveryPlanner.Plan(journal, true, true, false));
+                Throws<InvalidOperationException>(() => store.Create(planHash, now));
+
+                var states = new[]
+                {
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    DdfProductUpdateInstallationState.Downloading,
+                    DdfProductUpdateInstallationState.Staged,
+                    DdfProductUpdateInstallationState.InstallAuthorized,
+                    DdfProductUpdateInstallationState.WaitingForEditorExit,
+                    DdfProductUpdateInstallationState.Applying,
+                    DdfProductUpdateInstallationState.Verifying,
+                    DdfProductUpdateInstallationState.Completed
+                };
+                DdfProductUpdateInstallationJournal applying = null;
+                foreach (DdfProductUpdateInstallationState state in states)
+                {
+                    journal = store.Transition(journal.Revision, state,
+                        now.AddMinutes(journal.Revision + 1));
+                    if (state == DdfProductUpdateInstallationState.Applying)
+                        applying = journal;
+                }
+                Equal(8L, journal.Revision);
+                Equal(true, journal.IsTerminal);
+                Equal(DdfProductUpdateInstallationState.Completed,
+                    store.Read().State);
+                Equal(DdfProductUpdateRecoveryAction.RestoreBackup,
+                    DdfProductUpdateRecoveryPlanner.Plan(applying, false, false, true));
+                Equal(DdfProductUpdateRecoveryAction.VerifyOrRollback,
+                    DdfProductUpdateRecoveryPlanner.Plan(applying, true, false, true));
+                Equal(DdfProductUpdateRecoveryAction.ManualIntervention,
+                    DdfProductUpdateRecoveryPlanner.Plan(applying, false, false, false));
+                Equal(DdfProductUpdateRecoveryAction.CleanupDeferred,
+                    DdfProductUpdateRecoveryPlanner.Plan(journal, true, false, true));
+                Equal(false, DdfProductUpdateInstallationTransitions.CanTransition(
+                    DdfProductUpdateInstallationState.Applying,
+                    DdfProductUpdateInstallationState.Cancelled));
+                Throws<InvalidOperationException>(() => store.Transition(0,
+                    DdfProductUpdateInstallationState.Failed, now, "stale"));
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateInstallationJson.ParseJournal(
+                        DdfProductUpdateInstallationJson.SerializeJournal(journal)
+                            .Replace("\"completed\"", "99", StringComparison.Ordinal)));
+                Throws<ArgumentException>(() =>
+                    new DdfProductUpdateInstallationFile("../escape.dll", 1,
+                        new string('f', 64)));
+                Throws<ArgumentException>(() =>
+                    new DdfProductUpdateInstallationFile("CON.txt", 1,
+                        new string('f', 64)));
+
+                string projectRoot = Path.GetFullPath(Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+                JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                    projectRoot, "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+                Equal(DdfProductUpdateInstallationPlan.SchemaVersionValue,
+                    matrix["schemas"]["productUpdateInstallationPlan"]
+                        .GetValue<string>());
+                Equal(DdfProductUpdateInstallationJournal.SchemaVersionValue,
+                    matrix["schemas"]["productUpdateInstallationJournal"]
+                        .GetValue<string>());
+                foreach (string schemaFile in new[]
+                {
+                    "ddf-product-update-installation-plan.schema.json",
+                    "ddf-product-update-installation-journal.schema.json"
+                })
+                {
+                    JsonObject schema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                        projectRoot, schemaFile), Encoding.UTF8)).AsObject();
+                    Equal(true, schema["$id"].GetValue<string>()
+                        .StartsWith("https://www.ddf.technology/schemas/",
+                            StringComparison.Ordinal));
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DownloadsAndSealsVerifiedUpdateStagingSafely()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-stage-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    ["DDFLanguageEditor.exe"] = Encoding.UTF8.GetBytes("editor"),
+                    ["support/core.dll"] = Encoding.UTF8.GetBytes("core")
+                };
+                byte[] archive = CreateProductUpdateArchive(files);
+                DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 15, 0, 0,
+                    TimeSpan.Zero);
+                using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                DdfReleaseTrustStore trust = new DdfReleaseTrustStore(
+                    new Dictionary<string, byte[]>
+                    {
+                        ["release-2026"] = key.ExportSubjectPublicKeyInfo()
+                    });
+                Uri uri = new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.2/editor.zip");
+                string version = "0.13.6-beta.2";
+                var asset = new DdfReleaseManifestAsset(
+                    DdfProductUpdateComponentKind.Standalone,
+                    DdfProductVersionCatalog.Current.ProductId, version, "win-x64",
+                    "x64", uri, archive.LongLength, HashBytes(archive));
+                var compatibility = new DdfReleaseCompatibility("0.34", "0.99",
+                    new Dictionary<string, string> { ["editorState"] = "1.0" });
+                string manifest = DdfReleaseManifestCodec.Serialize(
+                    DdfReleaseManifestSigner.Sign(
+                        DdfReleaseManifest.CreateUnsigned(
+                            DdfProductVersionCatalog.Current.ProductId, version,
+                            DdfProductUpdateChannel.Beta, now, "Staging test.",
+                            compatibility, new[] { asset }), "release-2026", key));
+                DdfProductUpdateInstallationPlan plan = CreateStagingPlan(root,
+                    version, uri, archive, manifest, files, now);
+                string planHash = DdfProductUpdateInstallationJson
+                    .ComputePlanSha256(plan);
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    Path.Combine(root, "state", "journal.json"));
+                DdfProductUpdateInstallationJournal journal = store.Create(planHash,
+                    now);
+                store.Transition(journal.Revision,
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    now.AddSeconds(1));
+
+                var handler = new QueueHttpMessageHandler();
+                handler.Enqueue((request, cancellationToken) =>
+                {
+                    var response = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(archive)
+                    };
+                    return Task.FromResult(response);
+                });
+                var progress = new List<DdfProductUpdateStagingProgress>();
+                using (var stager = new DdfProductUpdateStager(handler,
+                    new DdfProductUpdateStagingOptions(TimeSpan.FromSeconds(10),
+                        archive.LongLength)))
+                {
+                    DdfProductUpdateStagingSeal seal = stager.StageAsync(plan,
+                        manifest, trust, store, now.AddSeconds(2),
+                        progress: new InlineProgress<DdfProductUpdateStagingProgress>(
+                            item => progress.Add(item))).GetAwaiter().GetResult();
+                    Equal(planHash, seal.PlanSha256);
+                    Equal(files.Count, seal.FileCount);
+                    Equal(files.Values.Sum(item => (long)item.Length),
+                        seal.TotalFileBytes);
+                }
+
+                Equal(DdfProductUpdateInstallationState.Staged,
+                    store.Read().State);
+                Equal(false, Directory.Exists(plan.TargetRoot));
+                Equal(true, Directory.Exists(plan.StagingRoot));
+                foreach (KeyValuePair<string, byte[]> file in files)
+                    SequenceEqual(file.Value, File.ReadAllBytes(Path.Combine(
+                        plan.StagingRoot,
+                        file.Key.Replace('/', Path.DirectorySeparatorChar))));
+                DdfProductUpdateStagingSeal persisted =
+                    DdfProductUpdateStagingSealCodec.Read(
+                        DdfProductUpdateStagingSealCodec.SealPathFor(
+                            plan.StagingRoot));
+                Equal(planHash, persisted.PlanSha256);
+                DdfProductUpdateStagingSealCodec.ValidateForPlan(persisted, plan);
+                string projectRoot = Path.GetFullPath(Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+                JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                    projectRoot, "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+                Equal(DdfProductUpdateStagingSeal.SchemaVersionValue,
+                    matrix["schemas"]["productUpdateStagingSeal"]
+                        .GetValue<string>());
+                JsonObject sealSchema = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                    projectRoot, "ddf-product-update-staging-seal.schema.json"),
+                    Encoding.UTF8)).AsObject();
+                Equal("https://www.ddf.technology/schemas/product-update-staging-seal-1.0.json",
+                    sealSchema["$id"].GetValue<string>());
+                Equal(true, progress.Count > 0);
+                Equal(archive.LongLength, progress.Last().BytesReceived);
+                Equal(0, Directory.GetFiles(root, "*.partial",
+                    SearchOption.TopDirectoryOnly).Length);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsUnsafeUpdateArchivesWithoutTouchingTarget()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-stage-unsafe-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    ["DDFLanguageEditor.exe"] = Encoding.UTF8.GetBytes("editor")
+                };
+                byte[] archive = CreateProductUpdateArchive(files,
+                    "../escape.txt", Encoding.UTF8.GetBytes("escape"));
+                DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 16, 0, 0,
+                    TimeSpan.Zero);
+                using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                DdfReleaseTrustStore trust = new DdfReleaseTrustStore(
+                    new Dictionary<string, byte[]>
+                    {
+                        ["release-2026"] = key.ExportSubjectPublicKeyInfo()
+                    });
+                Uri uri = new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.3/editor.zip");
+                string version = "0.13.6-beta.3";
+                var asset = new DdfReleaseManifestAsset(
+                    DdfProductUpdateComponentKind.Standalone,
+                    DdfProductVersionCatalog.Current.ProductId, version, "win-x64",
+                    "x64", uri, archive.LongLength, HashBytes(archive));
+                string manifest = DdfReleaseManifestCodec.Serialize(
+                    DdfReleaseManifestSigner.Sign(
+                        DdfReleaseManifest.CreateUnsigned(
+                            DdfProductVersionCatalog.Current.ProductId, version,
+                            DdfProductUpdateChannel.Beta, now, "Unsafe archive.",
+                            new DdfReleaseCompatibility("0.34", "0.99",
+                                new Dictionary<string, string>
+                                {
+                                    ["editorState"] = "1.0"
+                                }), new[] { asset }), "release-2026", key));
+                DdfProductUpdateInstallationPlan plan = CreateStagingPlan(root,
+                    version, uri, archive, manifest, files, now);
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    Path.Combine(root, "state", "journal.json"));
+                DdfProductUpdateInstallationJournal journal = store.Create(
+                    DdfProductUpdateInstallationJson.ComputePlanSha256(plan), now);
+                store.Transition(journal.Revision,
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    now.AddSeconds(1));
+                var handler = new QueueHttpMessageHandler();
+                handler.Enqueue((request, cancellationToken) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(archive)
+                    }));
+                using var stager = new DdfProductUpdateStager(handler,
+                    new DdfProductUpdateStagingOptions(TimeSpan.FromSeconds(10),
+                        archive.LongLength));
+                Throws<InvalidDataException>(() => stager.StageAsync(plan,
+                    manifest, trust, store, now.AddSeconds(2)).GetAwaiter()
+                    .GetResult());
+                Equal(DdfProductUpdateInstallationState.Failed,
+                    store.Read().State);
+                Equal(false, Directory.Exists(plan.TargetRoot));
+                Equal(false, Directory.Exists(plan.StagingRoot));
+                Equal(false, File.Exists(Path.Combine(root, "escape.txt")));
+                Equal(false, File.Exists(
+                    DdfProductUpdateStagingSealCodec.SealPathFor(plan.StagingRoot)));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static DdfProductUpdateInstallationPlan CreateStagingPlan(
+            string root, string version, Uri uri, byte[] archive, string manifest,
+            IReadOnlyDictionary<string, byte[]> files, DateTimeOffset now) =>
+            new DdfProductUpdateInstallationPlan("portable-main",
+                DdfProductVersionCatalog.Current.ProductId, "0.12.5", version,
+                "win-x64", "x64", HashBytes(Encoding.UTF8.GetBytes(manifest)),
+                "release-2026", uri, archive.LongLength, HashBytes(archive),
+                Path.Combine(root, "target"), Path.Combine(root, "staging"),
+                Path.Combine(root, "backup"), "DDFLanguageEditor.exe", 1234,
+                now.AddMinutes(-1), new string('a', 64), false,
+                files.Select(file => new DdfProductUpdateInstallationFile(file.Key,
+                    file.Value.LongLength, HashBytes(file.Value))), now);
+
+        private static byte[] CreateProductUpdateArchive(
+            IReadOnlyDictionary<string, byte[]> files, string extraPath = null,
+            byte[] extraContent = null)
+        {
+            using var output = new MemoryStream();
+            using (var archive = new ZipArchive(output, ZipArchiveMode.Create, true))
+            {
+                foreach (KeyValuePair<string, byte[]> file in files)
+                {
+                    ZipArchiveEntry entry = archive.CreateEntry(file.Key,
+                        CompressionLevel.Optimal);
+                    using Stream stream = entry.Open();
+                    stream.Write(file.Value, 0, file.Value.Length);
+                }
+                if (extraPath != null)
+                {
+                    ZipArchiveEntry entry = archive.CreateEntry(extraPath,
+                        CompressionLevel.Optimal);
+                    using Stream stream = entry.Open();
+                    byte[] content = extraContent ?? Array.Empty<byte>();
+                    stream.Write(content, 0, content.Length);
+                }
+            }
+            return output.ToArray();
+        }
+
+        private static string HashBytes(byte[] bytes) => Convert.ToHexString(
+            SHA256.HashData(bytes)).ToLowerInvariant();
+
+        private static void SwapsStagedUpdatesAndRollsBackCorruptedPromotions()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-worker-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 18, 0, 0,
+                    TimeSpan.Zero);
+                string nonce = new string('9', 64);
+                byte[] newExe = Encoding.UTF8.GetBytes("new-editor");
+                byte[] newCore = Encoding.UTF8.GetBytes("new-core");
+                var inventory = new[]
+                {
+                    new DdfProductUpdateInstallationFile(
+                        "DDFLanguageEditor.exe", newExe.LongLength,
+                        HashBytes(newExe)),
+                    new DdfProductUpdateInstallationFile("support/core.dll",
+                        newCore.LongLength, HashBytes(newCore))
+                };
+                var plan = new DdfProductUpdateInstallationPlan("portable-main",
+                    DdfProductVersionCatalog.Current.ProductId, "0.12.5",
+                    "0.13.6-beta.4", "win-x64", "x64", new string('a', 64),
+                    "release-2026", new Uri(
+                        "https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.4/editor.zip"),
+                    100, new string('b', 64), Path.Combine(root, "target"),
+                    Path.Combine(root, "staging"), Path.Combine(root, "backup"),
+                    "DDFLanguageEditor.exe", 4242, now.AddMinutes(-1), nonce,
+                    false, inventory, now);
+                Directory.CreateDirectory(plan.TargetRoot);
+                File.WriteAllText(Path.Combine(plan.TargetRoot,
+                    "DDFLanguageEditor.exe"), "old-editor", Encoding.UTF8);
+                File.WriteAllText(Path.Combine(plan.TargetRoot, "old-only.txt"),
+                    "old", Encoding.UTF8);
+                Directory.CreateDirectory(Path.Combine(plan.StagingRoot,
+                    "support"));
+                File.WriteAllBytes(Path.Combine(plan.StagingRoot,
+                    "DDFLanguageEditor.exe"), newExe);
+                File.WriteAllBytes(Path.Combine(plan.StagingRoot,
+                    "support", "core.dll"), newCore);
+
+                string planPath = Path.Combine(root, "state", "plan.json");
+                string journalPath = Path.Combine(root, "state", "journal.json");
+                DdfProductUpdateInstallationJournalStore.WritePlan(planPath, plan);
+                string planHash = DdfProductUpdateInstallationJson
+                    .ComputePlanSha256(plan);
+                string sealJson = JsonSerializer.Serialize(new
+                {
+                    schemaVersion = DdfProductUpdateStagingSeal.SchemaVersionValue,
+                    planSha256 = planHash,
+                    inventorySha256 = DdfProductUpdateStagingSealCodec
+                        .ComputeInventorySha256(plan.Inventory),
+                    assetSha256 = plan.AssetSha256,
+                    fileCount = plan.Inventory.Count,
+                    totalFileBytes = plan.Inventory.Sum(file => file.Size),
+                    stagedUtc = now.AddSeconds(3)
+                });
+                File.WriteAllText(DdfProductUpdateStagingSealCodec.SealPathFor(
+                    plan.StagingRoot), sealJson, new UTF8Encoding(false));
+
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    journalPath);
+                DdfProductUpdateInstallationJournal journal = store.Create(planHash,
+                    now);
+                foreach (DdfProductUpdateInstallationState state in new[]
+                {
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    DdfProductUpdateInstallationState.Downloading,
+                    DdfProductUpdateInstallationState.Staged,
+                    DdfProductUpdateInstallationState.InstallAuthorized
+                })
+                    journal = store.Transition(journal.Revision, state,
+                        now.AddSeconds(journal.Revision + 1));
+
+                var waiter = new ImmediateProcessWaiter();
+                var worker = new DdfProductUpdateWorker(waiter,
+                    new DdfProductUpdateWorkerOptions(TimeSpan.FromSeconds(5)));
+                Throws<InvalidDataException>(() => worker.ApplyAsync(planPath,
+                    journalPath, new string('8', 64)).GetAwaiter().GetResult());
+                Equal(DdfProductUpdateInstallationState.InstallAuthorized,
+                    store.Read().State);
+
+                DdfProductUpdateWorkerResult applied = worker.ApplyAsync(planPath,
+                    journalPath, nonce).GetAwaiter().GetResult();
+                Equal(DdfProductUpdateWorkerResultKind.AwaitingHealthCheck,
+                    applied.Kind);
+                Equal(4242, waiter.ProcessId);
+                Equal(now.AddMinutes(-1), waiter.ProcessStartedUtc);
+                Equal(DdfProductUpdateInstallationState.Verifying,
+                    store.Read().State);
+                Equal(true, Directory.Exists(plan.BackupRoot));
+                Equal(false, Directory.Exists(plan.StagingRoot));
+                SequenceEqual(newExe, File.ReadAllBytes(Path.Combine(
+                    plan.TargetRoot, "DDFLanguageEditor.exe")));
+                Equal("old-editor", File.ReadAllText(Path.Combine(
+                    plan.BackupRoot, "DDFLanguageEditor.exe"), Encoding.UTF8));
+
+                File.WriteAllText(Path.Combine(plan.TargetRoot,
+                    "DDFLanguageEditor.exe"), "corrupted", Encoding.UTF8);
+                DdfProductUpdateWorkerResult recovered = worker.Recover(planPath,
+                    journalPath, nonce);
+                Equal(DdfProductUpdateWorkerResultKind.RolledBack, recovered.Kind);
+                Equal(DdfProductUpdateInstallationState.RolledBack,
+                    store.Read().State);
+                Equal("old-editor", File.ReadAllText(Path.Combine(
+                    plan.TargetRoot, "DDFLanguageEditor.exe"), Encoding.UTF8));
+                Equal(false, Directory.Exists(plan.BackupRoot));
+                Equal(true, Directory.Exists(recovered.QuarantineRoot));
+                Equal("corrupted", File.ReadAllText(Path.Combine(
+                    recovered.QuarantineRoot, "DDFLanguageEditor.exe"),
+                    Encoding.UTF8));
+                Equal(DdfProductUpdateWorkerResultKind.CleanupCompleted,
+                    worker.Cleanup(planPath, journalPath, nonce).Kind);
+                Equal(false, Directory.Exists(recovered.QuarantineRoot));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void CompletesUpdatesOnlyAfterSuccessfulHealthCheck()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-health-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 19, 0, 0,
+                    TimeSpan.Zero);
+                byte[] executable = Encoding.UTF8.GetBytes("healthy-editor");
+                var plan = new DdfProductUpdateInstallationPlan("portable-main",
+                    DdfProductVersionCatalog.Current.ProductId, "0.12.5",
+                    "0.13.6-beta.5", "win-x64", "x64", new string('a', 64),
+                    "release-2026", new Uri(
+                        "https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.5/editor.zip"),
+                    100, new string('b', 64), Path.Combine(root, "target"),
+                    Path.Combine(root, "staging"), Path.Combine(root, "backup"),
+                    "DDFLanguageEditor.exe", 5252, now.AddMinutes(-1),
+                    new string('7', 64), true, new[]
+                    {
+                        new DdfProductUpdateInstallationFile(
+                            "DDFLanguageEditor.exe", executable.LongLength,
+                            HashBytes(executable))
+                    }, now);
+                Directory.CreateDirectory(plan.TargetRoot);
+                Directory.CreateDirectory(plan.BackupRoot);
+                File.WriteAllBytes(Path.Combine(plan.TargetRoot,
+                    "DDFLanguageEditor.exe"), executable);
+                File.WriteAllText(Path.Combine(plan.BackupRoot,
+                    "DDFLanguageEditor.exe"), "previous", Encoding.UTF8);
+                string planPath = Path.Combine(root, "state", "plan.json");
+                string journalPath = Path.Combine(root, "state", "journal.json");
+                DdfProductUpdateInstallationJournalStore.WritePlan(planPath, plan);
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    journalPath);
+                DdfProductUpdateInstallationJournal journal = store.Create(
+                    DdfProductUpdateInstallationJson.ComputePlanSha256(plan), now);
+                foreach (DdfProductUpdateInstallationState state in new[]
+                {
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    DdfProductUpdateInstallationState.Downloading,
+                    DdfProductUpdateInstallationState.Staged,
+                    DdfProductUpdateInstallationState.InstallAuthorized,
+                    DdfProductUpdateInstallationState.WaitingForEditorExit,
+                    DdfProductUpdateInstallationState.Applying,
+                    DdfProductUpdateInstallationState.Verifying
+                })
+                    journal = store.Transition(journal.Revision, state,
+                        now.AddSeconds(journal.Revision + 1));
+
+                var health = new FixedProductUpdateHealthCheck(true);
+                var worker = new DdfProductUpdateWorker(
+                    new ImmediateProcessWaiter());
+                DdfProductUpdateWorkerResult result = worker.FinalizeAsync(
+                    planPath, journalPath, plan.Nonce, health).GetAwaiter()
+                    .GetResult();
+                Equal(DdfProductUpdateWorkerResultKind.Completed, result.Kind);
+                Equal(1, health.Calls);
+                Equal(DdfProductUpdateInstallationState.Completed,
+                    store.Read().State);
+                Equal(true, Directory.Exists(plan.BackupRoot));
+                SequenceEqual(executable, File.ReadAllBytes(Path.Combine(
+                    plan.TargetRoot, "DDFLanguageEditor.exe")));
+
+                DdfProductUpdateStartupRecoveryStatus startup =
+                    DdfProductUpdateStartupRecovery.Inspect(planPath,
+                        journalPath);
+                Equal(true, startup.HasState);
+                Equal(DdfProductUpdateInstallationState.Completed,
+                    startup.State.Value);
+                Equal(DdfProductUpdateRecoveryAction.CleanupDeferred,
+                    startup.Action);
+                Equal(false, startup.RequiresAttention);
+                Equal(DdfProductUpdateWorkerResultKind.CleanupCompleted,
+                    worker.Cleanup(planPath, journalPath, plan.Nonce).Kind);
+                Equal(false, Directory.Exists(plan.BackupRoot));
+                Equal(DdfProductUpdateRecoveryAction.None,
+                    DdfProductUpdateStartupRecovery.Inspect(planPath,
+                        journalPath).Action);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void KeepsEmbeddedProductUpdateChecksHostControlled()
+        {
+            DdfProductComponentVersion component = DdfProductVersionCatalog.Current
+                .EmbeddedComponents.Single(item => item.Id == "winforms-sdk");
+            var provider = new RecordingProductUpdateProvider(request =>
+                DdfProductUpdateResult.UpToDate(request.ComponentKind,
+                    request.ComponentId, request.CurrentVersion,
+                    request.CurrentVersion, request.Channel,
+                    new DateTimeOffset(2026, 10, 24, 18, 0, 0,
+                        TimeSpan.Zero)));
+            DdfEditorProductUpdateService service =
+                DdfEditorProductUpdateService.ForEmbeddedComponent(provider,
+                    component.Id);
+
+            Equal(0, provider.CheckCount);
+            Equal(component.Id, service.ComponentId);
+            Equal(component.Version, service.CurrentVersion);
+            DdfProductUpdateResult result = service.CheckAsync(
+                DdfProductUpdateChannel.Beta).GetAwaiter().GetResult();
+            Equal(1, provider.CheckCount);
+            Equal(DdfProductUpdateComponentKind.EmbeddedSdk,
+                provider.LastRequest.ComponentKind);
+            Equal(component.Id, provider.LastRequest.ComponentId);
+            Equal(component.Version, provider.LastRequest.CurrentVersion);
+            Equal(DdfProductUpdateChannel.Beta, provider.LastRequest.Channel);
+            Equal(DdfProductUpdateState.UpToDate, result.State);
+
+            var mismatchedProvider = new RecordingProductUpdateProvider(request =>
+                DdfProductUpdateResult.UpToDate(
+                    DdfProductUpdateComponentKind.Standalone,
+                    DdfProductVersionCatalog.Current.ProductId,
+                    request.CurrentVersion, request.CurrentVersion,
+                    request.Channel, DateTimeOffset.UtcNow));
+            var mismatched = new DdfEditorProductUpdateService(
+                mismatchedProvider, component.Id, component.Version);
+            Equal(DdfProductUpdateState.Unknown, mismatched.CheckAsync(
+                DdfProductUpdateChannel.Stable).GetAwaiter().GetResult().State);
+            Throws<ArgumentException>(() =>
+                DdfEditorProductUpdateService.ForEmbeddedComponent(provider,
+                    "unknown-sdk"));
+        }
+
         private static void ChecksFixedGitHubReleaseFeedSafely()
         {
             DateTimeOffset now = new DateTimeOffset(2026, 10, 24, 13, 0, 0,
@@ -6770,6 +7388,25 @@ namespace DDFLanguageEditor.Tests
             Equal(true, rateLimited.StatusDetail.Contains("Limite richieste",
                 StringComparison.Ordinal));
 
+            var malformed = new QueueHttpMessageHandler();
+            malformed.Enqueue((message, token) => Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{not-json", Encoding.UTF8,
+                        "application/json")
+                }));
+            DdfProductUpdateResult invalidPayload = CheckSingleResponse(request,
+                now, malformed, options);
+            Equal(DdfProductUpdateState.Unknown, invalidPayload.State);
+            Equal(true, invalidPayload.StatusDetail.Contains("non valida",
+                StringComparison.OrdinalIgnoreCase));
+
+            DdfProductUpdateResult emptyCache = CheckSingleResponse(request, now,
+                new QueueHttpMessageHandler(HttpStatusCode.NotModified), options);
+            Equal(DdfProductUpdateState.Unknown, emptyCache.State);
+            Equal(true, emptyCache.StatusDetail.Contains("304",
+                StringComparison.Ordinal));
+
             var smallOptions = new DdfGitHubReleaseProviderOptions
             {
                 Timeout = TimeSpan.FromSeconds(1),
@@ -6817,6 +7454,285 @@ namespace DDFLanguageEditor.Tests
             using var provider = new DdfGitHubReleaseProvider(
                 new RecordingReleaseEvaluator(), handler, options, () => now);
             return provider.CheckAsync(request).GetAwaiter().GetResult();
+        }
+
+        private static void ExercisesProductUpdatesThroughIsolatedLoopbackServer()
+        {
+            DateTimeOffset now = new DateTimeOffset(2026, 10, 25,
+                9, 0, 0, TimeSpan.Zero);
+            DdfProductUpdateRequest request =
+                DdfProductUpdateRequest.ForStandalone();
+            var options = new DdfGitHubReleaseProviderOptions
+            {
+                Timeout = TimeSpan.FromSeconds(2),
+                MaximumResponseBytes = 4096,
+                MaximumReleases = 4
+            };
+
+            using (var server = new LoopbackHttpServer(
+                (headers, token) => Task.FromResult(LoopbackHttpResponse(
+                    HttpStatusCode.OK, "[]", new[]
+                    {
+                        "ETag: \"loopback-1\"",
+                        "Last-Modified: Sun, 25 Oct 2026 08:55:00 GMT"
+                    })),
+                (headers, token) => Task.FromResult(LoopbackHttpResponse(
+                    HttpStatusCode.NotModified, string.Empty))))
+            using (var provider = CreateLoopbackProvider(server,
+                new RecordingReleaseEvaluator(), options, now))
+            {
+                Equal(DdfProductUpdateState.UpToDate, provider.CheckAsync(request)
+                    .GetAwaiter().GetResult().State);
+                Equal(DdfProductUpdateState.UpToDate, provider.CheckAsync(request)
+                    .GetAwaiter().GetResult().State);
+                server.Completion.GetAwaiter().GetResult();
+                Equal(2, server.Requests.Count);
+                if (!server.Requests[0].StartsWith(
+                        "GET /releases?per_page=4 HTTP/1.1",
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "Request-target loopback inatteso: " + server.Requests[0]);
+                if (!server.Requests[1].Contains(
+                        "If-None-Match: \"loopback-1\"",
+                        StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        "ETag condizionale assente: " + server.Requests[1]);
+                if (!server.Requests[1].Contains("If-Modified-Since:",
+                        StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        "Data condizionale assente: " + server.Requests[1]);
+            }
+
+            using (var redirectServer = new LoopbackHttpServer(
+                (headers, token) => Task.FromResult(LoopbackHttpResponse(
+                    HttpStatusCode.Redirect, string.Empty,
+                    new[] { "Location: /redirected" }))))
+            using (var provider = CreateLoopbackProvider(redirectServer,
+                new RecordingReleaseEvaluator(), options, now))
+            {
+                DdfProductUpdateResult redirect = provider.CheckAsync(request)
+                    .GetAwaiter().GetResult();
+                redirectServer.Completion.GetAwaiter().GetResult();
+                Equal(DdfProductUpdateState.Unknown, redirect.State);
+                if (!redirect.StatusDetail.Contains("HTTP 302",
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "Redirect non rifiutato esplicitamente: " +
+                        redirect.StatusDetail);
+                Equal(1, redirectServer.Requests.Count);
+            }
+
+            using (var delayedServer = new LoopbackHttpServer(
+                async (headers, token) =>
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                    return Array.Empty<byte>();
+                }))
+            using (var provider = CreateLoopbackProvider(delayedServer,
+                new RecordingReleaseEvaluator(), options, now))
+            using (var cancellation = new CancellationTokenSource(
+                TimeSpan.FromMilliseconds(100)))
+            {
+                Throws<OperationCanceledException>(() => provider.CheckAsync(
+                    request, cancellation.Token).GetAwaiter().GetResult());
+                Equal(1, delayedServer.Requests.Count);
+            }
+
+            using (var sharedServer = new LoopbackHttpServer(
+                (headers, token) => Task.FromResult(LoopbackHttpResponse(
+                    HttpStatusCode.OK, "[]")),
+                (headers, token) => Task.FromResult(LoopbackHttpResponse(
+                    HttpStatusCode.OK, "[]"))))
+            using (var first = CreateLoopbackProvider(sharedServer,
+                new RecordingReleaseEvaluator(), options, now))
+            using (var second = CreateLoopbackProvider(sharedServer,
+                new RecordingReleaseEvaluator(), options, now))
+            {
+                Task.WaitAll(first.CheckAsync(request), second.CheckAsync(request));
+                sharedServer.Completion.GetAwaiter().GetResult();
+                Equal(2, sharedServer.Requests.Count);
+                if (!sharedServer.Requests.All(value =>
+                        !value.Contains("If-None-Match:",
+                            StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException(
+                        "Cache condivisa tra provider distinti: " +
+                        string.Join(" | ", sharedServer.Requests));
+            }
+        }
+
+        private static int RunRealGitHubProductUpdateSmoke()
+        {
+            try
+            {
+                using var provider = new DdfGitHubReleaseProvider(
+                    new DdfSignedGitHubReleaseEvaluator(
+                        DdfOfficialReleaseTrustStore.Create()),
+                    new DdfGitHubReleaseProviderOptions
+                    {
+                        Timeout = TimeSpan.FromSeconds(15),
+                        MaximumResponseBytes = 1024 * 1024,
+                        MaximumReleases = 20
+                    });
+                DdfProductUpdateResult result = provider.CheckAsync(
+                    DdfProductUpdateRequest.ForStandalone()).GetAwaiter()
+                    .GetResult();
+                if (result.State == DdfProductUpdateState.Unknown)
+                    throw new InvalidOperationException(result.StatusDetail);
+                Console.WriteLine("DDF PRODUCT UPDATE GITHUB SMOKE OK: " +
+                    result.CheckedAtUtc.ToString("O", CultureInfo.InvariantCulture));
+                return 0;
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine("DDF PRODUCT UPDATE GITHUB SMOKE FAILED: " +
+                    exception.Message);
+                return 1;
+            }
+        }
+
+        private static DdfGitHubReleaseProvider CreateLoopbackProvider(
+            LoopbackHttpServer server, IDdfProductReleaseEvaluator evaluator,
+            DdfGitHubReleaseProviderOptions options, DateTimeOffset now) =>
+            new DdfGitHubReleaseProvider(evaluator,
+                new SocketsHttpHandler
+                {
+                    AllowAutoRedirect = false,
+                    AutomaticDecompression = DecompressionMethods.None,
+                    UseProxy = false
+                }, options, () => now, server.Endpoint);
+
+        private static byte[] LoopbackHttpResponse(HttpStatusCode status,
+            string body, IEnumerable<string> headers = null)
+        {
+            byte[] payload = Encoding.UTF8.GetBytes(body ?? string.Empty);
+            string reason = status switch
+            {
+                HttpStatusCode.OK => "OK",
+                HttpStatusCode.NotModified => "Not Modified",
+                HttpStatusCode.Redirect => "Found",
+                _ => status.ToString()
+            };
+            var builder = new StringBuilder()
+                .Append("HTTP/1.1 ").Append((int)status).Append(' ')
+                .Append(reason).Append("\r\n")
+                .Append("Connection: close\r\n")
+                .Append("Content-Type: application/json\r\n")
+                .Append("Content-Length: ").Append(payload.Length)
+                .Append("\r\n");
+            foreach (string header in headers ?? Array.Empty<string>())
+                builder.Append(header).Append("\r\n");
+            builder.Append("\r\n");
+            byte[] prefix = Encoding.ASCII.GetBytes(builder.ToString());
+            var response = new byte[prefix.Length + payload.Length];
+            Buffer.BlockCopy(prefix, 0, response, 0, prefix.Length);
+            Buffer.BlockCopy(payload, 0, response, prefix.Length, payload.Length);
+            return response;
+        }
+
+        private static void LoadsOfficialReleaseTrustStoreFailClosed()
+        {
+            DdfReleaseTrustStore trust = DdfOfficialReleaseTrustStore.Create();
+            Equal("official-2026", DdfOfficialReleaseTrustStore.ActiveKeyId);
+            Equal("cef7cb71ca0c95d06a4cf8b56d1996fe4e2dea0fd94ee490fa7184753465e204",
+                DdfOfficialReleaseTrustStore.ActiveKeySha256);
+
+            DdfProductVersionIdentity identity = DdfProductVersionCatalog.Current;
+            var compatibility = new DdfReleaseCompatibility("0.34", "0.99",
+                identity.PersistenceVersions.ToDictionary(item => item.Key,
+                    item => item.Value, StringComparer.Ordinal));
+            var asset = new DdfReleaseManifestAsset(
+                DdfProductUpdateComponentKind.Standalone, identity.ProductId,
+                "0.13.6-beta.1", "win-x64", "x64",
+                new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.1/editor.zip"),
+                1, new string('a', 64));
+            DdfReleaseManifest unsigned = DdfReleaseManifest.CreateUnsigned(
+                identity.ProductId, "0.13.6-beta.1",
+                DdfProductUpdateChannel.Beta, DateTimeOffset.UtcNow,
+                string.Empty, compatibility, new[] { asset });
+            using ECDsa foreign = ECDsa.Create();
+            foreign.GenerateKey(ECCurve.NamedCurves.nistP256);
+            string forged = DdfReleaseManifestCodec.Serialize(
+                DdfReleaseManifestSigner.Sign(unsigned,
+                    DdfOfficialReleaseTrustStore.ActiveKeyId, foreign));
+            Equal(false, DdfReleaseManifestVerifier.Verify(forged, trust).Success);
+
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            JsonObject matrix = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                projectRoot, "ddf-version-matrix.json"), Encoding.UTF8)).AsObject();
+            Equal(DdfOfficialReleaseTrustStore.SchemaVersion,
+                matrix["schemas"]["releaseTrustStore"].GetValue<string>());
+        }
+
+        private static void EvaluatesOnlySignedCorrelatedGitHubReleases()
+        {
+            DateTimeOffset now = new DateTimeOffset(2026, 10, 26, 14, 30, 0,
+                TimeSpan.Zero);
+            DdfProductVersionIdentity identity = DdfProductVersionCatalog.Current;
+            using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfReleaseTrustStore(
+                new Dictionary<string, byte[]>
+                {
+                    ["test-release"] = key.ExportSubjectPublicKeyInfo()
+                });
+            string version = "0.13.6-beta.9";
+            Uri zipUri = new Uri(
+                "https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.9/DDFLanguageEditor-win-x64.zip");
+            Uri manifestUri = new Uri(
+                "https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.9/ddf-release-manifest.json");
+            var compatibility = new DdfReleaseCompatibility("0.34", "0.99",
+                identity.PersistenceVersions.ToDictionary(item => item.Key,
+                    item => item.Value, StringComparer.Ordinal));
+            var signedAsset = new DdfReleaseManifestAsset(
+                DdfProductUpdateComponentKind.Standalone, identity.ProductId,
+                version, "win-x64", "x64", zipUri, 1234,
+                new string('a', 64));
+            string manifest = DdfReleaseManifestCodec.Serialize(
+                DdfReleaseManifestSigner.Sign(
+                    DdfReleaseManifest.CreateUnsigned(identity.ProductId,
+                        version, DdfProductUpdateChannel.Beta, now,
+                        "Release ufficiale firmata.", compatibility,
+                        new[] { signedAsset }), "test-release", key));
+            var release = new DdfRemoteRelease("v" + version,
+                "Signed release", string.Empty, now,
+                new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/tag/v0.13.6-beta.9"),
+                true, new[]
+                {
+                    new DdfRemoteReleaseAsset(
+                        DdfSignedGitHubReleaseEvaluator.ManifestAssetName,
+                        manifestUri, Encoding.UTF8.GetByteCount(manifest),
+                        "application/json"),
+                    new DdfRemoteReleaseAsset(
+                        "DDFLanguageEditor-win-x64.zip", zipUri, 1234,
+                        "application/zip")
+                });
+            var handler = new QueueHttpMessageHandler();
+            handler.Enqueue((request, cancellationToken) =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.Redirect);
+                response.Headers.Location = new Uri(
+                    "https://release-assets.githubusercontent.com/manifest-token");
+                return Task.FromResult(response);
+            });
+            handler.Enqueue((request, cancellationToken) => Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(manifest, Encoding.UTF8,
+                        "application/json")
+                }));
+            using var evaluator = new DdfSignedGitHubReleaseEvaluator(trust,
+                handler, runtimeIdentifier: "win-x64", architecture: "x64");
+            DdfProductUpdateResult result = evaluator.EvaluateAsync(
+                DdfProductUpdateRequest.ForStandalone(
+                    DdfProductUpdateChannel.Beta), new[] { release }, now)
+                .GetAwaiter().GetResult();
+            Equal(DdfProductUpdateState.UpdateAvailable, result.State);
+            Equal(true, result.IsActionable);
+            Equal(zipUri, result.VerifiedReleaseUri);
+            Equal(2, handler.Requests.Count);
+            Equal(manifestUri, handler.Requests[0].Uri);
+            Equal("release-assets.githubusercontent.com",
+                handler.Requests[1].Uri.Host);
         }
 
         private static void SignsAndVerifiesCanonicalReleaseManifests()
@@ -6872,6 +7788,15 @@ namespace DDFLanguageEditor.Tests
             Equal(DdfProductUpdateState.UpdateAvailable, result.State);
             Equal(true, result.IsActionable);
             Equal(asset.Uri, result.VerifiedReleaseUri);
+
+            var stableRequest = new DdfProductUpdateRequest(
+                request.ComponentKind, request.ComponentId,
+                request.CurrentVersion, DdfProductUpdateChannel.Stable);
+            DdfProductUpdateResult prereleaseOnStable =
+                DdfReleaseUpdatePolicy.Evaluate(verified, stableRequest,
+                    "win-x64", "x64", published.AddHours(1));
+            Equal(DdfProductUpdateState.Unknown, prereleaseOnStable.State);
+            Equal(false, prereleaseOnStable.IsActionable);
 
             string tampered = json.Replace("Release firmata di prova.",
                 "Release alterata.", StringComparison.Ordinal);
@@ -9161,6 +10086,345 @@ namespace DDFLanguageEditor.Tests
                 if (Directory.Exists(source)) Directory.Delete(source, true);
                 if (Directory.Exists(storeRoot)) Directory.Delete(storeRoot, true);
             }
+        }
+
+        private static void ModelsLanguagePackageAuthoringIndependently()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-test-" + Guid.NewGuid().ToString("N"));
+            string source = Path.Combine(root, "source");
+            string generated = Path.Combine(root, "generated");
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(source);
+                const string originalNotes =
+                    "{\n  // commento dell'autore\n  \"customField\": 42\n}\n";
+                File.WriteAllText(Path.Combine(source, "author-notes.json"),
+                    originalNotes, new UTF8Encoding(false));
+
+                DdfLanguageAuthoringResult loaded =
+                    DdfLanguagePackageAuthoring.LoadDirectory(source);
+                Equal(true, loaded.Success);
+                Equal(0L, loaded.Project.Revision);
+                Equal(true, loaded.Project.TryGetDocument("author-notes.json",
+                    out DdfLanguageAuthoringDocument notes));
+                Equal(originalNotes, notes.Content);
+
+                const string editedNotes =
+                    "{\n  // commento conservato\n  \"customField\": 43\n}\n";
+                var edit = new DdfLanguageAuthoringChangeSet(0, new[]
+                {
+                    DdfLanguageAuthoringChange.Upsert("author-notes.json",
+                        editedNotes)
+                }, "Aggiorna note");
+                DdfLanguageAuthoringResult edited =
+                    DdfLanguagePackageAuthoring.Apply(loaded.Project, edit);
+                Equal(true, edited.Success);
+                Equal(1L, edited.Project.Revision);
+                Equal(editedNotes, edited.Project.Documents["author-notes.json"].Content);
+                Equal(true, edited.Inverse != null);
+
+                DdfLanguageAuthoringResult undone =
+                    DdfLanguagePackageAuthoring.Apply(edited.Project,
+                        edited.Inverse);
+                Equal(true, undone.Success);
+                Equal(originalNotes,
+                    undone.Project.Documents["author-notes.json"].Content);
+
+                Equal(false, DdfLanguagePackageAuthoring.Apply(edited.Project,
+                    edit).Success);
+                Equal(false, DdfLanguagePackageAuthoring.Apply(edited.Project,
+                    new DdfLanguageAuthoringChangeSet(edited.Project.Revision,
+                        new[] { DdfLanguageAuthoringChange.Upsert(
+                            "../outside.json", "{}") })).Success);
+
+                DdfLanguagePackageLoadResult validation =
+                    DdfLanguagePackageAuthoring.Validate(edited.Project);
+                Equal(true, validation.Success);
+                DdfLanguageAuthoringGenerationResult generation =
+                    DdfLanguagePackageAuthoring.GenerateDirectory(
+                        edited.Project, generated);
+                Equal(true, generation.Success);
+                Equal("ddf", generation.Package.Id);
+                Equal(editedNotes, File.ReadAllText(Path.Combine(generated,
+                    "author-notes.json"), Encoding.UTF8));
+                Equal(false, DdfLanguagePackageAuthoring.GenerateDirectory(
+                    edited.Project, generated).Success);
+
+                string originalManifest = loaded.Project.Documents["manifest.json"]
+                    .Content;
+                string oldManifest = originalManifest.Replace(
+                    "\"schemaVersion\": \"1.0\"",
+                    "\"schemaVersion\": \"0.9\"", StringComparison.Ordinal);
+                DdfLanguageAuthoringResult oldProject =
+                    DdfLanguagePackageAuthoring.Apply(loaded.Project,
+                        new DdfLanguageAuthoringChangeSet(0, new[]
+                        {
+                            DdfLanguageAuthoringChange.Upsert("manifest.json",
+                                oldManifest)
+                        }));
+                Equal(true, oldProject.Success);
+                var migration = new TestAuthoringMigration(originalManifest);
+                DdfLanguageAuthoringMigrationResult migrated =
+                    DdfLanguagePackageAuthoring.Migrate(oldProject.Project,
+                        "1.0", new[] { migration });
+                Equal(true, migrated.Success);
+                SequenceEqual(new[] { "test-0.9-to-1.0" },
+                    migrated.AppliedMigrationIds);
+                Equal(originalManifest,
+                    migrated.Project.Documents["manifest.json"].Content);
+                Equal(true, DdfLanguagePackageAuthoring.Validate(
+                    migrated.Project).Success);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void PreviewsLanguagePackageTransformations()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-preview-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                const string oldNotes =
+                    "{\n  // mantenere questo commento\n  \"value\": 42\n}\n";
+                File.WriteAllText(Path.Combine(root, "author-notes.json"), oldNotes,
+                    new UTF8Encoding(false));
+                DdfLanguageAuthoringProject project =
+                    DdfLanguagePackageAuthoring.LoadDirectory(root).Project;
+                var transformation = new TestAuthoringTransformation();
+
+                DdfLanguageAuthoringPreview preview =
+                    DdfLanguagePackageAuthoring.PreviewTransformation(project,
+                        transformation);
+                Equal(true, preview.Success);
+                Equal(true, preview.HasChanges);
+                Equal(project.Revision, preview.BaseRevision);
+                Equal(project.Fingerprint, preview.BaseFingerprint);
+                Equal("test.update-notes", preview.TransformationId);
+                Equal(3, preview.Documents.Count);
+                Equal(oldNotes, project.Documents["author-notes.json"].Content);
+
+                DdfLanguageAuthoringDocumentDiff modified = preview.Documents
+                    .Single(item => item.RelativePath == "author-notes.json");
+                Equal(DdfLanguageAuthoringDocumentChangeKind.Modified,
+                    modified.Kind);
+                Equal(true, modified.Lines.Any(item =>
+                    item.Kind == DdfLanguageAuthoringDiffLineKind.Removed &&
+                    item.Text.Contains("42", StringComparison.Ordinal)));
+                Equal(true, modified.Lines.Any(item =>
+                    item.Kind == DdfLanguageAuthoringDiffLineKind.Added &&
+                    item.Text.Contains("43", StringComparison.Ordinal)));
+                Equal(DdfLanguageAuthoringDocumentChangeKind.Added,
+                    preview.Documents.Single(item => item.RelativePath ==
+                        "preview-only.txt").Kind);
+                Equal(DdfLanguageAuthoringDocumentChangeKind.Removed,
+                    preview.Documents.Single(item => item.RelativePath ==
+                        "grammar.ebnf").Kind);
+
+                DdfLanguageAuthoringResult applied =
+                    DdfLanguagePackageAuthoring.ApplyPreview(project, preview);
+                Equal(true, applied.Success);
+                Equal(true, applied.Project.Documents["author-notes.json"].Content
+                    .Contains("43", StringComparison.Ordinal));
+                Equal(false, applied.Project.Documents.ContainsKey("grammar.ebnf"));
+                Equal(true, applied.Project.Documents.ContainsKey("preview-only.txt"));
+
+                DdfLanguageAuthoringResult concurrent =
+                    DdfLanguagePackageAuthoring.Apply(project,
+                        new DdfLanguageAuthoringChangeSet(project.Revision, new[]
+                        {
+                            DdfLanguageAuthoringChange.Upsert("unrelated.txt", "x")
+                        }));
+                Equal(true, concurrent.Success);
+                DdfLanguageAuthoringResult stale =
+                    DdfLanguagePackageAuthoring.ApplyPreview(concurrent.Project,
+                        preview);
+                Equal(false, stale.Success);
+                Equal(true, stale.Diagnostics.Any(item => item.Code == "DDFPA024"));
+
+                DdfLanguageAuthoringPreview invalid =
+                    DdfLanguagePackageAuthoring.PreviewTransformation(project,
+                        new InvalidTestAuthoringTransformation());
+                Equal(false, invalid.Success);
+                Equal(true, invalid.Diagnostics.Any(item => item.Code ==
+                    "DDFPA021"));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void UndoesAndRedoesAuthoringOperations()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-history-test-" + Guid.NewGuid().ToString("N"));
+            string generated = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-history-output-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                DdfLanguageAuthoringProject initial =
+                    DdfLanguagePackageAuthoring.LoadDirectory(root).Project;
+                var session = new DdfLanguageAuthoringSession(initial,
+                    historyLimit: 2);
+
+                DdfLanguageAuthoringPreview first = session.Preview(
+                    new UpsertAuthoringTransformation("test.first", "first.txt",
+                        "prima\n"));
+                Equal(true, session.Commit(first).Success);
+                string firstFingerprint = session.Project.Fingerprint;
+                Equal(true, session.CanUndo);
+                Equal(false, session.CanRedo);
+
+                DdfLanguageAuthoringPreview stale = session.Preview(
+                    new UpsertAuthoringTransformation("test.stale", "stale.txt",
+                        "obsoleto\n"));
+                Equal(true, session.Commit(session.Preview(
+                    new UpsertAuthoringTransformation("test.second", "second.txt",
+                        "seconda\n"))).Success);
+                string secondFingerprint = session.Project.Fingerprint;
+                int historyBeforeFailure = session.UndoHistory.Count;
+                Equal(false, session.Commit(stale).Success);
+                Equal(secondFingerprint, session.Project.Fingerprint);
+                Equal(historyBeforeFailure, session.UndoHistory.Count);
+
+                Equal(true, session.Undo().Success);
+                Equal(firstFingerprint, session.Project.Fingerprint);
+                Equal(true, session.CanRedo);
+                Equal(true, session.Redo().Success);
+                Equal(secondFingerprint, session.Project.Fingerprint);
+
+                Equal(true, session.Undo().Success);
+                Equal(true, session.Commit(session.Preview(
+                    new UpsertAuthoringTransformation("test.third", "third.txt",
+                        "terza\n"))).Success);
+                Equal(false, session.CanRedo);
+                Equal(2, session.UndoHistory.Count);
+
+                Equal(true, session.Commit(session.Preview(
+                    new UpsertAuthoringTransformation("test.fourth", "fourth.txt",
+                        "quarta\n"))).Success);
+                Equal(2, session.UndoHistory.Count);
+                Equal(true, DdfLanguagePackageAuthoring.Validate(
+                    session.Project).Success);
+                Equal(true, DdfLanguagePackageAuthoring.GenerateDirectory(
+                    session.Project, generated).Success);
+                Equal(true, File.Exists(Path.Combine(generated, "first.txt")));
+                Equal(true, File.Exists(Path.Combine(generated, "third.txt")));
+                Equal(true, File.Exists(Path.Combine(generated, "fourth.txt")));
+                Equal(false, File.Exists(Path.Combine(generated, "second.txt")));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+                if (Directory.Exists(generated)) Directory.Delete(generated, true);
+            }
+        }
+
+        private static void CreatesAndClonesLanguageAuthoringProjects()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-template-test-" + Guid.NewGuid().ToString("N"));
+            string source = Path.Combine(root, "source");
+            string archive = Path.Combine(root, "source.ddflang");
+            string storeRoot = Path.Combine(root, "store");
+            try
+            {
+                Directory.CreateDirectory(root);
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(source);
+                const string notes = "# nota personalizzata\nnon riscrivere\n";
+                File.WriteAllText(Path.Combine(source, "author-notes.txt"), notes,
+                    new UTF8Encoding(false));
+                var identity = new DdfLanguageAuthoringIdentity(
+                    "acme.educational", "ACME Educational", "0.1.0", "0.1",
+                    new[] { ".acme" });
+
+                DdfLanguageAuthoringTemplateResult blank =
+                    DdfLanguageAuthoringProjectFactory.CreateBlank(identity);
+                EnsureAuthoringTemplateSuccess(blank, "blank");
+                Equal(DdfLanguageAuthoringTemplateKind.Blank,
+                    blank.TemplateKind);
+                Equal("acme.educational", ReadAuthoringManifestString(
+                    blank.Project, "id"));
+                using (JsonDocument tests = JsonDocument.Parse(
+                    blank.Project.Documents["tests.json"].Content))
+                    Equal(1, tests.RootElement.GetProperty("cases")
+                        .GetArrayLength());
+                Equal(true, DdfLanguagePackageAuthoring.Validate(
+                    blank.Project).Success);
+
+                DdfLanguageAuthoringTemplateResult embedded =
+                    DdfLanguageAuthoringProjectFactory.CloneEmbeddedDdf(identity);
+                EnsureAuthoringTemplateSuccess(embedded, "embedded");
+                Equal(DdfLanguageAuthoringTemplateKind.EmbeddedDdf,
+                    embedded.TemplateKind);
+                Equal("embedded://ddf", embedded.Source);
+                Equal("acme.educational", ReadAuthoringManifestString(
+                    embedded.Project, "id"));
+
+                DdfLanguageAuthoringTemplateResult directory =
+                    DdfLanguageAuthoringProjectFactory.ClonePackage(source,
+                        identity);
+                EnsureAuthoringTemplateSuccess(directory, "directory");
+                Equal(DdfLanguageAuthoringTemplateKind.DirectoryPackage,
+                    directory.TemplateKind);
+                Equal(notes, directory.Project.Documents["author-notes.txt"].Content);
+                Equal("ddf", DdfLanguagePackageLoader.Load(source).Package.Id);
+
+                ZipFile.CreateFromDirectory(source, archive,
+                    CompressionLevel.NoCompression, false);
+                DdfLanguageAuthoringTemplateResult archived =
+                    DdfLanguageAuthoringProjectFactory.ClonePackage(archive,
+                        identity);
+                EnsureAuthoringTemplateSuccess(archived, "archive");
+                Equal(DdfLanguageAuthoringTemplateKind.ArchivePackage,
+                    archived.TemplateKind);
+                Equal(notes, archived.Project.Documents["author-notes.txt"].Content);
+
+                var store = new DdfLanguagePackageStore(storeRoot);
+                Equal(true, store.Install(source).Success);
+                DdfInstalledLanguagePackage installed = store.List().Single();
+                var installedIdentity = new DdfLanguageAuthoringIdentity(
+                    "acme.installed", "ACME Installed", "1.0.0", "1.0",
+                    new[] { ".aci" });
+                DdfLanguageAuthoringTemplateResult installedClone =
+                    DdfLanguageAuthoringProjectFactory.CloneInstalledPackage(
+                        installed, installedIdentity);
+                EnsureAuthoringTemplateSuccess(installedClone, "installed");
+                Equal(DdfLanguageAuthoringTemplateKind.InstalledPackage,
+                    installedClone.TemplateKind);
+                Equal("acme.installed", ReadAuthoringManifestString(
+                    installedClone.Project, "id"));
+
+                Throws<ArgumentException>(() =>
+                    new DdfLanguageAuthoringIdentity("Invalid Id", "Invalid",
+                        "1.0.0", "1.0", new[] { ".bad" }));
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static string ReadAuthoringManifestString(
+            DdfLanguageAuthoringProject project, string property)
+        {
+            using JsonDocument manifest = JsonDocument.Parse(
+                project.Documents["manifest.json"].Content);
+            return manifest.RootElement.GetProperty(property).GetString();
+        }
+
+        private static void EnsureAuthoringTemplateSuccess(
+            DdfLanguageAuthoringTemplateResult result, string label)
+        {
+            if (result.Success) return;
+            throw new InvalidOperationException(label + ": " + string.Join(" | ",
+                result.Diagnostics.Select(item => item.ToString())));
         }
 
         private static void RejectsFailingDeclarativePackageTests()
@@ -13107,6 +14371,242 @@ main() out int
                 return DdfProductUpdateResult.UpToDate(request.ComponentKind,
                     request.ComponentId, request.CurrentVersion,
                     request.CurrentVersion, request.Channel, checkedAtUtc);
+            }
+        }
+
+        private sealed class RecordingProductUpdateProvider :
+            IDdfProductUpdateProvider
+        {
+            private readonly Func<DdfProductUpdateRequest,
+                DdfProductUpdateResult> resultFactory;
+
+            public RecordingProductUpdateProvider(
+                Func<DdfProductUpdateRequest, DdfProductUpdateResult> resultFactory)
+            {
+                this.resultFactory = resultFactory ??
+                    throw new ArgumentNullException(nameof(resultFactory));
+            }
+
+            public int CheckCount { get; private set; }
+            public DdfProductUpdateRequest LastRequest { get; private set; }
+
+            public Task<DdfProductUpdateResult> CheckAsync(
+                DdfProductUpdateRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CheckCount++;
+                LastRequest = request;
+                return Task.FromResult(resultFactory(request));
+            }
+        }
+
+        private sealed class LoopbackHttpServer : IDisposable
+        {
+            private readonly TcpListener listener;
+            private readonly CancellationTokenSource stop = new();
+            private readonly IReadOnlyList<Func<string, CancellationToken,
+                Task<byte[]>>> responses;
+
+            public LoopbackHttpServer(params Func<string, CancellationToken,
+                Task<byte[]>>[] responses)
+            {
+                if (responses == null || responses.Length == 0 ||
+                    responses.Any(item => item == null))
+                    throw new ArgumentException(
+                        "Il server loopback richiede almeno una risposta.",
+                        nameof(responses));
+                this.responses = responses;
+                listener = new TcpListener(IPAddress.Loopback, 0);
+                listener.Start();
+                int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                Endpoint = new Uri("http://127.0.0.1:" + port + "/releases");
+                Completion = ServeAsync();
+            }
+
+            public Uri Endpoint { get; }
+            public List<string> Requests { get; } = new();
+            public Task Completion { get; }
+
+            public void Dispose()
+            {
+                stop.Cancel();
+                listener.Stop();
+                try { Completion.GetAwaiter().GetResult(); }
+                catch (OperationCanceledException) { }
+                catch (ObjectDisposedException) { }
+                stop.Dispose();
+            }
+
+            private async Task ServeAsync()
+            {
+                try
+                {
+                    foreach (Func<string, CancellationToken, Task<byte[]>> response
+                        in responses)
+                    {
+                        using TcpClient client = await listener.AcceptTcpClientAsync(
+                            stop.Token).ConfigureAwait(false);
+                        using NetworkStream stream = client.GetStream();
+                        string headers = await ReadHeadersAsync(stream, stop.Token)
+                            .ConfigureAwait(false);
+                        Requests.Add(headers);
+                        byte[] payload = await response(headers, stop.Token)
+                            .ConfigureAwait(false);
+                        if (payload.Length != 0)
+                        {
+                            await stream.WriteAsync(payload, stop.Token)
+                                .ConfigureAwait(false);
+                            await stream.FlushAsync(stop.Token)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (stop.IsCancellationRequested)
+                {
+                }
+                catch (SocketException) when (stop.IsCancellationRequested)
+                {
+                }
+            }
+
+            private static async Task<string> ReadHeadersAsync(NetworkStream stream,
+                CancellationToken cancellationToken)
+            {
+                var builder = new StringBuilder();
+                var buffer = new byte[1];
+                while (builder.Length < 32 * 1024)
+                {
+                    int read = await stream.ReadAsync(buffer, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (read == 0) break;
+                    builder.Append((char)buffer[0]);
+                    if (builder.Length >= 4 &&
+                        builder[^4] == '\r' && builder[^3] == '\n' &&
+                        builder[^2] == '\r' && builder[^1] == '\n')
+                        return builder.ToString();
+                }
+                throw new InvalidDataException(
+                    "Richiesta HTTP loopback incompleta o oltre quota.");
+            }
+        }
+
+        private sealed class TestAuthoringMigration : IDdfLanguageAuthoringMigration
+        {
+            private readonly string manifest;
+
+            public TestAuthoringMigration(string manifest) =>
+                this.manifest = manifest;
+
+            public string Id => "test-0.9-to-1.0";
+            public string SourceSchemaVersion => "0.9";
+            public string TargetSchemaVersion => "1.0";
+
+            public DdfLanguageAuthoringChangeSet CreateChangeSet(
+                DdfLanguageAuthoringProject project) =>
+                new DdfLanguageAuthoringChangeSet(project.Revision, new[]
+                {
+                    DdfLanguageAuthoringChange.Upsert("manifest.json", manifest)
+                }, "Migrazione test 0.9 → 1.0");
+        }
+
+        private sealed class TestAuthoringTransformation :
+            IDdfLanguageAuthoringTransformation
+        {
+            public string Id => "test.update-notes";
+            public string DisplayName => "Aggiorna note di test";
+
+            public DdfLanguageAuthoringChangeSet CreateChangeSet(
+                DdfLanguageAuthoringProject project) =>
+                new DdfLanguageAuthoringChangeSet(project.Revision, new[]
+                {
+                    DdfLanguageAuthoringChange.Upsert("author-notes.json",
+                        "{\n  // mantenere questo commento\n  \"value\": 43\n}\n"),
+                    DdfLanguageAuthoringChange.Upsert("preview-only.txt",
+                        "anteprima\n"),
+                    DdfLanguageAuthoringChange.Remove("grammar.ebnf")
+                }, DisplayName);
+        }
+
+        private sealed class InvalidTestAuthoringTransformation :
+            IDdfLanguageAuthoringTransformation
+        {
+            public string Id => string.Empty;
+            public string DisplayName => "Trasformazione non valida";
+            public DdfLanguageAuthoringChangeSet CreateChangeSet(
+                DdfLanguageAuthoringProject project) => null;
+        }
+
+        private sealed class UpsertAuthoringTransformation :
+            IDdfLanguageAuthoringTransformation
+        {
+            private readonly string path;
+            private readonly string content;
+
+            public UpsertAuthoringTransformation(string id, string path,
+                string content)
+            {
+                Id = id;
+                this.path = path;
+                this.content = content;
+            }
+
+            public string Id { get; }
+            public string DisplayName => Id;
+
+            public DdfLanguageAuthoringChangeSet CreateChangeSet(
+                DdfLanguageAuthoringProject project) =>
+                new DdfLanguageAuthoringChangeSet(project.Revision, new[]
+                {
+                    DdfLanguageAuthoringChange.Upsert(path, content)
+                }, DisplayName);
+        }
+
+        private sealed class InlineProgress<T> : IProgress<T>
+        {
+            private readonly Action<T> report;
+
+            public InlineProgress(Action<T> report) => this.report = report;
+
+            public void Report(T value) => report(value);
+        }
+
+        private sealed class ImmediateProcessWaiter :
+            IDdfProductUpdateProcessWaiter
+        {
+            public int ProcessId { get; private set; }
+            public DateTimeOffset ProcessStartedUtc { get; private set; }
+
+            public Task WaitForExitAsync(int processId,
+                DateTimeOffset processStartedUtc, TimeSpan timeout,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ProcessId = processId;
+                ProcessStartedUtc = processStartedUtc;
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class FixedProductUpdateHealthCheck :
+            IDdfProductUpdateHealthCheck
+        {
+            private readonly bool success;
+
+            public FixedProductUpdateHealthCheck(bool success) =>
+                this.success = success;
+
+            public int Calls { get; private set; }
+
+            public Task<DdfProductUpdateHealthCheckResult> CheckAsync(
+                DdfProductUpdateInstallationPlan plan,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Calls++;
+                return Task.FromResult(success
+                    ? DdfProductUpdateHealthCheckResult.Passed()
+                    : DdfProductUpdateHealthCheckResult.Failed("Test failure."));
             }
         }
 

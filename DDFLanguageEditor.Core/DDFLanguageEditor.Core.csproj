@@ -27,6 +27,9 @@
     <EmbeddedResource Include="..\ddf-version-matrix.json"
                       Link="Versioning\ddf-version-matrix.json"
                       LogicalName="DDFLanguageEditor.Core.Versioning.ddf-version-matrix.json" />
+    <EmbeddedResource Include="..\ddf-release-trust-store.json"
+                      Link="ProductUpdates\ddf-release-trust-store.json"
+                      LogicalName="DDFLanguageEditor.Core.ProductUpdates.ddf-release-trust-store.json" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="" />
@@ -35,7 +38,12 @@
     <None Include="..\ddf-version-matrix.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-version-matrix.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-product-update-result.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-product-update-installation-plan.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-product-update-installation-journal.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-product-update-staging-seal.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-release-manifest.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-release-trust-store.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-release-trust-store.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\DDF_LANGUAGE_INTEGRATION.md" Pack="true" PackagePath="contentFiles\any\any\" />

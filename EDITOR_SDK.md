@@ -3,7 +3,7 @@
 ## Stato
 
 La `0.11.2` introduce in modo incrementale il confine incorporabile dell'editor.
-Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.41"`.
+Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.42"`.
 La fonte autorevole dei domini di versione è `ddf-version-matrix.json`: versione
 del prodotto, pacchetti NuGet, contratto SDK, ABI Runtime, protocollo worker,
 formati e schemi persistiti rimangono separati. Il pacchetto SDK corrente è
@@ -48,7 +48,7 @@ I pacchetti locali si generano in modo ripetibile con:
 `IDdfEditorSurface`. La shell standalone usa la stessa classe come contenitore
 della propria superficie centrale e le associa l'editor del documento attivo.
 
-Il contratto `0.41` conserva tutte le API `0.37` ed espone:
+Il contratto `0.42` conserva tutte le API `0.41` ed espone:
 
 - testo sorgente tramite `SourceText`;
 - selezione normalizzata tramite `SetSelection`, `SelectionStart` e
@@ -86,6 +86,13 @@ Il contratto `0.41` conserva tutte le API `0.37` ed espone:
   correlata e il servizio standalone pubblica attesa e ripresa senza esporre
   frame provider, task CLR o nomi C#;
 - una capability opzionale per snapshot e reset dello `state` committed per istanza.
+- la capability opzionale `editor.product-updates.verify`. È indisponibile per
+  impostazione predefinita e diventa visibile soltanto dopo
+  `AttachProductUpdateService`; collegarla non avvia rete, timer o UI. L'host
+  sceglie e possiede provider, trust policy, canale, cadenza e presentazione,
+  invoca esplicitamente `CheckAsync` e può revocare il servizio per istanza.
+  L'embedded restituisce solo un `DdfProductUpdateResult` verificato e non
+  scarica, apre o installa mai autonomamente componenti;
 - snapshot di debug con raccolta `States` separata dai globali; ogni elemento è
   marcato `IsTransactionalState` e rappresenta la copia in sola lettura del run
   attualmente sospeso, non il valore committed definitivo.
@@ -1564,19 +1571,21 @@ scheduler di esecuzione. Stop/dispose impediranno callback tardive e provider
 non cooperativi richiederanno il worker fuori processo. Il contratto completo è
 `DDF_COOPERATIVE_ASYNC_DESIGN.md`.
 
-## Controllo aggiornamenti pianificato
+## Controllo aggiornamenti embedded
 
-La milestone `0.13.6` aggiungerà un servizio opzionale di sola verifica per
-aggiornamenti del componente embedded. Il risultato sarà immutabile e conterrà
-versione disponibile, canale, compatibilità, note e URI già verificate. Nessun
-membro obbligatorio verrà aggiunto alle interfacce esistenti.
+La milestone `0.13.6` ha aggiunto con l'SDK `0.42` un servizio opzionale di sola
+verifica per gli aggiornamenti del componente embedded. Il risultato immutabile
+contiene versione disponibile, canale, compatibilità, note e URI già verificate;
+nessun membro obbligatorio è stato aggiunto a `IDdfEditorSurface`.
 
-L'host sceglierà provider, repository, frequenza, canale e presentazione. In
-assenza di configurazione non verrà eseguita alcuna richiesta di rete. Il
-componente non scaricherà né sostituirà DLL, non chiuderà o riavvierà l'host e
-non presenterà UI propria se l'host non la consente. GitHub Releases sarà il
-primo provider, non una dipendenza del Core. Il contratto completo è
-`PRODUCT_UPDATE_DESIGN.md`.
+L'host sceglie provider, repository/trust policy, frequenza, canale e
+presentazione. In assenza di `AttachProductUpdateService` la capability
+`editor.product-updates.verify` restituisce `DDFH006` e non viene eseguita alcuna
+richiesta. Anche dopo il collegamento soltanto una chiamata esplicita a
+`CheckAsync` interroga il provider. Il componente non scarica né sostituisce
+DLL, non chiude o riavvia l'host e non presenta UI propria. GitHub Releases è il
+primo provider dello standalone, non una dipendenza imposta all'host embedded.
+Il contratto completo è `PRODUCT_UPDATE_DESIGN.md`.
 
 Prima di attivare questo servizio, la roadmap richiede una matrice
 machine-readable che riallinei metadati di prodotto, linguaggio, contratto SDK,
@@ -1586,21 +1595,22 @@ contraddittori. Il valore storico `PackageVersion` WinForms `0.11.2-beta` è
 stato rimosso. `tools/pack-sdk.ps1` deriva nomi e versioni dalla matrice e
 verifica i metadati NuGet, le DLL e la presenza del contratto machine-readable.
 `tools/test-sdk-compatibility.ps1` completa il gate: ricompila il baseline
-`0.34` ancorato al commit dichiarato, esegue quell'host con le DLL `0.41`
+`0.34` ancorato al commit dichiarato, esegue quell'host con le DLL `0.42`
 estratte dai NuGet e prova separatamente un host aggiornato.
 
 I tre termini di compatibilità non sono intercambiabili:
 
 | Asse | Prova obbligatoria | Garanzia corrente |
 |---|---|---|
-| Binaria | Compilare l'host con le DLL `0.34`, sostituirle con quelle `0.41` estratte dai NuGet e avviare senza ricompilare | Buffer, selezione, eventi e analisi continuano a funzionare |
-| Sorgente | Ricompilare lo stesso sorgente che usa soltanto API `0.34` direttamente contro le reference `0.41`, quindi avviarlo | Nessuna modifica al sorgente legacy è necessaria |
+| Binaria | Compilare l'host con le DLL `0.34`, sostituirle con quelle `0.42` estratte dai NuGet e avviare senza ricompilare | Buffer, selezione, eventi e analisi continuano a funzionare |
+| Sorgente | Ricompilare lo stesso sorgente che usa soltanto API `0.34` direttamente contro le reference `0.42`, quindi avviarlo | Nessuna modifica al sorgente legacy è necessaria |
 | Dati persistiti | Eseguire round-trip dello schema corrente, rifiutare atomicamente lo schema legacy senza migratore e applicarlo soltanto tramite `IDdfEditorPersistenceMigrationProvider` | Nessun dato futuro/legacy viene applicato o sovrascritto implicitamente |
 
-Un quarto host compilato contro `0.41` verifica tutte le capability dichiarate
+Un quarto host compilato contro `0.42` verifica tutte le capability dichiarate
 da `DdfEditorCapabilityCatalog`, lifecycle e sospensione cooperativa sia su Run
-sia su Debug e un ciclo reale della persistenza `state`. Il successo di un solo
-asse non permette di dichiarare compatibili gli altri. Il comando di
+sia su Debug, un ciclo reale della persistenza `state` e il confine aggiornamenti
+embedded opt-in. Il successo di un solo asse non permette di dichiarare
+compatibili gli altri. Il comando di
 distribuzione è:
 
 ```powershell

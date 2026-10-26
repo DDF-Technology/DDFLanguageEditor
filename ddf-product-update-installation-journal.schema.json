@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/product-update-installation-journal-1.0.json",
+  "title": "DDF product update installation journal 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "planSha256", "state", "revision", "createdUtc",
+    "updatedUtc", "detail"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "planSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "state": {
+      "enum": [
+        "checked", "downloadAuthorized", "downloading", "staged",
+        "installAuthorized", "waitingForEditorExit", "applying", "verifying",
+        "completed", "rolledBack", "failed", "cancelled"
+      ]
+    },
+    "revision": { "type": "integer", "minimum": 0 },
+    "createdUtc": { "type": "string", "format": "date-time" },
+    "updatedUtc": { "type": "string", "format": "date-time" },
+    "detail": { "type": [ "string", "null" ] }
+  }
+}

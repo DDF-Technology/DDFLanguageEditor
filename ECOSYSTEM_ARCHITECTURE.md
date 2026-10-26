@@ -105,6 +105,38 @@ la preferenza è persistita per contesto senza influenzare altre istanze.
 La commutazione conserva testo, selezione, Undo e stato del debugger e non avvia
 il programma. Gli EXE esportati non incorporano automaticamente l'interfaccia didattica.
 
+### Librerie, provider e capability
+
+Le funzioni riutilizzabili non confluiscono tutte nella libreria standard. La
+classificazione prevista è vincolante per manifest, lockfile, catalogo, UI e
+pubblicazione:
+
+- `ddf.standard` contiene soltanto contratti piccoli, indispensabili e portabili;
+- i moduli ufficiali portabili (`ddf.math.*`, `ddf.graphics.*`,
+  `ddf.audio.dsp.*` e famiglie analoghe) aggiungono algoritmi e strutture dati
+  senza dipendere dal CLR, dal sistema operativo o da un dispositivo;
+- `ddf.dotnet.*` racchiude librerie managed e dichiara esplicitamente il vincolo
+  al runtime .NET;
+- `ddf.platform.*` implementa rendering, audio I/O, dispositivi, COM/native e
+  altre funzioni legate a piattaforma, RID, architettura o driver;
+- `host.*` descrive esclusivamente capacità offerte e autorizzate
+  dall'applicazione incorporante, per esempio `host.canvas` o `host.chart`.
+
+Matematica fondamentale, geometria, buffer immagine e DSP possono quindi essere
+deterministici e verificati allo stesso modo su VM e Roslyn. Finestre, controlli,
+GPU, stampa, playback, capture, MIDI e hardware sono provider sostituibili: lo
+script non riceve `Graphics`, `Control`, `HWND`, device handle o altri oggetti
+nativi. L'assenza o il diniego di una capability produce un errore DDF tipizzato,
+mai un fallback silenzioso.
+
+Installare una libreria non la abilita globalmente. Ogni progetto dichiara i
+riferimenti nel manifest e blocca versioni e classificazione transitiva nel
+lockfile. Lo standalone risolve provider installati e autorizzati per il target;
+nell'embedded è l'host a registrarli. IntelliSense, analisi, VM e backend Roslyn
+consumano lo stesso descrittore verificato. La pubblicazione include soltanto le
+dipendenze effettivamente referenziate e conserva licenze, hash e requisiti di
+piattaforma.
+
 ## Stato e milestone
 
 | Componente | Stato |

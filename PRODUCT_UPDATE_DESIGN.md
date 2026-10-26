@@ -1,7 +1,8 @@
 # Controllo aggiornamenti DDFLanguageEditor — disegno pianificato
 
-Stato: **versionamento, provider GitHub, verifica crittografica e superficie
-standalone implementati; verifica remota ufficiale non ancora attiva**. Il provider
+Stato: **versionamento, provider GitHub, trust store ufficiale, verifica
+crittografica e superficie standalone implementati; prima release remota firmata
+non ancora pubblicata**. Il provider
 consulta soltanto le release del repository ufficiale
 `DDF-Technology/DDFLanguageEditor`, mentre il Core consuma contratti astratti e
 non attribuisce fiducia ai metadati GitHub.
@@ -61,16 +62,23 @@ controllo. Il comando manuale mostra anche `up-to-date`, incompatibilità e stat
 rate limit o errore del provider non bloccano l'avvio e restano nell'Output.
 Impostazioni, menu, timer e UI non vengono esposti dalla shell embedded.
 
-La shell dipende esclusivamente da `IDdfProductUpdateProvider` ed è coperta con
-un provider in memoria. Finché la chiave pubblica ufficiale non è provisionata,
-la factory predefinita resta deliberatamente nulla e il comando restituisce
-`Unknown` spiegando il motivo, senza effettuare rete: il frontend non può
-aggirare il trust store o promuovere dati GitHub non verificati.
+La shell dipende esclusivamente da `IDdfProductUpdateProvider`; la factory
+standalone usa il provider GitHub con il trust store ufficiale incorporato,
+mentre smoke e host embedded continuano a usare provider in memoria o forniti
+dall'host. Il frontend non può aggirare il trust store: il feed remoto seleziona
+soltanto il candidato e un risultato diventa azionabile dopo verifica del
+manifesto e correlazione degli asset.
 
-Nella prima verticale l'utente apre o scarica esplicitamente la release. Un
-futuro updater dovrà usare processo separato, staging atomico, applicazione a
-programma chiuso, verifica successiva e rollback; non richiederà privilegi in
-modo silenzioso e non sostituirà file mentre l'editor è in esecuzione.
+Nella prima verticale l'utente apre esplicitamente la release. Il contratto
+dell'updater standalone è fissato in
+`PRODUCT_UPDATE_INSTALLATION_DESIGN.md`: processo separato, consensi distinti,
+staging sullo stesso volume, piano e journal immutabili, swap di directory a
+editor chiuso, verifica successiva e rollback. Contratti, staging, worker,
+swap, health check, rollback, ispezione del recovery, consensi e riavvio
+opzionale sono implementati ma non collegati al provider remoto; installazione
+e download reali restano disabilitati fino al provisioning della chiave
+ufficiale. Il sistema non richiede privilegi
+in modo silenzioso e non sostituisce file mentre l'editor è in esecuzione.
 
 ## Embedded
 
@@ -88,6 +96,17 @@ release notes e URI verificata. L'host decide:
 Gli host compilati contro versioni precedenti continuano a funzionare. Nessuna
 interfaccia esistente acquisisce membri obbligatori e nessuna chiamata parte per
 il solo fatto di incorporare il controllo editor.
+
+Il contratto SDK `0.42` implementa questo confine con la capability additiva
+`editor.product-updates.verify`. `DdfEditorView` non la configura automaticamente:
+un host deve collegare esplicitamente un `IDdfEditorProductUpdateService`, che a
+sua volta usa l'`IDdfProductUpdateProvider` scelto dall'host. Il solo collegamento
+non avvia rete, timer o UI; la richiesta parte esclusivamente da `CheckAsync`.
+Il risultato viene accettato soltanto se tipo, id, versione corrente e canale
+coincidono con la richiesta embedded. La superficie non scarica contenuti, non
+apre URI e non installa componenti; cadenza, notifica e distribuzione rimangono
+responsabilità dell'applicazione ospitante. Il servizio è isolato e revocabile
+per singola istanza.
 
 ## Manifest e sicurezza
 
@@ -206,3 +225,14 @@ implicitamente né converte un progetto durante l'avvio.
 
 La funzione è prevista nella milestone `0.13.6`. Non modifica la grammatica DDF
 e non è accessibile agli script.
+
+La matrice automatica usa un server TCP/HTTP loopback e non dipende da Internet.
+Quando si vuole verificare esplicitamente il trasporto verso il repository
+pubblico, lo smoke opt-in si avvia con:
+
+```powershell
+dotnet run --project tests\DDFLanguageEditor.Tests\DDFLanguageEditor.Tests.csproj -c Release -- --product-update-github-only
+```
+
+Il comando non viene eseguito da build o test ordinari, non usa credenziali e
+fallisce esplicitamente in caso di offline, rate limit o risposta non valida.

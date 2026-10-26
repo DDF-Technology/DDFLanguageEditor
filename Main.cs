@@ -376,6 +376,7 @@ namespace DDF___Program_Language_Editor
             restoreDocumentViewport(activeDocumentView);
             updateLineNumbers();
             refreshEditorOverview();
+            inspectPendingProductUpdateRecovery();
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)

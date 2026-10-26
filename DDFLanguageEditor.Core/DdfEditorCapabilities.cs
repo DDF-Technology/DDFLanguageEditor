@@ -15,6 +15,7 @@ namespace DDFLanguageEditor.Core
         public const string AsyncLifecycle = "editor.execution.async-lifecycle";
         public const string ScriptState = "editor.script-state";
         public const string ScriptStatePersistence = "editor.script-state.persistence";
+        public const string ProductUpdates = "editor.product-updates.verify";
     }
 
     public sealed class DdfEditorCapabilityDescriptor
@@ -99,7 +100,10 @@ namespace DDFLanguageEditor.Core
                     "Cooperative execution", "0.40"),
                 new DdfEditorCapabilityDescriptor(
                     DdfEditorCapabilityIds.AsyncLifecycle,
-                    "Asynchronous lifecycle", "0.41")
+                    "Asynchronous lifecycle", "0.41"),
+                new DdfEditorCapabilityDescriptor(
+                    DdfEditorCapabilityIds.ProductUpdates,
+                    "Host-controlled product update verification", "0.42")
             });
 
         public static IReadOnlyList<DdfEditorCapabilityDescriptor> Known => known;

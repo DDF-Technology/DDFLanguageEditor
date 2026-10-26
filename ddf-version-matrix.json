@@ -27,7 +27,7 @@
     "backendEquivalenceContract": "ddf-backend-equivalence.json"
   },
   "editorSdk": {
-    "contractVersion": "0.41",
+    "contractVersion": "0.42",
     "legacyContractVersion": "0.34",
     "legacyBaselineCommit": "c3decfefa84eb19cdd03869417440fac6a198f97",
     "sourceCompatibility": "additive-optional-interfaces",
@@ -76,7 +76,8 @@
     ],
     "forbiddenProjectSuffixes": [
       "DDFLanguageEditor.Compiler.csproj",
-      "DDFLanguageEditor.Runner.csproj"
+      "DDFLanguageEditor.Runner.csproj",
+      "DDFLanguageEditor.Updater.csproj"
     ],
     "forbiddenPackagePrefixes": [
       "Microsoft.CodeAnalysis"
@@ -84,7 +85,8 @@
     "forbiddenAssemblyPrefixes": [
       "Microsoft.CodeAnalysis",
       "DDFLanguageEditor.Compiler",
-      "DDFLanguageEditor.Runner"
+      "DDFLanguageEditor.Runner",
+      "DDFLanguageEditor.Updater"
     ],
     "forbiddenSourcePatterns": [
       "\\busing\\s+Microsoft\\.CodeAnalysis\\b",
@@ -148,6 +150,14 @@
       "assemblyVersion": "0.13.2.0",
       "fileVersion": "0.13.2.0",
       "informationalVersion": "0.13.2"
+    },
+    {
+      "id": "updater",
+      "project": "DDFLanguageEditor.Updater/DDFLanguageEditor.Updater.csproj",
+      "version": "0.13.6",
+      "assemblyVersion": "0.13.6.0",
+      "fileVersion": "0.13.6.0",
+      "informationalVersion": "0.13.6"
     },
     {
       "id": "cli",
@@ -228,7 +238,11 @@
     "artifactManifest": "1.1",
     "sourceMap": "1.1",
     "productUpdateResult": "1.0",
+    "productUpdateInstallationPlan": "1.0",
+    "productUpdateInstallationJournal": "1.0",
+    "productUpdateStagingSeal": "1.0",
     "releaseManifest": "1.0",
+    "releaseTrustStore": "1.0",
     "linkedPackage": "1.1"
   },
   "persistence": {

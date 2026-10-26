@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDF___Program_Language_Editor;
 #if UPDATED_HOST
@@ -50,11 +51,14 @@ namespace DDFLanguageEditor.SdkCompatibilityHost
                 Require(mode == "updated", "build aggiornata avviata nel modo errato");
                 var capabilityProvider = editor as IDdfEditorCapabilityProvider;
                 Require(capabilityProvider != null,
-                    "provider capability 0.41 assente");
-                Require(capabilityProvider.KnownCapabilities.Count == 4 &&
-                        capabilityProvider.KnownCapabilities.All(item =>
-                            capabilityProvider.InspectCapability(item.Id).IsAvailable),
-                    "almeno una capability SDK 0.41 dichiarata non è disponibile");
+                    "provider capability 0.42 assente");
+                Require(capabilityProvider.KnownCapabilities.Count == 5 &&
+                        capabilityProvider.KnownCapabilities.Where(item =>
+                            item.Id != DdfEditorCapabilityIds.ProductUpdates).All(item =>
+                            capabilityProvider.InspectCapability(item.Id).IsAvailable) &&
+                        !capabilityProvider.InspectCapability(
+                            DdfEditorCapabilityIds.ProductUpdates).IsAvailable,
+                    "catalogo capability SDK 0.42 o default deny aggiornamenti non valido");
                 Require(editor.ExecutionService is IDdfEditorAsyncLifecycleService &&
                         editor.ExecutionService is IDdfEditorCooperativeExecutionService &&
                         editor.DebugService is IDdfEditorAsyncLifecycleService &&
@@ -79,6 +83,27 @@ namespace DDFLanguageEditor.SdkCompatibilityHost
                 Require(stateProvider.Load() != null &&
                         stateService.DetachScriptStatePersistenceProvider(),
                     "capability state persistence non operativa");
+
+                DdfProductComponentVersion sdkComponent =
+                    DdfProductVersionCatalog.Current.EmbeddedComponents.Single(
+                        item => item.Id == "winforms-sdk");
+                var updateProvider = new CompatibilityUpdateProvider();
+                editor.AttachProductUpdateService(
+                    DdfEditorProductUpdateService.ForEmbeddedComponent(
+                        updateProvider, sdkComponent.Id));
+                DdfEditorCapabilityResult updateCapability =
+                    capabilityProvider.InspectCapability(
+                        DdfEditorCapabilityIds.ProductUpdates);
+                Require(updateCapability.TryGetService<
+                            IDdfEditorProductUpdateService>(out var updateService) &&
+                        updateProvider.CheckCount == 0,
+                    "capability aggiornamenti 0.42 non collegabile o non opt-in");
+                Require(updateService.CheckAsync(DdfProductUpdateChannel.Beta)
+                            .GetAwaiter().GetResult().State ==
+                            DdfProductUpdateState.UpToDate &&
+                        updateProvider.CheckCount == 1 &&
+                        editor.DetachProductUpdateService(),
+                    "verifica aggiornamenti embedded non esplicita o non revocabile");
 
                 AssertPersistenceCompatibility();
 #else
@@ -107,6 +132,24 @@ namespace DDFLanguageEditor.SdkCompatibilityHost
                 .Replace('\r', '\n');
 
 #if UPDATED_HOST
+        private sealed class CompatibilityUpdateProvider :
+            IDdfProductUpdateProvider
+        {
+            public int CheckCount { get; private set; }
+
+            public Task<DdfProductUpdateResult> CheckAsync(
+                DdfProductUpdateRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CheckCount++;
+                return Task.FromResult(DdfProductUpdateResult.UpToDate(
+                    request.ComponentKind, request.ComponentId,
+                    request.CurrentVersion, request.CurrentVersion,
+                    request.Channel, DateTimeOffset.UtcNow));
+            }
+        }
+
         private static void AssertPersistenceCompatibility()
         {
             var preferences = new DdfEditorPersistedPreferences(

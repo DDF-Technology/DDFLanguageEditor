@@ -404,6 +404,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `DDF_TYPE_SYSTEM_SPEC.md`: contratto normativo di tipi, conversioni, valori, scope, chiamate ed errori DDF 0.12;
 - `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
 - `DDF_BACKEND_EQUIVALENCE.md`: contratto versionato delle osservazioni che devono coincidere tra VM e Roslyn e dei gap ancora aperti;
+- `DDF_LANGUAGE_PACKAGE_AUTHORING.md`: modello UI-independent di progetti, change set, validazione, migrazioni e generazione dei pacchetti linguaggio;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: procedura completa e checklist per migrare sorgenti, progetti, moduli e pacchetti beta a DDF 0.12;
 - `DDF_STANDARD_LIBRARY_SPEC.md`: contratto normativo di firme, effetti, canali I/O, conversioni ed errori della libreria minima;
@@ -419,6 +420,9 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `ddf-project.schema.json`: schema del manifest indipendente del workspace;
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
+- `PRODUCT_UPDATE_DESIGN.md`: verifica delle release, fiducia, canali e confine standalone/embedded;
+- `PRODUCT_UPDATE_INSTALLATION_DESIGN.md`: contratto dell'updater standalone fuori processo; piano, journal, staging, worker, swap, rollback, health check, consensi, riavvio opzionale e pulizia differita sono implementati, mentre download/installazione end-to-end attendono la prima release remota firmata reale;
+- `RELEASE_SIGNING_KEYS.md`: chiave pubblica ufficiale, custodia DPAPI della privata, secret GitHub e procedura di rotazione/revoca;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;
 - `DDF - Program Language Spec.txt`: specifica storica in bozza;
 - `Properties/`: metadati e risorse dell'applicazione .NET 10.

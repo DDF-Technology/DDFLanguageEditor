@@ -17,6 +17,9 @@ namespace DDF___Program_Language_Editor
             this.result = result ?? throw new ArgumentNullException(nameof(result));
             Name = "ProductUpdateForm";
             Text = "Aggiornamenti DDFLanguageEditor";
+            AccessibleName = "Dettagli aggiornamento DDFLanguageEditor";
+            AccessibleDescription =
+                "Mostra stato, compatibilità e note della release verificata.";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -52,6 +55,7 @@ namespace DDF___Program_Language_Editor
             var notes = new TextBox
             {
                 Name = "productUpdateDetailsTextBox",
+                AccessibleName = "Note e compatibilità dell'aggiornamento",
                 Dock = DockStyle.Fill,
                 Multiline = true,
                 ReadOnly = true,
@@ -70,6 +74,7 @@ namespace DDF___Program_Language_Editor
             var close = new Button
             {
                 Name = "productUpdateCloseButton",
+                AccessibleName = "Chiudi dettagli aggiornamento",
                 Text = "Chiudi",
                 DialogResult = DialogResult.Cancel,
                 Size = new Size(90, 30)
@@ -77,6 +82,7 @@ namespace DDF___Program_Language_Editor
             openReleaseButton = new Button
             {
                 Name = "productUpdateOpenReleaseButton",
+                AccessibleName = "Apri pagina della release verificata",
                 Text = "Apri release",
                 Size = new Size(110, 30),
                 Enabled = result.IsActionable

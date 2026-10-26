@@ -232,6 +232,11 @@ namespace DDF___Program_Language_Editor
             Save(ProductUpdateSettingsFileName, value ?? string.Empty);
         }
 
+        public static string GetProductUpdateStateDirectory()
+        {
+            return Path.Combine(GetUserDataDirectory(), "product-update");
+        }
+
         private static string Load(string fileName)
         {
             try
