@@ -218,9 +218,25 @@ if (-not $SkipArchive -and -not $SkipSignedManifest) {
         if (-not $verification.Success) {
             throw "Verifica del manifesto appena firmato fallita: $($verification.Issues -join '; ')"
         }
+        if ($SigningKeyId -ne
+            [DDFLanguageEditor.Core.DdfOfficialReleaseTrustStore]::ActiveKeyId) {
+            throw "SigningKeyId non corrispondente alla chiave ufficiale attiva."
+        }
+        $officialTrust = [DDFLanguageEditor.Core.DdfOfficialReleaseTrustStore]::Create()
+        $officialVerification =
+            [DDFLanguageEditor.Core.DdfReleaseManifestVerifier]::Verify(
+                $manifestJson,
+                $officialTrust)
+        if (-not $officialVerification.Success) {
+            throw "Il manifesto non è verificabile con il trust store distribuito: $($officialVerification.Issues -join '; ')"
+        }
         $publicKeyFingerprint = [Convert]::ToHexString(
             [System.Security.Cryptography.SHA256]::HashData($publicKey)
         ).ToLowerInvariant()
+        if ($publicKeyFingerprint -ne
+            [DDFLanguageEditor.Core.DdfOfficialReleaseTrustStore]::ActiveKeySha256) {
+            throw 'Fingerprint della chiave privata diverso dalla chiave ufficiale incorporata.'
+        }
     }
     finally {
         $signingKey.Dispose()

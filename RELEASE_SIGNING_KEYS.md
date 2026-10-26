@@ -28,8 +28,9 @@ azzera il buffer binario al termine.
 2. `tools/publish-release.ps1` importa PKCS#8 e richiede ECDSA P-256.
 3. ZIP e SHA-256 vengono prodotti prima del manifesto.
 4. Il manifesto canonico viene firmato con `official-2026`.
-5. La pipeline rilegge il manifesto con la pubblica derivata e interrompe la
-   release se la verifica non riesce.
+5. La pipeline rilegge il manifesto sia con la pubblica derivata sia con il
+   trust store realmente incorporato nel Core e confronta il fingerprint;
+   interrompe la release se uno dei controlli non riesce.
 6. Il consumer usa soltanto le chiavi `active` del trust store incorporato.
 
 ## Rotazione
