@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripButton toolbarRunLastBuildButton;
         private ToolStripButton toolbarValidateButton;
         private ToolStripButton toolbarLanguageManagerButton;
+        private ToolStripButton toolbarLanguageStudioButton;
         private ToolStripButton toolbarLanguagePlaygroundButton;
         private ToolStripButton toolbarModuleManagerButton;
         private ToolStripButton toolbarStopButton;
@@ -65,7 +66,7 @@ namespace DDF___Program_Language_Editor
             new ToolbarGroupDefinition("project", "Progetto e linguaggio", "toolStripProject", new[]
             {
                 "toolbarSettingsButton", "toolbarValidateButton", "toolbarBuildButton", "toolbarCompileAndRunButton", "toolbarRunLastBuildButton", "toolbarPublishExecutableButton", "toolbarOpenCompiledOutputButton", "toolbarLanguageManagerButton",
-                "toolbarLanguagePlaygroundButton", "toolbarLanguageButton", "toolbarModuleManagerButton"
+                "toolbarLanguageStudioButton", "toolbarLanguagePlaygroundButton", "toolbarLanguageButton", "toolbarModuleManagerButton"
             }),
             new ToolbarGroupDefinition("debug", "Esecuzione e debug", "toolStripDebug", new[]
             {
@@ -139,6 +140,10 @@ namespace DDF___Program_Language_Editor
             toolStripMain.Items.Add(toolbarRunWithoutDebugButton);
             toolbarLanguageManagerButton = createToolbarButton("toolbarLanguageManagerButton", "\uE7B8", "Gestisci pacchetti linguaggio", manageLanguagePackagesMenuItem_Click);
             toolStripMain.Items.Add(toolbarLanguageManagerButton);
+            toolbarLanguageStudioButton = createToolbarButton(
+                "toolbarLanguageStudioButton", "\uE70F",
+                "Package Studio", languagePackageStudioMenuItem_Click);
+            toolStripMain.Items.Add(toolbarLanguageStudioButton);
             toolbarLanguagePlaygroundButton = createToolbarButton("toolbarLanguagePlaygroundButton", "\uE9D9", "Playground linguaggio", languagePlaygroundMenuItem_Click);
             toolStripMain.Items.Add(toolbarLanguagePlaygroundButton);
             toolbarBreakpointButton = createToolbarButton("toolbarBreakpointButton", "●", "Attiva/disattiva breakpoint (F9)", toggleBreakpointMenuItem_Click);

@@ -91,6 +91,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertInstalledProfilesAndCloseAllWorkspaceDocuments(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument, "--language-studio-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertHelpMenu(visible);
+                    return 0;
+                }
                 if (args.Any(argument => string.Equals(argument, "--module-manager-only",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -4272,7 +4278,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "showToolbarFileMenuItem", "showToolbarEditMenuItem", "showToolbarCodeMenuItem",
                     "showToolbarNavigationMenuItem", "showToolbarViewMenuItem", "showToolbarProjectMenuItem",
                     "showToolbarDebugMenuItem",
-                    "manageLanguagePackagesMenuItem", "validateLanguagePackageMenuItem", "languagePlaygroundMenuItem",
+                    "manageLanguagePackagesMenuItem", "languagePackageStudioMenuItem", "validateLanguagePackageMenuItem", "languagePlaygroundMenuItem",
                     "aboutMenuItem", "checkProductUpdatesMenuItem",
                     "commandPaletteMenuItem", "settingsMenuItem"
                 };
@@ -4316,6 +4322,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il menu principale Linguaggio non espone direttamente il Playground e gli altri comandi del pacchetto.");
                 Require(!FindMenuItem(form, "helpMenuItem").DropDownItems.Contains(languageMenu),
                     "Il menu Linguaggio è ancora nascosto dentro Help.");
+                IReadOnlyList<CommandPaletteCommand> languageCommands =
+                    (IReadOnlyList<CommandPaletteCommand>)InvokePrivate(form,
+                        "createCommandPaletteCommands");
+                Require(languageCommands.Any(command =>
+                        command.Id == "shell.languagePackageStudioMenuItem" &&
+                        command.Title == "Package Studio..." &&
+                        command.Category == "Linguaggio" && command.Enabled) &&
+                        FindToolbarButton(form,
+                            "toolbarLanguageStudioButton").Available,
+                    "Package Studio non e coerente tra menu, Command Palette e toolbar.");
                 Require(form.Text.Contains("DDFLanguageEditor 0.12.5 Beta", StringComparison.Ordinal),
                     "La shell standalone non espone la versione prodotto candidata.");
                 languageMenu.PerformClick();
@@ -4391,6 +4407,155 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 FindControl<Button>(playground, "languagePlaygroundCloseButton").PerformClick();
                 PumpMessages(40);
                 Require(playground.IsDisposed, "Chiudi non termina il Playground modeless.");
+
+                FindToolbarButton(form,
+                    "toolbarLanguageStudioButton").PerformClick();
+                PumpMessages(120);
+                Form studio = Application.OpenForms.Cast<Form>()
+                    .FirstOrDefault(openForm => openForm.Name ==
+                        "LanguagePackageStudioForm" && openForm.Owner == form);
+                Require(studio != null && studio.Visible &&
+                        studio.StartPosition == FormStartPosition.CenterScreen &&
+                        IsLight(studio.BackColor),
+                    "Il Package Studio non si apre come finestra chiara e centrata.");
+                FindMenuItem(form, "languagePackageStudioMenuItem").PerformClick();
+                PumpMessages(40);
+                Require(Application.OpenForms.Cast<Form>().Count(openForm =>
+                        openForm.Name == "LanguagePackageStudioForm" &&
+                        openForm.Owner == form) == 1,
+                    "Menu e toolbar aprono istanze Package Studio divergenti.");
+                Require(FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").TabPages.Count == 6 &&
+                        FindControl<ListBox>(studio,
+                            "languageStudioSourceFilesListBox").Items.Count >= 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioKeywordsGrid").Rows.Count > 10 &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPackageIdTextBox").Text == activePackage.Id,
+                    "Il Package Studio non espone manifest, lessico e sorgenti autorevoli.");
+                TreeView ebnfTree = FindControl<TreeView>(studio,
+                    "languageStudioEbnfTreeView");
+                ListView ebnfDiagnostics = FindControl<ListView>(studio,
+                    "languageStudioEbnfDiagnosticsListView");
+                ListView ebnfReferences = FindControl<ListView>(studio,
+                    "languageStudioEbnfReferencesListView");
+                TextBox ebnfSource = FindControl<TextBox>(studio,
+                    "languageStudioEbnfTextBox");
+                Require(ebnfTree.Nodes.Count == 1 &&
+                        ebnfTree.Nodes[0].Nodes.Count > 20 &&
+                        ebnfReferences.Items.Count > 20 &&
+                        ebnfDiagnostics.Items.Count == 0,
+                    "L'editor EBNF non espone regole, riferimenti e diagnostiche live.");
+                string originalEbnf = ebnfSource.Text;
+                ebnfSource.AppendText("$");
+                PumpMessages(400);
+                Require(ebnfDiagnostics.Items.Count > 0 &&
+                        FindControl<Label>(studio,
+                            "languageStudioEbnfStatusLabel").Text.Contains("errori"),
+                    "L'editor EBNF non rileva immediatamente una grammatica non valida.");
+                ebnfSource.Text = originalEbnf + Environment.NewLine +
+                    "# smoke Package Studio" + Environment.NewLine;
+                PumpMessages(400);
+                Require(ebnfDiagnostics.Items.Count == 0,
+                    "L'editor EBNF non recupera dopo la correzione del sorgente.");
+                TextBox studioPlayground = FindControl<TextBox>(studio,
+                    "languageStudioPlaygroundSourceTextBox");
+                ListView studioPlaygroundDiagnostics = FindControl<ListView>(studio,
+                    "languageStudioPlaygroundDiagnosticsListView");
+                ListView studioPackageTests = FindControl<ListView>(studio,
+                    "languageStudioPackageTestsListView");
+                PumpMessages(700);
+                Require(studioPackageTests.Items.Count > 5 &&
+                        studioPackageTests.Items.Cast<ListViewItem>().All(item =>
+                            item.Text == "OK") &&
+                        FindControl<Label>(studio,
+                            "languageStudioPlaygroundStatusLabel").Text.Contains(
+                                "test superati"),
+                    "Il Package Studio non esegue i test dichiarativi sullo snapshot live.");
+                string originalPlaygroundSource = studioPlayground.Text;
+                studioPlayground.Text = "main() out int { ret ; }";
+                PumpMessages(700);
+                Require(studioPlaygroundDiagnostics.Items.Cast<ListViewItem>()
+                        .Any(item => item.SubItems.Count > 1 &&
+                            item.SubItems[1].Text.StartsWith("DDF",
+                                StringComparison.Ordinal)),
+                    "Il Playground integrato non aggiorna le diagnostiche del sorgente.");
+                studioPlayground.Text = originalPlaygroundSource;
+                PumpMessages(700);
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedTab =
+                    FindControl<TabPage>(studio, "languageStudioEbnfPage");
+                PumpMessages(40);
+                FindControl<Button>(studio,
+                    "languageStudioPreviewEbnfButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("grammar.ebnf"),
+                    "La modifica EBNF valida non produce il diff obbligatorio. " +
+                    "Conferma=" + FindControl<Button>(studio,
+                        "languageStudioConfirmPreviewButton").Enabled + "; diagnostiche=" +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<Button>(studio,
+                    "languageStudioConfirmPreviewButton").PerformClick();
+                string originalPackageName = FindControl<TextBox>(studio,
+                    "languageStudioPackageNameTextBox").Text;
+                FindControl<TextBox>(studio, "languageStudioPackageNameTextBox").Text =
+                    originalPackageName + " Studio smoke";
+                ToolStrip studioTools = FindControl<ToolStrip>(studio,
+                    "languagePackageStudioToolStrip");
+                studioTools.Items["languageStudioPreviewGuidedButton"].PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("manifest.json") &&
+                        FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "L'editor guidato non produce un'anteprima confermabile.");
+                FindControl<Button>(studio,
+                    "languageStudioConfirmPreviewButton").PerformClick();
+                studioTools.Items["languageStudioValidateButton"].PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains(
+                                "completati correttamente", StringComparison.OrdinalIgnoreCase) &&
+                        form.EmbeddedEditor.LanguageSession.ActivePackage.Name ==
+                            originalPackageName,
+                    "Il Package Studio non convalida lo snapshot o modifica il pacchetto attivo.");
+                FindControl<Button>(studio, "languageStudioCloseButton").PerformClick();
+                PumpMessages(40);
+                Require(studio.IsDisposed, "Chiudi non termina il Package Studio.");
+                InvokePrivate(form, "setDebugUiLock", true);
+                InvokePrivate(form, "refreshEditorCommandCatalog");
+                IReadOnlyList<CommandPaletteCommand> lockedCommands =
+                    (IReadOnlyList<CommandPaletteCommand>)InvokePrivate(form,
+                        "createCommandPaletteCommands");
+                Require(!FindMenuItem(form,
+                            "languagePackageStudioMenuItem").Enabled &&
+                        !FindToolbarButton(form,
+                            "toolbarLanguageStudioButton").Enabled &&
+                        lockedCommands.Any(command => command.Id ==
+                            "shell.languagePackageStudioMenuItem" &&
+                            !command.Enabled),
+                    "Package Studio resta eseguibile durante il debug.");
+                InvokePrivate(form, "setDebugUiLock", false);
+                using (var embeddedStudioBoundary = new MainForm(true))
+                {
+                    Require(!FindMenuItem(embeddedStudioBoundary,
+                                "languagePackageStudioMenuItem").Available &&
+                            !FindToolbarButton(embeddedStudioBoundary,
+                                "toolbarLanguageStudioButton").Available &&
+                            !GetPrivateField<ToolStripMenuItem>(
+                                embeddedStudioBoundary,
+                                "toolbarLanguageStudioMenuItem").Available &&
+                            !((IReadOnlyList<CommandPaletteCommand>)InvokePrivate(
+                                embeddedStudioBoundary,
+                                "createCommandPaletteCommands")).Any(command =>
+                                    command.Id ==
+                                    "shell.languagePackageStudioMenuItem"),
+                        "L'embedded espone Package Studio da menu, palette o toolbar.");
+                }
 
                 FindMenuItem(form, "manageLanguagePackagesMenuItem").PerformClick();
                 PumpMessages(80);
@@ -7870,7 +8035,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "toolbarShowWhitespaceButton", "toolbarShowIndentGuidesButton", "toolbarWordWrapButton",
                 "toolbarOverviewButton",
                 "toolbarValidateButton", "toolbarBuildButton", "toolbarCompileAndRunButton", "toolbarRunLastBuildButton", "toolbarPublishExecutableButton", "toolbarOpenCompiledOutputButton", "toolbarRunWithoutDebugButton",
-                "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton", "toolbarModuleManagerButton",
+                "toolbarLanguageManagerButton", "toolbarLanguageStudioButton", "toolbarLanguagePlaygroundButton", "toolbarModuleManagerButton",
                 "toolbarBreakpointButton", "toolbarRunButton", "toolbarStepIntoButton", "toolbarStepOverButton", "toolbarStepOutButton", "toolbarStopButton"
             };
             foreach (string name in expected)
@@ -7927,7 +8092,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 }
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
-            Console.WriteLine("PASS sette toolbar mobili per categoria con 57 comandi, posizione e visibilità persistenti");
+            Console.WriteLine("PASS sette toolbar mobili per categoria con 58 comandi, posizione e visibilità persistenti");
         }
 
         private static void AssertRunLastBuildCommand(bool visible)

@@ -40,7 +40,8 @@ namespace DDF___Program_Language_Editor
             "compileAndRunMenuItem", "runLastBuildMenuItem",
             "publishExecutableMenuItem",
             "settingsMenuItem", "manageLanguagePackagesMenuItem", "validateLanguagePackageMenuItem",
-            "languagePlaygroundMenuItem", "manageModulePackagesMenuItem"
+            "languagePlaygroundMenuItem", "languagePackageStudioMenuItem",
+            "manageModulePackagesMenuItem"
         };
 
         private static readonly HashSet<string> DebugUnsafeToolbarCommands = new HashSet<string>(StringComparer.Ordinal)
@@ -54,7 +55,8 @@ namespace DDF___Program_Language_Editor
             "toolbarCompileAndRunButton", "toolbarRunLastBuildButton",
             "toolbarPublishExecutableButton",
             "toolbarSettingsButton", "toolbarLanguageManagerButton", "toolbarLanguagePlaygroundButton",
-            "toolbarLanguageButton", "toolbarModuleManagerButton"
+            "toolbarLanguageStudioButton", "toolbarLanguageButton",
+            "toolbarModuleManagerButton"
         };
 
         private void runMenuItem_DropDownOpening(object sender, EventArgs e)
@@ -492,6 +494,18 @@ namespace DDF___Program_Language_Editor
             {
                 toolbarStopButton.Available = runtimeControlsVisible;
                 toolbarStopButton.Enabled = running || compiledRunCancellable;
+            }
+            if (languagePackageStudioMenuItem != null)
+                languagePackageStudioMenuItem.Enabled = !embeddedHostMode && !busy;
+            if (toolbarLanguageStudioMenuItem != null)
+            {
+                toolbarLanguageStudioMenuItem.Available = !embeddedHostMode;
+                toolbarLanguageStudioMenuItem.Enabled = !busy;
+            }
+            if (toolbarLanguageStudioButton != null)
+            {
+                toolbarLanguageStudioButton.Available = !embeddedHostMode;
+                toolbarLanguageStudioButton.Enabled = !busy;
             }
             if (stepIntoMenuItem != null) stepIntoMenuItem.Enabled = paused;
             if (toolbarStepIntoButton != null) toolbarStepIntoButton.Enabled = paused;

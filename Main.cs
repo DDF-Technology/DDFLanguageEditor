@@ -221,6 +221,12 @@ namespace DDF___Program_Language_Editor
         private void applyEmbeddedHostMode()
         {
             if (!embeddedHostMode) return;
+            if (languagePackageStudioMenuItem != null)
+                languagePackageStudioMenuItem.Available = false;
+            if (toolbarLanguageStudioMenuItem != null)
+                toolbarLanguageStudioMenuItem.Available = false;
+            if (toolbarLanguageStudioButton != null)
+                toolbarLanguageStudioButton.Available = false;
             if (compilationMenuItem != null)
                 compilationMenuItem.Available = false;
             buildProjectMenuItem.Available = false;

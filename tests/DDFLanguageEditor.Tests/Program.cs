@@ -207,9 +207,11 @@ namespace DDFLanguageEditor.Tests
             Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
             Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
             Run("models language package authoring independently from the UI", ModelsLanguagePackageAuthoringIndependently);
+            Run("evaluates authoring snapshots with failing declared tests", EvaluatesAuthoringSnapshotsWithFailingDeclaredTests);
             Run("previews language package transformations before applying them", PreviewsLanguagePackageTransformations);
             Run("undoes and redoes authoring operations deterministically", UndoesAndRedoesAuthoringOperations);
             Run("creates and clones detached language authoring projects", CreatesAndClonesLanguageAuthoringProjects);
+            Run("analyzes EBNF authoring sources with references", AnalyzesEbnfAuthoringSourcesWithReferences);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
@@ -10182,6 +10184,50 @@ namespace DDFLanguageEditor.Tests
             }
         }
 
+        private static void EvaluatesAuthoringSnapshotsWithFailingDeclaredTests()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "ddf-authoring-evaluate-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                DdfLanguageAuthoringProject project =
+                    DdfLanguagePackageAuthoring.LoadDirectory(root).Project;
+                string tests = project.Documents["tests.json"].Content;
+                string failingTests = tests.Replace("\"expectedReturn\": \"2\"",
+                    "\"expectedReturn\": \"999\"", StringComparison.Ordinal);
+                Equal(false, string.Equals(tests, failingTests,
+                    StringComparison.Ordinal));
+                DdfLanguageAuthoringResult edited =
+                    DdfLanguagePackageAuthoring.Apply(project,
+                        new DdfLanguageAuthoringChangeSet(project.Revision,
+                            new[]
+                            {
+                                DdfLanguageAuthoringChange.Upsert("tests.json",
+                                    failingTests)
+                            }));
+                Equal(true, edited.Success);
+
+                DdfLanguagePackageLoadResult evaluated =
+                    DdfLanguagePackageAuthoring.Evaluate(edited.Project);
+                Equal(true, evaluated.Package != null);
+                Equal(true, evaluated.HasErrors);
+                Equal(true, evaluated.Diagnostics.Any(item =>
+                    item.Code == "DDFT001"));
+                Equal(true, DdfLanguagePackageTestRunner.Run(evaluated.Package,
+                    evaluated.Package.Tests).Any(item => !item.Passed));
+
+                DdfLanguagePackageLoadResult strict =
+                    DdfLanguagePackageAuthoring.Validate(edited.Project);
+                Equal(false, strict.Success);
+                Equal(true, strict.Package == null);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void PreviewsLanguagePackageTransformations()
         {
             string root = Path.Combine(Path.GetTempPath(),
@@ -10465,6 +10511,39 @@ namespace DDFLanguageEditor.Tests
             string formatted = DdfFormatter.Format(source, package.Language).Text;
             Equal(0, DdfParser.Parse(formatted, package.Language).Diagnostics.Count);
             Equal(0, DdfParser.Parse(formatted, package.Language).GrammarDiagnostics.Count);
+        }
+
+        private static void AnalyzesEbnfAuthoringSourcesWithReferences()
+        {
+            const string source =
+                "root = branch ;\n" +
+                "branch = <Identifier> | \"x\" ;\n" +
+                "unused = \"u\" ;\n";
+            DdfEbnfAuthoringAnalysis analysis =
+                DdfEbnfAuthoringAnalyzer.Analyze(source, "root");
+            Equal(true, analysis.Success);
+            Equal(3, analysis.Rules.Count);
+            Equal("branch", analysis.Rules.Single(item => item.Name == "root")
+                .References.Single().TargetRule);
+            Equal("root", analysis.Rules.Single(item => item.Name == "branch")
+                .ReferencedBy.Single());
+            Equal(true, analysis.Diagnostics.Any(item =>
+                item.Code == "DDFEBNF003" && item.Severity ==
+                    DdfEbnfAuthoringDiagnosticSeverity.Warning &&
+                item.Line == 3));
+
+            DdfEbnfAuthoringAnalysis unknown =
+                DdfEbnfAuthoringAnalyzer.Analyze("root = missing ;", "root");
+            Equal(false, unknown.Success);
+            Equal(true, unknown.Diagnostics.Any(item =>
+                item.Code == "DDFEBNF002" && item.Start == 7));
+
+            DdfEbnfAuthoringAnalysis recursive =
+                DdfEbnfAuthoringAnalyzer.Analyze("root = root, \"x\" ;", "root");
+            Equal(false, recursive.Success);
+            Equal(true, recursive.Diagnostics.Any(item =>
+                item.Message.Contains("left recursion",
+                    StringComparison.OrdinalIgnoreCase)));
         }
 
         private static void RejectsInvalidEbnfGrammarsAtomically()

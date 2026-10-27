@@ -110,9 +110,11 @@ namespace DDFLanguageEditor.Core
             try
             {
                 if (Directory.Exists(path))
-                    return load(new DirectoryReader(path), DdfLanguagePackageOrigin.Directory, Path.GetFullPath(path));
+                    return load(new DirectoryReader(path), DdfLanguagePackageOrigin.Directory,
+                        Path.GetFullPath(path), true);
                 if (File.Exists(path))
-                    return load(new ArchiveReader(path), DdfLanguagePackageOrigin.Archive, Path.GetFullPath(path));
+                    return load(new ArchiveReader(path), DdfLanguagePackageOrigin.Archive,
+                        Path.GetFullPath(path), true);
                 return Failure("DDFL002", "Pacchetto non trovato.", path);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
@@ -125,7 +127,8 @@ namespace DDFLanguageEditor.Core
 
         public static DdfLanguagePackageLoadResult LoadEmbeddedDefault()
         {
-            try { return load(new EmbeddedReader(), DdfLanguagePackageOrigin.Embedded, "embedded://ddf"); }
+            try { return load(new EmbeddedReader(), DdfLanguagePackageOrigin.Embedded,
+                "embedded://ddf", true); }
             catch (Exception exception) when (exception is IOException || exception is InvalidDataException || exception is JsonException)
             { return Failure("DDFL004", "Fallback DDF incorporato non valido: " + exception.Message, "embedded://ddf"); }
         }
@@ -158,8 +161,29 @@ namespace DDFLanguageEditor.Core
             }
         }
 
+        internal static DdfLanguagePackageLoadResult LoadAuthoringSnapshot(
+            string directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+                return Failure("DDFL001", "Percorso del pacchetto non specificato.");
+            try
+            {
+                return load(new DirectoryReader(directory),
+                    DdfLanguagePackageOrigin.Directory,
+                    Path.GetFullPath(directory), false);
+            }
+            catch (Exception exception) when (exception is IOException ||
+                exception is UnauthorizedAccessException ||
+                exception is InvalidDataException || exception is JsonException ||
+                exception is ArgumentException || exception is NotSupportedException)
+            {
+                return Failure("DDFL003", exception.Message, directory);
+            }
+        }
+
         private static DdfLanguagePackageLoadResult load(IPackageReader reader,
-            DdfLanguagePackageOrigin origin, string source)
+            DdfLanguagePackageOrigin origin, string source,
+            bool requirePassingTests)
         {
             using (reader)
             {
@@ -272,7 +296,8 @@ namespace DDFLanguageEditor.Core
                     diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFT001",
                         "Test dichiarativo '" + test.Name + "' non riuscito: " + test.Message,
                         manifest.Sections["tests"], "$.cases"));
-                if (hasErrors(diagnostics)) return new DdfLanguagePackageLoadResult(null, diagnostics);
+                if (requirePassingTests && hasErrors(diagnostics))
+                    return new DdfLanguagePackageLoadResult(null, diagnostics);
                 return new DdfLanguagePackageLoadResult(package, diagnostics);
             }
         }

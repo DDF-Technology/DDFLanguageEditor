@@ -629,6 +629,32 @@ namespace DDFLanguageEditor.Core
             }
         }
 
+        public static DdfLanguagePackageLoadResult Evaluate(
+            DdfLanguageAuthoringProject project)
+        {
+            if (project == null) throw new ArgumentNullException(nameof(project));
+            string temporary = Path.Combine(Path.GetTempPath(),
+                "ddf-language-authoring-evaluate-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                WriteDocuments(project, temporary);
+                return DdfLanguagePackageLoader.LoadAuthoringSnapshot(temporary);
+            }
+            catch (Exception exception) when (exception is IOException ||
+                exception is UnauthorizedAccessException ||
+                exception is ArgumentException || exception is NotSupportedException)
+            {
+                return new DdfLanguagePackageLoadResult(null, new[]
+                {
+                    Diagnostic("DDFPA025", exception.Message, temporary)
+                });
+            }
+            finally
+            {
+                TryDeleteDirectory(temporary);
+            }
+        }
+
         public static DdfLanguageAuthoringGenerationResult GenerateDirectory(
             DdfLanguageAuthoringProject project, string destination)
         {

@@ -100,6 +100,7 @@
     <Compile Update="Main.Selection.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.MultiSelection.cs" DependentUpon="Main.cs" />
     <Compile Update="Main.LanguagePackage.cs" DependentUpon="Main.cs" />
+    <Compile Update="LanguagePackageStudioForm.cs" DependentUpon="Main.cs" />
     <Compile Update="LanguagePackageInfoForm.cs" DependentUpon="Main.cs" />
     <Compile Update="MultiCursorRichTextBox.cs" DependentUpon="Main.cs" />
     <EmbeddedResource Update="Main.resx" DependentUpon="Main.cs" />

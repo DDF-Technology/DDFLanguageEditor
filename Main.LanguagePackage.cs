@@ -13,9 +13,12 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem manageLanguagePackagesMenuItem;
         private ToolStripMenuItem validateLanguagePackageMenuItem;
         private ToolStripMenuItem languagePlaygroundMenuItem;
+        private ToolStripMenuItem languagePackageStudioMenuItem;
+        private ToolStripMenuItem toolbarLanguageStudioMenuItem;
         private ToolStripDropDownButton toolbarLanguageButton;
         private LanguagePackageManagerForm languagePackageManagerForm;
         private LanguagePlaygroundForm languagePlaygroundForm;
+        private LanguagePackageStudioForm languagePackageStudioForm;
         private Action<string> saveLanguagePackagePathSetting;
         private IDdfLanguagePackageSession editorLanguageSession;
         private DdfLanguagePackage observedLanguagePackage;
@@ -160,6 +163,11 @@ namespace DDF___Program_Language_Editor
                 Name = "languagePlaygroundMenuItem"
             };
             languagePlaygroundMenuItem.Click += languagePlaygroundMenuItem_Click;
+            languagePackageStudioMenuItem = new ToolStripMenuItem("Package Studio...")
+            {
+                Name = "languagePackageStudioMenuItem"
+            };
+            languagePackageStudioMenuItem.Click += languagePackageStudioMenuItem_Click;
 
             languagePackageInfoMenuItem.Click -= languagePackageInfoMenuItem_Click;
             languagePackageInfoMenuItem.Text = "&Linguaggio";
@@ -169,6 +177,7 @@ namespace DDF___Program_Language_Editor
             if (helpIndex < 0) menuStripMain.Items.Add(languagePackageInfoMenuItem);
             else menuStripMain.Items.Insert(helpIndex, languagePackageInfoMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(manageLanguagePackagesMenuItem);
+            languagePackageInfoMenuItem.DropDownItems.Add(languagePackageStudioMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(validateLanguagePackageMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(languagePlaygroundMenuItem);
             languagePackageInfoMenuItem.DropDownItems.Add(new ToolStripSeparator());
@@ -193,6 +202,12 @@ namespace DDF___Program_Language_Editor
                 Text = "\uE8F1"
             };
             toolbarLanguageButton.DropDownItems.Add("Gestisci pacchetti...", null, manageLanguagePackagesMenuItem_Click);
+            toolbarLanguageStudioMenuItem = new ToolStripMenuItem(
+                "Package Studio...", null, languagePackageStudioMenuItem_Click)
+            {
+                Name = "toolbarLanguageStudioMenuItem"
+            };
+            toolbarLanguageButton.DropDownItems.Add(toolbarLanguageStudioMenuItem);
             toolbarLanguageButton.DropDownItems.Add("Convalida pacchetto attivo", null, validateLanguagePackageMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add("Playground...", null, languagePlaygroundMenuItem_Click);
             toolbarLanguageButton.DropDownItems.Add(new ToolStripSeparator());
@@ -258,6 +273,13 @@ namespace DDF___Program_Language_Editor
                 toolbarLanguageButton.ToolTipText = "Linguaggio attivo: " + package.Name + " " + package.LanguageVersion;
                 toolbarLanguageButton.AccessibleName = toolbarLanguageButton.ToolTipText;
             }
+            if (toolbarLanguageStudioButton != null)
+            {
+                toolbarLanguageStudioButton.ToolTipText =
+                    "Package Studio — modifica una copia di " + package.Name;
+                toolbarLanguageStudioButton.AccessibleName =
+                    toolbarLanguageStudioButton.ToolTipText;
+            }
             flowchartView?.ApplyPresentation(package.Language.Intellisense.Flowchart);
         }
 
@@ -299,6 +321,22 @@ namespace DDF___Program_Language_Editor
 
         private void languagePlaygroundMenuItem_Click(object sender, EventArgs e) =>
             showLanguagePlayground(editorLanguageSession.ActivePackage);
+
+        private void languagePackageStudioMenuItem_Click(object sender, EventArgs e)
+        {
+            if (embeddedHostMode || executionRunning || compiledBuildRunning)
+                return;
+            if (languagePackageStudioForm == null || languagePackageStudioForm.IsDisposed)
+            {
+                languagePackageStudioForm = new LanguagePackageStudioForm(
+                    editorLanguageSession.ActivePackage);
+                languagePackageStudioForm.FormClosed += (closedSender, closedArgs) =>
+                    languagePackageStudioForm = null;
+                languagePackageStudioForm.Show(this);
+                return;
+            }
+            languagePackageStudioForm.Activate();
+        }
 
         private void showLanguagePlayground(DdfLanguagePackage package)
         {
