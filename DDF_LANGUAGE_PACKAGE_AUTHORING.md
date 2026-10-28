@@ -64,6 +64,10 @@ linguaggio usato dall'editor. Offre attualmente:
 
 - editor guidato dell'identita del manifest e delle estensioni;
 - tabelle modificabili per keyword e operatori;
+- tabelle guidate per tipi primitivi e conversioni, con categorie, contesti e
+  dichiarabilita vincolati allo schema;
+- editor dei binding semantici raggruppati per regola EBNF, con operazioni
+  selezionabili dall'insieme sicuro e argomenti conservati come oggetti JSON;
 - editor EBNF con regola iniziale, diagnostiche live, riferimenti navigabili e
   albero delle regole/dipendenze;
 - Playground live sullo snapshot in lavorazione, con token e diagnostiche
@@ -80,10 +84,12 @@ linguaggio usato dall'editor. Offre attualmente:
 
 Il comando resta fuori dall'embedded: l'authoring dei pacchetti appartiene alla
 shell standalone, mentre gli host incorporati continuano a scegliere e
-governare i pacchetti ammessi. Gli editor guidati per tipi, semantica,
-formatter, IntelliSense, runtime, build e libreria standard restano aperti
-nella stessa milestone; JSON ed EBNF continueranno comunque a essere sempre
-accessibili. L'analisi EBNF e disponibile anche nel Core tramite
+governare i pacchetti ammessi. Gli editor guidati per formatter, IntelliSense,
+runtime, build e libreria standard restano aperti nella stessa milestone; JSON
+ed EBNF continueranno comunque a essere sempre accessibili. Tipi e semantica
+modificano soltanto `types.json` e `semantics.json`, preservando le sezioni non
+esposte e attraversando il normale diff confermabile. L'analisi EBNF e
+disponibile anche nel Core tramite
 `DdfEbnfAuthoringAnalyzer`: usa lo stesso compilatore grammaticale del loader,
 restituisce posizioni riga/colonna, relazioni fra regole e avvisi sulle regole
 non raggiungibili, senza dipendere da controlli WinForms.

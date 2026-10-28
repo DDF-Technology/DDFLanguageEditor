@@ -892,7 +892,12 @@ namespace DDF___Program_Language_Editor
         {
             if (settingSourceText) return;
             if (documentService?.ActiveDocumentInfo == null) standaloneDocumentVersion++;
-            UpdateAttachedDocument(activeEditor.Text);
+            // In an embedded surface the SDK owns bidirectional synchronization.
+            // The standalone shell instead attaches the document service in
+            // observation-only mode because MainForm already owns the edit path.
+            // Writing here as well would interpret RichEdit formatting events as
+            // user edits and could dirty a freshly opened document.
+            if (synchronizeDocumentText) UpdateAttachedDocument(activeEditor.Text);
             InvalidateAnalysis();
             SourceTextChanged?.Invoke(this, EventArgs.Empty);
             RefreshCommands();

@@ -511,6 +511,11 @@ namespace DDF___Program_Language_Editor
                 try
                 {
                     view.Editor.Text = content;
+                    // RichEdit may normalize its internal representation while the
+                    // text is assigned. The editor value is the clean baseline for
+                    // subsequent TextChanged notifications, not the pre-assignment
+                    // string loaded from disk.
+                    buffer.UpdateSource(view.Editor.Text, false);
                     view.Editor.Select(0, 0);
                     view.ScrollPosition = Point.Empty;
                     view.HasScrollPosition = true;

@@ -1,5 +1,15 @@
 # Changelog
 
+## Correzioni non ancora rilasciate
+
+- Corretto lo stato falso "non salvato" all'apertura: le notifiche `TextChanged` generate internamente da RichEdit senza variazioni del sorgente non sporcano più il documento; apertura e ripristino sessione usano inoltre come baseline pulita il testo effettivamente caricato dal controllo. La superficie SDK collegata alla shell standalone resta ora in sola osservazione e non duplica il percorso di modifica già gestito da `MainForm`.
+
+- Il Package Studio include ora editor guidati per tipi primitivi, conversioni e binding semantici, con categorie/operazioni vincolate agli schemi, argomenti JSON espliciti e modifica di `types.json`/`semantics.json` tramite il normale diff confermabile.
+
+- La colorazione sintattica conserva ora il flag nativo `RichTextBox.Modified`: aprire un file o rigenerarne la Flowchart non lo segnala piu come non salvato, mentre una modifica reale resta correttamente marcata.
+
+- Corretto il ripristino della Flowchart quando si apre o si riattiva un file di un workspace multifile: una scheda gia attiva ora rigenera il diagramma mancante e uno switch avvenuto durante un'analisi in corso viene recuperato automaticamente.
+
 - Allineate le superfici di comando del Package Studio `0.14.1`. Il comando standalone e ora disponibile dal menu `Linguaggio`, dalla Command Palette e con un pulsante dedicato nella toolbar mobile `Progetto e linguaggio`; tutte le origini convergono sulla stessa finestra e non creano istanze duplicate. Menu, palette, pulsante e voce nel selettore lingua seguono lo stesso stato durante run/debug/build e sono completamente assenti dall'embedded. La matrice toolbar sale a 58 comandi; build Release e smoke mirato verdi.
 
 - Integrati Playground e test dichiarativi nel Package Studio `0.14.1`. La nuova scheda lavora sullo snapshot in memoria, inclusi draft JSON/EBNF e regola iniziale non confermati, e aggiorna con debounce token e diagnostiche navigabili prodotte dai servizi reali di lexer, parser, type checker e lowering. La suite `tests.json` viene eseguita caso per caso con esito e dettaglio; doppio clic porta al documento dei test, mentre le diagnostiche sorgente selezionano l'intervallo preciso. `DdfLanguagePackageAuthoring.Evaluate` mantiene disponibile il pacchetto soltanto nel contesto di authoring quando falliscono test dichiarativi, senza allentare il loader, `Validate`, generazione o attivazione ordinari. Build Release senza warning, Core `299/299` e smoke Package Studio verdi.

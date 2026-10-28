@@ -26,6 +26,11 @@ namespace DDF___Program_Language_Editor
         private readonly TextBox fileExtensionsTextBox;
         private readonly DataGridView keywordsGrid;
         private readonly DataGridView operatorsGrid;
+        private readonly TextBox typesDescriptionTextBox;
+        private readonly DataGridView primitiveTypesGrid;
+        private readonly DataGridView conversionsGrid;
+        private readonly TextBox semanticsDescriptionTextBox;
+        private readonly DataGridView semanticBindingsGrid;
         private readonly TextBox ebnfTextBox;
         private readonly TextBox ebnfStartRuleTextBox;
         private readonly TreeView ebnfTreeView;
@@ -120,6 +125,29 @@ namespace DDF___Program_Language_Editor
             operatorsGrid.Columns.Add(TextColumn("operatorPostfixPrecedenceColumn", "Postfissa", 100));
             operatorsGrid.Columns.Add(TextColumn("operatorRoleColumn", "Ruolo", 180));
             editorTabs.TabPages.Add(BuildLexiconPage());
+
+            typesDescriptionTextBox = Field("languageStudioTypesDescriptionTextBox");
+            primitiveTypesGrid = Grid("languageStudioPrimitiveTypesGrid");
+            primitiveTypesGrid.Columns.Add(TextColumn("primitiveNameColumn", "Nome", 130));
+            primitiveTypesGrid.Columns.Add(ComboColumn("primitiveCategoryColumn", "Categoria", 150,
+                "Void", "Boolean", "Integer", "Floating", "Character", "String"));
+            primitiveTypesGrid.Columns.Add(CheckColumn("primitiveCanDeclareColumn", "Dichiarabile", 110));
+            primitiveTypesGrid.Columns.Add(TextColumn("primitiveIndexedElementColumn", "Elemento indicizzato", 170));
+            conversionsGrid = Grid("languageStudioConversionsGrid");
+            conversionsGrid.Columns.Add(TextColumn("conversionFromColumn", "Da", 150));
+            conversionsGrid.Columns.Add(TextColumn("conversionToColumn", "A", 150));
+            conversionsGrid.Columns.Add(ComboColumn("conversionContextColumn", "Contesto", 310,
+                "General", "VariableInitializerSingleCharacterLiteral"));
+            semanticsDescriptionTextBox = Field("languageStudioSemanticsDescriptionTextBox");
+            semanticBindingsGrid = Grid("languageStudioSemanticBindingsGrid");
+            semanticBindingsGrid.Columns.Add(TextColumn("semanticRuleColumn", "Regola EBNF", 190));
+            semanticBindingsGrid.Columns.Add(ComboColumn("semanticOperationColumn", "Operazione", 210,
+                "VisitCompilationUnit", "ImportLibrary", "DeclareStructure", "DeclareFunction",
+                "DeclareParameter", "DeclareEnumeration", "Branch", "Select", "PreconditionLoop",
+                "PostconditionLoop", "CountedLoop", "Break", "Continue", "Terminate", "CreateScope",
+                "DeclareVariable", "Return", "EvaluateStatement", "InferExpression"));
+            semanticBindingsGrid.Columns.Add(TextColumn("semanticArgumentsColumn", "Argomenti (JSON)", 390));
+            editorTabs.TabPages.Add(BuildTypesAndSemanticsPage());
 
             ebnfTextBox = new TextBox
             {
@@ -352,6 +380,31 @@ namespace DDF___Program_Language_Editor
             SortMode = DataGridViewColumnSortMode.NotSortable
         };
 
+        private static DataGridViewComboBoxColumn ComboColumn(string name,
+            string header, int minimumWidth, params string[] values)
+        {
+            var column = new DataGridViewComboBoxColumn
+            {
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
+                FlatStyle = FlatStyle.Flat,
+                HeaderText = header,
+                MinimumWidth = minimumWidth,
+                Name = name,
+                SortMode = DataGridViewColumnSortMode.NotSortable
+            };
+            column.Items.AddRange(values.Cast<object>().ToArray());
+            return column;
+        }
+
+        private static DataGridViewCheckBoxColumn CheckColumn(string name,
+            string header, int minimumWidth) => new DataGridViewCheckBoxColumn
+        {
+            HeaderText = header,
+            MinimumWidth = minimumWidth,
+            Name = name,
+            SortMode = DataGridViewColumnSortMode.NotSortable
+        };
+
         private static ListView AnalysisList(string name) => new ListView
         {
             BackColor = AppTheme.Surface,
@@ -421,6 +474,56 @@ namespace DDF___Program_Language_Editor
             tabs.TabPages.Add(keywords);
             tabs.TabPages.Add(operators);
             page.Controls.Add(tabs);
+            return page;
+        }
+
+        private TabPage BuildTypesAndSemanticsPage()
+        {
+            var page = new TabPage("Tipi e semantica")
+            {
+                Name = "languageStudioTypesSemanticsPage"
+            };
+            var tabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Name = "languageStudioTypesSemanticsTabs"
+            };
+            tabs.TabPages.Add(BuildGridPage("Tipi primitivi",
+                "Descrizione tipi", typesDescriptionTextBox, primitiveTypesGrid));
+            tabs.TabPages.Add(BuildGridPage("Conversioni", null, null,
+                conversionsGrid));
+            tabs.TabPages.Add(BuildGridPage("Binding semantici",
+                "Descrizione semantica", semanticsDescriptionTextBox,
+                semanticBindingsGrid));
+            page.Controls.Add(tabs);
+            return page;
+        }
+
+        private static TabPage BuildGridPage(string title, string label,
+            TextBox description, DataGridView grid)
+        {
+            var page = new TabPage(title);
+            page.Controls.Add(grid);
+            if (description != null)
+            {
+                var header = new TableLayoutPanel
+                {
+                    ColumnCount = 2,
+                    Dock = DockStyle.Top,
+                    Height = 42,
+                    Padding = new Padding(8, 6, 8, 4)
+                };
+                header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 165));
+                header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                header.Controls.Add(new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(0, 5, 8, 0),
+                    Text = label
+                }, 0, 0);
+                header.Controls.Add(description, 1, 0);
+                page.Controls.Add(header);
+            }
             return page;
         }
 
@@ -631,6 +734,7 @@ namespace DDF___Program_Language_Editor
             confirmPreviewButton.Enabled = false;
             LoadManifest();
             LoadLexicon();
+            LoadTypesAndSemantics();
             LoadEbnf();
             LoadSourceList();
             undoButton.Enabled = session.CanUndo;
@@ -669,6 +773,44 @@ namespace DDF___Program_Language_Editor
                     NumberValue(op, "binaryPrecedence"), TextValue(op, "associativity"),
                     NumberValue(op, "prefixPrecedence"), NumberValue(op, "postfixPrecedence"),
                     TextValue(op, "role"));
+            }
+        }
+
+        private void LoadTypesAndSemantics()
+        {
+            JsonObject types = ParseObject("types.json");
+            typesDescriptionTextBox.Text = TextValue(types, "description");
+            primitiveTypesGrid.Rows.Clear();
+            foreach (JsonNode node in types?["primitives"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject primitive = node as JsonObject;
+                primitiveTypesGrid.Rows.Add(TextValue(primitive, "name"),
+                    TextValue(primitive, "category"),
+                    primitive?["canDeclareVariable"]?.GetValue<bool>() ?? false,
+                    TextValue(primitive, "indexedElementType"));
+            }
+            conversionsGrid.Rows.Clear();
+            foreach (JsonNode node in types?["conversions"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject conversion = node as JsonObject;
+                conversionsGrid.Rows.Add(TextValue(conversion, "from"),
+                    TextValue(conversion, "to"), TextValue(conversion, "context"));
+            }
+
+            JsonObject semantics = ParseObject("semantics.json");
+            semanticsDescriptionTextBox.Text = TextValue(semantics, "description");
+            semanticBindingsGrid.Rows.Clear();
+            foreach (JsonNode node in semantics?["bindings"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject binding = node as JsonObject;
+                string rule = TextValue(binding, "rule");
+                foreach (JsonNode operationNode in binding?["operations"]?.AsArray() ??
+                    new JsonArray())
+                {
+                    JsonObject operation = operationNode as JsonObject;
+                    semanticBindingsGrid.Rows.Add(rule, TextValue(operation, "id"),
+                        (operation?["arguments"] as JsonObject)?.ToJsonString() ?? "{}");
+                }
             }
         }
 
@@ -1223,16 +1365,88 @@ namespace DDF___Program_Language_Editor
                 }
                 lexicon["operators"] = operators;
 
+                JsonObject types = ParseObject("types.json");
+                types["description"] = typesDescriptionTextBox.Text.Trim();
+                var primitives = new JsonArray();
+                foreach (DataGridViewRow row in primitiveTypesGrid.Rows.Cast<DataGridViewRow>()
+                    .Where(item => !item.IsNewRow))
+                {
+                    string name = Cell(row, 0);
+                    if (name.Length == 0) continue;
+                    var primitive = new JsonObject
+                    {
+                        ["name"] = name,
+                        ["category"] = Cell(row, 1),
+                        ["canDeclareVariable"] = BooleanCell(row, 2)
+                    };
+                    string indexedElementType = Cell(row, 3);
+                    if (indexedElementType.Length != 0)
+                        primitive["indexedElementType"] = indexedElementType;
+                    primitives.Add(primitive);
+                }
+                types["primitives"] = primitives;
+
+                var conversions = new JsonArray();
+                foreach (DataGridViewRow row in conversionsGrid.Rows.Cast<DataGridViewRow>()
+                    .Where(item => !item.IsNewRow))
+                {
+                    string from = Cell(row, 0);
+                    string to = Cell(row, 1);
+                    if (from.Length == 0 && to.Length == 0) continue;
+                    conversions.Add(new JsonObject
+                    {
+                        ["from"] = from,
+                        ["to"] = to,
+                        ["context"] = Cell(row, 2)
+                    });
+                }
+                types["conversions"] = conversions;
+
+                JsonObject semantics = ParseObject("semantics.json");
+                semantics["description"] = semanticsDescriptionTextBox.Text.Trim();
+                var bindingOrder = new List<string>();
+                var operationsByRule = new Dictionary<string, JsonArray>(StringComparer.Ordinal);
+                foreach (DataGridViewRow row in semanticBindingsGrid.Rows.Cast<DataGridViewRow>()
+                    .Where(item => !item.IsNewRow))
+                {
+                    string rule = Cell(row, 0);
+                    string operationId = Cell(row, 1);
+                    if (rule.Length == 0 && operationId.Length == 0) continue;
+                    if (!operationsByRule.TryGetValue(rule, out JsonArray ruleOperations))
+                    {
+                        ruleOperations = new JsonArray();
+                        operationsByRule.Add(rule, ruleOperations);
+                        bindingOrder.Add(rule);
+                    }
+                    ruleOperations.Add(new JsonObject
+                    {
+                        ["id"] = operationId,
+                        ["arguments"] = ParseArguments(Cell(row, 2))
+                    });
+                }
+                var bindings = new JsonArray();
+                foreach (string rule in bindingOrder)
+                {
+                    bindings.Add(new JsonObject
+                    {
+                        ["rule"] = rule,
+                        ["operations"] = operationsByRule[rule]
+                    });
+                }
+                semantics["bindings"] = bindings;
+
                 var combined = new Dictionary<string, string>(sourceDrafts,
                     StringComparer.OrdinalIgnoreCase)
                 {
                     ["manifest.json"] = Serialize(manifest),
-                    ["lexicon.json"] = Serialize(lexicon)
+                    ["lexicon.json"] = Serialize(lexicon),
+                    ["types.json"] = Serialize(types),
+                    ["semantics.json"] = Serialize(semantics)
                 };
                 PreviewChanges(combined.OrderBy(item => item.Key,
                     StringComparer.OrdinalIgnoreCase).Select(item =>
                         DdfLanguageAuthoringChange.Upsert(item.Key, item.Value)),
-                    "Aggiorna manifest, parole chiave, operatori e draft sorgente");
+                    "Aggiorna manifest, lessico, tipi, semantica e draft sorgente");
             }
             catch (Exception exception) when (exception is JsonException ||
                 exception is InvalidOperationException ||
@@ -1367,6 +1581,26 @@ namespace DDF___Program_Language_Editor
 
         private static string Cell(DataGridViewRow row, int index) =>
             Convert.ToString(row.Cells[index].Value)?.Trim() ?? string.Empty;
+
+        private static bool BooleanCell(DataGridViewRow row, int index)
+        {
+            object value = row.Cells[index].Value;
+            if (value is bool boolean) return boolean;
+            if (bool.TryParse(Convert.ToString(value), out boolean)) return boolean;
+            throw new FormatException("Valore booleano non valido nella colonna " +
+                row.DataGridView.Columns[index].HeaderText + ".");
+        }
+
+        private static JsonObject ParseArguments(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return new JsonObject();
+            return JsonNode.Parse(text, null, new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            }) as JsonObject ?? throw new FormatException(
+                "Gli argomenti semantici devono essere un oggetto JSON.");
+        }
 
         private static void AddInteger(JsonObject value, string property,
             string text)

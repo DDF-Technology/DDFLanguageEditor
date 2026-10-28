@@ -220,25 +220,43 @@ namespace DDF___Program_Language_Editor
             {
                 if (changedView != null)
                 {
-                    changedView.LastEditPosition = Math.Min(changedEditor.SelectionStart, changedEditor.TextLength);
-                    changedView.LastEditUtc = getUtcNow?.Invoke() ?? DateTime.UtcNow;
-                    markCrashRecoveryChanged();
                     string previousSource = changedView.Buffer.Source;
                     bool wasDirty = changedView.Buffer.Session.IsDirty;
-                    if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
-                        updateSnippetSession(previousSource, currentSource);
-                    bool breakpointsChanged = changedView.Buffer.BreakpointLines.Count > 0;
-                    if (breakpointsChanged)
+                    bool sourceChanged = !string.Equals(previousSource, currentSource,
+                        StringComparison.Ordinal);
+                    bool breakpointsChanged = sourceChanged &&
+                        changedView.Buffer.BreakpointLines.Count > 0;
+                    if (sourceChanged)
                     {
-                        DdfBreakpointRemapResult remap = DdfBreakpointService.Remap(
-                            previousSource, currentSource, changedView.Buffer.BreakpointLines);
-                        changedView.Buffer.BreakpointLines.Clear();
-                        foreach (int line in remap.Lines) changedView.Buffer.BreakpointLines.Add(line);
-                        changedView.Buffer.UnboundBreakpointLines.Clear();
-                        foreach (int line in remap.UnboundLines) changedView.Buffer.UnboundBreakpointLines.Add(line);
+                        changedView.LastEditPosition = Math.Min(changedEditor.SelectionStart,
+                            changedEditor.TextLength);
+                        changedView.LastEditUtc = getUtcNow?.Invoke() ?? DateTime.UtcNow;
+                        markCrashRecoveryChanged();
+                        if (ReferenceEquals(changedEditor, richTextBoxMainEditor))
+                            updateSnippetSession(previousSource, currentSource);
+                        if (breakpointsChanged)
+                        {
+                            DdfBreakpointRemapResult remap = DdfBreakpointService.Remap(
+                                previousSource, currentSource, changedView.Buffer.BreakpointLines);
+                            changedView.Buffer.BreakpointLines.Clear();
+                            foreach (int line in remap.Lines)
+                                changedView.Buffer.BreakpointLines.Add(line);
+                            changedView.Buffer.UnboundBreakpointLines.Clear();
+                            foreach (int line in remap.UnboundLines)
+                                changedView.Buffer.UnboundBreakpointLines.Add(line);
+                        }
+                        changedView.Buffer.UpdateSource(currentSource);
+                        updateWorkspaceDocument(changedView.Buffer.Session.CurrentPath,
+                            currentSource);
                     }
-                    changedView.Buffer.UpdateSource(currentSource);
-                    updateWorkspaceDocument(changedView.Buffer.Session.CurrentPath, currentSource);
+                    else if (!changedView.Buffer.Session.IsDirty)
+                    {
+                        // RichEdit can raise TextChanged after applying character
+                        // formatting even though the source is byte-for-byte
+                        // unchanged. Such a native notification must not turn a
+                        // freshly opened document into an unsaved one.
+                        changedEditor.Modified = false;
+                    }
                     bool dirtyStateChanged = wasDirty != changedView.Buffer.Session.IsDirty;
                     if (dirtyStateChanged) updateDocumentTab(changedView);
                     if (breakpointsChanged) refreshBreakpointsPalette();
@@ -410,6 +428,7 @@ namespace DDF___Program_Language_Editor
             lastSyntaxRtfBuildMilliseconds = 0;
             lastSyntaxRtfStreamMilliseconds = 0;
 
+            bool editorModified = richTextBoxMainEditor.Modified;
             isApplyingHighlighting = true;
             phaseStopwatch.Restart();
             try
@@ -509,6 +528,8 @@ namespace DDF___Program_Language_Editor
             }
             finally
             {
+                if (!richTextBoxMainEditor.IsDisposed)
+                    richTextBoxMainEditor.Modified = editorModified;
                 isApplyingHighlighting = false;
             }
             lastAnalysisFormattingMilliseconds = phaseStopwatch.Elapsed.TotalMilliseconds;

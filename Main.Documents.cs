@@ -254,7 +254,11 @@ namespace DDF___Program_Language_Editor
             if (IsDisposed || Disposing || documentTabs.IsDisposed || documentTabs.Disposing) return;
             if (view == null || ReferenceEquals(view.Editor, richTextBoxMainEditor))
             {
-                if (view != null) selectDocumentTab(view.Tab);
+                if (view != null)
+                {
+                    selectDocumentTab(view.Tab);
+                    ensureActiveDocumentAnalysis(view, true);
+                }
                 return;
             }
 
@@ -304,6 +308,7 @@ namespace DDF___Program_Language_Editor
             }
 
             applyHighlighting();
+            ensureActiveDocumentAnalysis(view, false);
             updateDocumentUi();
             refreshBreakpointsPalette();
             updateCaretPosition();
@@ -331,6 +336,44 @@ namespace DDF___Program_Language_Editor
             }
             updateLineNumbers();
             refreshEditorOverview();
+        }
+
+        private void ensureActiveDocumentAnalysis(DocumentView view, bool refreshFlowchart)
+        {
+            if (view == null || IsDisposed || Disposing || !IsHandleCreated) return;
+            BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed || Disposing || view.Editor.IsDisposed ||
+                    !ReferenceEquals(activeDocumentView, view) ||
+                    !ReferenceEquals(richTextBoxMainEditor, view.Editor)) return;
+
+                string source = view.Editor.Text;
+                bool analysisCurrent = lastFlowchartIr != null &&
+                    analysisAppliedLanguageRevision == editorLanguageSession.Revision &&
+                    string.Equals(lastAnalyzedText, source, StringComparison.Ordinal);
+                if (!analysisCurrent)
+                {
+                    if (isApplyingHighlighting)
+                    {
+                        highlightTimer.Stop();
+                        highlightTimer.Start();
+                    }
+                    else
+                    {
+                        applyHighlighting();
+                    }
+                    return;
+                }
+
+                if (!refreshFlowchart) return;
+                DdfIrFunction function = findFlowchartFunction(lastFlowchartIr,
+                    richTextBoxMainEditor.SelectionStart);
+                if (function != null)
+                {
+                    scheduleFlowchartSnapshot(lastAnalyzedText, lastFlowchartIr,
+                        analysisAppliedVersion, lastFlowchartDiagnostics);
+                }
+            }));
         }
 
         private void scheduleDocumentViewportVerification(DocumentView view,

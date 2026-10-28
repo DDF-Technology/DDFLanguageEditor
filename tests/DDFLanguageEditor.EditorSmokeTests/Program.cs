@@ -85,6 +85,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     AssertWorkspaceRenameFromExternalReference(visible);
                     return 0;
                 }
+                if (args.Any(argument => string.Equals(argument,
+                        "--workspace-flowchart-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    using (var workspaceForm = ShowSmokeForm(visible))
+                    {
+                        AssertWorkspaceNavigation(workspaceForm,
+                            FindControl<RichTextBox>(workspaceForm, "richTextBoxMainEditor"),
+                            FindControl<ListBox>(workspaceForm, "listBoxDiagnostics"));
+                    }
+                    Console.WriteLine("PASS smoke mirato Flowchart workspace multifile");
+                    return 0;
+                }
                 if (args.Any(argument => string.Equals(argument, "--language-profile-only",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -4425,14 +4438,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         openForm.Owner == form) == 1,
                     "Menu e toolbar aprono istanze Package Studio divergenti.");
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 6 &&
+                            "languagePackageStudioTabs").TabPages.Count == 7 &&
                         FindControl<ListBox>(studio,
                             "languageStudioSourceFilesListBox").Items.Count >= 10 &&
                         FindControl<DataGridView>(studio,
                             "languageStudioKeywordsGrid").Rows.Count > 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioPrimitiveTypesGrid").Rows.Count >= 6 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioSemanticBindingsGrid").Rows.Count > 10 &&
                         FindControl<TextBox>(studio,
                             "languageStudioPackageIdTextBox").Text == activePackage.Id,
-                    "Il Package Studio non espone manifest, lessico e sorgenti autorevoli.");
+                    "Il Package Studio non espone manifest, lessico, tipi, semantica e sorgenti autorevoli.");
                 TreeView ebnfTree = FindControl<TreeView>(studio,
                     "languageStudioEbnfTreeView");
                 ListView ebnfDiagnostics = FindControl<ListView>(studio,
@@ -4504,17 +4521,40 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "languageStudioPackageNameTextBox").Text;
                 FindControl<TextBox>(studio, "languageStudioPackageNameTextBox").Text =
                     originalPackageName + " Studio smoke";
+                FindControl<TextBox>(studio, "languageStudioTypesDescriptionTextBox").AppendText(
+                    " Smoke tipi.");
+                FindControl<TextBox>(studio, "languageStudioSemanticsDescriptionTextBox").AppendText(
+                    " Smoke semantica.");
                 ToolStrip studioTools = FindControl<ToolStrip>(studio,
                     "languagePackageStudioToolStrip");
                 studioTools.Items["languageStudioPreviewGuidedButton"].PerformClick();
                 PumpMessages(80);
                 Require(FindControl<TextBox>(studio,
                             "languageStudioPreviewTextBox").Text.Contains("manifest.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("types.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("semantics.json") &&
                         FindControl<Button>(studio,
                             "languageStudioConfirmPreviewButton").Enabled,
                     "L'editor guidato non produce un'anteprima confermabile.");
                 FindControl<Button>(studio,
                     "languageStudioConfirmPreviewButton").PerformClick();
+                Require(studioTools.Items["languageStudioUndoButton"].Enabled,
+                    "La modifica guidata di tipi e semantica non abilita Undo.");
+                studioTools.Items["languageStudioUndoButton"].PerformClick();
+                PumpMessages(80);
+                Require(!FindControl<TextBox>(studio,
+                            "languageStudioTypesDescriptionTextBox").Text.Contains("Smoke tipi") &&
+                        studioTools.Items["languageStudioRedoButton"].Enabled,
+                    "Undo non ripristina lo snapshot precedente di tipi e semantica.");
+                studioTools.Items["languageStudioRedoButton"].PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioTypesDescriptionTextBox").Text.Contains("Smoke tipi") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioSemanticsDescriptionTextBox").Text.Contains("Smoke semantica"),
+                    "Redo non ripristina la modifica guidata di tipi e semantica.");
                 studioTools.Items["languageStudioValidateButton"].PerformClick();
                 PumpMessages(80);
                 Require(FindControl<TextBox>(studio,
@@ -6448,6 +6488,30 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 editor = FindControl<RichTextBox>(form, "richTextBoxMainEditor");
                 DdfEditorView editorSurface = FindControl<DdfEditorView>(form, "panelEditor");
                 Require(editor.Text.Contains("helper()"), "Il doppio clic sul file workspace non ha aperto il documento.");
+                bool openedDocumentDirty = GetPrivateField<DocumentSession>(form,
+                    "documentSession").IsDirty;
+                Require(!openedDocumentDirty && !editor.Modified,
+                    "Un file workspace appena aperto viene marcato come modificato senza interventi dell'utente: " +
+                    "sessione=" + openedDocumentDirty + ", RichEdit=" + editor.Modified + ".");
+                editor.Modified = true;
+                InvokeHandler(form, "richTextBox_TextChanged", editor, EventArgs.Empty);
+                PumpMessages(80);
+                openedDocumentDirty = GetPrivateField<DocumentSession>(form,
+                    "documentSession").IsDirty;
+                Require(!openedDocumentDirty && !editor.Modified,
+                    "Una notifica TextChanged priva di variazioni sorgente marca ancora come non salvato " +
+                    "un file appena aperto: sessione=" + openedDocumentDirty +
+                    ", RichEdit=" + editor.Modified + ".");
+                OpenDocumentBuffer activeBuffer = GetPrivateField<OpenDocumentCollection>(form,
+                    "openDocuments").ActiveDocument;
+                string editorSource = editor.Text;
+                activeBuffer.UpdateSource(editorSource + "\n// baseline SDK passiva", false);
+                InvokePrivateInstance(editorSurface, "activeEditor_TextChanged",
+                    editor, EventArgs.Empty);
+                Require(!activeBuffer.Session.IsDirty &&
+                        activeBuffer.Source.EndsWith("// baseline SDK passiva", StringComparison.Ordinal),
+                    "La superficie SDK collegata in sola osservazione riscrive ancora il documento standalone.");
+                activeBuffer.UpdateSource(editorSource, false);
                 Require(editorSurface.SourceText == editor.Text,
                     "La superficie SDK non segue il documento workspace attivo.");
                 Require(!diagnostics.Items.Cast<object>().Any(item => item.ToString().Contains("DDF201")),
@@ -6456,6 +6520,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Control flowchartCanvas = FindControl<Control>(form, "flowchartCanvas");
                 PumpUntil(() => GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "main",
                     4000, "La Flowchart non ha analizzato il file principale del workspace.");
+                InvokePrivate(form, "resetActiveAnalysis");
+                Require(GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram") == null,
+                    "Lo smoke non ha predisposto la perdita del diagramma sulla scheda attiva.");
+                Require((bool)InvokePrivate(form, "activateOpenDocument", mainPath),
+                    "Il file workspace gia aperto non viene riattivato.");
+                PumpUntil(() => GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "main",
+                    4000, "La Flowchart non viene rigenerata riaprendo un file multifile gia attivo.");
                 InvokePrivate(form, "refreshFlowchartFunctionsMenu");
                 ToolStrip flowchartToolbar = FindControl<ToolStrip>(form, "flowchartToolStrip");
                 var flowchartFunctions = (ToolStripDropDownButton)flowchartToolbar.Items["flowchartFunctionsButton"];
@@ -6498,6 +6569,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La convalida standalone non attraversa il servizio pubblico di preparazione dell'editor.");
                 string diskSource = File.ReadAllText(mainPath);
                 editor.AppendText("\n// modifica non salvata");
+                PumpMessages(240);
+                Require(GetPrivateField<DocumentSession>(form, "documentSession").IsDirty &&
+                        editor.Modified,
+                    "Una modifica reale non resta marcata dopo la colorazione sintattica.");
                 FindMenuItem(form, "buildProjectMenuItem").PerformClick();
                 string receiptPath = Path.Combine(buildDirectory, "project.ddfbuild.json");
                 Require(File.Exists(receiptPath) && File.ReadAllText(receiptPath).Contains("\"fromUnsavedBuffer\": true", StringComparison.OrdinalIgnoreCase),
@@ -8738,6 +8813,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
             MethodInfo method = typeof(MainForm).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) throw new InvalidOperationException("Metodo non trovato: " + methodName);
             return method.Invoke(form, arguments);
+        }
+
+        private static object InvokePrivateInstance(object target, string methodName,
+            params object[] arguments)
+        {
+            MethodInfo method = target.GetType().GetMethod(methodName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) throw new InvalidOperationException(
+                "Metodo non trovato: " + methodName);
+            return method.Invoke(target, arguments);
         }
 
         private static T GetControlProperty<T>(Control control, string propertyName)

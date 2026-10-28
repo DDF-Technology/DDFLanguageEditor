@@ -167,7 +167,7 @@ namespace DDF___Program_Language_Editor
                 view.HasScrollPosition = snapshot.ScrollX.HasValue && snapshot.ScrollY.HasValue;
                 view.Editor.ClearUndo();
                 view.Editor.Modified = false;
-                view.Buffer.UpdateSource(source, false);
+                view.Buffer.UpdateSource(view.Editor.Text, false);
                 view.Buffer.BreakpointLines.Clear();
                 foreach (int line in snapshot.BreakpointLines) view.Buffer.BreakpointLines.Add(line);
                 view.LastEditPosition = selectionStart;
