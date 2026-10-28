@@ -4636,6 +4636,13 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non riporta il nome dell'applicazione.");
                 Require(FindControl<Label>(about, "aboutVersionLabel").Text == "Versione 0.12.5 Beta",
                     "About non riporta versione e stato beta.");
+                Require(FindControl<Label>(about, "aboutBuildLabel").Text.Contains("Build"),
+                    "About non espone l'identificativo della build corrente.");
+                Require(form.Controls.Find("statusStripMain", true).OfType<StatusStrip>()
+                        .Single().Items.Cast<ToolStripItem>()
+                        .Any(item => item.Name == "statusBuildLabel" &&
+                            item.Text.Contains("Build", StringComparison.Ordinal)),
+                    "La barra di stato non espone l'identificativo della build corrente.");
                 Require(FindControl<Label>(about, "aboutAuthorLabel").Text.Contains("Fabio De Deo"),
                     "About non riporta l'autore.");
                 Require(FindControl<LinkLabel>(about, "aboutWebsiteLink").Text == "www.ddf.technology",

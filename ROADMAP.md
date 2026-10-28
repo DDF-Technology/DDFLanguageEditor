@@ -145,6 +145,12 @@ migrazione e test; non può essere introdotta incidentalmente durante una featur
     richiede API e portabilità documentate, esempi, versionamento, errori ed
     effetti dichiarati, licenza, test VM/backend, criteri di deprecazione e un
     responsabile manutentivo. Il numero dei pacchetti non è un gate di maturità.
+11. **Build manuale identificabile.** Le prove dell'editor standalone usano
+    soltanto `artifacts/latest/standalone`, prodotto da una pipeline staging,
+    self-test e promozione atomica. Versione prodotto e identità della singola
+    compilazione restano distinte: About, barra di stato e `BUILD-INFO.json`
+    espongono lo stesso build ID, commit, stato Git e hash. `bin`, `obj`, smoke e
+    release non sono percorsi alternativi da consegnare all'utente.
 
 ## 0.1.1 — Stabilizzazione
 

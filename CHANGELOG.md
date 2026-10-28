@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Unificata la build destinata alle prove manuali in `artifacts/latest/standalone`. `tools/build-latest.ps1` usa staging, restore/Rebuild, inventario SHA-256, self-test e promozione soltanto dopo esito positivo; `BUILD-INFO.json`, About e barra di stato condividono build ID, commit e stato Git. `tools/clean-generated.ps1` elimina in sicurezza soltanto output rigenerabili, preservando test sorgente, build corrente ed evidenze di release/accettazione.
+
 - Corretto lo stato falso "non salvato" all'apertura: le notifiche `TextChanged` generate internamente da RichEdit senza variazioni del sorgente non sporcano più il documento; apertura e ripristino sessione usano inoltre come baseline pulita il testo effettivamente caricato dal controllo. La superficie SDK collegata alla shell standalone resta ora in sola osservazione e non duplica il percorso di modifica già gestito da `MainForm`.
 
 - Il Package Studio include ora editor guidati per tipi primitivi, conversioni e binding semantici, con categorie/operazioni vincolate agli schemi, argomenti JSON espliciti e modifica di `types.json`/`semantics.json` tramite il normale diff confermabile.

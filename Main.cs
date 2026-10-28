@@ -67,6 +67,7 @@ namespace DDF___Program_Language_Editor
         private Func<string> requestRuntimeInput;
         private bool paneFocusMessageFilterRegistered;
         private readonly bool embeddedHostMode;
+        private ToolStripStatusLabel statusBuildLabel;
 
         public MainForm() : this(false)
         {
@@ -99,6 +100,7 @@ namespace DDF___Program_Language_Editor
                 initialLanguagePackage, initialLanguageDiagnostics);
             recreateLanguageServices();
             InitializeComponent();
+            initializeBuildIdentityStatus();
             panelEditor.BindEditor(richTextBoxMainEditor);
             initializeDocuments();
             panelEditor.AttachDocumentService(openDocuments, false);
@@ -193,6 +195,18 @@ namespace DDF___Program_Language_Editor
             applyActiveLanguagePackageStatus();
             applyEmbeddedHostMode();
             TextBoxEditingSupport.Apply(this);
+        }
+
+        private void initializeBuildIdentityStatus()
+        {
+            statusBuildLabel = new ToolStripStatusLabel
+            {
+                BorderSides = ToolStripStatusLabelBorderSides.Left,
+                Name = "statusBuildLabel",
+                Text = ProductInfo.BuildDisplay,
+                ToolTipText = ProductInfo.BuildDetails
+            };
+            statusStripMain.Items.Add(statusBuildLabel);
         }
 
         /// <summary>

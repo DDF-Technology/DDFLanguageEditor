@@ -243,6 +243,41 @@ richiede se salvare le modifiche non persistite.
 - Windows 10 o 11;
 - .NET 10 SDK per compilare e verificare il progetto.
 
+### Build corrente da provare
+
+Per evitare di confondere output incrementali, demo, smoke e pubblicazioni, la
+build standalone destinata alla verifica manuale viene prodotta sempre con un
+solo comando:
+
+```powershell
+.\tools\build-latest.ps1
+```
+
+Lo script esegue restore, Rebuild Release, inventario e hash, avvia il self-test
+fisso e sostituisce l'output precedente soltanto dopo esito positivo. L'unico
+eseguibile da usare per le prove manuali è:
+
+```text
+artifacts\latest\standalone\DDFLanguageEditor.exe
+```
+
+`BUILD-INFO.json`, nella stessa directory, registra versione, build ID, data,
+commit, stato pulito/modificato del repository, configurazione, runtime e hash
+dei componenti principali. Lo stesso build ID è mostrato nella barra di stato e
+nella finestra About. La versione prodotto può quindi restare invariata durante
+più incrementi senza rendere ambigua la compilazione effettivamente in uso.
+
+Gli output locali rigenerabili possono essere rimossi senza toccare la build
+corrente o le evidenze di release/accettazione:
+
+```powershell
+.\tools\clean-generated.ps1 -WhatIf
+.\tools\clean-generated.ps1 -Confirm:$false
+```
+
+Il primo comando mostra sempre in anteprima i percorsi interessati. I test
+sorgente non vengono eliminati: soltanto `bin`, `obj` e staging temporanei.
+
 ```powershell
 dotnet build "DDF - Program Language Editor.sln" --configuration Release --maxcpucount:1
 ```
@@ -351,6 +386,8 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `tests/DDFLanguageEditor.Tests/`: suite di regressione eseguibile senza dipendenze;
 - `tests/DDFLanguageEditor.EditorSmokeTests/`: smoke dinamico sul form WinForms reale;
 - `tests/run-dynamic-smoke.ps1`: build e gate di test ripetibile;
+- `tools/build-latest.ps1`: unica build standalone verificata per le prove manuali, promossa atomicamente in `artifacts/latest/standalone`;
+- `tools/clean-generated.ps1`: pulizia sicura degli output rigenerabili con anteprima `-WhatIf`, senza eliminare test sorgente o evidenze per impostazione predefinita;
 - `tools/publish-release.ps1`: pubblicazione self-contained Windows x64, validazione, ZIP e SHA-256;
 - `samples/editor-smoke-test.ddf`: controllo visivo manuale dell'editor;
 - `samples/formatter-smoke-test.ddf`: controllo manuale di formattazione, idempotenza e Undo;

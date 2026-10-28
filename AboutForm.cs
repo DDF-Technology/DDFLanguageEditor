@@ -90,6 +90,16 @@ namespace DDF___Program_Language_Editor
                 Text = "Editor e linguaggio in fase beta"
             };
 
+            var buildLabel = new Label
+            {
+                AutoEllipsis = true,
+                ForeColor = AppTheme.MutedText,
+                Location = new Point(143, 113),
+                Name = "aboutBuildLabel",
+                Size = new Size(445, 20),
+                Text = ProductInfo.BuildDetails
+            };
+
             var authorLabel = new Label
             {
                 AutoSize = true,
@@ -155,6 +165,7 @@ namespace DDF___Program_Language_Editor
             Controls.Add(productLabel);
             Controls.Add(versionLabel);
             Controls.Add(statusLabel);
+            Controls.Add(buildLabel);
             Controls.Add(authorLabel);
             Controls.Add(websiteLink);
             Controls.Add(licenseLabel);

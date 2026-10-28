@@ -25,7 +25,7 @@
     <ProjectReference Include="..\DDFLanguageEditor.Runner\DDFLanguageEditor.Runner.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <Target Name="CopyDdfRunner" AfterTargets="Build">
+  <Target Name="CopyDdfRunner" AfterTargets="Build" Condition="'$(SkipDdfRunnerCopy)' != 'true'">
     <ItemGroup>
       <DdfRunnerFile Include="..\DDFLanguageEditor.Runner\bin\$(Configuration)\DDFLanguageEditor.Runner.dll" />
       <DdfRunnerFile Include="..\DDFLanguageEditor.Runner\bin\$(Configuration)\DDFLanguageEditor.Runner.deps.json" />
