@@ -417,6 +417,11 @@ namespace DDF___Program_Language_Editor
                 compiledBuildCancellation != null;
             bool runtimeControlsVisible = !embeddedHostMode || busy;
             setDebugUiLock(busy);
+            if (documentTabs != null) documentTabs.Enabled = !busy || paused;
+            if (toggleBreakpointMenuItem != null)
+                toggleBreakpointMenuItem.Enabled = !busy || paused;
+            if (toolbarBreakpointButton != null)
+                toolbarBreakpointButton.Enabled = !busy || paused;
             updateWatchExecutionState(running, inspectable);
             updateVariablesExecutionState(running, inspectable);
             updateCallStackExecutionState(running, inspectable);
@@ -771,7 +776,10 @@ namespace DDF___Program_Language_Editor
             {
                 if (!string.IsNullOrEmpty(documentId) &&
                     documentViews.TryGetValue(documentId,
-                        out DocumentView targetView))
+                        out DocumentView targetView) &&
+                    (string.IsNullOrEmpty(documentPath) ||
+                     string.Equals(targetView.Buffer.Session.CurrentPath,
+                         documentPath, StringComparison.OrdinalIgnoreCase)))
                     activateDocument(targetView);
                 else if (!string.IsNullOrEmpty(documentPath))
                 {
@@ -782,6 +790,9 @@ namespace DDF___Program_Language_Editor
                 else if (!string.IsNullOrEmpty(runtimeDocumentPath) && File.Exists(runtimeDocumentPath) && !openDocument(runtimeDocumentPath))
                     return false;
                 leaveFoldedView();
+                // La navigazione del debugger prevale sul ripristino ritardato della
+                // viewport della scheda appena attivata.
+                cancelDocumentViewportRestore();
                 int safeStart = Math.Min(Math.Max(0, start), richTextBoxMainEditor.TextLength);
                 int safeLength = Math.Min(Math.Max(1, length), richTextBoxMainEditor.TextLength - safeStart);
                 richTextBoxMainEditor.Select(safeStart, safeLength);

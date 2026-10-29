@@ -52,19 +52,19 @@ namespace DDF___Program_Language_Editor
             listBoxBreakpoints.DoubleClick += listBoxBreakpoints_DoubleClick;
             tabPageBreakpoints.Controls.Add(listBoxBreakpoints);
             tabControlBottom.TabPages.Add(tabPageBreakpoints);
-            stepIntoMenuItem = new ToolStripMenuItem("Entra nella funzione")
+            stepIntoMenuItem = new ToolStripMenuItem("Passo successivo (entra nelle funzioni)")
             {
                 Name = "stepIntoMenuItem",
-                ShortcutKeys = Keys.F11,
+                ShortcutKeys = Keys.F10,
                 Enabled = false
             };
             stepIntoMenuItem.Click += stepIntoMenuItem_Click;
             int breakpointMenuIndex = runMenuItem.DropDownItems.IndexOf(toggleBreakpointMenuItem);
             runMenuItem.DropDownItems.Insert(breakpointMenuIndex, stepIntoMenuItem);
-            stepOverMenuItem = new ToolStripMenuItem("Passo successivo")
+            stepOverMenuItem = new ToolStripMenuItem("Salta la funzione")
             {
                 Name = "stepOverMenuItem",
-                ShortcutKeys = Keys.F10,
+                ShortcutKeys = Keys.Control | Keys.F10,
                 Enabled = false
             };
             stepOverMenuItem.Click += stepOverMenuItem_Click;
@@ -78,11 +78,11 @@ namespace DDF___Program_Language_Editor
             stepOutMenuItem.Click += stepOutMenuItem_Click;
             runMenuItem.DropDownItems.Insert(breakpointMenuIndex + 2, stepOutMenuItem);
             toolbarStepIntoButton = createToolbarButton(
-                "toolbarStepIntoButton", "↳", "Entra nella funzione (F11)", stepIntoMenuItem_Click);
+                "toolbarStepIntoButton", "↳", "Passo successivo, entra nelle funzioni (F10/F11)", stepIntoMenuItem_Click);
             toolbarStepIntoButton.Enabled = false;
             toolStripMain.Items.Insert(toolStripMain.Items.IndexOf(toolbarStopButton), toolbarStepIntoButton);
             toolbarStepOverButton = createToolbarButton(
-                "toolbarStepOverButton", "", "Passo successivo (F10)", stepOverMenuItem_Click);
+                "toolbarStepOverButton", "", "Salta la funzione (Ctrl+F10)", stepOverMenuItem_Click);
             toolbarStepOverButton.Enabled = false;
             toolStripMain.Items.Insert(toolStripMain.Items.IndexOf(toolbarStopButton), toolbarStepOverButton);
             toolbarStepOutButton = createToolbarButton(
@@ -128,7 +128,7 @@ namespace DDF___Program_Language_Editor
         {
             if (panelEditor.DebugService?.IsPaused != true) return;
             clearDebugExecutionLine();
-            appendOutput("Passo successivo...");
+            appendOutput("Salto della funzione...");
             panelEditor.DebugService.StepOver();
             updateExecutionCommands(true);
         }
@@ -147,7 +147,9 @@ namespace DDF___Program_Language_Editor
 
         private void toggleBreakpointAtLine(int line)
         {
-            if (line <= 0) return;
+            IDdfEditorDebugService service = panelEditor.DebugService;
+            if (line <= 0 || service != null && service.IsActive &&
+                !service.IsPaused) return;
             if (!activeBreakpointLines.Remove(line)) activeBreakpointLines.Add(line);
             openDocuments.ActiveDocument.UnboundBreakpointLines.Remove(line);
             CompilationUnitSyntax root = lastParseResult != null &&
@@ -163,6 +165,8 @@ namespace DDF___Program_Language_Editor
 
         private void clearBreakpoints()
         {
+            IDdfEditorDebugService service = panelEditor.DebugService;
+            if (service != null && service.IsActive && !service.IsPaused) return;
             activeBreakpointLines?.Clear();
             openDocuments.ActiveDocument?.UnboundBreakpointLines.Clear();
             synchronizeRuntimeBreakpoints(openDocuments.ActiveDocument);
@@ -187,7 +191,7 @@ namespace DDF___Program_Language_Editor
             string runtimeEntryPath = null)
         {
             IDdfEditorDebugService service = panelEditor.DebugService;
-            if (service == null || service.IsActive) return;
+            if (service == null || service.IsActive && !service.IsPaused) return;
             var sourceBreakpoints = openDocuments.Documents
                 .SelectMany(document => document.BreakpointLines
                     .Select(line => new DdfEditorBreakpoint(document.Id, line,
@@ -294,7 +298,10 @@ namespace DDF___Program_Language_Editor
 
             if (!string.IsNullOrEmpty(pause.DocumentId) &&
                 documentViews.TryGetValue(pause.DocumentId,
-                    out DocumentView pauseView))
+                    out DocumentView pauseView) &&
+                (string.IsNullOrEmpty(pausePath) ||
+                 string.Equals(pauseView.Buffer.Session.CurrentPath, pausePath,
+                     StringComparison.OrdinalIgnoreCase)))
             {
                 activateDocument(pauseView);
                 runtimeDocumentId = pause.DocumentId;
@@ -315,7 +322,7 @@ namespace DDF___Program_Language_Editor
             if (panelEditor.DebugService?.IsPaused != true) return;
             watchSnapshot = e.Snapshot;
             selectedCallStackFrameIndex = 0;
-            navigateToRuntimeSpan(pause.DocumentId, pausePath, pause.Start,
+            navigateToRuntimeSpan(runtimeDocumentId, pausePath, pause.Start,
                 pause.Length);
             showDebugExecutionLine(pause.Line);
             showFlowchartDebugLocation(e.Snapshot);

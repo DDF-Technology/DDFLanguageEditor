@@ -72,6 +72,21 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     return 0;
                 }
                 if (args.Any(argument => string.Equals(argument,
+                        "--product-updates-only", StringComparison.OrdinalIgnoreCase)))
+                {
+                    using (var updateForm = ShowSmokeForm(visible))
+                        AssertProductUpdates(updateForm);
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
+                        "--session-restore-only",
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    AssertRestoredMultiFileGutter(visible);
+                    Console.WriteLine("PASS ripristino della prima scheda multifile");
+                    return 0;
+                }
+                if (args.Any(argument => string.Equals(argument,
                         "--compiled-workspace-debug-only",
                         StringComparison.OrdinalIgnoreCase)))
                 {
@@ -2651,7 +2666,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 var snapshot = new WorkspaceSessionSnapshot
                 {
                     WorkspacePath = root,
-                    ActiveDocumentIndex = 1,
+                    ActiveDocumentIndex = 0,
                     Documents = new List<WorkspaceSessionDocumentSnapshot>
                     {
                         new WorkspaceSessionDocumentSnapshot { Path = firstPath, SelectionStart = 0 },
@@ -2677,6 +2692,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
                     TabControl tabs = FindControl<TabControl>(form, "documentTabs");
                     Require(tabs.TabPages.Count == 2, "Il ripristino multifile non ha riaperto entrambe le schede.");
+                    OpenDocumentCollection restoredDocuments =
+                        GetPrivateField<OpenDocumentCollection>(form,
+                            "openDocuments");
+                    Require(string.Equals(restoredDocuments.ActiveDocument?.FilePath,
+                            firstPath, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(GetPrivateField<RichTextBox>(form,
+                            "richTextBoxMainEditor").Text,
+                            restoredDocuments.ActiveDocument.Source,
+                            StringComparison.Ordinal),
+                        "Il ripristino della prima scheda non allinea il documento attivo al controllo visibile.");
+                    Require(restoredDocuments.FindByPath(secondPath)?.Source
+                            .StartsWith("int second1", StringComparison.Ordinal) == true,
+                        "Il buffer della seconda scheda è stato sovrascritto con il sorgente della prima.");
                     for (int tab = 0; tab < tabs.TabPages.Count; tab++)
                     {
                         tabs.SelectedIndex = tab;
@@ -4261,8 +4289,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     { "runLastBuildMenuItem", Keys.Control | Keys.Alt | Keys.F5 },
                     { "runWithoutDebugMenuItem", Keys.Control | Keys.F5 },
                     { "runProgramMenuItem", Keys.F5 },
-                    { "stepIntoMenuItem", Keys.F11 },
-                    { "stepOverMenuItem", Keys.F10 },
+                    { "stepIntoMenuItem", Keys.F10 },
+                    { "stepOverMenuItem", Keys.Control | Keys.F10 },
                     { "stepOutMenuItem", Keys.Shift | Keys.F11 },
                     { "toggleBreakpointMenuItem", Keys.F9 },
                     { "stopProgramMenuItem", Keys.Shift | Keys.F5 },
@@ -7668,9 +7696,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "La palette Flowchart non viene portata in primo piano durante la pausa.");
             Require(debugStatus.Text.Contains("DEBUG IN PAUSA") && form.Text.Contains("DEBUG IN PAUSA"),
                 "Lo stato di debug in pausa non è evidente nella barra di stato e nel titolo.");
-            Require(editor.ReadOnly && !FindControl<TabControl>(form, "documentTabs").Enabled &&
+            Require(editor.ReadOnly && FindControl<TabControl>(form, "documentTabs").Enabled &&
                     !FindMenuItem(form, "saveMenuItem").Enabled && !FindToolbarButton(form, "toolbarSaveButton").Enabled,
-                "Durante il debug restano attivi controlli che possono modificare sorgente o documento.");
+                "Durante la pausa il sorgente deve restare protetto, ma le schede navigabili.");
             TreeView variables = FindControl<TreeView>(form, "treeViewVariables");
             tabs.SelectedTab = FindControl<TabPage>(form, "tabPageVariables");
             TreeNode localGroup = variables.Nodes["locals"];
@@ -7748,6 +7776,33 @@ namespace DDFLanguageEditor.EditorSmokeTests
             ClickGutterLine(gutter, 6);
             Require(!gutter.Text.Contains("● 6"), "Il breakpoint non viene rimosso dal gutter.");
 
+            editor.Text = "main() out int\n{\n    int value << 1;\n    value++;\n    value++;\n    ret value;\n}";
+            PumpMessages(180);
+            editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(() => breakpointSession.IsPaused &&
+                breakpointSession.CurrentLocation?.Line == 4 &&
+                FindToolbarButton(form, "toolbarBreakpointButton").Enabled,
+                4000,
+                "Il debug dinamico non raggiunge il primo breakpoint.");
+            Require(FindToolbarButton(form, "toolbarBreakpointButton").Enabled,
+                "F9 non è disponibile mentre il debug è in pausa.");
+            editor.Select(editor.GetFirstCharIndexFromLine(4), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            editor.Select(editor.GetFirstCharIndexFromLine(3), 0);
+            FindToolbarButton(form, "toolbarBreakpointButton").PerformClick();
+            Require(gutter.Text.Contains("● 5") && !gutter.Text.Contains("● 4"),
+                "Il gutter non riflette i breakpoint cambiati durante la pausa.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(() => breakpointSession.IsPaused &&
+                breakpointSession.CurrentLocation?.Line == 5, 4000,
+                "Il nuovo breakpoint non è diventato effettivo alla ripresa.");
+            FindToolbarButton(form, "toolbarRunButton").PerformClick();
+            PumpUntil(debuggerIsIdle, 4000,
+                "Il debug dinamico non termina dopo il secondo breakpoint.");
+            InvokePrivate(form, "clearBreakpoints");
+
             editor.Text = "helper(int seed) out int\n{\nint localValue << seed;\nlocalValue++;\nret localValue;\n}\nmain() out int\n{\nint callerValue << 40;\nint result << helper(2);\nret result;\n}";
             PumpMessages(180);
             editor.Select(editor.GetFirstCharIndexFromLine(9), 0);
@@ -7758,10 +7813,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Require(FindMenuItem(form, "stepIntoMenuItem").Enabled &&
                     FindToolbarButton(form, "toolbarStepIntoButton").Enabled,
                 "Step Into non è disponibile durante la pausa.");
-            FindToolbarButton(form, "toolbarStepIntoButton").PerformClick();
+            Require(InvokeProcessCmdKey(form, Keys.F10),
+                "F10 non avvia il passo che entra nelle funzioni chiamate.");
             PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
                 editor.SelectedText.Contains("int localValue"), 4000,
-                "F11 non entra nella prima istruzione della funzione chiamata.");
+                "F10 non entra nella prima istruzione della funzione chiamata.");
             Require(GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "helper" &&
                     GetPropertyValue<DdfFlowchartNode>(flowchartCanvas, "ExecutionNode")?.Label.Contains("int localValue") == true,
                 "Step Into non porta la Flowchart nella funzione chiamata.");
@@ -7931,8 +7987,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
             PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua"),
                 10000, "Il debug della scheda non salvata ignora il breakpoint. Output: " + output.Text);
             Require(untitledEditor.SelectedText.Contains("value++"), "La pausa non torna al buffer senza percorso.");
-            Require(!FindMenuItem(form, "newMenuItem").Enabled && !FindControl<TabControl>(form, "documentTabs").Enabled,
-                "Durante la pausa è ancora possibile cambiare il documento in esecuzione.");
+            Require(!FindMenuItem(form, "newMenuItem").Enabled &&
+                    FindControl<TabControl>(form, "documentTabs").Enabled &&
+                    untitledEditor.ReadOnly,
+                "Durante la pausa le schede devono restare navigabili senza poter modificare il sorgente.");
             FindToolbarButton(form, "toolbarRunButton").PerformClick();
             PumpUntil(debuggerIsIdle, 4000, "Il documento non salvato non completa il debug.");
             Require(output.Text.Contains("Valore restituito: 2"),
@@ -7949,7 +8007,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 string unusedPath = Path.Combine(workspaceRoot, "unused.ddf");
                 File.WriteAllText(unusedPath,
                     "helper(int seed) out int\n{\nint localValue << seed;\nlocalValue++;\nret localValue;\n}\n" +
-                    "unused() out int\n{\nint forgotten << 1;\nforgotten++;\nret forgotten;\n}");
+                    "unused() out int\n{\nint forgotten << 1;\nforgotten++;\nret forgotten;\n}" +
+                    new string('\n', 90));
                 string externalPath = Path.Combine(externalRoot, "watch-smoke-test.ddf");
                 File.WriteAllText(externalPath,
                     "main() out int\n{\nint watched << 10;\nwatched++;\nret watched;\n}");
@@ -7989,6 +8048,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "Il debug del workspace non parte dall'unico main o considera breakpoint in codice non eseguito. Output: " +
                     output.Text);
                 InvokePrivate(form, "clearBreakpoints");
+                unusedEditor.Select(unusedEditor.TextLength, 0);
+                unusedEditor.ScrollToCaret();
+                PumpMessages(150);
                 string mainPath = Path.Combine(workspaceRoot, "main.ddf");
                 Require((bool)InvokePrivate(form, "openDocument", mainPath),
                     "Il file main del workspace non viene aperto per la prova Step Into multifile.");
@@ -8003,8 +8065,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La pausa iniziale non evidenzia la chiamata nel file main.");
                 RequireRuntimeEditorFlowchartSynchronization(form, "main", "helper(98)",
                     "pausa nel chiamante multi-file", mainPath);
-                Require(InvokeProcessCmdKey(form, Keys.F11),
-                    "La scorciatoia F11 non viene intercettata durante la pausa multifile.");
+                Require(InvokeProcessCmdKey(form, Keys.F10),
+                    "La scorciatoia F10 non viene intercettata durante la pausa multifile.");
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
                     string.Equals(GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Session.CurrentPath,
                         unusedPath, StringComparison.OrdinalIgnoreCase),
@@ -8015,8 +8077,18 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         GetPrivateField<OpenDocumentCollection>(form, "openDocuments").ActiveDocument?.Id,
                         StringComparison.Ordinal),
                     "La linguetta visibile non segue il documento attivato dal debugger.");
+                Require(form.Text.Contains("— " + Path.GetFileName(unusedPath),
+                        StringComparison.Ordinal),
+                    "Il titolo della finestra non segue la funzione esterna durante il debug: " +
+                    form.Text);
                 Require(helperEditor.SelectedText.Contains("int localValue"),
                     "Step Into non evidenzia la prima istruzione della funzione esterna.");
+                PumpMessages(200);
+                int pausedY = helperEditor.GetPositionFromCharIndex(
+                    helperEditor.SelectionStart).Y;
+                Require(pausedY >= 0 && pausedY < helperEditor.ClientSize.Height,
+                    "La riga di pausa nel file esterno resta fuori dalla viewport: y=" +
+                    pausedY + ", altezza=" + helperEditor.ClientSize.Height + ".");
                 Require(string.Equals(GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.DocumentPath,
                         unusedPath, StringComparison.OrdinalIgnoreCase) &&
                         GetPropertyValue<DdfFlowchartLayout>(flowchartCanvas, "Diagram")?.Flowchart.FunctionName == "helper" &&
@@ -8036,9 +8108,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "La scorciatoia F10 non viene intercettata nella funzione esterna.");
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
                     helperEditor.SelectedText.Contains("localValue++"), 4000,
-                    "Step Over non percorre istruzione per istruzione la funzione esterna.");
+                    "F10 non percorre istruzione per istruzione la funzione esterna.");
                 RequireRuntimeEditorFlowchartSynchronization(form, "helper", "localValue++",
-                    "Step Over nel file esterno", unusedPath);
+                    "F10 nel file esterno", unusedPath);
                 Require(InvokeProcessCmdKey(form, Keys.Shift | Keys.F11),
                     "La scorciatoia Shift+F11 non viene intercettata nella funzione esterna.");
                 PumpUntil(() => FindMenuItem(form, "runProgramMenuItem").Text.Contains("Continua") &&
@@ -8567,6 +8639,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static void AssertProductUpdates(MainForm form)
         {
+            SetPrivateField(form, "saveProductUpdateSettingsSetting",
+                new Action<string>(value => { }));
             DdfProductVersionIdentity identity =
                 DdfProductVersionCatalog.Current;
             DateTimeOffset checkedAt = new DateTimeOffset(2026, 10, 24,
@@ -8612,7 +8686,57 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     FindControl<TextBox>(details,
                         "productUpdateDetailsTextBox").AccessibleName.Length > 0,
                 "Il popup aggiornamenti non espone la release verificata.");
-            details.Close();
+            Button openButton = FindControl<Button>(details,
+                "productUpdateOpenReleaseButton");
+            Button closeButton = FindControl<Button>(details,
+                "productUpdateCloseButton");
+            Rectangle clientBounds = details.RectangleToScreen(
+                details.ClientRectangle);
+            Rectangle openBounds = openButton.RectangleToScreen(
+                openButton.ClientRectangle);
+            Rectangle closeBounds = closeButton.RectangleToScreen(
+                closeButton.ClientRectangle);
+            Require(openBounds.Bottom <= clientBounds.Bottom - 12 &&
+                    closeBounds.Bottom <= clientBounds.Bottom - 12 &&
+                    openBounds.Right < closeBounds.Left &&
+                    closeBounds.Right <= clientBounds.Right - 12,
+                "I pulsanti del popup sono tagliati o sovrapposti al bordo.");
+            closeButton.PerformClick();
+            PumpMessages(50);
+            Require(details.IsDisposed || !details.Visible,
+                "Chiudi non chiude il popup non modale.");
+
+            Uri openedRelease = null;
+            using (var actionForm = new ProductUpdateForm(available,
+                uri => openedRelease = uri))
+            {
+                actionForm.Show(form);
+                PumpMessages(50);
+                FindControl<Button>(actionForm,
+                    "productUpdateOpenReleaseButton").PerformClick();
+                Require(openedRelease == available.VerifiedReleaseUri,
+                    "Apri release non richiama la pagina verificata.");
+                FindControl<Button>(actionForm,
+                    "productUpdateCloseButton").PerformClick();
+                Require(!actionForm.Visible,
+                    "Chiudi non funziona dopo Apri release.");
+            }
+
+            using (var currentForm = new ProductUpdateForm(
+                DdfProductUpdateResult.UpToDate(
+                    DdfProductUpdateComponentKind.Standalone,
+                    identity.ProductId, identity.CurrentVersion,
+                    identity.CurrentVersion, DdfProductUpdateChannel.Beta,
+                    checkedAt), uri => throw new InvalidOperationException(
+                        "Non si deve aprire una release assente.")))
+            {
+                Require(!FindControl<Button>(currentForm,
+                        "productUpdateOpenReleaseButton").Enabled &&
+                    FindControl<Label>(currentForm,
+                        "productUpdateActionHintLabel").Text.Contains(
+                            "Nessuna nuova release", StringComparison.Ordinal),
+                    "Il popup aggiornato non spiega perché Apri release è disabilitato.");
+            }
 
             ProductUpdateSettings parsed = ProductUpdateSettings.Parse(
                 new ProductUpdateSettings(true,

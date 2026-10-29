@@ -742,6 +742,7 @@ namespace DDF___Program_Language_Editor
         {
             string dirtyMarker = documentSession.IsDirty ? "*" : string.Empty;
             Text = ProductInfo.DisplayName + " — " + documentSession.DisplayName + dirtyMarker;
+            if (debugUiLocked) debugBaseWindowTitle = Text;
             statusFileLabel.Text = documentSession.HasPath
                 ? documentSession.CurrentPath + dirtyMarker
                 : documentSession.DisplayName + dirtyMarker;

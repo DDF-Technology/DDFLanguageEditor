@@ -87,6 +87,12 @@ namespace DDFLanguageEditor.Compiler.Tests
                     return 0;
                 }
                 if ((args ?? Array.Empty<string>()).Contains(
+                        "--dynamic-breakpoints-only", StringComparer.Ordinal))
+                {
+                    RunsBufferedInputOutOfProcess();
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
                         "--backend-equivalence-only", StringComparer.Ordinal))
                 {
                     EnforcesCompleteBackendEquivalenceGate();
@@ -5199,6 +5205,44 @@ namespace DDFLanguageEditor.Compiler.Tests
                     "Il debug interattivo duplex non ha scambiato pause e " +
                     "comandi DDF: " + string.Join("; ",
                         interactiveDebug.Issues.Select(issue => issue.Code +
+                            " " + issue.Message)));
+
+                request.CorrelationId = "compiler-worker-debug-dynamic-breakpoint";
+                var liveBreakpoints = new List<DdfDotNetWorkerDebugBreakpoint>
+                {
+                    new() { SourcePath = "main.ddf", Start = firstDeclaration,
+                        Length = 1 }
+                };
+                var dynamicPauses = new List<DdfDotNetWorkerDebugPause>();
+                var dynamicHandler = new DdfDotNetWorkerInteractiveDebugHandler(
+                    (pause, cancellationToken) =>
+                    {
+                        dynamicPauses.Add(pause);
+                        if (dynamicPauses.Count == 1)
+                        {
+                            liveBreakpoints.Clear();
+                            liveBreakpoints.Add(new DdfDotNetWorkerDebugBreakpoint
+                            {
+                                SourcePath = "main.ddf",
+                                Start = source.IndexOf("string second",
+                                    StringComparison.Ordinal),
+                                Length = 1
+                            });
+                        }
+                        return ValueTask.FromResult(DdfDotNetDebugCommand.Continue);
+                    }, () => liveBreakpoints);
+                DdfDotNetWorkerExecutionResult dynamicDebug =
+                    DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
+                        request, new DdfDotNetWorkerResourceLimits(
+                            TimeSpan.FromSeconds(30)), dynamicHandler)
+                    .GetAwaiter().GetResult();
+                Require(dynamicDebug.Success && dynamicPauses.Count == 2 &&
+                        dynamicPauses[0].Location.Start == firstDeclaration &&
+                        dynamicPauses[1].Location.Start ==
+                            source.IndexOf("string second", StringComparison.Ordinal),
+                    "Il breakpoint aggiornato durante la pausa non è stato " +
+                    "applicato alla ripresa: " + string.Join("; ",
+                        dynamicDebug.Issues.Select(issue => issue.Code +
                             " " + issue.Message)));
 
                 request.CorrelationId =

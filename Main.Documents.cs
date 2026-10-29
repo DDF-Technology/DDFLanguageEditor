@@ -18,6 +18,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripMenuItem closeDocumentMenuItem;
         private bool isSwitchingDocument;
         private Timer documentViewportRestoreTimer;
+        private long documentViewportRestoreGeneration;
 
         private DocumentView activeDocumentView => documentViews.ActiveView;
 
@@ -256,6 +257,20 @@ namespace DDF___Program_Language_Editor
             {
                 if (view != null)
                 {
+                    // Durante il ripristino della sessione CreateUntitled() attiva
+                    // l'ultimo buffer creato, ma il controllo visibile può essere
+                    // ancora quello della prima scheda. Anche senza cambiare editor
+                    // dobbiamo riallineare il documento attivo prima di compilare.
+                    if (!ReferenceEquals(openDocuments.ActiveDocument,
+                            view.Buffer))
+                    {
+                        openDocuments.Activate(view.Buffer.Id);
+                        documentSession = view.Buffer.Session;
+                        resetActiveAnalysis();
+                        updateDocumentUi();
+                        refreshBreakpointsPalette();
+                        updateCaretPosition();
+                    }
                     selectDocumentTab(view.Tab);
                     ensureActiveDocumentAnalysis(view, true);
                 }
@@ -320,10 +335,13 @@ namespace DDF___Program_Language_Editor
                     incomingViewport);
                 view.ScrollPosition = incomingViewport;
                 view.HasScrollPosition = true;
+                long restoreGeneration = documentViewportRestoreGeneration;
                 BeginInvoke(new Action(() =>
                 {
                     if (IsDisposed || Disposing ||
-                        !ReferenceEquals(activeDocumentView, view)) return;
+                        !ReferenceEquals(activeDocumentView, view) ||
+                        restoreGeneration != documentViewportRestoreGeneration)
+                        return;
                     RichTextBoxUpdateScope.SetScrollPosition(view.Editor,
                         incomingViewport);
                     view.ScrollPosition = incomingViewport;
@@ -398,6 +416,7 @@ namespace DDF___Program_Language_Editor
 
         private void cancelDocumentViewportRestore()
         {
+            documentViewportRestoreGeneration++;
             if (documentViewportRestoreTimer == null) return;
             documentViewportRestoreTimer.Stop();
             documentViewportRestoreTimer.Dispose();

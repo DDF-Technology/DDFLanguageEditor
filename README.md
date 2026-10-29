@@ -106,6 +106,7 @@ artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 - caricamento workspace cancellabile in background e input reattivo su documenti di dimensioni realistiche;
 - schede multidocumento con buffer indipendenti, Undo/Redo preservato, indicatore modifiche e Salva tutto;
 - breakpoint distinti per file con rimappatura, stato e palette navigabile;
+- durante una pausa di debug si possono aggiungere o rimuovere breakpoint con `F9` o dal gutter, anche cambiando scheda; diventano effettivi al successivo `F5`/passo. Mentre il codice è in esecuzione il comando è disabilitato;
 - coppie automatiche, blocchi contestuali, commenta/decommenta e menu contestuale dell'editor;
 - duplicazione, spostamento ed eliminazione di righe, con incolla multilinea riallineato al blocco;
 - selezione sintattica progressiva/riducibile e salto tra delimitatori corrispondenti;
@@ -115,7 +116,7 @@ artefatti normativi congelati senza dichiarare ancora stabile il linguaggio.
 - menu Compilazione con Convalida, Build (`Ctrl+Shift+B`) ed esecuzione dell'ultima build (`Ctrl+Alt+F5`), più menu Esegui con Run (`Ctrl+F5`), Debug (`F5`), Stop (`Shift+F5`) e palette Output;
 - diagnostiche runtime `DDF4xx`, cancellazione cooperativa e limite anti-loop;
 - stack delle chiamate DDF con errori e frame navigabili dalla palette Output;
-- breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`, Entra nella funzione con `F11`, Passo successivo con `F10` ed Esci dalla funzione con `Shift+F11`;
+- breakpoint di riga attivabili dal gutter o con `F9`, con pausa/continuazione tramite `F5`; `F10` (o `F11`) avanza entrando anche nelle funzioni DDF, `Ctrl+F10` salta la funzione chiamata e `Shift+F11` esce dalla funzione corrente;
 - libreria standard minima versionata `ddf.standard@0.12.3`: `print`, `readLine`, `length`, `toInt` e `toFloat`, con effetti ed errori dichiarati nello stesso catalogo usato da IDE, type checker e VM;
 - sette barre mobili con 57 comandi a icona e selettore del linguaggio per File, Modifica, ricerca, IntelliSense, correzioni, navigazione, preferenze, visualizzazione, pacchetti, moduli, build e debug;
 - interfaccia uniformata al tema chiaro, mantenendo scura soltanto l'area codice;
@@ -169,9 +170,10 @@ nel chiamante. Per terminare la funzione corrente e fermarsi alla successiva
 istruzione del chiamante usare **Esci dalla funzione** (`Shift+F11`); non occorre
 aggiungere un breakpoint di ritorno.
 
-Quando la riga sospesa richiama una funzione DDF, **Entra nella funzione** (`F11`)
+Quando la riga sospesa richiama una funzione DDF, **Passo successivo** (`F10`, oppure `F11`)
 si arresta sulla prima istruzione eseguita nel nuovo frame. Su una riga senza
 chiamate avanza semplicemente alla prossima istruzione, aggiornando le palette di debug.
+Per avanzare senza entrare nella funzione richiamata resta disponibile **Salta la funzione** (`Ctrl+F10`).
 
 Prova: aprire `samples/watch-smoke-test.ddf`, inserire `value` e `values[0]`, mettere
 un breakpoint sulla riga `value++;` e avviare con F5. Premere ancora F5 per le pause

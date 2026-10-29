@@ -26,6 +26,7 @@ namespace DDF___Program_Language_Editor
             MinimizeBox = false;
             ShowInTaskbar = false;
             ClientSize = new Size(620, 430);
+            MinimumSize = Size;
             Font = new Font("Segoe UI", 9F);
             Icon = AppIconProvider.LoadIcon();
 
@@ -41,7 +42,7 @@ namespace DDF___Program_Language_Editor
             for (int row = 0; row < 5; row++)
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
 
             addRow(layout, 0, "Stato", describeState(result));
             addRow(layout, 1, "Versione corrente", result.CurrentVersion);
@@ -65,36 +66,58 @@ namespace DDF___Program_Language_Editor
             layout.Controls.Add(notes, 0, 5);
             layout.SetColumnSpan(notes, 2);
 
-            var buttons = new FlowLayoutPanel
+            var footer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
-                Padding = new Padding(0, 7, 0, 0)
+                ColumnCount = 3,
+                RowCount = 2,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
             };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            footer.Controls.Add(new Label
+            {
+                Name = "productUpdateActionHintLabel",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleRight,
+                AutoEllipsis = true,
+                Text = result.IsActionable
+                    ? "Release verificata disponibile: apri i dettagli sul sito."
+                    : result.State == DdfProductUpdateState.UpToDate
+                        ? "Nessuna nuova release da aprire."
+                        : "Nessuna pagina di release verificata da aprire."
+            }, 0, 0);
+            footer.SetColumnSpan(footer.Controls[0], 3);
             var close = new Button
             {
                 Name = "productUpdateCloseButton",
                 AccessibleName = "Chiudi dettagli aggiornamento",
                 Text = "Chiudi",
-                DialogResult = DialogResult.Cancel,
-                Size = new Size(90, 30)
+                Dock = DockStyle.Fill,
+                Margin = new Padding(6, 2, 0, 3)
             };
+            close.Click += (sender, args) => Close();
             openReleaseButton = new Button
             {
                 Name = "productUpdateOpenReleaseButton",
                 AccessibleName = "Apri pagina della release verificata",
                 Text = "Apri release",
-                Size = new Size(110, 30),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(6, 2, 0, 3),
                 Enabled = result.IsActionable
             };
             openReleaseButton.Click += (sender, args) =>
             {
                 if (result.IsActionable) openRelease?.Invoke(result.VerifiedReleaseUri);
             };
-            buttons.Controls.Add(close);
-            buttons.Controls.Add(openReleaseButton);
-            layout.Controls.Add(buttons, 0, 6);
-            layout.SetColumnSpan(buttons, 2);
+            footer.Controls.Add(openReleaseButton, 1, 1);
+            footer.Controls.Add(close, 2, 1);
+            layout.Controls.Add(footer, 0, 6);
+            layout.SetColumnSpan(footer, 2);
             Controls.Add(layout);
             CancelButton = close;
             AppTheme.ApplyLight(this);

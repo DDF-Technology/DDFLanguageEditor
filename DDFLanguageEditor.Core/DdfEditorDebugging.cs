@@ -256,6 +256,8 @@ namespace DDFLanguageEditor.Core
         private DdfLanguageDefinition currentLanguage;
         private IReadOnlyDictionary<string, DocumentInfo> currentDocuments =
             new Dictionary<string, DocumentInfo>();
+        private IReadOnlyDictionary<string, string> currentRuntimePathsById =
+            new Dictionary<string, string>();
 
         public DdfEditorDebugService(IDdfEditorDocumentService documentService,
             IDdfLanguagePackageSession languageSession)
@@ -340,10 +342,16 @@ namespace DDFLanguageEditor.Core
             lock (syncRoot)
             {
                 ThrowIfDisposed();
-                if (state != DdfEditorDebugState.Idle)
+                if (state != DdfEditorDebugState.Idle &&
+                    state != DdfEditorDebugState.Paused)
                     throw new InvalidOperationException(
-                        "I breakpoint non possono essere sostituiti durante una sessione di debug.");
+                        "I breakpoint possono cambiare solo a debug fermo o in pausa.");
                 breakpoints = replacement;
+                if (state == DdfEditorDebugState.Paused && debuggerSession != null)
+                    debuggerSession.SetBreakpoints(replacement.Where(item =>
+                        item.Enabled && currentRuntimePathsById.ContainsKey(item.DocumentId))
+                        .Select(item => new DdfSourceBreakpoint(
+                            currentRuntimePathsById[item.DocumentId], item.Line)));
             }
         }
 
@@ -393,6 +401,7 @@ namespace DDFLanguageEditor.Core
                 currentRuntimeState = null;
                 currentLanguage = languageSessionProvider()?.ActivePackage?.Language;
                 currentDocuments = documents;
+                currentRuntimePathsById = new Dictionary<string, string>();
                 state = DdfEditorDebugState.Running;
             }
             RaiseStateChanged(currentGeneration, DdfEditorDebugState.Idle,
@@ -402,6 +411,14 @@ namespace DDFLanguageEditor.Core
             {
                 Session = session,
                 Breakpoints = currentBreakpoints,
+                RuntimePathsReady = paths =>
+                {
+                    lock (syncRoot)
+                    {
+                        if (generation == currentGeneration && debuggerSession == session)
+                            currentRuntimePathsById = new Dictionary<string, string>(paths);
+                    }
+                },
                 Paused = (pause, documentId, documentIdsByPath) => OnPaused(
                     currentGeneration, session, pause, documentId, documents,
                     documentIdsByPath)
@@ -554,6 +571,7 @@ namespace DDFLanguageEditor.Core
                 currentRuntimeState = null;
                 currentLanguage = null;
                 currentDocuments = new Dictionary<string, DocumentInfo>();
+                currentRuntimePathsById = new Dictionary<string, string>();
             }
             executionService.OutputReceived -= executionService_OutputReceived;
             executionService.CooperativeStateChanged -=
@@ -576,6 +594,7 @@ namespace DDFLanguageEditor.Core
                 currentRuntimeState = null;
                 currentLanguage = null;
                 currentDocuments = new Dictionary<string, DocumentInfo>();
+                currentRuntimePathsById = new Dictionary<string, string>();
                 state = DdfEditorDebugState.Idle;
                 LastCompletion = completion;
             }
@@ -598,6 +617,7 @@ namespace DDFLanguageEditor.Core
                 currentRuntimeState = null;
                 currentLanguage = null;
                 currentDocuments = new Dictionary<string, DocumentInfo>();
+                currentRuntimePathsById = new Dictionary<string, string>();
                 state = DdfEditorDebugState.Idle;
             }
             session.Dispose();

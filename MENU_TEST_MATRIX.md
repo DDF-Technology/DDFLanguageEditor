@@ -85,8 +85,8 @@ deve avere il menu contestuale di modifica e il gutter deve restare escluso.
 | Apri cartella output | apre l'ultimo bundle valido di build o pubblicazione e non viene riassegnato da una build fallita |
 | Avvia senza debug | esegue l'artefatto in memoria con `Ctrl+F5` senza una sessione debugger |
 | Avvia debug | esegue `main` con `F5`, seleziona Output e verifica valore e completamento; un file attivo esterno al workspace viene eseguito in isolamento |
-| Entra nella funzione | con il debugger in pausa, `F11` entra nella prima istruzione della funzione DDF chiamata e aggiorna Call Stack, Variabili e Watch |
-| Passo successivo | con il debugger in pausa, `F10` esegue una sola istruzione senza entrare nelle funzioni chiamate e aggiorna Watch e riga corrente |
+| Passo successivo (entra nelle funzioni) | con il debugger in pausa, `F10` o `F11` entra nella prima istruzione della funzione DDF chiamata e aggiorna Call Stack, Variabili e Watch |
+| Salta la funzione | con il debugger in pausa, `Ctrl+F10` esegue il passo senza entrare nelle funzioni chiamate e aggiorna Watch e riga corrente |
 | Esci dalla funzione | con il debugger in pausa, `Shift+F11` completa il frame corrente, si ferma nel chiamante e aggiorna Call Stack e Variabili |
 | Breakpoint | attiva con `F9` o dal gutter, marca la riga, sospende sullo statement, evidenzia in giallo l'intera riga e continua con `F5` |
 | Arresta | espone `Shift+F5` e viene abilitato soltanto durante un'esecuzione |
@@ -208,7 +208,7 @@ dall'unica `main` anche se la scheda attiva contiene un breakpoint in una funzio
 mai richiamata.
 
 Lo smoke verifica le 53 scorciatoie dichiarate, incluse `Ctrl+,`, `Ctrl+Shift+P`, `Alt+Sinistra`, `Alt+Destra`, `Ctrl+P`, `Ctrl+Shift+O`, `Shift+F12`, `Ctrl+G`, `Ctrl+Shift+Backspace`, `Ctrl+Alt+F` per la ricerca workspace, `Ctrl+Alt+H` per la sostituzione workspace, `Ctrl+.` per le correzioni, `F12` per la definizione,
-`F2` per la rinomina, `Ctrl+Shift+B` per Build, `Ctrl+Shift+F5` per Compila ed esegui, `Ctrl+Alt+F5` per l'ultima build, `Ctrl+F5` per Run, `F9` per i breakpoint, `F5` per Debug/Continua, `F11` per Entra nella funzione, `F10` per Passo successivo, `Shift+F11` per Esci dalla funzione e `Shift+F5` per Stop. Il gate completo si avvia con:
+`F2` per la rinomina, `Ctrl+Shift+B` per Build, `Ctrl+Shift+F5` per Compila ed esegui, `Ctrl+Alt+F5` per l'ultima build, `Ctrl+F5` per Run, `F9` per i breakpoint, `F5` per Debug/Continua, `F10` (o `F11`) per Passo successivo entrando nelle funzioni, `Ctrl+F10` per saltare la funzione, `Shift+F11` per Esci dalla funzione e `Shift+F5` per Stop. Il gate completo si avvia con:
 
 ```powershell
 .\tests\run-dynamic-smoke.ps1

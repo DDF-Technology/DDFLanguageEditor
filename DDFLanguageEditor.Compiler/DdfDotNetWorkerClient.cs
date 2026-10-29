@@ -537,9 +537,8 @@ namespace DDFLanguageEditor.Compiler
                 if (debug && result.Success &&
                     (!TryReadString(result.ResultJson,
                         out string commandName) ||
-                     !Enum.TryParse(commandName, ignoreCase: false,
-                         out DdfDotNetDebugCommand command) ||
-                     !Enum.IsDefined(command)))
+                     !DdfDotNetWorkerDebugResume.TryParse(commandName,
+                         out _)))
                     return DdfDotNetWorkerDuplexCapabilityResult.Failed(
                         "DDFC550", "Comando debug interattivo non valido.");
                 return result;

@@ -242,11 +242,16 @@ namespace DDFLanguageEditor.Runner
                             DdfDotNetWorkerBrokerCapabilities.NextDebugCommand,
                             new object[] { projected }, cancellation.Token);
                         if (value is not string commandName ||
-                            !Enum.TryParse(commandName, ignoreCase: false,
-                                out command) || !Enum.IsDefined(command))
+                            !DdfDotNetWorkerDebugResume.TryParse(commandName,
+                                out DdfDotNetWorkerDebugResume resume))
                             throw new DdfRuntimeException("DDFC550",
                                 "Comando debug interattivo non valido.",
                                 default);
+                        command = resume.Command;
+                        if (resume.Breakpoints != null)
+                            debugger.SetBreakpoints(resume.Breakpoints.Select(point =>
+                                new DdfDotNetSourceBreakpoint(point.SourcePath,
+                                    point.Start, point.Length)));
                     }
                     else
                         command = commandIndex < commands.Count

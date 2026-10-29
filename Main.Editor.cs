@@ -26,7 +26,8 @@ namespace DDF___Program_Language_Editor
             // F10 è intercettato nativamente dalla barra dei menu su Windows e non
             // sempre raggiunge lo ShortcutKeys del ToolStrip. Gestiamo esplicitamente
             // tutti i passi del debugger, rispettando anche scorciatoie personalizzate.
-            if (matchesShortcut(stepIntoMenuItem, keyData))
+            if (matchesShortcut(stepIntoMenuItem, keyData) ||
+                (keyData == Keys.F11 && stepIntoMenuItem.ShortcutKeys == Keys.F10))
             {
                 if (stepIntoMenuItem.Enabled) stepIntoMenuItem.PerformClick();
                 return true;

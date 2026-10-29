@@ -341,6 +341,7 @@ namespace DDFLanguageEditor.Core
         public DdfDebuggerSession Session { get; set; }
         public IReadOnlyList<DdfEditorBreakpoint> Breakpoints { get; set; } =
             Array.Empty<DdfEditorBreakpoint>();
+        public Action<IReadOnlyDictionary<string, string>> RuntimePathsReady { get; set; }
         public Action<DdfDebugPauseInfo, string,
             IReadOnlyDictionary<string, string>> Paused { get; set; }
     }
@@ -1269,6 +1270,7 @@ namespace DDFLanguageEditor.Core
             DdfDebuggerSession debugger = request.DebugBinding?.Session;
             if (debugger != null)
             {
+                request.DebugBinding.RuntimePathsReady?.Invoke(runtimePathsById);
                 var documentIdsByPath = runtimePathsById
                     .GroupBy(item => NormalizePath(item.Value),
                         StringComparer.OrdinalIgnoreCase)

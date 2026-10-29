@@ -2,6 +2,14 @@
 
 ## Correzioni non ancora rilasciate
 
+- Corretto il popup di controllo aggiornamenti: "Chiudi" ora chiude anche la finestra non modale; i pulsanti hanno una fascia inferiore stabile e margini dal bordo, mentre l'assenza di una nuova release spiega perché "Apri release" è disabilitato. Aggiunto smoke UI per clic, callback e geometria.
+
+- I breakpoint possono essere aggiunti o rimossi durante una pausa di debug (F9 o gutter), anche su un altro file aperto: il Runner compilato riceve la lista aggiornata prima del prossimo Continua/Passo. La stessa modifica vale per il debugger embedded. Durante l'esecuzione attiva il comando rimane disabilitato, evitando indicatori non ancora applicati.
+
+- Corretto il ripristino di una sessione multifile con la prima scheda attiva: il documento interno ora coincide subito con l'editor visibile. Questo impedisce che un debug avviato immediatamente dopo l'apertura sovrascriva in memoria il sorgente di un'altra scheda e produca falsi DDF311/DDF305.
+
+- Il passo predefinito del debugger (`F10`, con `F11` come alias) entra nelle funzioni DDF chiamate; lo Step Over resta disponibile con `Ctrl+F10`. La navigazione di pausa privilegia il percorso sorgente quando l'ID del documento nello snapshot non corrisponde al file della funzione esterna, aggiornando titolo e viewport durante lo switch. Lo smoke multifile controlla che la riga sospesa rimanga visibile anche quando il file chiamato era precedentemente scorso in fondo.
+
 - Unificata la build destinata alle prove manuali in `artifacts/latest/standalone`. `tools/build-latest.ps1` usa staging, restore/Rebuild, inventario SHA-256, self-test e promozione soltanto dopo esito positivo; `BUILD-INFO.json`, About e barra di stato condividono build ID, commit e stato Git. `tools/clean-generated.ps1` elimina in sicurezza soltanto output rigenerabili, preservando test sorgente, build corrente ed evidenze di release/accettazione.
 
 - Corretto lo stato falso "non salvato" all'apertura: le notifiche `TextChanged` generate internamente da RichEdit senza variazioni del sorgente non sporcano più il documento; apertura e ripristino sessione usano inoltre come baseline pulita il testo effettivamente caricato dal controllo. La superficie SDK collegata alla shell standalone resta ora in sola osservazione e non duplica il percorso di modifica già gestito da `MainForm`.

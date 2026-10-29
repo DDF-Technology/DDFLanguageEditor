@@ -87,8 +87,9 @@ namespace DDFLanguageEditor.Compiler
             lock (sync)
             {
                 ThrowIfDisposed();
-                if (state != DdfEditorDebugState.Idle) throw new
-                    InvalidOperationException("I breakpoint non possono cambiare durante il debug.");
+                if (state != DdfEditorDebugState.Idle &&
+                    state != DdfEditorDebugState.Paused) throw new
+                    InvalidOperationException("I breakpoint possono cambiare solo a debug fermo o in pausa.");
                 breakpoints = (values ?? Array.Empty<DdfEditorBreakpoint>())
                     .Where(value => value != null).GroupBy(value =>
                         value.DocumentId + "\n" + value.Line, StringComparer.Ordinal)
@@ -276,7 +277,8 @@ namespace DDFLanguageEditor.Compiler
                             debugPlan: debugPlan);
                     var handler = new DdfDotNetWorkerInteractiveDebugHandler(
                         (pause, token) => WaitForCommandAsync(current, pause,
-                            documents, token));
+                            documents, token),
+                        () => CreateBreakpoints(documents, artifact));
                     DdfDotNetWorkerExecutionResult executed = await
                         DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
                             workerRequest, new DdfDotNetWorkerResourceLimits(
