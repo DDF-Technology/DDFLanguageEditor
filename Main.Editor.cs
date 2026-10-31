@@ -407,19 +407,24 @@ namespace DDF___Program_Language_Editor
             int currentDiagnosticStart = allDiagnostics.Count == 0
                 ? int.MaxValue
                 : allDiagnostics[0].Start;
-            int delimiterFormatStart = activeDelimiterMatch == null
-                ? int.MaxValue
-                : Math.Min(activeDelimiterMatch.OpenStart, activeDelimiterMatch.CloseStart);
+            DdfDelimiterMatch delimiterToClear = activeDelimiterMatch;
             DocumentView formattingView = activeDocumentView;
             string syntaxFormattingStyle = createSyntaxFormattingStyle();
-            bool syntaxFormattingCurrent = activeDelimiterMatch == null &&
-                formattingView != null && formattingView.MultiSelections.Count < 2 &&
+            bool syntaxFormattingCurrent = formattingView != null &&
+                formattingView.MultiSelections.Count < 2 &&
                 formattingView.SyntaxFormattedLanguageRevision == languageRevision &&
                 string.Equals(formattingView.SyntaxFormattedSource, text,
                     StringComparison.Ordinal) &&
                 string.Equals(formattingView.SyntaxFormattingStyle,
                     syntaxFormattingStyle, StringComparison.Ordinal);
-            int formatStart = Math.Min(changedStart, Math.Min(diagnosticsFormatStart, Math.Min(currentDiagnosticStart, delimiterFormatStart)));
+            bool syntaxStyleChanged = formattingView == null ||
+                formattingView.SyntaxFormattedLanguageRevision != languageRevision ||
+                !string.Equals(formattingView.SyntaxFormattingStyle,
+                    syntaxFormattingStyle, StringComparison.Ordinal);
+            // Diagnostic waves are cleared independently below. An early
+            // diagnostic must not force a native token-by-token recolor of the
+            // unchanged prefix of a large document.
+            int formatStart = syntaxStyleChanged ? 0 : changedStart;
             formatStart = Math.Min(formatStart, text.Length);
             diagnosticsFormatStart = currentDiagnosticStart;
             activeDelimiterMatch = null;
@@ -436,6 +441,11 @@ namespace DDF___Program_Language_Editor
             {
                 using (RichTextBoxUpdateScope.Begin(richTextBoxMainEditor))
                 {
+                    if (delimiterToClear != null)
+                    {
+                        restoreSourceBackground(delimiterToClear.OpenStart);
+                        restoreSourceBackground(delimiterToClear.CloseStart);
+                    }
                     if (syntaxFormattingCurrent)
                     {
                         // The native control already contains the exact syntax
@@ -497,11 +507,6 @@ namespace DDF___Program_Language_Editor
 
                     foreach (DdfDiagnostic diagnostic in allDiagnostics)
                     {
-                        if (diagnostic.End <= formatStart)
-                        {
-                            continue;
-                        }
-
                         int diagnosticStart = Math.Min(diagnostic.Start, richTextBoxMainEditor.TextLength);
                         int diagnosticLength = Math.Min(diagnostic.Length, richTextBoxMainEditor.TextLength - diagnosticStart);
                         richTextBoxMainEditor.Select(diagnosticStart, diagnosticLength);

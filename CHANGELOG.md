@@ -2,6 +2,22 @@
 
 ## Correzioni non ancora rilasciate
 
+- Checkpoint Package Studio `0.14.2`: Core `303/303` e smoke WinForms completo verdi. Corretto anche il blocco della UI durante il completamento su documenti grandi: la rimozione dell'evidenziazione di una coppia di delimitatori ripristina ora soltanto i due caratteri interessati, senza ricolorare migliaia di token invariati. Il test realistico del workspace separa la proiezione iniziale dal budget interattivo e verifica completamento e analisi incrementale.
+
+- Completata la documentazione di pubblicazione manuale dei pacchetti linguaggio (`0.14.2`): guida dalla scelta del template all'attivazione, demo CLI `starter`/`clone-ddf`/`publish`, esempio DDF con test dichiarativo e avvertenze su checksum, autenticita e profili sintattici. Il percorso starter→archivio e stato provato end-to-end.
+
+- Installazione linguaggi resa non distruttiva (`0.14.2`): gli archivi generati dal Package Studio vengono verificati con SHA-256 e identita manifest/report prima del caricamento; i test dichiarativi sono eseguiti anche sullo staging. Una versione ID/versione gia installata non viene sostituita, mentre una nuova versione si installa affiancata. Il gate Core copre archivio manomesso e reinstallazione rifiutata.
+
+- Il Package Studio genera archivi `.ddflang` riproducibili (`0.14.2`) con manifest autorevole, inventario SHA-256 per file e report di convalida. La pubblicazione avviene solo dopo verifica del contenuto e caricamento dell'archivio; una destinazione esistente non viene sovrascritta. Due generazioni dello stesso snapshot risultano identiche byte per byte. Core `302/302` e smoke mirato verdi.
+
+- Aggiunto il confronto di compatibilita fra versioni del medesimo pacchetto linguaggio (`0.14.2`). `Confronta versione...` nel Package Studio carica una cartella precedente e presenta un report non distruttivo con modifiche incompatibili, da rivedere e informative. Il comparatore Core convalida entrambi gli snapshot e controlla identita, versioni, lessico, tipi, runtime, libreria standard, build, grammatica e documenti autore non classificati. Core `301/301` e smoke mirato verdi.
+
+- Rafforzata la convalida dei pacchetti linguaggio per `0.14.2`: dipendenze di sezione duplicate, autoreferenziali o cicliche vengono rifiutate; i test dichiarativi devono includere almeno un caso eseguibile senza diagnostiche con risultato atteso. Restano attivi i controlli preesistenti su versione del motore e operazioni VM. Core `300/300` e smoke Package Studio verdi.
+
+- Completati gli editor guidati della verticale Package Studio `0.14.1` con nuove schede Runtime, Build e Libreria standard. Parametri e operazioni VM, backend, firme e binding delle funzioni sono modificabili senza perdere i campi non esposti dei JSON. Anteprima, conferma, Undo/Redo e convalida condividono il flusso di authoring esistente; smoke WinForms mirato verde.
+
+- Il Package Studio offre ora editor guidati per formatter e IntelliSense: token, coppie automatiche, indentazione, correzioni rapide, completamento, firme, tipi di simbolo, snippet, Flowchart e diagnostiche. Le modifiche ai JSON autorevoli passano dal consueto diff confermabile, con Undo/Redo e convalida; smoke WinForms mirato verde.
+
 - Corretto il popup di controllo aggiornamenti: "Chiudi" ora chiude anche la finestra non modale; i pulsanti hanno una fascia inferiore stabile e margini dal bordo, mentre l'assenza di una nuova release spiega perché "Apri release" è disabilitato. Aggiunto smoke UI per clic, callback e geometria.
 
 - I breakpoint possono essere aggiunti o rimossi durante una pausa di debug (F9 o gutter), anche su un altro file aperto: il Runner compilato riceve la lista aggiornata prima del prossimo Continua/Passo. La stessa modifica vale per il debugger embedded. Durante l'esecuzione attiva il comando rimane disabilitato, evitando indicatori non ancora applicati.

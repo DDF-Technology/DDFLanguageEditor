@@ -122,8 +122,35 @@ identità dichiarata e supporta cinque origini:
 Lo starter vuoto conserva il substrato dichiarativo DDF necessario al motore ma
 riduce la suite a un singolo test di salute. Non può essere letteralmente privo
 di regole o test, perché non sarebbe caricabile né verificabile. Gli editor
-guidati successivi permetteranno di sostituire progressivamente lessico,
+guidati permettono di sostituire progressivamente lessico,
 grammatica e sezioni mantenendo sempre visibili le diagnostiche.
+
+## Archivio riproducibile
+
+`Genera .ddflang...` convalida lo snapshot corrente e crea un archivio ZIP senza
+installarlo. Tutte le entry sono nella radice, ordinate per nome, con timestamp
+fisso e codifica UTF-8; i file sorgente mantengono i propri contenuti. Il
+`manifest.json` è quello del pacchetto. `ddflang-checksums.json` elenca, per
+ciascun file sorgente, dimensione e SHA-256; `ddflang-validation.json` registra
+identità, versione, numero di test dichiarativi superati e diagnostiche della
+convalida. I due metadati generati non includono il proprio hash nell'inventario.
+Il generatore riapre l'archivio, verifica l'inventario e lo carica tramite il
+loader reale prima di spostarlo alla destinazione finale. Non sovrascrive un
+file già esistente; il risultato espone l'hash SHA-256 dell'intero archivio.
+
+## Installazione sicura
+
+Il gestore dei pacchetti verifica i metadati e gli SHA-256 degli archivi
+generati dal Package Studio, quindi il loader esegue i test dichiarativi prima
+e dopo la copia in una directory di staging. Una coppia ID/versione già
+installata non viene sovrascritta: occorre incrementare `packageVersion` per
+installare una nuova versione affiancata. Gli archivi legacy senza i due file
+di metadati rimangono installabili, ma sono comunque convalidati dal loader e
+dalla suite dichiarativa. L'installazione non attiva automaticamente il nuovo
+pacchetto.
+
+Per una procedura manuale completa, con comandi riproducibili ed esempio di
+test, vedere `DDF_LANGUAGE_PACKAGE_PUBLISHING.md`.
 
 Ogni clone riceve ID, nome, versione pacchetto, versione linguaggio ed
 estensioni nuovi; il sorgente non viene modificato o installato. Directory e

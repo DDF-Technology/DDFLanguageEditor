@@ -70,8 +70,8 @@ namespace DDF___Program_Language_Editor
             for (int column = 0; column < 5; column++) buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
             buttons.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             buttons.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            var archive = Button("languagePackageInstallArchiveButton", "Installa/Aggiorna archivio...", InstallArchive, 174);
-            var folder = Button("languagePackageInstallFolderButton", "Installa/Aggiorna cartella...", InstallFolder, 174);
+            var archive = Button("languagePackageInstallArchiveButton", "Installa archivio...", InstallArchive, 174);
+            var folder = Button("languagePackageInstallFolderButton", "Installa cartella...", InstallFolder, 174);
             buttons.Controls.Add(archive, 0, 0); buttons.SetColumnSpan(archive, 2);
             buttons.Controls.Add(folder, 2, 0); buttons.SetColumnSpan(folder, 3);
             buttons.Controls.Add(Button("languagePackageValidateButton", "Convalida", (s, e) => ValidateSelected(), 100), 0, 1);
@@ -127,7 +127,7 @@ namespace DDF___Program_Language_Editor
         private void InstallFolder(object sender, EventArgs e)
         {
             using var dialog = new FolderBrowserDialog
-            { Description = "Installa o aggiorna il pacchetto contenuto nella cartella", ShowNewFolderButton = false };
+            { Description = "Installa una nuova versione del pacchetto contenuto nella cartella", ShowNewFolderButton = false };
             if (dialog.ShowDialog(this) == DialogResult.OK) Install(dialog.SelectedPath);
         }
 
@@ -137,7 +137,7 @@ namespace DDF___Program_Language_Editor
             {
                 DdfLanguagePackageInstallResult result = store.Install(path);
                 resultTextBox.Text = result.Success
-                    ? (result.Updated ? "Pacchetto aggiornato: " : "Pacchetto installato: ") + result.Installed
+                    ? "Pacchetto installato: " + result.Installed
                     : string.Join(Environment.NewLine, result.Diagnostics.Select(item => item.ToString()));
                 RefreshPackages();
             }

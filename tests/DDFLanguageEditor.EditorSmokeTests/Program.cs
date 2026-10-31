@@ -3134,6 +3134,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     editor.Text = largeSource;
                     editor.Select(editor.TextLength, 0);
                     StopInteractiveTimers(form);
+                    // Establish the initial syntax projection before measuring
+                    // interactive edits and completion on the large document.
+                    // Otherwise an already queued full-document formatting pass
+                    // is charged to the unrelated completion budget.
+                    InvokePrivate(form, "applyHighlighting");
                     var largeInputSamples = new List<double>();
                     for (int index = 0; index < 20; index++)
                     {
@@ -4465,8 +4470,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         openForm.Name == "LanguagePackageStudioForm" &&
                         openForm.Owner == form) == 1,
                     "Menu e toolbar aprono istanze Package Studio divergenti.");
+                Require(FindControl<ToolStrip>(studio,
+                            "languagePackageStudioToolStrip").Items[
+                            "languageStudioCompareButton"] != null,
+                    "Il Package Studio non espone il confronto non distruttivo tra versioni.");
+                Require(FindControl<ToolStrip>(studio,
+                            "languagePackageStudioToolStrip").Items[
+                            "languageStudioGenerateArchiveButton"] != null,
+                    "Il Package Studio non espone la generazione .ddflang.");
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 7 &&
+                            "languagePackageStudioTabs").TabPages.Count == 12 &&
                         FindControl<ListBox>(studio,
                             "languageStudioSourceFilesListBox").Items.Count >= 10 &&
                         FindControl<DataGridView>(studio,
@@ -4475,6 +4488,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioPrimitiveTypesGrid").Rows.Count >= 6 &&
                         FindControl<DataGridView>(studio,
                             "languageStudioSemanticBindingsGrid").Rows.Count > 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioFormattingTokensGrid").Rows.Count == 8 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioSnippetsGrid").Rows.Count > 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioDiagnosticMessagesGrid").Rows.Count > 20 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioVmOperationsGrid").Rows.Count > 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioExpressionOperationsGrid").Rows.Count > 10 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioBuildBackendsGrid").Rows.Count > 0 &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioStandardFunctionsGrid").Rows.Count > 4 &&
                         FindControl<TextBox>(studio,
                             "languageStudioPackageIdTextBox").Text == activePackage.Id,
                     "Il Package Studio non espone manifest, lessico, tipi, semantica e sorgenti autorevoli.");
@@ -4583,6 +4610,91 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         FindControl<TextBox>(studio,
                             "languageStudioSemanticsDescriptionTextBox").Text.Contains("Smoke semantica"),
                     "Redo non ripristina la modifica guidata di tipi e semantica.");
+                FindControl<TextBox>(studio,
+                    "languageStudioFormattingDescriptionTextBox").AppendText(
+                    " Smoke formatter.");
+                DataGridView completionLabels = FindControl<DataGridView>(studio,
+                    "languageStudioCompletionLabelsGrid");
+                DataGridViewRow originRow = completionLabels.Rows
+                    .Cast<DataGridViewRow>().Single(row =>
+                        Convert.ToString(row.Cells[0].Value) == "keywordOrigin");
+                originRow.Cells[1].Value = "origine smoke";
+                DataGridView quickFixes = FindControl<DataGridView>(studio,
+                    "languageStudioQuickFixesGrid");
+                quickFixes.Rows[0].Cells[1].Value = "Correzione smoke";
+                FindControl<TextBox>(studio,
+                    "languageStudioRuntimeDescriptionTextBox").AppendText(
+                    " Smoke runtime.");
+                FindControl<TextBox>(studio,
+                    "languageStudioBuildDescriptionTextBox").AppendText(
+                    " Smoke build.");
+                DataGridView standardFunctions = FindControl<DataGridView>(studio,
+                    "languageStudioStandardFunctionsGrid");
+                standardFunctions.Rows[0].Cells[3].Value =
+                    "Documentazione smoke della funzione standard.";
+                studioTools.Items["languageStudioPreviewGuidedButton"].PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                "formatting.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                "intellisense.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                "runtime.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                "build.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                "standard-library.json") &&
+                        FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "Formatter e IntelliSense guidati non producono un diff valido: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<Button>(studio,
+                    "languageStudioConfirmPreviewButton").PerformClick();
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioFormattingDescriptionTextBox").Text.Contains(
+                                "Smoke formatter") &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioCompletionLabelsGrid").Rows
+                            .Cast<DataGridViewRow>().Any(row =>
+                                Convert.ToString(row.Cells[0].Value) ==
+                                    "keywordOrigin" &&
+                                Convert.ToString(row.Cells[1].Value) ==
+                                    "origine smoke") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioRuntimeDescriptionTextBox").Text.Contains(
+                                "Smoke runtime") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioBuildDescriptionTextBox").Text.Contains(
+                                "Smoke build") &&
+                        FindControl<DataGridView>(studio,
+                            "languageStudioStandardFunctionsGrid").Rows[0].Cells[3]
+                            .Value?.ToString() ==
+                            "Documentazione smoke della funzione standard.",
+                    "La conferma non applica tutte le sezioni guidate allo snapshot.");
+                studioTools.Items["languageStudioUndoButton"].PerformClick();
+                PumpMessages(80);
+                Require(!FindControl<TextBox>(studio,
+                            "languageStudioFormattingDescriptionTextBox").Text.Contains(
+                                "Smoke formatter") &&
+                        !FindControl<TextBox>(studio,
+                            "languageStudioRuntimeDescriptionTextBox").Text.Contains(
+                                "Smoke runtime"),
+                    "Undo non ripristina tutte le sezioni guidate.");
+                studioTools.Items["languageStudioRedoButton"].PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioFormattingDescriptionTextBox").Text.Contains(
+                                "Smoke formatter") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioRuntimeDescriptionTextBox").Text.Contains(
+                                "Smoke runtime"),
+                    "Redo non ripristina tutte le sezioni guidate.");
                 studioTools.Items["languageStudioValidateButton"].PerformClick();
                 PumpMessages(80);
                 Require(FindControl<TextBox>(studio,

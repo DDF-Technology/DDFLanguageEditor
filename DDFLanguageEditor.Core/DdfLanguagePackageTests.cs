@@ -48,11 +48,20 @@ namespace DDFLanguageEditor.Core
                 return results.AsReadOnly();
             }
 
+            if (!cases.Any(test => test != null &&
+                    !string.IsNullOrWhiteSpace(test.Source) &&
+                    test.ExpectedReturn != null &&
+                    (test.ExpectedDiagnosticCodes == null ||
+                     test.ExpectedDiagnosticCodes.Count == 0)))
+                results.Add(new DdfLanguagePackageTestResult(string.Empty, false,
+                    "Copertura minima mancante: dichiarare almeno un test eseguibile senza diagnostiche e con expectedReturn."));
+
             var names = new HashSet<string>(StringComparer.Ordinal);
             foreach (DdfLanguagePackageTestCase test in cases)
             {
                 string name = test?.Name ?? string.Empty;
-                if (test == null || string.IsNullOrWhiteSpace(name) || !names.Add(name) || test.Source == null)
+                if (test == null || string.IsNullOrWhiteSpace(name) || !names.Add(name) ||
+                    string.IsNullOrWhiteSpace(test.Source))
                 {
                     results.Add(new DdfLanguagePackageTestResult(name, false,
                         "Nome univoco e sorgente sono obbligatori."));

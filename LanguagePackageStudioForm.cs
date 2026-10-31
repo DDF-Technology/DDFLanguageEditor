@@ -31,6 +31,34 @@ namespace DDF___Program_Language_Editor
         private readonly DataGridView conversionsGrid;
         private readonly TextBox semanticsDescriptionTextBox;
         private readonly DataGridView semanticBindingsGrid;
+        private readonly TextBox formattingDescriptionTextBox;
+        private readonly DataGridView formattingTokensGrid;
+        private readonly DataGridView autoPairsGrid;
+        private readonly DataGridView indentAfterGrid;
+        private readonly DataGridView quickFixesGrid;
+        private readonly CheckBox blankLineBetweenStatementsCheckBox;
+        private readonly TextBox intellisenseDescriptionTextBox;
+        private readonly DataGridView completionLabelsGrid;
+        private readonly DataGridView signatureLabelsGrid;
+        private readonly DataGridView symbolKindsGrid;
+        private readonly DataGridView snippetsGrid;
+        private readonly DataGridView flowchartLabelsGrid;
+        private readonly DataGridView flowchartExplanationsGrid;
+        private readonly DataGridView diagnosticMessagesGrid;
+        private readonly TextBox runtimeDescriptionTextBox;
+        private readonly TextBox runtimeEntryPointTextBox;
+        private readonly TextBox runtimeInstructionLimitTextBox;
+        private readonly TextBox runtimeOutputTargetTextBox;
+        private readonly DataGridView vmOperationsGrid;
+        private readonly DataGridView expressionOperationsGrid;
+        private readonly TextBox buildDescriptionTextBox;
+        private readonly TextBox buildDefaultBackendTextBox;
+        private readonly TextBox buildArtifactFormatTextBox;
+        private readonly DataGridView buildBackendsGrid;
+        private readonly TextBox standardLibraryDescriptionTextBox;
+        private readonly TextBox standardLibraryIdTextBox;
+        private readonly TextBox standardLibraryVersionTextBox;
+        private readonly DataGridView standardFunctionsGrid;
         private readonly TextBox ebnfTextBox;
         private readonly TextBox ebnfStartRuleTextBox;
         private readonly TreeView ebnfTreeView;
@@ -91,8 +119,12 @@ namespace DDF___Program_Language_Editor
             tools.Items.Add(new ToolStripSeparator());
             tools.Items.Add(Button("languageStudioValidateButton",
                 "Convalida", ValidateProject));
+            tools.Items.Add(Button("languageStudioCompareButton",
+                "Confronta versione...", CompareVersion));
             tools.Items.Add(Button("languageStudioGenerateButton",
                 "Genera cartella...", GenerateDirectory));
+            tools.Items.Add(Button("languageStudioGenerateArchiveButton",
+                "Genera .ddflang...", GenerateArchive));
             tools.Items.Add(new ToolStripSeparator());
             undoButton = Button("languageStudioUndoButton", "Annulla", Undo);
             redoButton = Button("languageStudioRedoButton", "Ripristina", Redo);
@@ -148,6 +180,78 @@ namespace DDF___Program_Language_Editor
                 "DeclareVariable", "Return", "EvaluateStatement", "InferExpression"));
             semanticBindingsGrid.Columns.Add(TextColumn("semanticArgumentsColumn", "Argomenti (JSON)", 390));
             editorTabs.TabPages.Add(BuildTypesAndSemanticsPage());
+
+            formattingDescriptionTextBox = Field("languageStudioFormattingDescriptionTextBox");
+            formattingTokensGrid = PropertyGrid("languageStudioFormattingTokensGrid");
+            autoPairsGrid = Grid("languageStudioAutoPairsGrid");
+            autoPairsGrid.Columns.Add(TextColumn("autoPairOpenColumn", "Apertura", 140));
+            autoPairsGrid.Columns.Add(TextColumn("autoPairCloseColumn", "Chiusura", 140));
+            indentAfterGrid = Grid("languageStudioIndentAfterGrid");
+            indentAfterGrid.Columns.Add(TextColumn("indentAfterTokenColumn", "Indenta dopo", 180));
+            quickFixesGrid = Grid("languageStudioQuickFixesGrid");
+            quickFixesGrid.Columns.Add(TextColumn("quickFixCodeColumn", "Codice diagnostico", 145));
+            quickFixesGrid.Columns.Add(TextColumn("quickFixTitleColumn", "Titolo", 300));
+            quickFixesGrid.Columns.Add(TextColumn("quickFixReplacementColumn", "Sostituzione", 160));
+            blankLineBetweenStatementsCheckBox = new CheckBox
+            {
+                AutoSize = true,
+                Name = "languageStudioBlankLineBetweenStatementsCheckBox",
+                Text = "Riga vuota tra istruzioni"
+            };
+            editorTabs.TabPages.Add(BuildFormattingPage());
+
+            intellisenseDescriptionTextBox = Field("languageStudioIntellisenseDescriptionTextBox");
+            completionLabelsGrid = PropertyGrid("languageStudioCompletionLabelsGrid");
+            signatureLabelsGrid = PropertyGrid("languageStudioSignatureLabelsGrid");
+            symbolKindsGrid = Grid("languageStudioSymbolKindsGrid");
+            symbolKindsGrid.Columns.Add(TextColumn("symbolKindColumn", "Tipo simbolo", 170));
+            symbolKindsGrid.Columns.Add(TextColumn("symbolLabelColumn", "Etichetta", 180));
+            symbolKindsGrid.Columns.Add(TextColumn("symbolDocumentationColumn", "Documentazione", 400));
+            snippetsGrid = Grid("languageStudioSnippetsGrid");
+            snippetsGrid.Columns.Add(TextColumn("snippetPrefixColumn", "Prefisso", 130));
+            snippetsGrid.Columns.Add(TextColumn("snippetDisplayColumn", "Testo mostrato", 210));
+            snippetsGrid.Columns.Add(TextColumn("snippetDescriptionColumn", "Descrizione", 250));
+            snippetsGrid.Columns.Add(TextColumn("snippetBodyColumn", "Corpo", 360));
+            snippetsGrid.Columns.Add(CheckColumn("snippetRequiresKeywordColumn", "Richiede keyword", 130));
+            flowchartLabelsGrid = PropertyGrid("languageStudioFlowchartLabelsGrid");
+            flowchartExplanationsGrid = PropertyGrid("languageStudioFlowchartExplanationsGrid",
+                allowNewRows: true);
+            diagnosticMessagesGrid = PropertyGrid("languageStudioDiagnosticMessagesGrid",
+                allowNewRows: true);
+            editorTabs.TabPages.Add(BuildIntellisensePage());
+
+            runtimeDescriptionTextBox = Field("languageStudioRuntimeDescriptionTextBox");
+            runtimeEntryPointTextBox = Field("languageStudioRuntimeEntryPointTextBox");
+            runtimeInstructionLimitTextBox = Field("languageStudioRuntimeInstructionLimitTextBox");
+            runtimeOutputTargetTextBox = Field("languageStudioRuntimeOutputTargetTextBox");
+            vmOperationsGrid = Grid("languageStudioVmOperationsGrid");
+            vmOperationsGrid.Columns.Add(TextColumn("vmOperationColumn", "Operazione VM", 280));
+            expressionOperationsGrid = Grid("languageStudioExpressionOperationsGrid");
+            expressionOperationsGrid.Columns.Add(ComboColumn("expressionCategoryColumn", "Categoria", 150,
+                "unary", "binary", "postfix"));
+            expressionOperationsGrid.Columns.Add(TextColumn("expressionTokenColumn", "Token", 120));
+            expressionOperationsGrid.Columns.Add(TextColumn("expressionOperationColumn", "Operazione", 280));
+            editorTabs.TabPages.Add(BuildRuntimePage());
+
+            buildDescriptionTextBox = Field("languageStudioBuildDescriptionTextBox");
+            buildDefaultBackendTextBox = Field("languageStudioBuildDefaultBackendTextBox");
+            buildArtifactFormatTextBox = Field("languageStudioBuildArtifactFormatTextBox");
+            buildBackendsGrid = Grid("languageStudioBuildBackendsGrid");
+            buildBackendsGrid.Columns.Add(TextColumn("buildBackendColumn", "Backend", 250));
+            editorTabs.TabPages.Add(BuildBuildPage());
+
+            standardLibraryDescriptionTextBox = Field("languageStudioStandardLibraryDescriptionTextBox");
+            standardLibraryIdTextBox = Field("languageStudioStandardLibraryIdTextBox");
+            standardLibraryVersionTextBox = Field("languageStudioStandardLibraryVersionTextBox");
+            standardFunctionsGrid = Grid("languageStudioStandardFunctionsGrid");
+            standardFunctionsGrid.Columns.Add(TextColumn("standardNameColumn", "Funzione", 150));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardReturnColumn", "Ritorno", 105));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardParametersColumn", "Parametri (JSON)", 180));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardDocumentationColumn", "Documentazione", 280));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardBindingColumn", "Binding", 155));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardEffectColumn", "Effetto", 110));
+            standardFunctionsGrid.Columns.Add(TextColumn("standardErrorsColumn", "Errori (JSON)", 165));
+            editorTabs.TabPages.Add(BuildStandardLibraryPage());
 
             ebnfTextBox = new TextBox
             {
@@ -371,6 +475,18 @@ namespace DDF___Program_Language_Editor
             SelectionMode = DataGridViewSelectionMode.FullRowSelect
         };
 
+        private static DataGridView PropertyGrid(string name,
+            bool allowNewRows = false)
+        {
+            DataGridView grid = Grid(name);
+            grid.AllowUserToAddRows = allowNewRows;
+            var property = TextColumn(name + "PropertyColumn", "Proprietà", 220);
+            property.ReadOnly = !allowNewRows;
+            grid.Columns.Add(property);
+            grid.Columns.Add(TextColumn(name + "ValueColumn", "Valore", 420));
+            return grid;
+        }
+
         private static DataGridViewTextBoxColumn TextColumn(string name,
             string header, int minimumWidth) => new DataGridViewTextBoxColumn
         {
@@ -497,6 +613,128 @@ namespace DDF___Program_Language_Editor
                 semanticBindingsGrid));
             page.Controls.Add(tabs);
             return page;
+        }
+
+        private TabPage BuildFormattingPage()
+        {
+            var page = new TabPage("Formatter")
+            {
+                Name = "languageStudioFormattingPage"
+            };
+            var tabs = new TabControl { Dock = DockStyle.Fill };
+            TabPage tokens = BuildGridPage("Token", "Descrizione formatter",
+                formattingDescriptionTextBox, formattingTokensGrid);
+            var layoutOption = new Panel { Dock = DockStyle.Bottom, Height = 34 };
+            layoutOption.Controls.Add(blankLineBetweenStatementsCheckBox);
+            blankLineBetweenStatementsCheckBox.Location = new Point(8, 7);
+            tokens.Controls.Add(layoutOption);
+            tabs.TabPages.Add(tokens);
+            tabs.TabPages.Add(BuildGridPage("Coppie automatiche", null, null,
+                autoPairsGrid));
+            tabs.TabPages.Add(BuildGridPage("Indentazione", null, null,
+                indentAfterGrid));
+            tabs.TabPages.Add(BuildGridPage("Correzioni rapide", null, null,
+                quickFixesGrid));
+            page.Controls.Add(tabs);
+            return page;
+        }
+
+        private TabPage BuildIntellisensePage()
+        {
+            var page = new TabPage("IntelliSense")
+            {
+                Name = "languageStudioIntellisensePage"
+            };
+            var tabs = new TabControl { Dock = DockStyle.Fill };
+            tabs.TabPages.Add(BuildGridPage("Completamento",
+                "Descrizione IntelliSense", intellisenseDescriptionTextBox,
+                completionLabelsGrid));
+            tabs.TabPages.Add(BuildGridPage("Aiuto firme", null, null,
+                signatureLabelsGrid));
+            tabs.TabPages.Add(BuildGridPage("Tipi di simbolo", null, null,
+                symbolKindsGrid));
+            tabs.TabPages.Add(BuildGridPage("Snippet", null, null,
+                snippetsGrid));
+            var flowchart = new TabPage("Etichette Flowchart");
+            var flowchartSplit = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 230
+            };
+            flowchartSplit.Panel1.Controls.Add(flowchartLabelsGrid);
+            flowchartSplit.Panel2.Controls.Add(flowchartExplanationsGrid);
+            flowchart.Controls.Add(flowchartSplit);
+            tabs.TabPages.Add(flowchart);
+            tabs.TabPages.Add(BuildGridPage("Diagnostiche", null, null,
+                diagnosticMessagesGrid));
+            page.Controls.Add(tabs);
+            return page;
+        }
+
+        private TabPage BuildRuntimePage()
+        {
+            var page = new TabPage("Runtime") { Name = "languageStudioRuntimePage" };
+            var tabs = new TabControl { Dock = DockStyle.Fill };
+            var settings = BuildGridPage("Operazioni VM", null, null, vmOperationsGrid);
+            settings.Controls.Add(SettingsHeader(
+                ("Descrizione", runtimeDescriptionTextBox),
+                ("Entry point", runtimeEntryPointTextBox),
+                ("Limite istruzioni", runtimeInstructionLimitTextBox),
+                ("Output", runtimeOutputTargetTextBox)));
+            tabs.TabPages.Add(settings);
+            tabs.TabPages.Add(BuildGridPage("Operazioni espressioni", null, null,
+                expressionOperationsGrid));
+            page.Controls.Add(tabs);
+            return page;
+        }
+
+        private TabPage BuildBuildPage()
+        {
+            var page = BuildGridPage("Build", null, null, buildBackendsGrid);
+            page.Name = "languageStudioBuildPage";
+            page.Controls.Add(SettingsHeader(
+                ("Descrizione", buildDescriptionTextBox),
+                ("Backend predefinito", buildDefaultBackendTextBox),
+                ("Formato artefatto", buildArtifactFormatTextBox)));
+            return page;
+        }
+
+        private TabPage BuildStandardLibraryPage()
+        {
+            var page = BuildGridPage("Libreria standard", null, null,
+                standardFunctionsGrid);
+            page.Name = "languageStudioStandardLibraryPage";
+            page.Controls.Add(SettingsHeader(
+                ("Descrizione", standardLibraryDescriptionTextBox),
+                ("ID", standardLibraryIdTextBox),
+                ("Versione", standardLibraryVersionTextBox)));
+            return page;
+        }
+
+        private static Control SettingsHeader(params (string Label, TextBox Field)[] fields)
+        {
+            var layout = new TableLayoutPanel
+            {
+                ColumnCount = 2,
+                Dock = DockStyle.Top,
+                Height = fields.Length * 34 + 8,
+                Padding = new Padding(8, 4, 8, 4)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            for (int i = 0; i < fields.Length; i++)
+            {
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+                layout.Controls.Add(new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(0, 5, 8, 0),
+                    Text = fields[i].Label
+                }, 0, i);
+                layout.Controls.Add(fields[i].Field, 1, i);
+            }
+            return layout;
         }
 
         private static TabPage BuildGridPage(string title, string label,
@@ -735,6 +973,8 @@ namespace DDF___Program_Language_Editor
             LoadManifest();
             LoadLexicon();
             LoadTypesAndSemantics();
+            LoadFormattingAndIntellisense();
+            LoadRuntimeBuildAndStandardLibrary();
             LoadEbnf();
             LoadSourceList();
             undoButton.Enabled = session.CanUndo;
@@ -813,6 +1053,123 @@ namespace DDF___Program_Language_Editor
                 }
             }
         }
+
+        private void LoadFormattingAndIntellisense()
+        {
+            JsonObject formatting = ParseObject("formatting.json");
+            formattingDescriptionTextBox.Text = TextValue(formatting, "description");
+            LoadProperties(formattingTokensGrid, formatting?["tokens"] as JsonObject);
+            blankLineBetweenStatementsCheckBox.Checked =
+                formatting?["blankLineBetweenStatements"]?.GetValue<bool>() ?? false;
+            autoPairsGrid.Rows.Clear();
+            foreach (JsonNode node in formatting?["autoPairs"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject pair = node as JsonObject;
+                autoPairsGrid.Rows.Add(TextValue(pair, "open"), TextValue(pair, "close"));
+            }
+            indentAfterGrid.Rows.Clear();
+            foreach (JsonNode node in formatting?["indentAfter"]?.AsArray() ?? new JsonArray())
+                indentAfterGrid.Rows.Add(node?.GetValue<string>() ?? string.Empty);
+            quickFixesGrid.Rows.Clear();
+            foreach (JsonNode node in formatting?["quickFixes"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject fix = node as JsonObject;
+                quickFixesGrid.Rows.Add(TextValue(fix, "diagnosticCode"),
+                    TextValue(fix, "title"), TextValue(fix, "replacement"));
+            }
+
+            JsonObject intellisense = ParseObject("intellisense.json");
+            intellisenseDescriptionTextBox.Text = TextValue(intellisense, "description");
+            LoadProperties(completionLabelsGrid,
+                intellisense?["completion"] as JsonObject);
+            LoadProperties(signatureLabelsGrid,
+                intellisense?["signatureHelp"] as JsonObject);
+            symbolKindsGrid.Rows.Clear();
+            foreach (JsonNode node in intellisense?["symbolKinds"]?.AsArray() ??
+                new JsonArray())
+            {
+                JsonObject symbol = node as JsonObject;
+                symbolKindsGrid.Rows.Add(TextValue(symbol, "kind"),
+                    TextValue(symbol, "label"), TextValue(symbol, "documentation"));
+            }
+            snippetsGrid.Rows.Clear();
+            foreach (JsonNode node in intellisense?["snippets"]?.AsArray() ??
+                new JsonArray())
+            {
+                JsonObject snippet = node as JsonObject;
+                snippetsGrid.Rows.Add(TextValue(snippet, "prefix"),
+                    TextValue(snippet, "displayText"),
+                    TextValue(snippet, "description"), TextValue(snippet, "body"),
+                    snippet?["requiresKeyword"]?.GetValue<bool>() ?? false);
+            }
+            JsonObject flowchart = intellisense?["flowchart"] as JsonObject;
+            LoadProperties(flowchartLabelsGrid, flowchart, "explanations");
+            LoadProperties(flowchartExplanationsGrid,
+                flowchart?["explanations"] as JsonObject);
+            LoadProperties(diagnosticMessagesGrid,
+                intellisense?["diagnostics"] as JsonObject);
+        }
+
+        private static void LoadProperties(DataGridView grid, JsonObject values,
+            string excludedKey = null)
+        {
+            grid.Rows.Clear();
+            if (values == null) return;
+            foreach (KeyValuePair<string, JsonNode> item in values)
+                if (!string.Equals(item.Key, excludedKey,
+                        StringComparison.Ordinal))
+                    grid.Rows.Add(item.Key, item.Value?.GetValue<string>() ??
+                        string.Empty);
+        }
+
+        private void LoadRuntimeBuildAndStandardLibrary()
+        {
+            JsonObject runtime = ParseObject("runtime.json");
+            runtimeDescriptionTextBox.Text = TextValue(runtime, "description");
+            runtimeEntryPointTextBox.Text = TextValue(runtime, "entryPoint");
+            runtimeInstructionLimitTextBox.Text = runtime?["defaultInstructionLimit"]?.ToString() ?? "";
+            runtimeOutputTargetTextBox.Text = TextValue(runtime, "outputTarget");
+            vmOperationsGrid.Rows.Clear();
+            foreach (JsonNode operation in runtime?["vmOperations"]?.AsArray() ?? new JsonArray())
+                vmOperationsGrid.Rows.Add(operation?.GetValue<string>() ?? "");
+            expressionOperationsGrid.Rows.Clear();
+            JsonObject expressions = runtime?["expressionOperations"] as JsonObject;
+            foreach (string category in new[] { "unary", "binary", "postfix" })
+                foreach (JsonNode node in expressions?[category]?.AsArray() ?? new JsonArray())
+                {
+                    JsonObject binding = node as JsonObject;
+                    int index = expressionOperationsGrid.Rows.Add(category,
+                        TextValue(binding, "token"), TextValue(binding, "operation"));
+                    expressionOperationsGrid.Rows[index].Tag = binding?.DeepClone();
+                }
+
+            JsonObject build = ParseObject("build.json");
+            buildDescriptionTextBox.Text = TextValue(build, "description");
+            buildDefaultBackendTextBox.Text = TextValue(build, "defaultBackend");
+            buildArtifactFormatTextBox.Text = TextValue(build, "artifactFormat");
+            buildBackendsGrid.Rows.Clear();
+            foreach (JsonNode backend in build?["backends"]?.AsArray() ?? new JsonArray())
+                buildBackendsGrid.Rows.Add(backend?.GetValue<string>() ?? "");
+
+            JsonObject library = ParseObject("standard-library.json");
+            standardLibraryDescriptionTextBox.Text = TextValue(library, "description");
+            standardLibraryIdTextBox.Text = TextValue(library, "id");
+            standardLibraryVersionTextBox.Text = TextValue(library, "version");
+            standardFunctionsGrid.Rows.Clear();
+            foreach (JsonNode node in library?["functions"]?.AsArray() ?? new JsonArray())
+            {
+                JsonObject function = node as JsonObject;
+                int index = standardFunctionsGrid.Rows.Add(
+                    TextValue(function, "name"), TextValue(function, "returnType"),
+                    CompactJson(function?["parameterTypes"]), TextValue(function, "documentation"),
+                    TextValue(function, "binding"), TextValue(function, "effect"),
+                    CompactJson(function?["errorCodes"]));
+                standardFunctionsGrid.Rows[index].Tag = function?.DeepClone();
+            }
+        }
+
+        private static string CompactJson(JsonNode node) =>
+            node?.ToJsonString() ?? "[]";
 
         private void LoadEbnf()
         {
@@ -1322,6 +1679,15 @@ namespace DDF___Program_Language_Editor
             if (session == null) return;
             try
             {
+                foreach (DataGridView grid in new[] { keywordsGrid, operatorsGrid,
+                    primitiveTypesGrid, conversionsGrid, semanticBindingsGrid,
+                    formattingTokensGrid, autoPairsGrid, indentAfterGrid,
+                    quickFixesGrid, completionLabelsGrid, signatureLabelsGrid,
+                    symbolKindsGrid, snippetsGrid, flowchartLabelsGrid,
+                    flowchartExplanationsGrid, diagnosticMessagesGrid,
+                    vmOperationsGrid, expressionOperationsGrid, buildBackendsGrid,
+                    standardFunctionsGrid })
+                    grid.EndEdit();
                 JsonObject manifest = ParseObject("manifest.json");
                 manifest["id"] = packageIdTextBox.Text.Trim();
                 manifest["name"] = packageNameTextBox.Text.Trim();
@@ -1435,18 +1801,194 @@ namespace DDF___Program_Language_Editor
                 }
                 semantics["bindings"] = bindings;
 
+                JsonObject formatting = ParseObject("formatting.json");
+                formatting["description"] = formattingDescriptionTextBox.Text;
+                UpdateProperties(formatting["tokens"] as JsonObject,
+                    formattingTokensGrid);
+                formatting["blankLineBetweenStatements"] =
+                    blankLineBetweenStatementsCheckBox.Checked;
+                var autoPairs = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(autoPairsGrid))
+                {
+                    string open = Cell(row, 0);
+                    string close = Cell(row, 1);
+                    if (open.Length == 0 && close.Length == 0) continue;
+                    autoPairs.Add(new JsonObject
+                    {
+                        ["open"] = open,
+                        ["close"] = close
+                    });
+                }
+                formatting["autoPairs"] = autoPairs;
+                var indentAfter = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(indentAfterGrid))
+                {
+                    string token = RawCell(row, 0);
+                    if (token.Length != 0) indentAfter.Add(token);
+                }
+                formatting["indentAfter"] = indentAfter;
+                var quickFixes = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(quickFixesGrid))
+                {
+                    string code = Cell(row, 0);
+                    string title = RawCell(row, 1);
+                    string replacement = RawCell(row, 2);
+                    if (code.Length == 0 && title.Length == 0 &&
+                        replacement.Length == 0) continue;
+                    quickFixes.Add(new JsonObject
+                    {
+                        ["diagnosticCode"] = code,
+                        ["title"] = title,
+                        ["replacement"] = replacement
+                    });
+                }
+                formatting["quickFixes"] = quickFixes;
+
+                JsonObject intellisense = ParseObject("intellisense.json");
+                intellisense["description"] = intellisenseDescriptionTextBox.Text;
+                UpdateProperties(intellisense["completion"] as JsonObject,
+                    completionLabelsGrid);
+                UpdateProperties(intellisense["signatureHelp"] as JsonObject,
+                    signatureLabelsGrid);
+                var symbolKinds = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(symbolKindsGrid))
+                {
+                    string kind = Cell(row, 0);
+                    if (kind.Length == 0) continue;
+                    symbolKinds.Add(new JsonObject
+                    {
+                        ["kind"] = kind,
+                        ["label"] = RawCell(row, 1),
+                        ["documentation"] = RawCell(row, 2)
+                    });
+                }
+                intellisense["symbolKinds"] = symbolKinds;
+                var snippets = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(snippetsGrid))
+                {
+                    string prefix = Cell(row, 0);
+                    if (prefix.Length == 0) continue;
+                    var snippet = new JsonObject
+                    {
+                        ["prefix"] = prefix,
+                        ["displayText"] = RawCell(row, 1),
+                        ["description"] = RawCell(row, 2),
+                        ["body"] = RawCell(row, 3)
+                    };
+                    if (BooleanCell(row, 4)) snippet["requiresKeyword"] = true;
+                    snippets.Add(snippet);
+                }
+                intellisense["snippets"] = snippets;
+                JsonObject flowchart = intellisense["flowchart"] as JsonObject;
+                if (flowchart != null)
+                {
+                    UpdateProperties(flowchart, flowchartLabelsGrid);
+                    flowchart["explanations"] = PropertiesObject(
+                        flowchartExplanationsGrid);
+                }
+                intellisense["diagnostics"] = PropertiesObject(
+                    diagnosticMessagesGrid);
+
+                JsonObject runtime = ParseObject("runtime.json");
+                runtime["description"] = runtimeDescriptionTextBox.Text;
+                runtime["entryPoint"] = runtimeEntryPointTextBox.Text.Trim();
+                if (!int.TryParse(runtimeInstructionLimitTextBox.Text.Trim(),
+                        out int instructionLimit) || instructionLimit < 1)
+                    throw new FormatException("Il limite istruzioni runtime deve essere un intero positivo.");
+                runtime["defaultInstructionLimit"] = instructionLimit;
+                runtime["outputTarget"] = runtimeOutputTargetTextBox.Text.Trim();
+                var vmOperations = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(vmOperationsGrid))
+                {
+                    string operation = Cell(row, 0);
+                    if (operation.Length != 0) vmOperations.Add(operation);
+                }
+                runtime["vmOperations"] = vmOperations;
+                JsonObject expressions = runtime["expressionOperations"] as JsonObject ??
+                    throw new InvalidDataException("Sezione expressionOperations mancante.");
+                var expressionGroups = new Dictionary<string, JsonArray>
+                {
+                    ["unary"] = new JsonArray(),
+                    ["binary"] = new JsonArray(),
+                    ["postfix"] = new JsonArray()
+                };
+                foreach (DataGridViewRow row in DataRows(expressionOperationsGrid))
+                {
+                    string category = Cell(row, 0);
+                    string token = Cell(row, 1);
+                    string operation = Cell(row, 2);
+                    if (category.Length == 0 && token.Length == 0 && operation.Length == 0)
+                        continue;
+                    if (!expressionGroups.TryGetValue(category, out JsonArray group))
+                        throw new FormatException("Categoria espressione non prevista: " + category);
+                    JsonObject binding = (row.Tag as JsonObject)?.DeepClone() as JsonObject ??
+                        new JsonObject();
+                    binding["token"] = token;
+                    binding["operation"] = operation;
+                    group.Add(binding);
+                }
+                foreach (KeyValuePair<string, JsonArray> group in expressionGroups)
+                    expressions[group.Key] = group.Value;
+
+                JsonObject build = ParseObject("build.json");
+                build["description"] = buildDescriptionTextBox.Text;
+                build["defaultBackend"] = buildDefaultBackendTextBox.Text.Trim();
+                build["artifactFormat"] = buildArtifactFormatTextBox.Text.Trim();
+                var backends = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(buildBackendsGrid))
+                {
+                    string backend = Cell(row, 0);
+                    if (backend.Length != 0) backends.Add(backend);
+                }
+                build["backends"] = backends;
+
+                JsonObject library = ParseObject("standard-library.json");
+                library["description"] = standardLibraryDescriptionTextBox.Text;
+                library["id"] = standardLibraryIdTextBox.Text.Trim();
+                library["version"] = standardLibraryVersionTextBox.Text.Trim();
+                var functions = new JsonArray();
+                foreach (DataGridViewRow row in DataRows(standardFunctionsGrid))
+                {
+                    string name = Cell(row, 0);
+                    if (name.Length == 0)
+                    {
+                        if (Enumerable.Range(1, 6).Any(index =>
+                                RawCell(row, index).Length != 0))
+                            throw new FormatException("Una funzione standard non ha un nome.");
+                        continue;
+                    }
+                    JsonObject function = (row.Tag as JsonObject)?.DeepClone() as JsonObject ??
+                        new JsonObject();
+                    function["name"] = name;
+                    function["returnType"] = Cell(row, 1);
+                    function["parameterTypes"] = ParseStringArray(RawCell(row, 2),
+                        "Parametri di " + name);
+                    function["documentation"] = RawCell(row, 3);
+                    function["binding"] = Cell(row, 4);
+                    function["effect"] = Cell(row, 5);
+                    function["errorCodes"] = ParseStringArray(RawCell(row, 6),
+                        "Errori di " + name);
+                    functions.Add(function);
+                }
+                library["functions"] = functions;
+
                 var combined = new Dictionary<string, string>(sourceDrafts,
                     StringComparer.OrdinalIgnoreCase)
                 {
                     ["manifest.json"] = Serialize(manifest),
                     ["lexicon.json"] = Serialize(lexicon),
                     ["types.json"] = Serialize(types),
-                    ["semantics.json"] = Serialize(semantics)
+                    ["semantics.json"] = Serialize(semantics),
+                    ["formatting.json"] = Serialize(formatting),
+                    ["intellisense.json"] = Serialize(intellisense),
+                    ["runtime.json"] = Serialize(runtime),
+                    ["build.json"] = Serialize(build),
+                    ["standard-library.json"] = Serialize(library)
                 };
                 PreviewChanges(combined.OrderBy(item => item.Key,
                     StringComparer.OrdinalIgnoreCase).Select(item =>
                         DdfLanguageAuthoringChange.Upsert(item.Key, item.Value)),
-                    "Aggiorna manifest, lessico, tipi, semantica e draft sorgente");
+                    "Aggiorna sezioni guidate del pacchetto e draft sorgente");
             }
             catch (Exception exception) when (exception is JsonException ||
                 exception is InvalidOperationException ||
@@ -1540,6 +2082,54 @@ namespace DDF___Program_Language_Editor
             editorTabs.SelectedTab = previewPage;
         }
 
+        private void CompareVersion(object sender, EventArgs e)
+        {
+            if (session == null) return;
+            using var dialog = new FolderBrowserDialog
+            {
+                Description = "Selezionare la cartella della versione precedente del medesimo pacchetto.",
+                ShowNewFolderButton = false
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            DdfLanguageAuthoringResult oldProject =
+                DdfLanguagePackageAuthoring.LoadDirectory(dialog.SelectedPath);
+            if (!oldProject.Success)
+            {
+                ShowPreviewFailure(FormatDiagnostics(oldProject.Diagnostics));
+                return;
+            }
+            try
+            {
+                DdfLanguagePackageCompatibilityReport report =
+                    DdfLanguagePackageCompatibility.Compare(oldProject.Project,
+                        session.Project);
+                var text = new StringBuilder();
+                text.AppendLine("Confronto pacchetto: " + report.PreviousVersion +
+                    " → " + report.CurrentVersion);
+                text.AppendLine("La cartella precedente e lo snapshot corrente non vengono modificati.");
+                text.AppendLine();
+                foreach (DdfLanguageCompatibilityFinding finding in report.Findings)
+                    text.AppendLine("[" + finding.Level + "] " + finding.Section +
+                        ": " + finding.Message);
+                if (report.Findings.Count == 0)
+                    text.AppendLine("Nessuna differenza contrattuale rilevata.");
+                pendingPreview = null;
+                confirmPreviewButton.Enabled = false;
+                previewTextBox.Text = text.ToString();
+                diagnosticsTextBox.Text = report.HasBreakingChanges
+                    ? "Sono presenti modifiche incompatibili."
+                    : report.RequiresReview
+                        ? "Nessuna rottura certa; alcune modifiche richiedono revisione."
+                        : "Nessuna modifica incompatibile rilevata dalle regole automatiche.";
+                editorTabs.SelectedTab = previewPage;
+            }
+            catch (Exception exception) when (exception is InvalidOperationException ||
+                exception is JsonException)
+            {
+                ShowPreviewFailure(exception.Message);
+            }
+        }
+
         private void Undo(object sender, EventArgs e)
         {
             DdfLanguageAuthoringResult result = session?.Undo();
@@ -1579,8 +2169,86 @@ namespace DDF___Program_Language_Editor
             editorTabs.SelectedTab = previewPage;
         }
 
+        private void GenerateArchive(object sender, EventArgs e)
+        {
+            if (session == null) return;
+            using var dialog = new SaveFileDialog
+            {
+                AddExtension = true,
+                DefaultExt = "ddflang",
+                FileName = packageIdTextBox.Text.Trim() + "-" +
+                    packageVersionTextBox.Text.Trim() + ".ddflang",
+                Filter = "Pacchetto linguaggio DDF (*.ddflang)|*.ddflang",
+                OverwritePrompt = false,
+                Title = "Genera archivio linguaggio"
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            DdfLanguagePackageArchiveResult result =
+                DdfLanguagePackageArchiveBuilder.Generate(session.Project,
+                    dialog.FileName);
+            pendingPreview = null;
+            confirmPreviewButton.Enabled = false;
+            previewTextBox.Text = result.Success
+                ? "Archivio: " + result.OutputPath + Environment.NewLine +
+                  "SHA-256: " + result.Sha256 + Environment.NewLine +
+                  "Metadati: " + DdfLanguagePackageArchiveBuilder.ChecksumsFile +
+                  ", " + DdfLanguagePackageArchiveBuilder.ValidationFile
+                : string.Empty;
+            diagnosticsTextBox.Text = result.Success
+                ? "Archivio riproducibile convalidato. Nessun pacchetto installato."
+                : FormatDiagnostics(result.Diagnostics);
+            editorTabs.SelectedTab = previewPage;
+        }
+
         private static string Cell(DataGridViewRow row, int index) =>
             Convert.ToString(row.Cells[index].Value)?.Trim() ?? string.Empty;
+
+        private static string RawCell(DataGridViewRow row, int index) =>
+            Convert.ToString(row.Cells[index].Value) ?? string.Empty;
+
+        private static JsonArray ParseStringArray(string json, string label)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new JsonArray();
+            JsonArray values = JsonNode.Parse(json) as JsonArray ??
+                throw new FormatException(label + ": è richiesto un array JSON.");
+            foreach (JsonNode value in values)
+                if (value is not JsonValue item || !item.TryGetValue<string>(out _))
+                    throw new FormatException(label + ": sono ammesse solo stringhe.");
+            return values;
+        }
+
+        private static IEnumerable<DataGridViewRow> DataRows(DataGridView grid) =>
+            grid.Rows.Cast<DataGridViewRow>().Where(row => !row.IsNewRow);
+
+        private static void UpdateProperties(JsonObject target, DataGridView grid)
+        {
+            if (target == null) throw new InvalidDataException(
+                "Sezione mancante per " + grid.Name + ".");
+            foreach (DataGridViewRow row in DataRows(grid))
+            {
+                string key = Cell(row, 0);
+                if (key.Length == 0) continue;
+                if (!target.ContainsKey(key)) throw new FormatException(
+                    "Proprietà non prevista: " + key + ".");
+                target[key] = RawCell(row, 1);
+            }
+        }
+
+        private static JsonObject PropertiesObject(DataGridView grid)
+        {
+            var result = new JsonObject();
+            foreach (DataGridViewRow row in DataRows(grid))
+            {
+                string key = Cell(row, 0);
+                string value = RawCell(row, 1);
+                if (key.Length == 0 && value.Length == 0) continue;
+                if (key.Length == 0 || result.ContainsKey(key))
+                    throw new FormatException("Chiave mancante o duplicata in " +
+                        grid.Name + ".");
+                result[key] = value;
+            }
+            return result;
+        }
 
         private static bool BooleanCell(DataGridViewRow row, int index)
         {

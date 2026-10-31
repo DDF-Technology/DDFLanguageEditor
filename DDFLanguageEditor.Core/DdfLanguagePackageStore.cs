@@ -52,6 +52,13 @@ namespace DDFLanguageEditor.Core
 
         public DdfLanguagePackageInstallResult Install(string sourcePath)
         {
+            if (File.Exists(sourcePath))
+            {
+                IReadOnlyList<DdfLanguagePackageDiagnostic> archiveIssues =
+                    DdfLanguagePackageArchiveBuilder.VerifyArchive(sourcePath);
+                if (archiveIssues.Count > 0)
+                    return new DdfLanguagePackageInstallResult(null, archiveIssues, false);
+            }
             DdfLanguagePackageLoadResult validation = DdfLanguagePackageLoader.Load(sourcePath);
             if (!validation.Success)
                 return new DdfLanguagePackageInstallResult(null, validation.Diagnostics, false);
@@ -59,8 +66,11 @@ namespace DDFLanguageEditor.Core
             DdfLanguagePackage package = validation.Package;
             string destination = Path.Combine(root, package.Id, package.PackageVersion);
             string staging = destination + ".installing-" + Guid.NewGuid().ToString("N");
-            string backup = destination + ".backup-" + Guid.NewGuid().ToString("N");
-            bool updated = Directory.Exists(destination);
+            if (Directory.Exists(destination) || File.Exists(destination))
+                return new DdfLanguagePackageInstallResult(null,
+                    new[] { new DdfLanguagePackageDiagnostic("DDFPA040",
+                        "Questa versione è già installata e non verrà sovrascritta.",
+                        destination) }, false);
             Directory.CreateDirectory(Path.GetDirectoryName(destination));
             try
             {
@@ -68,20 +78,13 @@ namespace DDFLanguageEditor.Core
                 CopyPackage(sourcePath, staging);
                 DdfLanguagePackageLoadResult staged = DdfLanguagePackageLoader.Load(staging);
                 if (!staged.Success)
-                    return new DdfLanguagePackageInstallResult(null, staged.Diagnostics, updated);
-                if (updated) Directory.Move(destination, backup);
+                    return new DdfLanguagePackageInstallResult(null, staged.Diagnostics, false);
                 Directory.Move(staging, destination);
-                if (Directory.Exists(backup)) Directory.Delete(backup, true);
-                return new DdfLanguagePackageInstallResult(ToInstalled(staged.Package, destination), staged.Diagnostics, updated);
+                return new DdfLanguagePackageInstallResult(ToInstalled(staged.Package, destination), staged.Diagnostics, false);
             }
             finally
             {
                 if (Directory.Exists(staging)) Directory.Delete(staging, true);
-                if (Directory.Exists(backup))
-                {
-                    if (!Directory.Exists(destination)) Directory.Move(backup, destination);
-                    else Directory.Delete(backup, true);
-                }
             }
         }
 

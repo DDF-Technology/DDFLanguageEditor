@@ -269,12 +269,17 @@ namespace DDFLanguageEditor.Core
                         int.MaxValue));
                 }
 
+                var symbolsByLocation = new Dictionary<(int Start, string Name),
+                    DdfDocumentSymbol>();
+                foreach (DdfDocumentSymbol indexed in Flatten(symbols))
+                    symbolsByLocation.TryAdd((indexed.SelectionStart, indexed.Name),
+                        indexed);
                 foreach (DdfDocumentSymbol symbol in semanticModel.GetVisibleSymbols(position))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    DdfDocumentSymbol packageSymbol = Flatten(symbols).FirstOrDefault(candidate =>
-                        candidate.SelectionStart == symbol.SelectionStart &&
-                        string.Equals(candidate.Name, symbol.Name, StringComparison.Ordinal)) ?? symbol;
+                    DdfDocumentSymbol packageSymbol = symbolsByLocation.TryGetValue(
+                        (symbol.SelectionStart, symbol.Name), out DdfDocumentSymbol indexed)
+                        ? indexed : symbol;
                     AddSymbol(candidates, packageSymbol, language.Intellisense.CurrentDocumentOrigin,
                         Math.Abs(position - packageSymbol.SelectionStart));
                 }

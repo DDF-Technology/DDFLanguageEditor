@@ -1,0 +1,5 @@
+main() out int
+{
+    int total << 6 * 7;
+    ret total;
+}

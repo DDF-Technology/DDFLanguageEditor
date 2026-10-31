@@ -1,0 +1,6 @@
+{
+  "name": "esempio:calcolo-42",
+  "source": "main() out int\n{\n    int total << 6 * 7;\n    ret total;\n}",
+  "expectedDiagnosticCodes": [],
+  "expectedReturn": "42"
+}

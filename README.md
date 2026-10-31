@@ -444,6 +444,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `ROSLYN_COMPATIBILITY_AUDIT.md`: audit e gate obbligatori per IR bound, generazione C#, emit IL/PDB ed equivalenza VM/Roslyn;
 - `DDF_BACKEND_EQUIVALENCE.md`: contratto versionato delle osservazioni che devono coincidere tra VM e Roslyn e dei gap ancora aperti;
 - `DDF_LANGUAGE_PACKAGE_AUTHORING.md`: modello UI-independent di progetti, change set, validazione, migrazioni e generazione dei pacchetti linguaggio;
+- `DDF_LANGUAGE_PACKAGE_PUBLISHING.md`: guida manuale completa per template, esempi, test, archivio `.ddflang`, installazione e attivazione;
 - `DDF_SYNTAX_CONFORMANCE.md`: audit fra EBNF, parser, formatter, snippet, Quick Fix e corpus dei profili;
 - `DDF_MIGRATION_0_12.md`: procedura completa e checklist per migrare sorgenti, progetti, moduli e pacchetti beta a DDF 0.12;
 - `DDF_STANDARD_LIBRARY_SPEC.md`: contratto normativo di firme, effetti, canali I/O, conversioni ed errori della libreria minima;

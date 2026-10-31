@@ -205,7 +205,7 @@ namespace DDFLanguageEditor.Tests
             Run("validates the shipped versioned module workspace", ValidatesShippedModuleWorkspace);
             Run("exposes direct module exports to live editor analysis", ExposesModuleExportsToEditorAnalysis);
             Run("packs installs replaces and removes versioned modules safely", ManagesVersionedModulePackagesSafely);
-            Run("installs and updates versioned language packages", InstallsAndUpdatesVersionedLanguagePackages);
+            Run("installs new language package versions without replacement", InstallsAndUpdatesVersionedLanguagePackages);
             Run("models language package authoring independently from the UI", ModelsLanguagePackageAuthoringIndependently);
             Run("evaluates authoring snapshots with failing declared tests", EvaluatesAuthoringSnapshotsWithFailingDeclaredTests);
             Run("previews language package transformations before applying them", PreviewsLanguagePackageTransformations);
@@ -213,6 +213,14 @@ namespace DDFLanguageEditor.Tests
             Run("creates and clones detached language authoring projects", CreatesAndClonesLanguageAuthoringProjects);
             Run("analyzes EBNF authoring sources with references", AnalyzesEbnfAuthoringSourcesWithReferences);
             Run("rejects failing declarative package tests", RejectsFailingDeclarativePackageTests);
+            Run("validates package dependency graph and minimum execution coverage",
+                ValidatesPackageDependencyGraphAndCoverage);
+            Run("reports language package compatibility without changing sources",
+                ReportsLanguagePackageCompatibility);
+            Run("generates reproducible language package archives with checksums",
+                GeneratesReproducibleLanguagePackageArchives);
+            Run("keeps the language publication example executable",
+                KeepsLanguagePublicationExampleExecutable);
             Run("accepts extensible keyword roles and else branches", AcceptsExtensibleKeywordRolesAndElseBranches);
             Run("rejects invalid EBNF grammars atomically", RejectsInvalidEbnfGrammarsAtomically);
             Run("loads directory and archive language packages", LoadsDirectoryAndArchiveLanguagePackages);
@@ -10077,11 +10085,22 @@ namespace DDFLanguageEditor.Tests
                 Equal(1, store.List().Count);
 
                 DdfLanguagePackageInstallResult update = store.Install(source);
-                Equal(true, update.Success);
-                Equal(true, update.Updated);
-                Equal(first.Installed.Path, update.Installed.Path);
+                Equal(false, update.Success);
+                Equal(true, update.Diagnostics.Any(item => item.Code == "DDFPA040"));
                 Equal(1, store.List().Count);
-                Equal(true, DdfLanguagePackageLoader.Load(update.Installed.Path).Success);
+                Equal(true, DdfLanguagePackageLoader.Load(first.Installed.Path).Success);
+
+                string manifestPath = Path.Combine(source, "manifest.json");
+                JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath,
+                    Encoding.UTF8)).AsObject();
+                manifest["packageVersion"] = "0.13.1";
+                File.WriteAllText(manifestPath, manifest.ToJsonString(),
+                    new UTF8Encoding(false));
+                DdfLanguagePackageInstallResult next = store.Install(source);
+                Equal(true, next.Success);
+                Equal(false, next.Updated);
+                Equal(2, store.List().Count);
+                Equal(true, Directory.Exists(first.Installed.Path));
             }
             finally
             {
@@ -10492,6 +10511,210 @@ namespace DDFLanguageEditor.Tests
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
             }
+        }
+
+        private static void ValidatesPackageDependencyGraphAndCoverage()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(root);
+                string runtimePath = Path.Combine(root, "runtime.json");
+                string testsPath = Path.Combine(root, "tests.json");
+                string runtimeSource = File.ReadAllText(runtimePath, Encoding.UTF8);
+                string testsSource = File.ReadAllText(testsPath, Encoding.UTF8);
+
+                JsonObject runtime = JsonNode.Parse(runtimeSource).AsObject();
+                runtime["dependsOn"] = new JsonArray("grammar", "grammar", "types", "semantics");
+                File.WriteAllText(runtimePath, runtime.ToJsonString(), new UTF8Encoding(false));
+                Equal(true, DdfLanguagePackageLoader.Load(root).Diagnostics.Any(item =>
+                    item.Code == "DDFL033"));
+
+                runtime["dependsOn"] = new JsonArray("runtime", "grammar", "types", "semantics");
+                File.WriteAllText(runtimePath, runtime.ToJsonString(), new UTF8Encoding(false));
+                Equal(true, DdfLanguagePackageLoader.Load(root).Diagnostics.Any(item =>
+                    item.Code == "DDFL034"));
+
+                runtime["dependsOn"] = new JsonArray("build", "grammar", "types", "semantics");
+                File.WriteAllText(runtimePath, runtime.ToJsonString(), new UTF8Encoding(false));
+                Equal(true, DdfLanguagePackageLoader.Load(root).Diagnostics.Any(item =>
+                    item.Code == "DDFL035"));
+
+                File.WriteAllText(runtimePath, runtimeSource, new UTF8Encoding(false));
+                JsonObject tests = JsonNode.Parse(testsSource).AsObject();
+                foreach (JsonNode test in tests["cases"].AsArray())
+                    test.AsObject().Remove("expectedReturn");
+                File.WriteAllText(testsPath, tests.ToJsonString(), new UTF8Encoding(false));
+                Equal(true, DdfLanguagePackageLoader.Load(root).Diagnostics.Any(item =>
+                    item.Code == "DDFT001" && item.Message.Contains("Copertura minima")));
+
+                File.WriteAllText(testsPath, testsSource, new UTF8Encoding(false));
+                Equal(true, DdfLanguagePackageLoader.Load(root).Success);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void ReportsLanguagePackageCompatibility()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                string previousPath = Path.Combine(root, "previous");
+                string currentPath = Path.Combine(root, "current");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(previousPath);
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(currentPath);
+                string manifestPath = Path.Combine(currentPath, "manifest.json");
+                JsonObject manifest = JsonNode.Parse(File.ReadAllText(manifestPath,
+                    Encoding.UTF8)).AsObject();
+                manifest["packageVersion"] = "0.13.1";
+                File.WriteAllText(manifestPath, manifest.ToJsonString(),
+                    new UTF8Encoding(false));
+
+                DdfLanguageAuthoringProject previous =
+                    DdfLanguagePackageAuthoring.LoadDirectory(previousPath).Project;
+                DdfLanguageAuthoringProject current =
+                    DdfLanguagePackageAuthoring.LoadDirectory(currentPath).Project;
+                DdfLanguagePackageCompatibilityReport unchanged =
+                    DdfLanguagePackageCompatibility.Compare(previous, current);
+                Equal(false, unchanged.HasBreakingChanges);
+                Equal(false, unchanged.RequiresReview);
+
+                string libraryPath = Path.Combine(currentPath, "standard-library.json");
+                JsonObject library = JsonNode.Parse(File.ReadAllText(libraryPath,
+                    Encoding.UTF8)).AsObject();
+                JsonObject function = library["functions"].AsArray().Select(item =>
+                    item.AsObject()).Single(item =>
+                    item["name"].GetValue<string>() == "readLine");
+                function["documentation"] = "Documentazione aggiornata.";
+                File.WriteAllText(libraryPath, library.ToJsonString(),
+                    new UTF8Encoding(false));
+                current = DdfLanguagePackageAuthoring.LoadDirectory(currentPath).Project;
+                Equal(false, DdfLanguagePackageCompatibility.Compare(previous,
+                    current).HasBreakingChanges);
+
+                function["name"] = "readInput";
+                File.WriteAllText(libraryPath, library.ToJsonString(),
+                    new UTF8Encoding(false));
+                current = DdfLanguagePackageAuthoring.LoadDirectory(currentPath).Project;
+                DdfLanguagePackageCompatibilityReport breaking =
+                    DdfLanguagePackageCompatibility.Compare(previous, current);
+                Equal(true, breaking.HasBreakingChanges);
+                Equal(true, breaking.Findings.Any(item =>
+                    item.Section == "standardLibrary" &&
+                    item.Level == DdfLanguageCompatibilityLevel.Breaking));
+
+                string ebnfPath = Path.Combine(currentPath, "grammar.ebnf");
+                File.AppendAllText(ebnfPath, Environment.NewLine);
+                current = DdfLanguagePackageAuthoring.LoadDirectory(currentPath).Project;
+                Equal(true, DdfLanguagePackageCompatibility.Compare(previous,
+                    current).RequiresReview);
+                Equal(true, DdfLanguagePackageLoader.Load(previousPath).Success);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void GeneratesReproducibleLanguagePackageArchives()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                string source = Path.Combine(root, "source");
+                DdfLanguagePackageLoader.ExportEmbeddedDefault(source);
+                DdfLanguageAuthoringProject project =
+                    DdfLanguagePackageAuthoring.LoadDirectory(source).Project;
+                string firstPath = Path.Combine(root, "first.ddflang");
+                string secondPath = Path.Combine(root, "second.ddflang");
+                DdfLanguagePackageArchiveResult first =
+                    DdfLanguagePackageArchiveBuilder.Generate(project, firstPath);
+                DdfLanguagePackageArchiveResult second =
+                    DdfLanguagePackageArchiveBuilder.Generate(project, secondPath);
+                Equal(true, first.Success);
+                Equal(true, second.Success);
+                Equal(first.Sha256, second.Sha256);
+                Equal(true, File.ReadAllBytes(firstPath).SequenceEqual(
+                    File.ReadAllBytes(secondPath)));
+                Equal(true, DdfLanguagePackageLoader.Load(firstPath).Success);
+
+                using (ZipArchive archive = ZipFile.OpenRead(firstPath))
+                {
+                    Equal(true, archive.GetEntry("manifest.json") != null);
+                    Equal(true, archive.GetEntry(
+                        DdfLanguagePackageArchiveBuilder.ChecksumsFile) != null);
+                    Equal(true, archive.GetEntry(
+                        DdfLanguagePackageArchiveBuilder.ValidationFile) != null);
+                    using StreamReader reader = new StreamReader(archive.GetEntry(
+                        DdfLanguagePackageArchiveBuilder.ChecksumsFile).Open());
+                    JsonObject checksums = JsonNode.Parse(reader.ReadToEnd()).AsObject();
+                    Equal("SHA-256", checksums["algorithm"].GetValue<string>());
+                    Equal(project.Documents.Count, checksums["files"].AsArray().Count);
+                }
+                DdfLanguagePackageArchiveResult refused =
+                    DdfLanguagePackageArchiveBuilder.Generate(project, firstPath);
+                Equal(false, refused.Success);
+                Equal(true, refused.Diagnostics.Any(item => item.Code == "DDFPA031"));
+                Equal(first.Sha256, Convert.ToHexString(
+                    SHA256.HashData(File.ReadAllBytes(firstPath))).ToLowerInvariant());
+                Equal(0, DdfLanguagePackageArchiveBuilder.VerifyArchive(firstPath).Count);
+                var store = new DdfLanguagePackageStore(Path.Combine(root, "installed"));
+                Equal(true, store.Install(firstPath).Success);
+                Equal(false, store.Install(firstPath).Success);
+                using (ZipArchive archive = ZipFile.Open(secondPath,
+                    ZipArchiveMode.Update))
+                {
+                    ZipArchiveEntry entry = archive.GetEntry("formatting.json");
+                    string content;
+                    using (var reader = new StreamReader(entry.Open()))
+                        content = reader.ReadToEnd();
+                    entry.Delete();
+                    using var writer = new StreamWriter(archive.CreateEntry(
+                        "formatting.json").Open());
+                    writer.Write(content + " ");
+                }
+                Equal(true, DdfLanguagePackageLoader.Load(secondPath).Success);
+                DdfLanguagePackageInstallResult tampered = store.Install(secondPath);
+                Equal(false, tampered.Success);
+                Equal(true, tampered.Diagnostics.Any(item => item.Code == "DDFPA036"));
+                Equal(1, store.List().Count);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void KeepsLanguagePublicationExampleExecutable()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", ".."));
+            string sampleRoot = Path.Combine(projectRoot, "samples",
+                "language-package-publication");
+            string source = File.ReadAllText(Path.Combine(sampleRoot, "hello.ddf"),
+                Encoding.UTF8);
+            JsonObject example = JsonNode.Parse(File.ReadAllText(Path.Combine(
+                sampleRoot, "example-test-case.json"), Encoding.UTF8)).AsObject();
+            Equal(source.Trim(), example["source"].GetValue<string>().Trim());
+            var suite = new DdfLanguagePackageTestSuite
+            {
+                Cases = new List<DdfLanguagePackageTestCase>
+                {
+                    new DdfLanguagePackageTestCase
+                    {
+                        Name = example["name"].GetValue<string>(),
+                        Source = source,
+                        ExpectedDiagnosticCodes = new List<string>(),
+                        ExpectedReturn = example["expectedReturn"].GetValue<string>()
+                    }
+                }
+            };
+            Equal(true, DdfLanguagePackageTestRunner.Run(
+                DdfLanguagePackageLoader.LoadEmbeddedDefault().Package,
+                suite).Single().Passed);
         }
 
         private static void AcceptsExtensibleKeywordRolesAndElseBranches()

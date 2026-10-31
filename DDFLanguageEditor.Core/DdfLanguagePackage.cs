@@ -224,6 +224,7 @@ namespace DDFLanguageEditor.Core
                         validateSection(section, file, document, manifest.Sections, diagnostics);
                     }
                 }
+                validateSectionGraph(sectionDocuments, manifest.Sections, diagnostics);
                 if (hasErrors(diagnostics)) return new DdfLanguagePackageLoadResult(null, diagnostics);
 
                 DdfLanguageDefinition language = createLanguage(
@@ -409,6 +410,47 @@ namespace DDFLanguageEditor.Core
             foreach (string dependency in section.DependsOn ?? new List<string>())
                 require(sectionFiles.ContainsKey(dependency), diagnostics, "DDFL032",
                     "Dipendenza di sezione sconosciuta: " + dependency, file, "$.dependsOn");
+        }
+
+        private static void validateSectionGraph(
+            IReadOnlyDictionary<string, SectionDto> documents,
+            IReadOnlyDictionary<string, string> files,
+            ICollection<DdfLanguagePackageDiagnostic> diagnostics)
+        {
+            var states = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string section in documents.Keys)
+            {
+                var dependencies = documents[section].DependsOn ?? new List<string>();
+                if (dependencies.Count != dependencies.Distinct(StringComparer.Ordinal).Count())
+                    diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL033",
+                        "La lista delle dipendenze contiene duplicati.",
+                        files[section], "$.dependsOn"));
+                if (dependencies.Contains(section, StringComparer.Ordinal))
+                    diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL034",
+                        "Una sezione non può dipendere da se stessa: " + section + ".",
+                        files[section], "$.dependsOn"));
+            }
+            foreach (string section in documents.Keys)
+                Visit(section);
+
+            void Visit(string section)
+            {
+                if (states.TryGetValue(section, out int state) && state == 2) return;
+                states[section] = 1;
+                foreach (string dependency in documents[section].DependsOn ?? new List<string>())
+                {
+                    if (dependency == section || !documents.ContainsKey(dependency)) continue;
+                    if (states.TryGetValue(dependency, out state) && state == 1)
+                    {
+                        diagnostics.Add(new DdfLanguagePackageDiagnostic("DDFL035",
+                            "Dipendenza circolare tra sezioni: " + section + " e " + dependency + ".",
+                            files[section], "$.dependsOn"));
+                        continue;
+                    }
+                    if (state != 2) Visit(dependency);
+                }
+                states[section] = 2;
+            }
         }
 
         private static DdfLanguageDefinition createLanguage(LexiconDto lexicon, string file,
