@@ -46,7 +46,13 @@ grant mancanti, duplicati o revocati negano l'operazione. La policy rivalida
 firma, hash e consenso a ogni decisione. Il futuro adapter deve applicare
 questa decisione **sul confine effettivo della risorsa** e associare il nome
 logico a configurazione host protetta; qui non viene ancora aperta alcuna
-risorsa. Un audit persistente e il lifecycle dei grant restano da sviluppare.
+risorsa. `DdfExtensionPluginSecurityLedger` conserva in memoria, in ordine,
+le decisioni con codici `DDFP` e dominio separato da sorgente/linguaggio/motore.
+Il registro è limitato: quando è pieno, `EvaluateAndRecord` nega ulteriori
+operazioni invece di autorizzarle senza traccia. Non è un audit persistente o
+antimanomissione; prima dell'esecuzione reale servono uno storage host sicuro,
+eventi espliciti di concessione/revoca e applicazione della policy negli
+adapter. Il lifecycle dei grant resta da sviluppare.
 
 La decisione del contratto è distinta da errori del linguaggio DDF, del
 progetto e del motore. La futura diagnostica operativa aggiungerà codici

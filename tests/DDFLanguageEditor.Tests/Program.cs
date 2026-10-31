@@ -105,6 +105,7 @@ namespace DDFLanguageEditor.Tests
             Run("denies extension plugins without exact consent", DeniesExtensionPluginsWithoutExactConsent);
             Run("verifies extension publisher signatures without trusting declarations", VerifiesExtensionPublisherSignatures);
             Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
+            Run("records plugin security decisions without mixing source diagnostics", RecordsPluginSecurityDecisions);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1909,6 +1910,60 @@ namespace DDFLanguageEditor.Tests
             Throws<ArgumentException>(() => new DdfExtensionPluginResourceGrant(
                 manifest.Id, manifest.Publisher, manifest.Version, hash,
                 "file.read", "C:\\secret.txt"));
+        }
+
+        private static void RecordsPluginSecurityDecisions()
+        {
+            byte[] assembly = Encoding.UTF8.GetBytes("security-ledger-test");
+            string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                Array.Empty<string>(), new[] { "file.read" });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                manifest, "key-1", publisher);
+            var grant = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, hash, manifest.Capabilities);
+            var resource = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.read",
+                "project.sources");
+            var ledger = new DdfExtensionPluginSecurityLedger(capacity: 2);
+            DateTimeOffset at = new DateTimeOffset(2026, 10, 31, 12, 0, 0,
+                TimeSpan.Zero);
+            DdfExtensionPluginOperationResult accepted = ledger.EvaluateAndRecord(
+                manifest, signature, trust, assembly, "0.42", grant,
+                new[] { resource }, "file.read", "project.sources", at);
+            Equal(true, accepted.IsAuthorized);
+            DdfExtensionPluginOperationResult denied = ledger.EvaluateAndRecord(
+                manifest, signature, trust, assembly, "0.42", grant,
+                new[] { resource }, "file.read", "project.secrets", at);
+            Equal(DdfExtensionPluginOperationDecision.ResourceNotGranted, denied.Decision);
+            var snapshot = ledger.Snapshot();
+            Equal(2, snapshot.Count);
+            Equal(1L, snapshot[0].Sequence);
+            Equal("DDFP000", snapshot[0].Code);
+            Equal("DDFP202", snapshot[1].Code);
+            Equal(DdfExtensionPluginSecurityDomain.Resource, snapshot[1].Domain);
+            Equal(at, snapshot[0].ObservedAtUtc);
+            Equal("project.secrets", snapshot[1].ResourceId);
+            DdfExtensionPluginOperationResult overflow = ledger.EvaluateAndRecord(
+                manifest, signature, trust, assembly, "0.42", grant,
+                new[] { resource }, "file.read", "project.sources", at);
+            Equal(DdfExtensionPluginOperationDecision.AuditUnavailable, overflow.Decision);
+            Equal("DDFP900", overflow.SecurityCode);
+            Equal(DdfExtensionPluginSecurityDomain.Audit, overflow.SecurityDomain);
+            Equal(false, overflow.IsAuthorized);
+            Equal(2, ledger.Snapshot().Count);
+            var separate = new DdfExtensionPluginSecurityLedger();
+            separate.EvaluateAndRecord(manifest, null, trust, assembly,
+                "0.42", grant, new[] { resource }, "file.read",
+                "project.sources", at);
+            Equal("DDFP101", separate.Snapshot()[0].Code);
+            Equal(DdfExtensionPluginSecurityDomain.PublisherTrust,
+                separate.Snapshot()[0].Domain);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

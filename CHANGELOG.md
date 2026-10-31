@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il contratto plug-in dispone di un registro Core delle decisioni di sicurezza, distinto dalle diagnostiche del codice DDF. Ogni decisione registrata ha codice `DDFP`, dominio e sequenza; a capacità esaurita nuove operazioni vengono negate. Il registro resta in memoria e non abilita l'esecuzione di plug-in.
+
 - Introdotti grant di risorsa logica per i plug-in: anche con firma, hash e consenso validi, una capability può essere usata soltanto sulla coppia esatta capability/risorsa concessa dall'host. Permessi mancanti, duplicati o revocati negano l'operazione; non sono ancora attivi adapter o accessi fisici.
 
 - La `0.15.0` verifica ora la provenienza dichiarata dei plug-in tramite firma staccata ECDSA P-256, chiavi pubbliche associate esplicitamente all'editore e revocabili, oltre a SHA-256 dei byte dell'assembly. Il gate di ammissione combina firma, hash, compatibilità SDK e consenso: non carica né esegue codice.

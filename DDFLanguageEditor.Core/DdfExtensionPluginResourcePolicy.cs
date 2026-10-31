@@ -54,7 +54,8 @@ namespace DDFLanguageEditor.Core
         CapabilityNotDeclared,
         ResourceNotGranted,
         ResourceRevoked,
-        Authorized
+        Authorized,
+        AuditUnavailable
     }
 
     public sealed class DdfExtensionPluginOperationResult
@@ -74,6 +75,9 @@ namespace DDFLanguageEditor.Core
         public string Capability { get; }
         public string ResourceId { get; }
         public bool IsAuthorized => Decision == DdfExtensionPluginOperationDecision.Authorized;
+        public string SecurityCode => DdfExtensionPluginSecurityEvent.Classify(this).Item1;
+        public DdfExtensionPluginSecurityDomain SecurityDomain =>
+            DdfExtensionPluginSecurityEvent.Classify(this).Item2;
     }
 
     public static class DdfExtensionPluginResourcePolicy
