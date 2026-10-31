@@ -1040,16 +1040,23 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     StringComparison.Ordinal);
                 int stringKeyword = embeddedEditor.Text.IndexOf("string",
                     StringComparison.Ordinal);
+                int mainFunction = embeddedEditor.Text.IndexOf("main(",
+                    StringComparison.Ordinal);
                 embeddedEditor.Select(returnKeyword, "ret".Length);
                 Color returnColor = embeddedEditor.SelectionColor;
                 embeddedEditor.Select(stringKeyword, "string".Length);
                 Color stringColor = embeddedEditor.SelectionColor;
+                embeddedEditor.Select(mainFunction, "main".Length);
+                Color functionColor = embeddedEditor.SelectionColor;
                 Require(returnKeyword >= 0 && stringKeyword >= 0 &&
+                        mainFunction >= 0 &&
                         returnColor != embeddedEditor.ForeColor &&
                         stringColor != embeddedEditor.ForeColor &&
-                        returnColor != stringColor,
+                        returnColor != stringColor &&
+                        functionColor == Color.FromArgb(220, 220, 170),
                     "La DatabaseDemo ha perso la colorazione sintattica embedded: " +
                     "ret=" + returnColor + ", string=" + stringColor +
+                    ", function=" + functionColor +
                     ", default=" + embeddedEditor.ForeColor + ".");
                 Require(analysis.Diagnostics.Count == 0 &&
                         form.Editor.LanguageSession.ActivePackage.Id == "ddf" &&
@@ -1450,6 +1457,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertTextBoxEditingSupport(form, editor);
                 AssertGutterAndAutoHidePalettes(form, editor, lineNumbers, diagnosticsPanel);
                 AssertEditorPalette(editor);
+                AssertFunctionNameHighlight(form, editor);
                 SetSource(editor);
                 AssertFlowchartPalette(form, editor);
                 SetSource(editor);
@@ -5516,6 +5524,43 @@ namespace DDFLanguageEditor.EditorSmokeTests
             Console.WriteLine("PASS palette IDE ad alto contrasto per sfondo, stringhe e commenti");
         }
 
+        private static void AssertFunctionNameHighlight(MainForm form,
+            RichTextBox editor)
+        {
+            const string source = "sum(int value) out int { ret value; }\n" +
+                "main() out int { int result << sum(2); print(\"sum(3)\"); " +
+                "// sum(4)\n ret result; }";
+            editor.Text = source;
+            editor.ClearUndo();
+            InvokePrivate(form, "applyHighlighting");
+            Color functionColor = Color.FromArgb(220, 220, 170);
+            int declaration = source.IndexOf("sum(", StringComparison.Ordinal);
+            int call = source.IndexOf("sum(2)", StringComparison.Ordinal);
+            int standard = source.IndexOf("print(", StringComparison.Ordinal);
+            foreach (int position in new[] { declaration, call, standard })
+            {
+                editor.Select(position, 3);
+                Require(editor.SelectionColor == functionColor,
+                    "Il nome di una funzione dichiarata o richiamata non usa il colore dedicato.");
+            }
+            int stringPosition = source.IndexOf("sum(3)", StringComparison.Ordinal);
+            editor.Select(stringPosition, 3);
+            Require(editor.SelectionColor != functionColor,
+                "La stringa viene confusa con un richiamo di funzione.");
+            int commentPosition = source.IndexOf("sum(4)", StringComparison.Ordinal);
+            editor.Select(commentPosition, 3);
+            Require(editor.SelectionColor != functionColor,
+                "Il commento viene confuso con un richiamo di funzione.");
+
+            editor.Select(call, 3);
+            editor.SelectedText = "sum";
+            InvokePrivate(form, "applyHighlighting");
+            editor.Select(call, 3);
+            Require(editor.SelectionColor == functionColor,
+                "La colorazione del richiamo non sopravvive all'analisi incrementale.");
+            Console.WriteLine("PASS colorazione nomi funzione in dichiarazione e richiamo, RTF e incrementale");
+        }
+
         private static void AssertAccessibilityAndDpi(MainForm form, RichTextBox editor)
         {
             Require(form.AutoScaleMode == AutoScaleMode.Dpi,
@@ -5985,6 +6030,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
             foldedView.Select(returnType, 3);
             Require(foldedView.SelectionColor == Color.FromArgb(78, 201, 176),
                 "Il tipo visibile nella proiezione ha perso il colore sintattico.");
+
+            int functionName = foldedView.Text.IndexOf("main(", StringComparison.Ordinal);
+            foldedView.Select(functionName, 4);
+            Require(foldedView.SelectionColor == Color.FromArgb(220, 220, 170),
+                "Il nome della funzione ha perso il colore nella vista compressa.");
 
             int marker = foldedView.Text.IndexOf("⋯ blocco compresso", StringComparison.Ordinal);
             foldedView.Select(marker, 1);

@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Colorazione semantica dei nomi delle funzioni: dichiarazioni e richiami riconosciuti in file corrente, workspace, libreria standard e catalogo host usano il colore funzione della palette. Variabili omonime, accessi a membri non richiamabili, stringhe e commenti non vengono colorati come funzioni. Il risultato e coerente nelle proiezioni RTF/incrementale, nel folding e nell'editor embedded; aggiunti test Core e smoke WinForms.
+
 - Checkpoint Package Studio `0.14.2`: Core `303/303` e smoke WinForms completo verdi. Corretto anche il blocco della UI durante il completamento su documenti grandi: la rimozione dell'evidenziazione di una coppia di delimitatori ripristina ora soltanto i due caratteri interessati, senza ricolorare migliaia di token invariati. Il test realistico del workspace separa la proiezione iniziale dal budget interattivo e verifica completamento e analisi incrementale.
 
 - Completata la documentazione di pubblicazione manuale dei pacchetti linguaggio (`0.14.2`): guida dalla scelta del template all'attivazione, demo CLI `starter`/`clone-ddf`/`publish`, esempio DDF con test dichiarativo e avvertenze su checksum, autenticita e profili sintattici. Il percorso starter→archivio e stato provato end-to-end.

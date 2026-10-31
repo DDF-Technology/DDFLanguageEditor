@@ -15,7 +15,8 @@ namespace DDF___Program_Language_Editor
 
         public static void Apply(RichTextBox editor, string text,
             IReadOnlyList<DdfToken> tokens, Color defaultColor,
-            Func<SyntaxKind, Color> colorSelector)
+            Func<SyntaxKind, Color> colorSelector,
+            IReadOnlyList<ClassifiedSpan> semanticSpans = null)
         {
             if (editor == null) throw new ArgumentNullException(nameof(editor));
             if (colorSelector == null) throw new ArgumentNullException(nameof(colorSelector));
@@ -24,12 +25,20 @@ namespace DDF___Program_Language_Editor
 
             var buildStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
+            var semanticStarts = new HashSet<int>((semanticSpans ??
+                Array.Empty<ClassifiedSpan>()).Select(span => span.Start));
             var classified = tokens
-                .Select(token => new { Token = token, Kind = DdfSyntaxClassifier.ToSyntaxKind(token.Kind) })
-                .Where(item => item.Kind.HasValue && item.Token.Length > 0)
+                .Select(token => new { Token = token,
+                    Kind = DdfSyntaxClassifier.ToSyntaxKind(token.Kind) })
+                .Where(item => item.Kind.HasValue && item.Token.Length > 0 &&
+                    !semanticStarts.Contains(item.Token.Start))
+                .Select(item => new ClassifiedSpan(item.Token.Start,
+                    item.Token.Length, item.Kind.Value))
+                .Concat(semanticSpans ?? Array.Empty<ClassifiedSpan>())
+                .OrderBy(item => item.Start)
                 .ToList();
             var colors = new List<Color> { defaultColor };
-            foreach (Color color in classified.Select(item => colorSelector(item.Kind.Value)))
+            foreach (Color color in classified.Select(item => colorSelector(item.Kind)))
             {
                 if (!colors.Contains(color)) colors.Add(color);
             }
@@ -52,10 +61,10 @@ namespace DDF___Program_Language_Editor
             int colorIndex = 1;
             foreach (var item in classified)
             {
-                int start = Math.Max(position, Math.Min(item.Token.Start, text.Length));
-                int end = Math.Max(start, Math.Min(item.Token.End, text.Length));
+                int start = Math.Max(position, Math.Min(item.Start, text.Length));
+                int end = Math.Max(start, Math.Min(item.Start + item.Length, text.Length));
                 if (start > position) AppendEscaped(builder, text, position, start - position);
-                int nextColorIndex = colors.IndexOf(colorSelector(item.Kind.Value)) + 1;
+                int nextColorIndex = colors.IndexOf(colorSelector(item.Kind)) + 1;
                 if (nextColorIndex != colorIndex)
                 {
                     builder.Append("\\cf").Append(nextColorIndex).Append(' ');

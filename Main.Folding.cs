@@ -406,11 +406,18 @@ namespace DDF___Program_Language_Editor
                 return;
             }
 
-            DdfLexResult lexResult = DdfLexer.Lex(source);
-            DdfParseResult parseResult = DdfParser.Parse(source, lexResult);
+            DdfLanguageDefinition language = editorLanguageSession.ActivePackage.Language;
+            DdfLexResult lexResult = DdfLexer.Lex(source, language);
+            DdfParseResult parseResult = DdfParser.ParseForEditorFeatures(
+                source, lexResult, language);
             lastLexResult = lexResult;
             lastParseResult = parseResult;
             lastAnalyzedText = source;
+            lastFunctionColorSpans = DdfFunctionSyntaxClassifier.Classify(
+                source, lexResult, parseResult,
+                DdfSemanticModel.Create(source, parseResult.Root), language,
+                getWorkspaceTypeRoots(), panelEditor.HostCatalog?.Snapshot);
+            lastFunctionColorSource = source;
             foldingRanges = DdfFoldingRangeProvider.Create(parseResult, source);
         }
 
@@ -436,6 +443,18 @@ namespace DDF___Program_Language_Editor
 
                         richTextBoxFoldedView.Select(start, length);
                         richTextBoxFoldedView.SelectionColor = getColor(kind.Value);
+                    }
+                }
+
+                if (string.Equals(lastFunctionColorSource,
+                    lastAnalyzedText, StringComparison.Ordinal))
+                {
+                    foreach (ClassifiedSpan span in lastFunctionColorSpans)
+                    {
+                        if (!projection.TryProjectSpan(span.Start, span.Length,
+                            out int start, out int length)) continue;
+                        richTextBoxFoldedView.Select(start, length);
+                        richTextBoxFoldedView.SelectionColor = getColor(SyntaxKind.Function);
                     }
                 }
 

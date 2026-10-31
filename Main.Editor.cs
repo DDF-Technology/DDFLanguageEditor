@@ -16,6 +16,9 @@ namespace DDF___Program_Language_Editor
         private string diagnosticsRenderSignature;
         private int outlineRenderCount;
         private int diagnosticsRenderCount;
+        private IReadOnlyList<ClassifiedSpan> lastFunctionColorSpans =
+            Array.Empty<ClassifiedSpan>();
+        private string lastFunctionColorSource = string.Empty;
 
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
@@ -391,6 +394,11 @@ namespace DDF___Program_Language_Editor
             int selectionStart = richTextBoxMainEditor.SelectionStart;
             int selectionLength = richTextBoxMainEditor.SelectionLength;
             string text = snapshot.Source;
+            IReadOnlyList<ClassifiedSpan> functionColorSpans =
+                DdfFunctionSyntaxClassifier.Classify(text, snapshot.LexResult,
+                    snapshot.ParseResult, snapshot.SemanticModel,
+                    snapshot.Request.LanguagePackage.Language,
+                    snapshot.Request.ExternalRoots, snapshot.Request.HostCatalog);
             validateBreakpoints(openDocuments.ActiveDocument, text, snapshot.ParseResult.Root);
             if (documentSession.IsDirty)
                 updateWorkspaceDocument(documentSession.CurrentPath, text,
@@ -465,7 +473,8 @@ namespace DDF___Program_Language_Editor
                         // format. Clearing diagnostic waves before this branch
                         // would format the whole document twice.
                         RichTextBoxSyntaxRtf.Apply(richTextBoxMainEditor, text,
-                            snapshot.LexResult.Tokens, editorDefaultForeground, getColor);
+                            snapshot.LexResult.Tokens, editorDefaultForeground,
+                            getColor, functionColorSpans);
                         lastSyntaxRtfBuildMilliseconds =
                             RichTextBoxSyntaxRtf.LastBuildMilliseconds;
                         lastSyntaxRtfStreamMilliseconds =
@@ -502,6 +511,13 @@ namespace DDF___Program_Language_Editor
                                     richTextBoxMainEditor, token.Start, token.Length,
                                     getColor(kind.Value));
                             }
+                        }
+                        foreach (ClassifiedSpan span in functionColorSpans)
+                        {
+                            if (span.Start + span.Length <= formatStart) continue;
+                            RichTextBoxCharacterFormatting.ApplyTextColor(
+                                richTextBoxMainEditor, span.Start, span.Length,
+                                getColor(SyntaxKind.Function));
                         }
                     }
 
@@ -546,6 +562,8 @@ namespace DDF___Program_Language_Editor
             updateOutline(snapshot.Symbols);
             lastLexResult = snapshot.LexResult;
             lastAnalyzedText = text;
+            lastFunctionColorSpans = functionColorSpans;
+            lastFunctionColorSource = text;
             lastParseResult = snapshot.ParseResult;
             lastSemanticModel = snapshot.SemanticModel;
             lastTypeCheckResult = snapshot.TypeCheckResult;

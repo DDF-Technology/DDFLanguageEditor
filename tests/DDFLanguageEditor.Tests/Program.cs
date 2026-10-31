@@ -36,6 +36,8 @@ namespace DDFLanguageEditor.Tests
             Run("classifies complete numbers", ClassifiesCompleteNumbers);
             Run("protects strings from nested classification", ProtectsStrings);
             Run("classifies unterminated block comments", ClassifiesUnterminatedBlockComments);
+            Run("colors function declarations and resolved calls", ColorsFunctionDeclarationsAndCalls);
+            Run("keeps shadowed names and protected text uncolored", KeepsShadowedFunctionNamesUncolored);
             Run("prefers longest operators", PrefersLongestOperators);
             Run("enforces the DDF 0.12 operator contract", EnforcesDdf012OperatorContract);
             Run("enforces the DDF 0.12 lexical contract", EnforcesDdf012LexicalContract);
@@ -400,6 +402,54 @@ namespace DDFLanguageEditor.Tests
                 .Select(span => Slice(text, span))
                 .ToArray();
             SequenceEqual(new[] { "!=", "&&", "^^" }, operators);
+        }
+
+        private static void ColorsFunctionDeclarationsAndCalls()
+        {
+            const string source = "sum(int value) out int\n{\n ret value;\n}\n" +
+                "main() out int\n{\n int result << sum(2);\n" +
+                " print(\"sum(9)\");\n // sum(3);\n ret result;\n}";
+            DdfLanguageDefinition language = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package.Language;
+            DdfLexResult lex = DdfLexer.Lex(source, language);
+            DdfParseResult parse = DdfParser.ParseForEditorFeatures(
+                source, lex, language);
+            DdfSemanticModel semantic = DdfSemanticModel.Create(source, parse.Root);
+            IReadOnlyList<ClassifiedSpan> spans = DdfFunctionSyntaxClassifier
+                .Classify(source, lex, parse, semantic, language);
+            SequenceEqual(new[] { "sum", "main", "sum", "print" },
+                spans.Select(span => Slice(source, span)));
+            Equal(true, spans.All(span => span.Kind == SyntaxKind.Function));
+
+            const string externalSource = "helper(int value) out int { ret value; }";
+            DdfLexResult externalLex = DdfLexer.Lex(externalSource, language);
+            CompilationUnitSyntax externalRoot = DdfParser.ParseForEditorFeatures(
+                externalSource, externalLex, language).Root;
+            const string caller = "main() out int { ret helper(2); }";
+            DdfLexResult callerLex = DdfLexer.Lex(caller, language);
+            DdfParseResult callerParse = DdfParser.ParseForEditorFeatures(
+                caller, callerLex, language);
+            spans = DdfFunctionSyntaxClassifier.Classify(caller, callerLex,
+                callerParse, DdfSemanticModel.Create(caller, callerParse.Root,
+                    new[] { "helper" }), language, new[] { externalRoot });
+            SequenceEqual(new[] { "main", "helper" },
+                spans.Select(span => Slice(caller, span)));
+        }
+
+        private static void KeepsShadowedFunctionNamesUncolored()
+        {
+            const string source = "main() out int\n{\n int print << 1;\n" +
+                " print(2);\n ret print;\n}";
+            DdfLanguageDefinition language = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package.Language;
+            DdfLexResult lex = DdfLexer.Lex(source, language);
+            DdfParseResult parse = DdfParser.ParseForEditorFeatures(
+                source, lex, language);
+            IReadOnlyList<ClassifiedSpan> spans = DdfFunctionSyntaxClassifier
+                .Classify(source, lex, parse,
+                    DdfSemanticModel.Create(source, parse.Root), language);
+            SequenceEqual(new[] { "main" },
+                spans.Select(span => Slice(source, span)));
         }
 
         private static void EnforcesDdf012OperatorContract()
