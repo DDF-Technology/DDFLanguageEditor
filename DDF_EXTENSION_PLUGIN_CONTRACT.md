@@ -36,6 +36,18 @@ effettua richieste di consenso: persistenza, audit e UI arriveranno in una
 verticale successiva. Il confine di processo per plug-in non fidati è previsto
 dalla 0.15.2; un controllo di manifest **non** è una sandbox.
 
+Una singola capability non autorizza tutte le risorse del dominio. La policy
+`DdfExtensionPluginResourcePolicy` richiede anche un grant per la coppia esatta
+`capability` + `resourceId`, vincolato alla stessa identità e allo stesso hash
+del plug-in. Il `resourceId` è un nome logico assegnato dall'host, ad esempio
+`project.sources` o `service.crm`: non è un path, URL, porta, handle o nome di
+dispositivo fornito dal plug-in. Non esistono wildcard o permessi impliciti;
+grant mancanti, duplicati o revocati negano l'operazione. La policy rivalida
+firma, hash e consenso a ogni decisione. Il futuro adapter deve applicare
+questa decisione **sul confine effettivo della risorsa** e associare il nome
+logico a configurazione host protetta; qui non viene ancora aperta alcuna
+risorsa. Un audit persistente e il lifecycle dei grant restano da sviluppare.
+
 La decisione del contratto è distinta da errori del linguaggio DDF, del
 progetto e del motore. La futura diagnostica operativa aggiungerà codici
 dedicati per formato, compatibilità, autorizzazione, caricamento ed esecuzione.

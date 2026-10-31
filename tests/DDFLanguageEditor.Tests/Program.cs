@@ -104,6 +104,7 @@ namespace DDFLanguageEditor.Tests
             Run("validates extension plugin manifests without loading code", ValidatesExtensionPluginManifests);
             Run("denies extension plugins without exact consent", DeniesExtensionPluginsWithoutExactConsent);
             Run("verifies extension publisher signatures without trusting declarations", VerifiesExtensionPublisherSignatures);
+            Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1856,6 +1857,58 @@ namespace DDFLanguageEditor.Tests
                 DdfExtensionPluginSignatureVerifier.Verify(manifest, parsed, revoked));
             Throws<FormatException>(() => DdfExtensionPluginSignatureCodec.Parse(
                 serialized.Replace("\"keyId\":", "\"keyId\":\"publisher-1\",\"keyId\":")));
+        }
+
+        private static void LimitsPluginCapabilitiesToExactHostResources()
+        {
+            byte[] assembly = Encoding.UTF8.GetBytes("resource-policy-test");
+            string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                Array.Empty<string>(), new[] { "file.read", "network.connect" });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                manifest, "key-1", publisher);
+            var grant = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, hash, manifest.Capabilities);
+            var source = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.read",
+                "project.sources");
+            DdfExtensionPluginOperationResult Evaluate(
+                IEnumerable<DdfExtensionPluginResourceGrant> scopes, string capability,
+                string resourceId, DdfExtensionPluginGrant consent = null) =>
+                DdfExtensionPluginResourcePolicy.Evaluate(manifest, signature,
+                    trust, assembly, "0.42", consent ?? grant, scopes,
+                    capability, resourceId);
+            Equal(DdfExtensionPluginOperationDecision.Authorized,
+                Evaluate(new[] { source }, "file.read", "project.sources").Decision);
+            Equal(DdfExtensionPluginOperationDecision.ResourceNotGranted,
+                Evaluate(null, "file.read", "project.sources").Decision);
+            Equal(DdfExtensionPluginOperationDecision.ResourceNotGranted,
+                Evaluate(new[] { source }, "file.read", "project.secrets").Decision);
+            Equal(DdfExtensionPluginOperationDecision.ResourceNotGranted,
+                Evaluate(new[] { source }, "network.connect", "project.sources").Decision);
+            Equal(DdfExtensionPluginOperationDecision.CapabilityNotDeclared,
+                Evaluate(new[] { source }, "process.start", "project.sources").Decision);
+            var revoked = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.read",
+                "project.sources", revoked: true);
+            Equal(DdfExtensionPluginOperationDecision.ResourceRevoked,
+                Evaluate(new[] { revoked }, "file.read", "project.sources").Decision);
+            Equal(DdfExtensionPluginOperationDecision.ResourceNotGranted,
+                Evaluate(new[] { source, source }, "file.read", "project.sources").Decision);
+            var changed = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, new string('b', 64), manifest.Capabilities);
+            DdfExtensionPluginOperationResult denied = Evaluate(new[] { source },
+                "file.read", "project.sources", consent: changed);
+            Equal(DdfExtensionPluginOperationDecision.AdmissionDenied, denied.Decision);
+            Equal(DdfExtensionPluginDecision.IdentityMismatch, denied.AdmissionDecision);
+            Throws<ArgumentException>(() => new DdfExtensionPluginResourceGrant(
+                manifest.Id, manifest.Publisher, manifest.Version, hash,
+                "file.read", "C:\\secret.txt"));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

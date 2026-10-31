@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Introdotti grant di risorsa logica per i plug-in: anche con firma, hash e consenso validi, una capability può essere usata soltanto sulla coppia esatta capability/risorsa concessa dall'host. Permessi mancanti, duplicati o revocati negano l'operazione; non sono ancora attivi adapter o accessi fisici.
+
 - La `0.15.0` verifica ora la provenienza dichiarata dei plug-in tramite firma staccata ECDSA P-256, chiavi pubbliche associate esplicitamente all'editore e revocabili, oltre a SHA-256 dei byte dell'assembly. Il gate di ammissione combina firma, hash, compatibilità SDK e consenso: non carica né esegue codice.
 
 - Avviata la `0.15.0` Extension SDK: contratto JSON strict e schema per manifest di plug-in eseguibili, con identità, intervallo SDK, hash, dipendenze e capability dichiarate. Il Core applica una decisione deny-by-default con consenso esatto e revoca; nessun plug-in viene caricato o eseguito. Test Core `307/307` verdi.
