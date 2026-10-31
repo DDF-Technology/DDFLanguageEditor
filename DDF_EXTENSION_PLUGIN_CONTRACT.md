@@ -49,10 +49,20 @@ logico a configurazione host protetta; qui non viene ancora aperta alcuna
 risorsa. `DdfExtensionPluginSecurityLedger` conserva in memoria, in ordine,
 le decisioni con codici `DDFP` e dominio separato da sorgente/linguaggio/motore.
 Il registro è limitato: quando è pieno, `EvaluateAndRecord` nega ulteriori
-operazioni invece di autorizzarle senza traccia. Non è un audit persistente o
-antimanomissione; prima dell'esecuzione reale servono uno storage host sicuro,
-eventi espliciti di concessione/revoca e applicazione della policy negli
-adapter. Il lifecycle dei grant resta da sviluppare.
+operazioni invece di autorizzarle senza traccia. È disponibile un backend
+locale opzionale `DdfExtensionPluginFileAuditStore`: l'host crea una volta il
+journal con `createNew`, gli assegna una chiave HMAC-SHA-256 esterna al
+repository e lo colloca in una directory protetta; agli avvii successivi lo
+riapre senza ricrearlo. Ogni append è durabile (`Flush(true)`), autenticato e
+collegato alla voce precedente; chiave errata, modifica, troncamento, file
+mancante, quota o errore I/O negano l'operazione. Non vengono salvati percorsi,
+URL o segreti dell'host, solo gli ID logici e l'identità del plug-in.
+
+Il journal non impedisce il rollback a una vecchia copia *valida* da parte di
+chi può sostituire il file: serve un'ancora monotona protetta dall'host prima
+di usare il meccanismo per codice reale. Restano inoltre aperti gli eventi
+espliciti di concessione/revoca e l'applicazione della policy negli adapter.
+Il lifecycle dei grant non è ancora implementato.
 
 La decisione del contratto è distinta da errori del linguaggio DDF, del
 progetto e del motore. La futura diagnostica operativa aggiungerà codici

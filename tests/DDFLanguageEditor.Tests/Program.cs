@@ -106,6 +106,7 @@ namespace DDFLanguageEditor.Tests
             Run("verifies extension publisher signatures without trusting declarations", VerifiesExtensionPublisherSignatures);
             Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
             Run("records plugin security decisions without mixing source diagnostics", RecordsPluginSecurityDecisions);
+            Run("persists and authenticates plugin security decisions fail closed", PersistsPluginSecurityDecisionsFailClosed);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1964,6 +1965,85 @@ namespace DDFLanguageEditor.Tests
             Equal("DDFP101", separate.Snapshot()[0].Code);
             Equal(DdfExtensionPluginSecurityDomain.PublisherTrust,
                 separate.Snapshot()[0].Domain);
+        }
+
+        private static void PersistsPluginSecurityDecisionsFailClosed()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-plugin-audit-" +
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                byte[] assembly = Encoding.UTF8.GetBytes("durable-audit-test");
+                string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+                var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                    "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                    Array.Empty<string>(), new[] { "file.read" });
+                using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                    new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                        publisher.ExportSubjectPublicKeyInfo()) });
+                DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                    manifest, "key-1", publisher);
+                var consent = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                    manifest.Version, hash, manifest.Capabilities);
+                var resource = new DdfExtensionPluginResourceGrant(manifest.Id,
+                    manifest.Publisher, manifest.Version, hash, "file.read",
+                    "project.sources");
+                byte[] key = RandomNumberGenerator.GetBytes(32);
+                string path = Path.Combine(root, "plugin-audit.log");
+                DateTimeOffset at = new DateTimeOffset(2026, 11, 1, 0, 0, 0,
+                    TimeSpan.Zero);
+                DdfExtensionPluginOperationResult Record(DdfExtensionPluginSecurityLedger ledger) =>
+                    ledger.EvaluateAndRecord(manifest, signature, trust, assembly,
+                        "0.42", consent, new[] { resource }, "file.read",
+                        "project.sources", at);
+                using (var store = new DdfExtensionPluginFileAuditStore(path, key,
+                    createNew: true))
+                {
+                    var ledger = new DdfExtensionPluginSecurityLedger(durableStore: store);
+                    Equal(true, Record(ledger).IsAuthorized);
+                    Equal(1L, ledger.Snapshot()[0].Sequence);
+                }
+                using (var store = new DdfExtensionPluginFileAuditStore(path, key))
+                {
+                    var ledger = new DdfExtensionPluginSecurityLedger(durableStore: store);
+                    Equal(true, Record(ledger).IsAuthorized);
+                    Equal(2L, ledger.Snapshot()[0].Sequence);
+                }
+                string journal = File.ReadAllText(path);
+                Equal(true, journal.Contains("\n", StringComparison.Ordinal));
+                using (var wrongKey = new DdfExtensionPluginFileAuditStore(path,
+                    RandomNumberGenerator.GetBytes(32)))
+                {
+                    var ledger = new DdfExtensionPluginSecurityLedger(durableStore: wrongKey);
+                    Equal(DdfExtensionPluginOperationDecision.AuditUnavailable,
+                        Record(ledger).Decision);
+                    Equal(0, ledger.Snapshot().Count);
+                }
+                char[] altered = journal.ToCharArray();
+                altered[0] = altered[0] == 'A' ? 'B' : 'A';
+                File.WriteAllText(path, new string(altered));
+                using (var store = new DdfExtensionPluginFileAuditStore(path, key))
+                {
+                    var ledger = new DdfExtensionPluginSecurityLedger(durableStore: store);
+                    Equal(DdfExtensionPluginOperationDecision.AuditUnavailable,
+                        Record(ledger).Decision);
+                    Equal(0, ledger.Snapshot().Count);
+                }
+                File.Delete(path);
+                using (var store = new DdfExtensionPluginFileAuditStore(path, key))
+                {
+                    var ledger = new DdfExtensionPluginSecurityLedger(durableStore: store);
+                    Equal(DdfExtensionPluginOperationDecision.AuditUnavailable,
+                        Record(ledger).Decision);
+                    Equal(false, File.Exists(path));
+                }
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

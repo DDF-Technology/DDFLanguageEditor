@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace DDFLanguageEditor.Core
 {
@@ -81,19 +84,22 @@ namespace DDFLanguageEditor.Core
         }
     }
 
-    // Volatile, bounded ledger. An owner must provide durable audit before enabling plug-ins.
+    // Bounded in-memory view, optionally backed by a durable host-owned journal.
     public sealed class DdfExtensionPluginSecurityLedger
     {
         private readonly object gate = new object();
         private readonly List<DdfExtensionPluginSecurityEvent> events =
             new List<DdfExtensionPluginSecurityEvent>();
         private readonly int capacity;
+        private readonly DdfExtensionPluginFileAuditStore durableStore;
 
-        public DdfExtensionPluginSecurityLedger(int capacity = 4096)
+        public DdfExtensionPluginSecurityLedger(int capacity = 4096,
+            DdfExtensionPluginFileAuditStore durableStore = null)
         {
             if (capacity < 1 || capacity > 100000)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             this.capacity = capacity;
+            this.durableStore = durableStore;
         }
 
         public IReadOnlyList<DdfExtensionPluginSecurityEvent> Snapshot()
@@ -124,8 +130,26 @@ namespace DDFLanguageEditor.Core
                     DdfExtensionPluginResourcePolicy.Evaluate(manifest, signature,
                         trust, assemblyBytes, sdkContract, grant, resourceGrants,
                         capability, resourceId);
-                events.Add(new DdfExtensionPluginSecurityEvent(events.Count + 1,
-                    observedAtUtc, manifest, result));
+                DdfExtensionPluginSecurityEvent entry;
+                try
+                {
+                    entry = durableStore == null
+                        ? new DdfExtensionPluginSecurityEvent(events.Count + 1,
+                            observedAtUtc, manifest, result)
+                        : durableStore.Append(manifest, result, observedAtUtc);
+                }
+                catch (Exception exception) when (exception is IOException ||
+                    exception is InvalidDataException ||
+                    exception is UnauthorizedAccessException ||
+                    exception is CryptographicException ||
+                    exception is DecoderFallbackException ||
+                    exception is ObjectDisposedException)
+                {
+                    return new DdfExtensionPluginOperationResult(
+                        DdfExtensionPluginOperationDecision.AuditUnavailable,
+                        DdfExtensionPluginDecision.Denied, capability, resourceId);
+                }
+                events.Add(entry);
                 return result;
             }
         }

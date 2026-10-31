@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto un journal locale opzionale per le decisioni di sicurezza dei plug-in: append durevole con catena HMAC, chiave esterna fornita dall'host e comportamento fail-closed per manomissione, sparizione del file, quota e problemi I/O. Il rollback verso una copia valida più vecchia non è ancora prevenuto, quindi nessun plug-in viene caricato.
+
 - Il contratto plug-in dispone di un registro Core delle decisioni di sicurezza, distinto dalle diagnostiche del codice DDF. Ogni decisione registrata ha codice `DDFP`, dominio e sequenza; a capacità esaurita nuove operazioni vengono negate. Il registro resta in memoria e non abilita l'esecuzione di plug-in.
 
 - Introdotti grant di risorsa logica per i plug-in: anche con firma, hash e consenso validi, una capability può essere usata soltanto sulla coppia esatta capability/risorsa concessa dall'host. Permessi mancanti, duplicati o revocati negano l'operazione; non sono ancora attivi adapter o accessi fisici.
