@@ -13,6 +13,19 @@ consentiti. `dependencies` contiene ID di plug-in, non riferimenti impliciti a
 DLL di sistema. Il loader futuro dovrà risolvere versioni e hash delle
 dipendenze tramite lockfile verificato; il solo ID non basta a caricarle.
 
+La firma è un documento staccato descritto da
+`ddf-extension-plugin-signature.schema.json`: algoritmo fisso
+`ECDSA-P256-SHA256`, `keyId` e valore DER codificato Base64. Il payload
+canonico è UTF-8, preceduto da `DDF-EXTENSION-PLUGIN-MANIFEST/1.0` e newline;
+le proprietà hanno ordine fisso e dipendenze/capability sono ordinate
+ordinalmente. La chiave pubblica SPKI P-256 deve essere associata dall'host
+all'esatto editore e key ID, e può essere revocata. Non esiste una chiave
+ufficiale implicita né una fiducia automatica nel campo `publisher`.
+`EvaluateAdmission` richiede firma attendibile, SHA-256 dei byte forniti e
+consenso esatto prima di restituire `Authorized`. Il futuro loader dovrà
+garantire che i byte verificati siano gli stessi poi eseguiti, senza race sui
+file, e risolvere il grafo delle dipendenze prima dell'attivazione.
+
 Le capability sono nomi granulari nei domini `file`, `network`, `process`,
 `device`, `ui` e `native`. Il manifest dichiara ciò che richiede; il consenso
 dell'utente/host è separato e vincolato a ID, editore, versione, hash e
@@ -26,8 +39,8 @@ dalla 0.15.2; un controllo di manifest **non** è una sandbox.
 La decisione del contratto è distinta da errori del linguaggio DDF, del
 progetto e del motore. La futura diagnostica operativa aggiungerà codici
 dedicati per formato, compatibilità, autorizzazione, caricamento ed esecuzione.
-Fino ad allora `DdfExtensionPluginDecision` rappresenta solo il gate di
-compatibilità e autorizzazione, non prova autenticità dell'editore né idoneità
-del binario. Prima di eseguire qualsiasi codice, il loader dovrà verificare
-SHA-256 sul file reale, provenienza/firma secondo policy, grafo dipendenze e
-isolamento adeguato.
+`DdfExtensionPluginPolicy.Evaluate` rappresenta solo il consenso, senza prova
+di provenienza. `EvaluateAdmission` aggiunge firma e hash, ma non è un loader,
+una sandbox o una garanzia sulla sicurezza del binario. Prima di eseguire
+qualsiasi codice servono risoluzione delle dipendenze, isolamento adeguato e
+verifica dei byte effettivamente caricati.

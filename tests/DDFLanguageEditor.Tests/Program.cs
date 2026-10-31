@@ -103,6 +103,7 @@ namespace DDFLanguageEditor.Tests
             Run("separates diagnostic domains", SeparatesDiagnosticDomains);
             Run("validates extension plugin manifests without loading code", ValidatesExtensionPluginManifests);
             Run("denies extension plugins without exact consent", DeniesExtensionPluginsWithoutExactConsent);
+            Run("verifies extension publisher signatures without trusting declarations", VerifiesExtensionPublisherSignatures);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1797,6 +1798,64 @@ namespace DDFLanguageEditor.Tests
                 new string('a', 64), manifest.Capabilities);
             Equal(DdfExtensionPluginDecision.Authorized,
                 DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", approved));
+        }
+
+        private static void VerifiesExtensionPublisherSignatures()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology", "1.2.3",
+                "0.42", "0.50", "Demo.dll", new string('a', 64),
+                new[] { "ddf.math" }, new[] { "file.read", "ui.panel" });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            byte[] spki = publisher.ExportSubjectPublicKeyInfo();
+            var key = new DdfExtensionPluginPublisherKey("ddf.technology", "publisher-1", spki);
+            spki[0] ^= 0xff;
+            var trust = new DdfExtensionPluginPublisherTrust(new[] { key });
+            DdfExtensionPluginSignature signed = DdfExtensionPluginSignatureVerifier.Sign(
+                manifest, "publisher-1", publisher);
+            string serialized = DdfExtensionPluginSignatureCodec.Serialize(signed);
+            DdfExtensionPluginSignature parsed = DdfExtensionPluginSignatureCodec.Parse(serialized);
+            Equal(DdfExtensionPluginSignatureStatus.Verified,
+                DdfExtensionPluginSignatureVerifier.Verify(manifest, parsed, trust));
+            byte[] assembly = Encoding.UTF8.GetBytes("synthetic-assembly-bytes");
+            string assemblyHash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var matching = new DdfExtensionPluginManifest(manifest.Id, manifest.Publisher,
+                manifest.Version, manifest.MinimumSdkContract, manifest.MaximumSdkContract,
+                manifest.AssemblyFile, assemblyHash, manifest.Dependencies,
+                manifest.Capabilities);
+            DdfExtensionPluginSignature matchingSignature = DdfExtensionPluginSignatureVerifier.Sign(
+                matching, "publisher-1", publisher);
+            var grant = new DdfExtensionPluginGrant(matching.Id, matching.Publisher,
+                matching.Version, matching.AssemblySha256, matching.Capabilities);
+            Equal(DdfExtensionPluginDecision.Authorized,
+                DdfExtensionPluginPolicy.EvaluateAdmission(matching, matchingSignature,
+                    trust, assembly, "0.42", grant));
+            Equal(DdfExtensionPluginDecision.AssemblyHashMismatch,
+                DdfExtensionPluginPolicy.EvaluateAdmission(matching, matchingSignature,
+                    trust, Encoding.UTF8.GetBytes("changed"), "0.42", grant));
+            Equal(DdfExtensionPluginDecision.SignatureNotVerified,
+                DdfExtensionPluginPolicy.EvaluateAdmission(matching, null,
+                    trust, assembly, "0.42", grant));
+            Equal(DdfExtensionPluginSignatureStatus.Missing,
+                DdfExtensionPluginSignatureVerifier.Verify(manifest, null, trust));
+            var altered = new DdfExtensionPluginManifest(manifest.Id, manifest.Publisher,
+                manifest.Version, manifest.MinimumSdkContract, manifest.MaximumSdkContract,
+                manifest.AssemblyFile, new string('b', 64), manifest.Dependencies,
+                manifest.Capabilities);
+            Equal(DdfExtensionPluginSignatureStatus.InvalidSignature,
+                DdfExtensionPluginSignatureVerifier.Verify(altered, parsed, trust));
+            var falsePublisher = new DdfExtensionPluginManifest(manifest.Id, "another.publisher",
+                manifest.Version, manifest.MinimumSdkContract, manifest.MaximumSdkContract,
+                manifest.AssemblyFile, manifest.AssemblySha256, manifest.Dependencies,
+                manifest.Capabilities);
+            Equal(DdfExtensionPluginSignatureStatus.UntrustedPublisherOrKey,
+                DdfExtensionPluginSignatureVerifier.Verify(falsePublisher, parsed, trust));
+            var revoked = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "publisher-1",
+                    publisher.ExportSubjectPublicKeyInfo(), revoked: true) });
+            Equal(DdfExtensionPluginSignatureStatus.RevokedKey,
+                DdfExtensionPluginSignatureVerifier.Verify(manifest, parsed, revoked));
+            Throws<FormatException>(() => DdfExtensionPluginSignatureCodec.Parse(
+                serialized.Replace("\"keyId\":", "\"keyId\":\"publisher-1\",\"keyId\":")));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

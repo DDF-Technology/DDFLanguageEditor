@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -164,7 +165,9 @@ namespace DDFLanguageEditor.Core
         IdentityMismatch,
         CapabilityDenied,
         Revoked,
-        Authorized
+        Authorized,
+        SignatureNotVerified,
+        AssemblyHashMismatch
     }
 
     public sealed class DdfExtensionPluginGrant
@@ -191,6 +194,24 @@ namespace DDFLanguageEditor.Core
 
     public static class DdfExtensionPluginPolicy
     {
+        public static DdfExtensionPluginDecision EvaluateAdmission(
+            DdfExtensionPluginManifest manifest, DdfExtensionPluginSignature signature,
+            DdfExtensionPluginPublisherTrust trust, byte[] assemblyBytes,
+            string sdkContract, DdfExtensionPluginGrant grant)
+        {
+            if (manifest == null) throw new ArgumentNullException(nameof(manifest));
+            if (assemblyBytes == null || assemblyBytes.Length > 256 * 1024 * 1024)
+                throw new ArgumentException("Assembly assente o oltre quota.", nameof(assemblyBytes));
+            if (DdfExtensionPluginSignatureVerifier.Verify(manifest, signature, trust) !=
+                DdfExtensionPluginSignatureStatus.Verified)
+                return DdfExtensionPluginDecision.SignatureNotVerified;
+            string actualHash = Convert.ToHexString(SHA256.HashData(assemblyBytes)).ToLowerInvariant();
+            if (!string.Equals(actualHash, manifest.AssemblySha256, StringComparison.Ordinal))
+                return DdfExtensionPluginDecision.AssemblyHashMismatch;
+            return Evaluate(manifest, sdkContract, grant);
+        }
+
+        // Consent only: does not attest publisher identity or assembly bytes.
         public static DdfExtensionPluginDecision Evaluate(DdfExtensionPluginManifest manifest,
             string sdkContract, DdfExtensionPluginGrant grant)
         {

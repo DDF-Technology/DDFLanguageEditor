@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://www.ddf.technology/schemas/ddf-extension-plugin-signature-1.0.json",
+  "title": "DDF extension plug-in detached signature",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["algorithm", "keyId", "value"],
+  "properties": {
+    "algorithm": { "const": "ECDSA-P256-SHA256" },
+    "keyId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._-]+$" },
+    "value": { "type": "string", "minLength": 1, "maxLength": 512 }
+  }
+}

@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- La `0.15.0` verifica ora la provenienza dichiarata dei plug-in tramite firma staccata ECDSA P-256, chiavi pubbliche associate esplicitamente all'editore e revocabili, oltre a SHA-256 dei byte dell'assembly. Il gate di ammissione combina firma, hash, compatibilità SDK e consenso: non carica né esegue codice.
+
 - Avviata la `0.15.0` Extension SDK: contratto JSON strict e schema per manifest di plug-in eseguibili, con identità, intervallo SDK, hash, dipendenze e capability dichiarate. Il Core applica una decisione deny-by-default con consenso esatto e revoca; nessun plug-in viene caricato o eseguito. Test Core `307/307` verdi.
 
 - Package Studio `0.14.3`: aggiunto un EXE Windows autonomo con schermata iniziale per DDF incorporato, cartelle di authoring e archivi `.ddflang`. Il nuovo host riusa il form WinForms tramite una factory pubblica e il Core di authoring, senza duplicare il motore. Le cartelle con JSON temporaneamente non valido si aprono nella scheda sorgenti; resta invariato il flusso manuale/CLI. Publish `win-x64` self-contained single-file verificato fuori dalla cartella di output; smoke su DDF, progetto incompleto e archivio reale.
