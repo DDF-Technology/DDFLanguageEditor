@@ -18,7 +18,7 @@ namespace DDF___Program_Language_Editor
         private ToolStripDropDownButton toolbarLanguageButton;
         private LanguagePackageManagerForm languagePackageManagerForm;
         private LanguagePlaygroundForm languagePlaygroundForm;
-        private LanguagePackageStudioForm languagePackageStudioForm;
+        private Form languagePackageStudioForm;
         private Action<string> saveLanguagePackagePathSetting;
         private IDdfLanguagePackageSession editorLanguageSession;
         private DdfLanguagePackage observedLanguagePackage;
@@ -328,7 +328,7 @@ namespace DDF___Program_Language_Editor
                 return;
             if (languagePackageStudioForm == null || languagePackageStudioForm.IsDisposed)
             {
-                languagePackageStudioForm = new LanguagePackageStudioForm(
+                languagePackageStudioForm = DdfLanguagePackageStudio.CreateForm(
                     editorLanguageSession.ActivePackage);
                 languagePackageStudioForm.FormClosed += (closedSender, closedArgs) =>
                     languagePackageStudioForm = null;

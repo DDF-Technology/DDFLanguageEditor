@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Package Studio `0.14.3`: aggiunto un EXE Windows autonomo con schermata iniziale per DDF incorporato, cartelle di authoring e archivi `.ddflang`. Il nuovo host riusa il form WinForms tramite una factory pubblica e il Core di authoring, senza duplicare il motore. Le cartelle con JSON temporaneamente non valido si aprono nella scheda sorgenti; resta invariato il flusso manuale/CLI. Publish `win-x64` self-contained single-file verificato fuori dalla cartella di output; smoke su DDF, progetto incompleto e archivio reale.
+
 - Colorazione semantica dei nomi delle funzioni: dichiarazioni e richiami riconosciuti in file corrente, workspace, libreria standard e catalogo host usano il colore funzione della palette. Variabili omonime, accessi a membri non richiamabili, stringhe e commenti non vengono colorati come funzioni. Il risultato e coerente nelle proiezioni RTF/incrementale, nel folding e nell'editor embedded; aggiunti test Core e smoke WinForms.
 
 - Checkpoint Package Studio `0.14.2`: Core `303/303` e smoke WinForms completo verdi. Corretto anche il blocco della UI durante il completamento su documenti grandi: la rimozione dell'evidenziazione di una coppia di delimitatori ripristina ora soltanto i due caratteri interessati, senza ricolorare migliaia di token invariati. Il test realistico del workspace separa la proiezione iniziale dal budget interattivo e verifica completamento e analisi incrementale.

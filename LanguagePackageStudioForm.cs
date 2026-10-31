@@ -17,6 +17,7 @@ namespace DDF___Program_Language_Editor
             new JsonSerializerOptions { WriteIndented = true };
 
         private readonly DdfLanguagePackage sourcePackage;
+        private readonly DdfLanguageAuthoringProject initialProject;
         private readonly TabControl editorTabs;
         private readonly TabPage previewPage;
         private readonly TextBox packageIdTextBox;
@@ -89,8 +90,15 @@ namespace DDF___Program_Language_Editor
         private bool loadingEbnf;
 
         public LanguagePackageStudioForm(DdfLanguagePackage package)
+            : this(package, null)
+        {
+        }
+
+        internal LanguagePackageStudioForm(DdfLanguagePackage package,
+            DdfLanguageAuthoringProject project)
         {
             sourcePackage = package ?? throw new ArgumentNullException(nameof(package));
+            initialProject = project;
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = AppTheme.Window;
             ClientSize = new Size(1120, 740);
@@ -418,7 +426,7 @@ namespace DDF___Program_Language_Editor
                 Name = "languageStudioSourceLabel",
                 Padding = new Padding(10, 0, 0, 0),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Origine: " + package.Source
+                Text = "Origine: " + (project?.SourceRoot ?? package.Source)
             };
             var closeButton = new Button
             {
@@ -930,18 +938,22 @@ namespace DDF___Program_Language_Editor
         {
             DdfLanguageAuthoringTemplateResult cloned = null;
             DdfLanguageAuthoringResult loaded = null;
+            DdfLanguageAuthoringProject project = initialProject;
             var identity = new DdfLanguageAuthoringIdentity(sourcePackage.Id,
                 sourcePackage.Name, sourcePackage.PackageVersion,
                 sourcePackage.LanguageVersion, sourcePackage.FileExtensions);
-            if (sourcePackage.Origin == DdfLanguagePackageOrigin.Embedded)
-                cloned = DdfLanguageAuthoringProjectFactory.CloneEmbeddedDdf(identity);
-            else if (sourcePackage.Origin == DdfLanguagePackageOrigin.Directory)
-                loaded = DdfLanguagePackageAuthoring.LoadDirectory(sourcePackage.Source);
-            else
-                cloned = DdfLanguageAuthoringProjectFactory.ClonePackage(
-                    sourcePackage.Source, identity);
+            if (project == null)
+            {
+                if (sourcePackage.Origin == DdfLanguagePackageOrigin.Embedded)
+                    cloned = DdfLanguageAuthoringProjectFactory.CloneEmbeddedDdf(identity);
+                else if (sourcePackage.Origin == DdfLanguagePackageOrigin.Directory)
+                    loaded = DdfLanguagePackageAuthoring.LoadDirectory(sourcePackage.Source);
+                else
+                    cloned = DdfLanguageAuthoringProjectFactory.ClonePackage(
+                        sourcePackage.Source, identity);
+            }
 
-            DdfLanguageAuthoringProject project = loaded?.Project ?? cloned?.Project;
+            project ??= loaded?.Project ?? cloned?.Project;
             IReadOnlyList<DdfLanguagePackageDiagnostic> diagnostics = loaded?.Diagnostics ??
                 cloned?.Diagnostics ?? Array.Empty<DdfLanguagePackageDiagnostic>();
             if (project == null)
@@ -953,7 +965,9 @@ namespace DDF___Program_Language_Editor
 
             session = new DdfLanguageAuthoringSession(project);
             ReloadEditors();
-            diagnosticsTextBox.Text = "Progetto caricato come snapshot separato. L'origine non verra modificata.";
+            if (string.IsNullOrWhiteSpace(diagnosticsTextBox.Text))
+                diagnosticsTextBox.Text = "Progetto caricato come snapshot separato. " +
+                    "L'origine non verra modificata.";
         }
 
         private void SetEditingEnabled(bool enabled)
@@ -970,12 +984,25 @@ namespace DDF___Program_Language_Editor
             sourceDrafts.Clear();
             pendingPreview = null;
             confirmPreviewButton.Enabled = false;
-            LoadManifest();
-            LoadLexicon();
-            LoadTypesAndSemantics();
-            LoadFormattingAndIntellisense();
-            LoadRuntimeBuildAndStandardLibrary();
-            LoadEbnf();
+            diagnosticsTextBox.Clear();
+            try
+            {
+                LoadManifest();
+                LoadLexicon();
+                LoadTypesAndSemantics();
+                LoadFormattingAndIntellisense();
+                LoadRuntimeBuildAndStandardLibrary();
+                LoadEbnf();
+            }
+            catch (Exception exception) when (exception is JsonException ||
+                exception is InvalidDataException || exception is FormatException ||
+                exception is InvalidOperationException)
+            {
+                diagnosticsTextBox.Text = "Gli editor guidati richiedono JSON validi. " +
+                    "Correggere il documento nella scheda Sorgenti JSON / EBNF. " +
+                    exception.Message;
+                editorTabs.SelectedTab = editorTabs.TabPages["languageStudioSourcesPage"];
+            }
             LoadSourceList();
             undoButton.Enabled = session.CanUndo;
             redoButton.Enabled = session.CanRedo;

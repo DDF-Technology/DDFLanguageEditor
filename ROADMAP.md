@@ -90,7 +90,7 @@ milestone successive conservano ordine e ambito.
 | `0.11.2` | Editor incorporabile e primo SDK per applicazioni host | Completata |
 | `0.12.x` | Definizione completa e candidata alla stabilizzazione del linguaggio DDF | Completata (`0.12.0`–`0.12.5`) |
 | `0.13.x` | Compilatore, linker, loader, CLI, evoluzione applicativa e controllo aggiornamenti | In corso (`0.13.0`–`0.13.5` completate nel perimetro principale, con loader in-process, sandbox non-Windows, Native AOT e integrazioni esterne conservati come backlog non bloccante; `0.13.6` in corso) |
-| `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | In corso (`0.14.0`–`0.14.2` completate; `0.14.3` autonoma opzionale ancora aperta) |
+| `0.14.x` | DDF Language Package Studio integrato e riutilizzabile | Completata (`0.14.0`–`0.14.3`; la 0.14.3 autonoma resta un prodotto separato dall'IDE) |
 | `0.15.x` | Extension SDK e host sicuro per plug-in eseguibili | Pianificata |
 | `0.16.x` | Assistente IA opzionale con fornitori locali e cloud | Pianificata |
 | `Dopo 0.16` | Stabilizzazione dell'ecosistema e preparazione della 1.0 | Differita |
@@ -1366,10 +1366,10 @@ eseguibile autonomo. Non sarà un plug-in e JSON/EBNF resteranno i formati autor
 
 ### 0.14.3 — Distribuzione autonoma opzionale
 
-- [ ] Separare la shell del Package Studio dal Core condiviso senza duplicare la logica.
-- [ ] Valutare un eseguibile autonomo self-contained per autori che non necessitano dell'intero editor.
-- [ ] Garantire interoperabilità completa tra progetto di authoring, editor integrato e applicazione autonoma.
-- [ ] Mantenere utilizzabile il flusso manuale JSON/EBNF e da riga di comando.
+- [x] Riutilizzare la shell del Package Studio sopra il Core condiviso senza duplicare la logica: la factory pubblica `DdfLanguagePackageStudio` crea il medesimo form per IDE e host autonomo, accettando un pacchetto caricato o uno snapshot di authoring. L'IDE usa ora la stessa factory; il nuovo host aggiunge soltanto selezione dell'origine e ciclo di vita della finestra (`2026-10-31`).
+- [x] Offrire un eseguibile autonomo self-contained per autori che non necessitano dell'intero editor: `DDFLanguageEditor.PackageStudio` e incluso nella soluzione e pubblicabile `win-x64` single-file senza trimming; la schermata iniziale apre DDF incorporato, directory di authoring e `.ddflang`. Il publish reale sotto `artifacts/package-studio-preview` supera gli smoke avviato da una working directory esterna (`2026-10-31`).
+- [x] Garantire interoperabilità tra progetto di authoring, editor integrato e applicazione autonoma: entrambi riusano gli stessi documenti JSON/EBNF, la sessione Core, convalida, diff e generazione; directory valida, JSON temporaneamente invalido e archivio `.ddflang` reale sono stati aperti negli smoke. Un draft JSON non valido resta accessibile dalla scheda sorgenti senza rendere pubblicabile il pacchetto (`2026-10-31`).
+- [x] Conservare il flusso manuale JSON/EBNF e la CLI: la demo `starter`/`clone-ddf`/`publish` resta indipendente dall'UI, mentre `PACKAGE_STUDIO_STANDALONE.md` descrive avvio, publish, limiti e interoperabilità. Build soluzione Release senza warning/errori, Core `305/305` e smoke WinForms completi verdi (`2026-10-31`).
 
 ### Criteri di completamento della 0.14
 

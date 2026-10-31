@@ -123,6 +123,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         StringComparison.OrdinalIgnoreCase)))
                 {
                     AssertHelpMenu(visible);
+                    AssertStandalonePackageStudioFactory();
                     return 0;
                 }
                 if (args.Any(argument => string.Equals(argument, "--module-manager-only",
@@ -222,6 +223,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertOptionalCapabilityNegotiation();
                 AssertSdkFailureRecovery();
                 RunEditorScenarios(visible);
+                AssertStandalonePackageStudioFactory();
                 AssertCompiledLanguageFeaturesWorkspaceDebug(visible);
                 AssertDocumentViewportPersistence(visible);
                 AssertRestoredMultiFileGutter(visible);
@@ -1403,6 +1405,46 @@ namespace DDFLanguageEditor.EditorSmokeTests
             }
 
             Console.WriteLine("PASS isolamento multi-istanza SDK, scorciatoie locali, eventi e persistenza esplicita");
+        }
+
+        private static void AssertStandalonePackageStudioFactory()
+        {
+            DdfLanguagePackage embedded = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            using (Form studio = DdfLanguagePackageStudio.CreateForm(embedded))
+            {
+                Require(FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").TabPages.Count == 12,
+                    "La shell autonoma non riusa le schede del Package Studio integrato.");
+            }
+
+            var identity = new DdfLanguageAuthoringIdentity("studio-smoke",
+                "Studio smoke", "0.1.0", "0.13", new[] { ".ddf" });
+            DdfLanguageAuthoringTemplateResult starter =
+                DdfLanguageAuthoringProjectFactory.CreateBlank(identity);
+            Require(starter.Success, "Lo starter di authoring non viene creato.");
+            DdfLanguageAuthoringResult incomplete = DdfLanguagePackageAuthoring.Apply(
+                starter.Project, new DdfLanguageAuthoringChangeSet(
+                    starter.Project.Revision, new[]
+                    {
+                        DdfLanguageAuthoringChange.Upsert("manifest.json",
+                            "{ \"schemaVersion\":")
+                    }));
+            Require(incomplete.Success, "Il draft incompleto non viene preparato.");
+            using (Form studio = DdfLanguagePackageStudio.CreateForm(
+                incomplete.Project))
+            {
+                Require(FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").SelectedTab.Name ==
+                        "languageStudioSourcesPage" &&
+                    FindControl<ListBox>(studio,
+                        "languageStudioSourceFilesListBox").Items.Count > 0 &&
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text.Contains(
+                            "Correggere", StringComparison.Ordinal),
+                    "La shell autonoma non apre un JSON incompleto nei sorgenti riparabili.");
+            }
+            Console.WriteLine("PASS Package Studio autonomo: shell condivisa e draft incompleto riparabile");
         }
 
         private static void RunEditorScenarios(bool visible)

@@ -37,6 +37,12 @@ una loro anteprima. Usare `Convalida` prima di generare. Cambiare una grafia
 richiede coerenza fra lessico, grammatica, formatter, IntelliSense, test e
 profili; modificare solo una keyword può lasciare il pacchetto non caricabile.
 
+In alternativa si può aprire la cartella direttamente con l'app autonoma
+`DDFLanguagePackageStudio.exe`, senza avviare l'IDE o installare il pacchetto.
+La guida [`PACKAGE_STUDIO_STANDALONE.md`](PACKAGE_STUDIO_STANDALONE.md)
+descrive avvio e publish self-contained. La cartella originale resta invariata:
+lo Studio lavora su uno snapshot e genera il risultato in una nuova destinazione.
+
 `samples/language-package-publication/hello.ddf` è un programma minimo che
 restituisce `42`. Il file `example-test-case.json` mostra il corrispondente
 caso dichiarativo da aggiungere all'array `cases` di `tests.json` (non è un
