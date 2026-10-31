@@ -101,6 +101,8 @@ namespace DDFLanguageEditor.Tests
             Run("plans safe semantic operations from the package", PlansSafeSemanticOperationsFromPackage);
             Run("rejects unsafe semantic operations atomically", RejectsUnsafeSemanticOperationsAtomically);
             Run("separates diagnostic domains", SeparatesDiagnosticDomains);
+            Run("validates extension plugin manifests without loading code", ValidatesExtensionPluginManifests);
+            Run("denies extension plugins without exact consent", DeniesExtensionPluginsWithoutExactConsent);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1739,6 +1741,62 @@ namespace DDFLanguageEditor.Tests
             Equal(true, runtime.ToHoverText().Contains("[Runtime]", StringComparison.Ordinal));
             Equal(true, language.ToString().Contains("[Definizione linguaggio]", StringComparison.Ordinal));
             Equal(true, capability.ToString().Contains("[Funzionalità motore]", StringComparison.Ordinal));
+        }
+
+        private static void ValidatesExtensionPluginManifests()
+        {
+            string json = """
+                {"schemaVersion":"1.0","id":"ddf.demo","publisher":"ddf.technology",
+                "version":"1.2.3","minimumSdkContract":"0.42","maximumSdkContract":"0.50",
+                "assemblyFile":"Demo.dll","assemblySha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "dependencies":["ddf.math"],"capabilities":["file.read","ui.panel"]}
+                """;
+            DdfExtensionPluginManifest manifest = DdfExtensionPluginManifestCodec.Parse(json);
+            Equal("ddf.demo", manifest.Id);
+            Equal(true, manifest.SupportsSdkContract("0.42"));
+            Equal(false, manifest.SupportsSdkContract("0.51"));
+            SequenceEqual(new[] { "ddf.math" }, manifest.Dependencies);
+            Throws<FormatException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("\"id\":\"ddf.demo\"", "\"id\":\"ddf.demo\",\"id\":\"ddf.demo\"")));
+            Throws<FormatException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("\"id\":\"ddf.demo\"", "\"other\":1,\"id\":\"ddf.demo\"")));
+            Throws<ArgumentException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("Demo.dll", "../Demo.dll")));
+            Throws<ArgumentException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("Demo.dll", "Demo*.dll")));
+            Throws<ArgumentException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("file.read", "unknown.read")));
+            Throws<ArgumentException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("\"file.read\",\"ui.panel\"", "\"file.read\",\"file.read\"")));
+            Throws<ArgumentException>(() => DdfExtensionPluginManifestCodec.Parse(
+                json.Replace("ddf.math", "ddf.demo")));
+        }
+
+        private static void DeniesExtensionPluginsWithoutExactConsent()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology", "1.2.3",
+                "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "file.read", "ui.panel" });
+            Equal(DdfExtensionPluginDecision.Denied,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", null));
+            Equal(DdfExtensionPluginDecision.Incompatible,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.41", null));
+            var partial = new DdfExtensionPluginGrant("ddf.demo", "ddf.technology", "1.2.3",
+                new string('a', 64), new[] { "file.read" });
+            Equal(DdfExtensionPluginDecision.CapabilityDenied,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", partial));
+            var wrongHash = new DdfExtensionPluginGrant("ddf.demo", "ddf.technology", "1.2.3",
+                new string('b', 64), manifest.Capabilities);
+            Equal(DdfExtensionPluginDecision.IdentityMismatch,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", wrongHash));
+            var revoked = new DdfExtensionPluginGrant("ddf.demo", "ddf.technology", "1.2.3",
+                new string('a', 64), manifest.Capabilities, revoked: true);
+            Equal(DdfExtensionPluginDecision.Revoked,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", revoked));
+            var approved = new DdfExtensionPluginGrant("ddf.demo", "ddf.technology", "1.2.3",
+                new string('a', 64), manifest.Capabilities);
+            Equal(DdfExtensionPluginDecision.Authorized,
+                DdfExtensionPluginPolicy.Evaluate(manifest, "0.42", approved));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

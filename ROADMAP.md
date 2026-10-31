@@ -1386,6 +1386,7 @@ host che non possono essere descritti in modo sicuro come dati.
 
 ### 0.15.0 — Contratto e modello di sicurezza
 
+- [x] Prima verticale dati, senza loader: manifest `1.0` strict con identità, editore dichiarato, SemVer, intervallo SDK, nome assembly locale, SHA-256, dipendenze e capability nei sei domini; policy Core deny-by-default vincolata a identità/hash/capability e revoca esplicita. Schema e contratto sono pubblicati nel package Core. Non autentica ancora l'editore, non risolve il grafo dipendenze e non avvia codice; build Release senza warning e Core `307/307` verdi (`2026-10-31`).
 - [ ] Definire manifest, identità dell'editore, versione, compatibilità, hash e dipendenze del plug-in.
 - [ ] Definire capacità granulari per file, rete, processi, dispositivi, UI e codice nativo.
 - [ ] Adottare negazione predefinita, consenso esplicito, revoca e registro delle autorizzazioni.
