@@ -174,6 +174,11 @@ rifiuta un manifesto divergente o che dichiari uno stato diverso da
 La versione `1.0` del protocollo dei punti non è la versione `0.42` dell'SDK
 dell'editor incorporabile. Il manifesto è documentazione verificabile, non
 un modo per registrare o invocare codice esterno.
+Il demo `samples/DDFLanguageEditor.ExtensionContractDemo/` esercita tutti e
+quattro i protocolli con dati costruiti localmente, mostrando frame e
+classificazione degli esiti senza un assembly eseguibile. Non costituisce un
+template installabile: firma, consenso, trasporto isolato e confine delle
+risorse sono volutamente fuori dal demo.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

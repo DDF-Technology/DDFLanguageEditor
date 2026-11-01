@@ -404,6 +404,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `samples/DDFLanguageEditor.HostDemo/`: applicazione WinForms separata con due istanze isolate del controllo incorporabile;
 - `samples/DDFLanguageEditor.DatabaseDemo/`: integrazione completa con database di prova, regola personalizzata, transazione, debug e flowchart;
 - `samples/DDFLanguageEditor.MinimalHost/`: esempio minimo della shell embedded con esecuzione e persistenza governate dall'host;
+- `samples/DDFLanguageEditor.ExtensionContractDemo/`: smoke senza plug-in eseguibili dei quattro protocolli di estensione `1.0`;
 - `DDFLanguageEditor.App/`: launcher standalone separato dalle librerie SDK;
 - `DDFLanguageEditor.Data/`: adapter ADO.NET provider-neutral con gate di integrazione SQLite reale;
 - `DDFLanguageEditor.Network/`: adapter HTTP/JSON deny-by-default con gate deterministici senza rete reale;

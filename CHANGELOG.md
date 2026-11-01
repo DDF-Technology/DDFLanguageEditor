@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto alla soluzione un demo di compatibilità dei quattro contratti di estensione: verifica manifesto, frame, round-trip e classificazione di un errore build simulato. Non installa né esegue plug-in e non produce un PE.
+
 - Pubblicato nel Core/NuGet un inventario machine-readable dei quattro protocolli di estensione `1.0`, con schemi, modalità host e capability minime. Il gate rifiuta divergenze dal codice e mantiene esplicito lo stato `contracts-only`; l'SDK editor resta `0.42`.
 
 - Gli esiti delle future risposte semantiche/build sono ora classificati dall'host con `DDFX601`–`DDFX604`, separando errore dichiarato dal plug-in, payload invalido, scadenza e replay. Diagnostiche e artefatti non vengono promossi automaticamente a risultati attendibili.
