@@ -115,6 +115,7 @@ namespace DDFLanguageEditor.Tests
             Run("separates plugin preflight diagnostics from project and source errors", SeparatesPluginPreflightDiagnostics);
             Run("keeps extension point descriptions versioned and bound to plugin identity", KeepsExtensionPointsBoundToPluginIdentity);
             Run("parses extension point catalogs strictly before loading code", ParsesExtensionPointCatalogsStrictly);
+            Run("authenticates extension point catalogs against signed manifests", AuthenticatesExtensionPointCatalogs);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2492,6 +2493,67 @@ namespace DDFLanguageEditor.Tests
             Throws<ArgumentException>(() => DdfExtensionPointCatalogCodec.Parse(
                 new string(' ', 65537), manifest));
             Throws<JsonException>(() => DdfExtensionPointCatalogCodec.Parse(valid + " // comment", manifest));
+        }
+
+        private static void AuthenticatesExtensionPointCatalogs()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "file.read", "file.write" });
+            var catalog = new DdfExtensionPointCatalog(manifest, new[] {
+                new DdfExtensionPointDescriptor("ddf.demo.read", DdfExtensionPointKind.HostFunction,
+                    "1.0", new[] { "file.read" }) });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginSignature manifestSignature =
+                DdfExtensionPluginSignatureVerifier.Sign(manifest, "key-1", publisher);
+            DdfExtensionPluginSignature catalogSignature =
+                DdfExtensionPointAttestation.Sign(catalog, "key-1", publisher);
+            string catalogJson = catalog.ToJson();
+            string signatureJson = DdfExtensionPluginSignatureCodec.Serialize(catalogSignature);
+            Equal(DdfExtensionPointAttestationStatus.Verified,
+                DdfExtensionPointAttestation.Verify(catalog, catalogSignature,
+                    manifestSignature, trust));
+            Equal(true, DdfExtensionPluginPreflight.VerifyCatalog(catalogJson,
+                signatureJson, manifest, manifestSignature, trust).Success);
+            Equal("DDFX104", DdfExtensionPluginPreflight.VerifyCatalog(catalogJson,
+                signatureJson, manifest, null, trust).Diagnostics.Single().Code);
+            Equal("DDFX005", DdfExtensionPluginPreflight.VerifyCatalog(catalogJson,
+                "{}", manifest, manifestSignature, trust).Diagnostics.Single().Code);
+            Equal("DDFX104", DdfExtensionPluginPreflight.VerifyCatalog(catalogJson,
+                DdfExtensionPluginSignatureCodec.Serialize(manifestSignature),
+                manifest, manifestSignature, trust).Diagnostics.Single().Code);
+            Equal("DDFX004", DdfExtensionPluginPreflight.VerifyCatalog(
+                catalogJson.Replace("\"file.read\"", "\"file.delete\""),
+                signatureJson, manifest, manifestSignature, trust).Diagnostics.Single().Code);
+            var changed = new DdfExtensionPointCatalog(manifest, new[] {
+                new DdfExtensionPointDescriptor("ddf.demo.read", DdfExtensionPointKind.HostFunction,
+                    "1.0", new[] { "file.write" }) });
+            Equal(DdfExtensionPointAttestationStatus.InvalidSignature,
+                DdfExtensionPointAttestation.Verify(changed, catalogSignature,
+                    manifestSignature, trust));
+            Equal("DDFX104", DdfExtensionPluginPreflight.VerifyCatalog(changed.ToJson(),
+                signatureJson, manifest, manifestSignature, trust).Diagnostics.Single().Code);
+            var changedManifest = new DdfExtensionPluginManifest(manifest.Id,
+                manifest.Publisher, "1.0.1", "0.42", "0.50", "Demo.dll",
+                manifest.AssemblySha256, manifest.Dependencies, manifest.Capabilities);
+            Equal(DdfExtensionPointAttestationStatus.ManifestNotVerified,
+                DdfExtensionPointAttestation.Verify(
+                    new DdfExtensionPointCatalog(changedManifest, catalog.Points),
+                    catalogSignature, manifestSignature, trust));
+            using ECDsa stranger = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            Equal(DdfExtensionPointAttestationStatus.InvalidSignature,
+                DdfExtensionPointAttestation.Verify(catalog,
+                    DdfExtensionPointAttestation.Sign(catalog, "key-1", stranger),
+                    manifestSignature, trust));
+            var revoked = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo(), revoked: true) });
+            Equal(DdfExtensionPointAttestationStatus.ManifestNotVerified,
+                DdfExtensionPointAttestation.Verify(catalog, catalogSignature,
+                    manifestSignature, revoked));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

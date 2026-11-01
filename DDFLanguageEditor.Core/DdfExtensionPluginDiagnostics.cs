@@ -73,6 +73,40 @@ namespace DDFLanguageEditor.Core
                 DdfExtensionPluginDiagnosticDomain.Dependency,
                 "Lock delle dipendenze plug-in non valido.");
 
+        public static DdfExtensionPluginCheck<DdfExtensionPointCatalog> ParseCatalog(
+            string json, DdfExtensionPluginManifest manifest) =>
+            Parse(() => DdfExtensionPointCatalogCodec.Parse(json, manifest), "DDFX004",
+                DdfExtensionPluginDiagnosticDomain.Manifest,
+                "Catalogo dei punti di estensione non valido.");
+
+        public static DdfExtensionPluginCheck<DdfExtensionPointCatalog> VerifyCatalog(
+            string catalogJson, string catalogSignatureJson,
+            DdfExtensionPluginManifest manifest,
+            DdfExtensionPluginSignature manifestSignature,
+            DdfExtensionPluginPublisherTrust trust)
+        {
+            DdfExtensionPluginCheck<DdfExtensionPointCatalog> catalog =
+                ParseCatalog(catalogJson, manifest);
+            if (!catalog.Success) return catalog;
+            DdfExtensionPluginCheck<DdfExtensionPluginSignature> signature =
+                Parse(() => DdfExtensionPluginSignatureCodec.Parse(catalogSignatureJson),
+                    "DDFX005", DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Firma del catalogo non valida.");
+            if (!signature.Success)
+                return Fail<DdfExtensionPointCatalog>(signature.Diagnostics[0]);
+            if (trust == null)
+                return Fail<DdfExtensionPointCatalog>("DDFX101",
+                    DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Nessun editore attendibile configurato.");
+            DdfExtensionPointAttestationStatus status =
+                DdfExtensionPointAttestation.Verify(catalog.Value, signature.Value,
+                    manifestSignature, trust);
+            return status == DdfExtensionPointAttestationStatus.Verified ? catalog :
+                Fail<DdfExtensionPointCatalog>("DDFX104",
+                    DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Catalogo o manifest non attestato: " + status + ".");
+        }
+
         public static DdfExtensionPluginCheck<DdfExtensionPluginManifest> VerifyArtifact(
             string manifestJson, string signatureJson, byte[] assemblyBytes,
             DdfExtensionPluginPublisherTrust trust, string sdkContract)

@@ -20,9 +20,17 @@ di attivare un punto e introdurre contratti tipizzati di input/output.
 atteso: schema, ID e versione del plug-in devono coincidere esattamente.
 Campi sconosciuti/duplicati, categorie o versioni API future, capability non
 dichiarate, commenti, trailing comma e input oltre quota vengono rifiutati.
-Il parsing **non autentica** il catalogo: firma e lock del manifest non coprono
-ancora questi byte. Un host futuro non deve usare il file come fonte di codice
-o autorizzazioni senza includerlo in un inventario firmato e verificato.
+Il parsing **non autentica** il catalogo. `DdfExtensionPointAttestation` offre
+una firma staccata ECDSA P-256 con dominio proprio: il payload comprende il
+digest SHA-256 del manifest canonico e il JSON canonico del catalogo. La firma
+usa il medesimo formato a tre campi della firma del manifest e una chiave
+pubblica esplicitamente attendibile per quell'editore. `VerifyCatalog`
+richiede prima la firma valida del manifest e poi quella del catalogo;
+alterazione dei punti, del manifest o revoca della chiave negano l'esito.
+Il file JSON non deve necessariamente avere gli stessi byte o la stessa
+spaziatura usati dal firmatario: il parser ricostruisce la forma canonica.
+L'esito non prova ancora i byte dell'assembly, il grafo delle dipendenze,
+il consenso o i grant delle risorse, e **non autorizza l'esecuzione**.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

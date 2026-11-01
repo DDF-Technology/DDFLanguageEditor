@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- I punti di estensione hanno ora un'attestazione staccata ECDSA P-256 che lega catalogo canonico e manifest firmato all'editore attendibile. Il preflight rifiuta firme assenti, alterazioni e chiavi revocate con diagnostiche `DDFX`; la verifica non carica assembly né concede permessi.
+
 - Il catalogo dei punti di estensione è ora anche leggibile con parser rigoroso: schema chiuso, quote, identità e versione esatte del manifest, rifiuto di campi duplicati/sconosciuti e capability non dichiarate. Il parsing non costituisce verifica di firma e non abilita plug-in.
 
 - Avviata la `0.15.1` con un catalogo descrittivo e versionato dei punti di estensione per semantica, runtime, funzioni host e backend di build. ID e capability sono vincolati al manifest; schema JSON e test impediscono versioni e descrizioni incoerenti. Nessun plug-in viene caricato o invocato.
