@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension call request 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pointId", "arguments"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "pointId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 160 },
+    "arguments": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "maxLength": 128 },
+      "additionalProperties": { "$ref": "#/$defs/value" }
+    }
+  },
+  "$defs": {
+    "value": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind"], "properties": { "kind": { "const": "Null" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": { "kind": { "const": "Boolean" }, "value": { "type": "boolean" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": { "kind": { "const": "Integer" }, "value": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": { "kind": { "const": "Float" }, "value": { "type": "number" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": { "kind": { "const": "String" }, "value": { "type": "string", "maxLength": 4096 } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "Array" },
+            "value": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/value" } }
+          }
+        }
+      ]
+    }
+  }
+}

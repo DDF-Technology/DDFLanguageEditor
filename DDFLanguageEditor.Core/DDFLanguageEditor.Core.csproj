@@ -48,6 +48,7 @@
     <None Include="..\ddf-extension-plugin-signature.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-plugin-lock.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-points.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-extension-call.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\DDF_EXTENSION_PLUGIN_CONTRACT.md" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />

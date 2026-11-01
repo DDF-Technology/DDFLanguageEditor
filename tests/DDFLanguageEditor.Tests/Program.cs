@@ -117,6 +117,7 @@ namespace DDFLanguageEditor.Tests
             Run("parses extension point catalogs strictly before loading code", ParsesExtensionPointCatalogsStrictly);
             Run("authenticates extension point catalogs against signed manifests", AuthenticatesExtensionPointCatalogs);
             Run("bounds immutable extension call values without exposing host objects", BoundsImmutableExtensionCallValues);
+            Run("round-trips extension calls through a strict versioned wire format", RoundTripsExtensionCallWireFormat);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2606,6 +2607,44 @@ namespace DDFLanguageEditor.Tests
             Throws<ArgumentException>(() => new DdfExtensionCallRequest(runtime,
                 Enumerable.Range(0, 64).Select(index =>
                     new KeyValuePair<string, DdfExtensionValue>("arg" + index, twenty))));
+        }
+
+        private static void RoundTripsExtensionCallWireFormat()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), Array.Empty<string>());
+            var point = new DdfExtensionPointDescriptor("ddf.demo.call",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", Array.Empty<string>());
+            var catalog = new DdfExtensionPointCatalog(manifest, new[] { point });
+            var request = new DdfExtensionCallRequest(point, new[] {
+                new KeyValuePair<string, DdfExtensionValue>("text", DdfExtensionValue.FromString("à\"")),
+                new KeyValuePair<string, DdfExtensionValue>("items", DdfExtensionValue.FromArray(new[] {
+                    DdfExtensionValue.Null, DdfExtensionValue.FromBoolean(true),
+                    DdfExtensionValue.FromInteger(-3), DdfExtensionValue.FromFloat(1.25) })) });
+            string json = DdfExtensionCallCodec.Serialize(request);
+            DdfExtensionCallRequest parsed = DdfExtensionCallCodec.Parse(json, catalog);
+            Equal(json, DdfExtensionCallCodec.Serialize(parsed));
+            Equal("ddf.demo.call", parsed.Point.Id);
+            Equal("à\"", parsed.Arguments["text"].String);
+            Equal(4, parsed.Arguments["items"].Elements.Count);
+            Equal(1.25, parsed.Arguments["items"].Elements[3].Float);
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"schemaVersion\":\"1.0\"", "\"schemaVersion\":\"2.0\""), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"pointId\":\"ddf.demo.call\"", "\"pointId\":\"ddf.other.call\""), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"arguments\":", "\"extra\":0,\"arguments\":"), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"kind\":\"Integer\"", "\"kind\":\"Unknown\""), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"value\":-3", "\"value\":2147483648"), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"kind\":\"Null\"", "\"kind\":\"Null\",\"value\":null"), catalog));
+            Throws<FormatException>(() => DdfExtensionCallCodec.Parse(
+                json.Replace("\"text\":", "\"text\":{\"kind\":\"Null\"},\"text\":"), catalog));
+            Throws<JsonException>(() => DdfExtensionCallCodec.Parse(json + " // trailing", catalog));
+            Throws<ArgumentException>(() => DdfExtensionCallCodec.Parse(new string(' ', 131073), catalog));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

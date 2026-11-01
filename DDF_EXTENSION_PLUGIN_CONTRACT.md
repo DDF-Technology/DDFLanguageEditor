@@ -39,8 +39,17 @@ punto `RuntimeOperation` o `HostFunction`, con massimo 64 argomenti, 1024 nodi
 complessivi, profondità 8, 256 elementi per array e 4096 caratteri per
 stringa. Sono vietati riferimenti a controlli WinForms, oggetti host, AST/IR,
 delegate e tipi Roslyn. Questo è un contenitore tipizzato **non eseguibile**:
-firme di funzione, risultati/errori, serializzazione wire, transazioni,
+firme di funzione, risultati/errori, transazioni,
 autorizzazione sul confine e contratti di semantica/build restano da definire.
+`DdfExtensionCallCodec` aggiunge ora il formato wire JSON `1.0` per la sola
+richiesta, descritto da `ddf-extension-call.schema.json`: ogni valore ha un
+tag `kind` esplicito e gli argomenti sono ordinati nella serializzazione.
+Il parser è chiuso, limita l'input UTF-8 a 128 KiB, controlla profondità,
+numero di nodi, range `Int32` e float finiti, e risolve `pointId` solo nel
+catalogo ricevuto. Non verifica da solo la firma del catalogo: l'host deve
+passargli uno snapshot ottenuto da `VerifyCatalog` e completare anche i gate
+su artifact, dipendenze, consenso e risorse. Né il parsing né lo schema JSON
+autorizzano il dispatch; risposta e errori operativi restano futuri.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

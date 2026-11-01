@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Le richieste dei punti runtime/host dispongono ora di un wire format JSON `1.0` con valori tipizzati, schema pubblicato e parser rigoroso su campi, quote, tipo e punto registrato. È solo trasporto descrittivo: nessun plug-in viene invocato.
+
 - Primo contratto di valore per lo SDK dei plug-in: scalari/array DDF immutabili, senza riferimenti a editor, host, VM o Roslyn. Le richieste descrittive per runtime e funzioni host hanno quote per argomenti e struttura; nessuna invocazione è abilitata.
 
 - I punti di estensione hanno ora un'attestazione staccata ECDSA P-256 che lega catalogo canonico e manifest firmato all'editore attendibile. Il preflight rifiuta firme assenti, alterazioni e chiavi revocate con diagnostiche `DDFX`; la verifica non carica assembly né concede permessi.
