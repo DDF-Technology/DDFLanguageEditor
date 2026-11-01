@@ -18,6 +18,8 @@ namespace DDFLanguageEditor.Core
             if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(publisher) ||
                 string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(capability))
                 throw new ArgumentException("Identità e capability richieste.");
+            if (!DdfExtensionPluginCapabilityCatalog.TryGet(capability, out _))
+                throw new ArgumentException("Capability sconosciuta.", nameof(capability));
             if (resourceId == null || resourceId.Length > 128 ||
                 !ResourceName.IsMatch(resourceId))
                 throw new ArgumentException("ID risorsa logica non valido.", nameof(resourceId));

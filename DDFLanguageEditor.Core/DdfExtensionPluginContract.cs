@@ -15,9 +15,6 @@ namespace DDFLanguageEditor.Core
         public const string SchemaVersionValue = "1.0";
         private static readonly Regex Identifier = new Regex(
             "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", RegexOptions.CultureInvariant);
-        private static readonly Regex Capability = new Regex(
-            "^(?:file|network|process|device|ui|native)\\.[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-            RegexOptions.CultureInvariant);
         private static readonly Regex AssemblyName = new Regex(
             "^[A-Za-z0-9][A-Za-z0-9._-]*\\.dll$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
@@ -43,7 +40,7 @@ namespace DDFLanguageEditor.Core
             if (Dependencies.Contains(Id, StringComparer.Ordinal))
                 throw new ArgumentException("Un plug-in non può dipendere da sé stesso.", nameof(dependencies));
             Capabilities = CopyDistinct(capabilities, "capability", value =>
-                Capability.IsMatch(value ?? string.Empty) ? value :
+                DdfExtensionPluginCapabilityCatalog.TryGet(value, out _) ? value :
                     throw new ArgumentException("Capability sconosciuta o non valida.", nameof(capabilities)));
         }
 
@@ -179,8 +176,13 @@ namespace DDFLanguageEditor.Core
             Publisher = publisher;
             Version = version;
             AssemblySha256 = DdfExtensionPluginManifest.RequireSha256(assemblySha256);
-            Capabilities = new ReadOnlyCollection<string>((capabilities ??
-                throw new ArgumentNullException(nameof(capabilities))).ToArray());
+            string[] requested = (capabilities ??
+                throw new ArgumentNullException(nameof(capabilities))).ToArray();
+            if (requested.Length > 64 ||
+                requested.Distinct(StringComparer.Ordinal).Count() != requested.Length ||
+                requested.Any(item => !DdfExtensionPluginCapabilityCatalog.TryGet(item, out _)))
+                throw new ArgumentException("Capability del grant non valide.", nameof(capabilities));
+            Capabilities = new ReadOnlyCollection<string>(requested);
             Revoked = revoked;
         }
 

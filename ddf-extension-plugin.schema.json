@@ -15,7 +15,7 @@
     "assemblyFile": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.[dD][lL][lL]$" },
     "assemblySha256": { "$ref": "#/$defs/sha256" },
     "dependencies": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "$ref": "#/$defs/identifier" } },
-    "capabilities": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "type": "string", "pattern": "^(file|network|process|device|ui|native)\\.[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" } }
+    "capabilities": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "type": "string", "enum": ["device.configure", "device.read", "device.write", "file.delete", "file.list", "file.read", "file.write", "native.invoke", "native.load", "network.connect", "network.listen", "network.publish", "network.subscribe", "process.inspect", "process.signal", "process.start", "ui.command", "ui.dialog", "ui.panel"] } }
   },
   "$defs": {
     "identifier": { "type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },

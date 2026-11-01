@@ -102,6 +102,7 @@ namespace DDFLanguageEditor.Tests
             Run("rejects unsafe semantic operations atomically", RejectsUnsafeSemanticOperationsAtomically);
             Run("separates diagnostic domains", SeparatesDiagnosticDomains);
             Run("validates extension plugin manifests without loading code", ValidatesExtensionPluginManifests);
+            Run("keeps plugin capability catalog and manifest schema aligned", KeepsPluginCapabilityCatalogAligned);
             Run("denies extension plugins without exact consent", DeniesExtensionPluginsWithoutExactConsent);
             Run("verifies extension publisher signatures without trusting declarations", VerifiesExtensionPublisherSignatures);
             Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
@@ -1780,6 +1781,43 @@ namespace DDFLanguageEditor.Tests
                 json.Replace("ddf.math", "ddf.demo")));
         }
 
+        private static void KeepsPluginCapabilityCatalogAligned()
+        {
+            DdfExtensionPluginCapabilityDefinition[] definitions =
+                DdfExtensionPluginCapabilityCatalog.All.ToArray();
+            Equal("1.0", DdfExtensionPluginCapabilityCatalog.Version);
+            Equal(19, definitions.Length);
+            Equal(6, definitions.Select(item => item.Domain).Distinct().Count());
+            Equal(definitions.Length,
+                definitions.Select(item => item.Name).Distinct(StringComparer.Ordinal).Count());
+            Equal(true, definitions.All(item => !string.IsNullOrWhiteSpace(item.Operation)));
+            Equal(true, DdfExtensionPluginCapabilityCatalog.TryGet("native.load",
+                out DdfExtensionPluginCapabilityDefinition native) &&
+                native.RequiresDedicatedWorker);
+            Equal(true, DdfExtensionPluginCapabilityCatalog.TryGet("file.read",
+                out DdfExtensionPluginCapabilityDefinition file) &&
+                !file.RequiresDedicatedWorker);
+            Equal(false, DdfExtensionPluginCapabilityCatalog.TryGet("file.erase", out _));
+            string schemaPath = Path.Combine(AppContext.BaseDirectory,
+                "ddf-extension-plugin.schema.json");
+            using JsonDocument schema = JsonDocument.Parse(File.ReadAllText(schemaPath));
+            string[] declared = schema.RootElement.GetProperty("properties")
+                .GetProperty("capabilities").GetProperty("items").GetProperty("enum")
+                .EnumerateArray().Select(item => item.GetString()).ToArray();
+            SequenceEqual(definitions.Select(item => item.Name), declared);
+            using JsonDocument catalog = JsonDocument.Parse(
+                DdfExtensionPluginCapabilityCatalog.ToJson());
+            Equal(definitions.Length, catalog.RootElement.GetProperty("capabilities")
+                .GetArrayLength());
+            Throws<ArgumentException>(() => new DdfExtensionPluginManifest(
+                "ddf.demo", "ddf.technology", "1.0.0", "0.42", "0.50",
+                "Demo.dll", new string('a', 64), Array.Empty<string>(),
+                new[] { "file.erase" }));
+            Throws<ArgumentException>(() => new DdfExtensionPluginGrant(
+                "ddf.demo", "ddf.technology", "1.0.0", new string('a', 64),
+                new[] { "file.erase" }));
+        }
+
         private static void DeniesExtensionPluginsWithoutExactConsent()
         {
             var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology", "1.2.3",
@@ -2302,8 +2340,8 @@ namespace DDFLanguageEditor.Tests
             Equal(false, Evaluate(rootGrant, Grant(helper, new[] { "file.read" })).Success);
             Equal(false, Evaluate(rootGrant, Grant(helper,
                 new[] { "network.connect", "file.read" })).Success);
-            Equal(false, Evaluate(rootGrant, Grant(helper,
-                new[] { "network.connect", "network.connect" })).Success);
+            Throws<ArgumentException>(() => Grant(helper,
+                new[] { "network.connect", "network.connect" }));
             Equal(false, Evaluate(rootGrant, Grant(helper, helper.Manifest.Capabilities,
                 revoked: true)).Success);
             Equal(false, Evaluate(rootGrant, helperGrant, helperGrant).Success);

@@ -43,8 +43,17 @@ consenso esatto prima di restituire `Authorized`. Il futuro loader dovrà
 garantire che i byte verificati siano gli stessi poi eseguiti, senza race sui
 file, e risolvere il grafo delle dipendenze prima dell'attivazione.
 
-Le capability sono nomi granulari nei domini `file`, `network`, `process`,
-`device`, `ui` e `native`. Il manifest dichiara ciò che richiede; il consenso
+Le capability sono definite dal catalogo Core versionato `1.0` e consultabili
+come JSON tramite `DdfExtensionPluginCapabilityCatalog.ToJson()`: `file`
+(`list`, `read`, `write`, `delete`), `network` (`connect`, `listen`, `publish`,
+`subscribe`), `process` (`inspect`, `signal`, `start`), `device` (`read`, `write`,
+`configure`), `ui` (`command`, `dialog`, `panel`) e `native` (`invoke`, `load`).
+Il manifest e i grant rifiutano nomi non presenti nel catalogo; lo schema JSON
+elenca gli stessi valori e un test blocca divergenze tra schema e Core.
+`RequiresDedicatedWorker` segnala operazioni che richiederanno anche un worker
+dedicato; `false` **non** autorizza l'esecuzione di plug-in non fidati nel
+processo host. Nessuna capability abilita già un adapter di sistema.
+Il manifest dichiara ciò che richiede; il consenso
 dell'utente/host è separato e vincolato a ID, editore, versione, hash e
 capability. Senza grant, con grant revocato, identità diversa o capability
 mancanti, la decisione è negativa. Un cambio di binario, versione o editore

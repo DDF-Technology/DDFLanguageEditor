@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Definito il catalogo `1.0` delle capability dei plug-in: 19 operazioni ammesse nei sei domini file, rete, processi, dispositivi, UI e native. Manifest e grant rifiutano nomi inventati; schema e Core sono verificati insieme. Il catalogo dichiara requisiti di worker, ma non abilita adapter o esecuzione.
+
 - Definito un protocollo opzionale per ancorare il journal di sicurezza dei plug-in a uno storage monotono esterno: il rollback a una copia valida viene rilevato e l'avanzamento fallito nega le operazioni. L'implementazione protetta dell'ancora è ancora responsabilità futura dell'host; la doppia in memoria è solo per test.
 
 - Le dipendenze dei plug-in richiedono ora un consenso separato per ogni nodo del grafo verificato. Un grant mancante, revocato, duplicato, estraneo o con capability non coincidenti nega l'intero grafo; non c'è ereditarietà dei permessi dal plug-in principale.
