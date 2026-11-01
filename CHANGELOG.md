@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Gli esiti del protocollo plug-in vengono ora classificati dall'host con diagnostiche `DDFX601`–`DDFX604` per errore dichiarato, risposta invalida, scadenza e replay. I codici forniti dal plug-in non diventano codici di sicurezza e non trapelano eccezioni grezze; il dispatch resta disabilitato.
+
 - Le future chiamate plug-in dispongono di un frame di correlazione con ID casuale monouso. Un registro host bounded respinge replay, risposte estranee o scadute e consuma l'ID anche quando la risposta è malformata; il frame non sostituisce autenticazione del worker o autorizzazione.
 
 - Aggiunto il formato di risposta tipizzata `1.0` delle future chiamate runtime/host: successo con valore DDF o fallimento con ID d'errore limitato al namespace del punto. Schema e parser rifiutano risposte ambigue o riferite a un altro punto; non esiste ancora dispatch o fiducia automatica nei dati del worker.

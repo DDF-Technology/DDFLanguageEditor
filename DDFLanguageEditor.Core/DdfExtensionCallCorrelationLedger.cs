@@ -4,6 +4,16 @@ using System.Linq;
 
 namespace DDFLanguageEditor.Core
 {
+    public sealed class DdfExtensionCallUnknownException : InvalidOperationException
+    {
+        public DdfExtensionCallUnknownException() : base("Call ID sconosciuto o già consumato.") { }
+    }
+
+    public sealed class DdfExtensionCallExpiredException : TimeoutException
+    {
+        public DdfExtensionCallExpiredException() : base("Risposta arrivata dopo la scadenza.") { }
+    }
+
     // Host-side single-use correlation only; not authentication or a dispatcher.
     public sealed class DdfExtensionCallCorrelationLedger
     {
@@ -64,10 +74,10 @@ namespace DDFLanguageEditor.Core
             lock (gate)
             {
                 if (!pending.TryGetValue(id, out call))
-                    throw new InvalidOperationException("Call ID sconosciuto o già consumato.");
+                    throw new DdfExtensionCallUnknownException();
                 pending.Remove(id); // Consume before validating untrusted response content.
                 if (Expired(call, clock.GetTimestamp()))
-                    throw new TimeoutException("Risposta arrivata dopo la scadenza.");
+                    throw new DdfExtensionCallExpiredException();
             }
             return DdfExtensionCallResponseCodec.Parse(payload, call.Request);
         }

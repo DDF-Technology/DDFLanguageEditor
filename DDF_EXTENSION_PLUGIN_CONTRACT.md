@@ -66,16 +66,23 @@ consuma l'ID alla prima risposta, anche se il payload è malformato. Un frame
 con ID ignoto o già usato è rifiutato; la risposta deve inoltre riferirsi al
 punto della richiesta originale. È soltanto correlazione locale: il `callId`
 non autentica il worker o il canale e non prova che il codice sia isolato.
-Mapping degli errori dichiarati, autorizzazione sul confine, autenticazione
-del trasporto e isolamento del worker restano prerequisiti del dispatch.
+`DdfExtensionCallAssessment` assegna diagnostiche host nel dominio
+`Execution` senza fidarsi dei codici proposti dal plug-in: `DDFX601` per
+`errorId` dichiarato, `DDFX602` per risposta non valida, `DDFX603` per
+scadenza e `DDFX604` per ID sconosciuto o già consumato. I messaggi non
+riportano eccezioni grezze o dati del worker. Queste diagnostiche descrivono
+il protocollo, non un plug-in realmente eseguito. Autorizzazione sul confine,
+autenticazione del trasporto e isolamento del worker restano prerequisiti
+del dispatch.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di
 manifest/firma/lock, verifica di firma/hash/SDK, grafo, consenso e operazione.
-Le famiglie `DDFX0xx`–`DDFX4xx` coprono i controlli attuali; `DDFX9xx` indica
-problemi di audit. I domini `Loading` ed `Execution` sono riservati al futuro
-host e non simulano funzionalità già attive. I vecchi journal di sviluppo
+Le famiglie `DDFX0xx`–`DDFX4xx` coprono i controlli di preflight e policy;
+`DDFX6xx` copre l'assessment del protocollo di chiamata e `DDFX9xx` indica
+problemi di audit. Il dominio `Loading` è riservato al futuro host; il dominio
+`Execution` oggi classifica solo esiti simulati del protocollo. I vecchi journal di sviluppo
 possono contenere codici `DDFP` per eventi plug-in: non vengono riscritti né
 utilizzati come permesso; le nuove decisioni usano `DDFX`.
 

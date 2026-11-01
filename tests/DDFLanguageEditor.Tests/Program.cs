@@ -120,6 +120,7 @@ namespace DDFLanguageEditor.Tests
             Run("round-trips extension calls through a strict versioned wire format", RoundTripsExtensionCallWireFormat);
             Run("keeps extension responses typed and plugin errors namespaced", KeepsExtensionResponsesTypedAndNamespaced);
             Run("correlates extension responses once within bounded host sessions", CorrelatesExtensionResponsesOnce);
+            Run("maps extension call outcomes into host-owned DDFX diagnostics", MapsExtensionCallOutcomesToHostDiagnostics);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2752,6 +2753,51 @@ namespace DDFLanguageEditor.Tests
             public override long TimestampFrequency => 1000;
             public override long GetTimestamp() => timestamp;
             public void Advance(TimeSpan duration) => timestamp += (long)duration.TotalMilliseconds;
+        }
+
+        private static void MapsExtensionCallOutcomesToHostDiagnostics()
+        {
+            var point = new DdfExtensionPointDescriptor("ddf.demo.call",
+                DdfExtensionPointKind.HostFunction, "1.0", Array.Empty<string>());
+            var request = new DdfExtensionCallRequest(point,
+                Array.Empty<KeyValuePair<string, DdfExtensionValue>>());
+            var success = DdfExtensionCallResponse.Success(point,
+                DdfExtensionValue.FromInteger(42));
+            var failure = DdfExtensionCallResponse.Failure(point,
+                "ddf.demo.call.error.invalid-input");
+            DdfExtensionCallAssessment assessment = DdfExtensionCallAssessment.FromResponse(success);
+            Equal(true, assessment.Success);
+            Equal(null, assessment.Diagnostic);
+            assessment = DdfExtensionCallAssessment.FromResponse(failure);
+            Equal(DdfExtensionCallAssessmentStatus.PluginFailure, assessment.Status);
+            Equal("DDFX601", assessment.Diagnostic.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Execution, assessment.Diagnostic.Domain);
+            Equal(false, assessment.Diagnostic.Code.StartsWith("DDFP", StringComparison.Ordinal));
+            var clock = new TestExtensionTimeProvider();
+            var ledger = new DdfExtensionCallCorrelationLedger(
+                TimeSpan.FromSeconds(5), clock: clock);
+            DdfExtensionCallTicket first = ledger.Issue(request);
+            assessment = DdfExtensionCallAssessment.Accept(ledger,
+                DdfExtensionCallFrameCodec.SerializeResponse(first.CallId, success));
+            Equal(DdfExtensionCallAssessmentStatus.Succeeded, assessment.Status);
+            Equal(42, assessment.Response.Value.Integer);
+            assessment = DdfExtensionCallAssessment.Accept(ledger,
+                DdfExtensionCallFrameCodec.SerializeResponse(first.CallId, success));
+            Equal("DDFX604", assessment.Diagnostic.Code);
+            DdfExtensionCallTicket malformed = ledger.Issue(request);
+            string malformedJson = DdfExtensionCallFrameCodec.SerializeResponse(
+                malformed.CallId, success).Replace("\"status\":\"Succeeded\"",
+                    "\"status\":\"Unknown\"");
+            assessment = DdfExtensionCallAssessment.Accept(ledger, malformedJson);
+            Equal("DDFX602", assessment.Diagnostic.Code);
+            Equal(0, ledger.PendingCount);
+            DdfExtensionCallTicket expired = ledger.Issue(request);
+            clock.Advance(TimeSpan.FromSeconds(6));
+            assessment = DdfExtensionCallAssessment.Accept(ledger,
+                DdfExtensionCallFrameCodec.SerializeResponse(expired.CallId, success));
+            Equal(DdfExtensionCallAssessmentStatus.Expired, assessment.Status);
+            Equal("DDFX603", assessment.Diagnostic.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Execution, assessment.Diagnostic.Domain);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
