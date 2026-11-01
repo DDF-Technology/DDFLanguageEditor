@@ -5,6 +5,18 @@ modulo DDF. Aprire codice, progetti o pacchetti lingua non deve installare o
 attivare plug-in. Questo documento definisce soltanto metadati e decisioni di
 autorizzazione: **nessun loader è abilitato** in questa verticale.
 
+La prima verticale `0.15.1` introduce `DdfExtensionPointDescriptor` e
+`DdfExtensionPointCatalog`: quattro categorie versionate (`SemanticOperation`,
+`RuntimeOperation`, `HostFunction`, `BuildBackend`), ID sotto il namespace
+esatto del plug-in e capability richieste contenute nel manifest. Il catalogo
+è immutabile, limitato a 64 voci ed esportabile come JSON `1.0` secondo
+`ddf-extension-points.schema.json`. L'API del punto (`1.0`) è distinta dalla
+versione SDK accettata dal manifest. Questa è **solo una dichiarazione**:
+non registra delegate, non espone AST/IR mutabili, editor o VM, non concede
+permessi e non collega ancora queste voci alle pipeline di analisi, runtime o
+build. L'host futuro dovrà verificare firma, lock, consenso e capability prima
+di attivare un punto e introdurre contratti tipizzati di input/output.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di

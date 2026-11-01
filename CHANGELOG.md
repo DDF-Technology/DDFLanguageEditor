@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Avviata la `0.15.1` con un catalogo descrittivo e versionato dei punti di estensione per semantica, runtime, funzioni host e backend di build. ID e capability sono vincolati al manifest; schema JSON e test impediscono versioni e descrizioni incoerenti. Nessun plug-in viene caricato o invocato.
+
 - Corretto il prefisso delle diagnostiche plug-in da `DDFP` a `DDFX`, evitando la collisione con gli errori del manifest di progetto. Aggiunto un preflight tipizzato per manifest, firma, lock, hash, SDK, dipendenze, consenso e risorse; nessun errore plug-in viene presentato come errore del sorgente DDF.
 
 - Definito il catalogo `1.0` delle capability dei plug-in: 19 operazioni ammesse nei sei domini file, rete, processi, dispositivi, UI e native. Manifest e grant rifiutano nomi inventati; schema e Core sono verificati insieme. Il catalogo dichiara requisiti di worker, ma non abilita adapter o esecuzione.

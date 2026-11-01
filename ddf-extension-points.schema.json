@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension point catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pluginId", "pluginVersion", "points"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "pluginId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 128 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "points": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "apiVersion", "requiredCapabilities"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 160 },
+          "kind": { "enum": ["SemanticOperation", "RuntimeOperation", "HostFunction", "BuildBackend"] },
+          "apiVersion": { "const": "1.0" },
+          "requiredCapabilities": {
+            "type": "array", "maxItems": 64, "uniqueItems": true,
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

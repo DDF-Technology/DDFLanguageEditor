@@ -1404,6 +1404,7 @@ host che non possono essere descritti in modo sicuro come dati.
 
 ### 0.15.1 — SDK e punti di estensione
 
+- [x] Avviare il catalogo dichiarativo `1.0` per i quattro punti di estensione (semantica, runtime, funzioni host, backend), vincolato all'identità e alle capability del manifest; schema JSON e test di rifiuto. Non è ancora un'API di esecuzione né attiva plug-in (`2026-11-01`).
 - [ ] Pubblicare API versionate per operazioni semantiche/runtime, funzioni host e backend di build.
 - [ ] Pubblicare adapter e resolver versionati per trasformare librerie esterne autorizzate in API DDF tipizzate, senza esporre direttamente loader, reflection o puntatori allo script.
 - [ ] Definire un descrittore comune e machine-readable per librerie e provider: namespace, versione, firme, effetti, errori, dipendenze, licenza, documentazione, classe di portabilità (`portable`, `dotnet`, `platform`, `host`), capability, sistemi/RID e architetture supportati. Analisi, IntelliSense, runtime e backend devono consumare lo stesso snapshot verificato.

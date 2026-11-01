@@ -113,6 +113,7 @@ namespace DDFLanguageEditor.Tests
             Run("resolves only signed and exactly pinned plugin dependency graphs", ResolvesExactlyPinnedPluginDependencies);
             Run("requires separate consent for every plugin dependency", RequiresSeparateConsentForEveryPluginDependency);
             Run("separates plugin preflight diagnostics from project and source errors", SeparatesPluginPreflightDiagnostics);
+            Run("keeps extension point descriptions versioned and bound to plugin identity", KeepsExtensionPointsBoundToPluginIdentity);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2419,6 +2420,45 @@ namespace DDFLanguageEditor.Tests
             Equal("DDFX202", scopeIssue.Code);
             Equal(DdfExtensionPluginDiagnosticDomain.Resource, scopeIssue.Domain);
             Equal(false, scopeIssue.Code.StartsWith("DDFP", StringComparison.Ordinal));
+        }
+
+        private static void KeepsExtensionPointsBoundToPluginIdentity()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "network.connect", "ui.command" });
+            DdfExtensionPointDescriptor[] points =
+            {
+                new DdfExtensionPointDescriptor("ddf.demo.semantic", DdfExtensionPointKind.SemanticOperation,
+                    "1.0", Array.Empty<string>()),
+                new DdfExtensionPointDescriptor("ddf.demo.runtime", DdfExtensionPointKind.RuntimeOperation,
+                    "1.0", new[] { "network.connect" }),
+                new DdfExtensionPointDescriptor("ddf.demo.host", DdfExtensionPointKind.HostFunction,
+                    "1.0", new[] { "ui.command" }),
+                new DdfExtensionPointDescriptor("ddf.demo.build", DdfExtensionPointKind.BuildBackend,
+                    "1.0", Array.Empty<string>())
+            };
+            var catalog = new DdfExtensionPointCatalog(manifest, points);
+            Equal(4, catalog.Points.Count);
+            Equal(true, catalog.TryGet("ddf.demo.runtime", out DdfExtensionPointDescriptor found));
+            Equal(DdfExtensionPointKind.RuntimeOperation, found.Kind);
+            Equal(false, catalog.TryGet("ddf.demo.missing", out _));
+            using JsonDocument json = JsonDocument.Parse(catalog.ToJson());
+            Equal("1.0", json.RootElement.GetProperty("schemaVersion").GetString());
+            Equal("ddf.demo", json.RootElement.GetProperty("pluginId").GetString());
+            Equal(4, json.RootElement.GetProperty("points").GetArrayLength());
+            Throws<ArgumentException>(() => new DdfExtensionPointDescriptor("ddf.demo.bad",
+                DdfExtensionPointKind.HostFunction, "2.0", Array.Empty<string>()));
+            Throws<ArgumentException>(() => new DdfExtensionPointDescriptor("ddf.demo.bad",
+                DdfExtensionPointKind.HostFunction, "1.0", new[] { "invented" }));
+            Throws<ArgumentException>(() => new DdfExtensionPointCatalog(manifest, new[] {
+                new DdfExtensionPointDescriptor("other.plugin.host", DdfExtensionPointKind.HostFunction,
+                    "1.0", Array.Empty<string>()) }));
+            Throws<ArgumentException>(() => new DdfExtensionPointCatalog(manifest, new[] {
+                new DdfExtensionPointDescriptor("ddf.demo.file", DdfExtensionPointKind.HostFunction,
+                    "1.0", new[] { "file.read" }) }));
+            Throws<ArgumentException>(() => new DdfExtensionPointCatalog(manifest,
+                new[] { points[0], points[0] }));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
