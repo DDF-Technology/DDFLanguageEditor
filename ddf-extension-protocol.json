@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "executionState": "contracts-only",
+  "protocols": [
+    {
+      "pointKind": "SemanticOperation", "apiVersion": "1.0",
+      "requestSchema": "ddf-extension-source-request.schema.json",
+      "responseSchema": "ddf-extension-semantic-response.schema.json",
+      "frameSchema": "ddf-extension-source-frame.schema.json",
+      "hostModes": ["Standalone", "Embedded"],
+      "minimumCapabilities": ["file.read"]
+    },
+    {
+      "pointKind": "RuntimeOperation", "apiVersion": "1.0",
+      "requestSchema": "ddf-extension-call.schema.json",
+      "responseSchema": "ddf-extension-call-response.schema.json",
+      "frameSchema": "ddf-extension-call-frame.schema.json",
+      "hostModes": ["Standalone", "Embedded"],
+      "minimumCapabilities": []
+    },
+    {
+      "pointKind": "HostFunction", "apiVersion": "1.0",
+      "requestSchema": "ddf-extension-call.schema.json",
+      "responseSchema": "ddf-extension-call-response.schema.json",
+      "frameSchema": "ddf-extension-call-frame.schema.json",
+      "hostModes": ["Standalone", "Embedded"],
+      "minimumCapabilities": []
+    },
+    {
+      "pointKind": "BuildBackend", "apiVersion": "1.0",
+      "requestSchema": "ddf-extension-source-request.schema.json",
+      "responseSchema": "ddf-extension-build-response.schema.json",
+      "frameSchema": "ddf-extension-source-frame.schema.json",
+      "hostModes": ["Standalone"],
+      "minimumCapabilities": ["file.read", "file.write"]
+    }
+  ]
+}

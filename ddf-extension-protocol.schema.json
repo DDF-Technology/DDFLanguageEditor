@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension protocol catalog 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "executionState", "protocols"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "executionState": { "const": "contracts-only" },
+    "protocols": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pointKind", "apiVersion", "requestSchema", "responseSchema",
+          "frameSchema", "hostModes", "minimumCapabilities"],
+        "properties": {
+          "pointKind": { "enum": ["SemanticOperation", "RuntimeOperation", "HostFunction", "BuildBackend"] },
+          "apiVersion": { "const": "1.0" },
+          "requestSchema": { "type": "string", "minLength": 1 },
+          "responseSchema": { "type": "string", "minLength": 1 },
+          "frameSchema": { "type": "string", "minLength": 1 },
+          "hostModes": { "type": "array", "minItems": 1, "maxItems": 2,
+            "items": { "enum": ["Standalone", "Embedded"] }, "uniqueItems": true },
+          "minimumCapabilities": { "type": "array", "maxItems": 2,
+            "items": { "enum": ["file.read", "file.write"] }, "uniqueItems": true }
+        }
+      }
+    }
+  }
+}

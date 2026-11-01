@@ -130,6 +130,7 @@ namespace DDFLanguageEditor.Tests
             Run("requires scoped source grants and standalone mode for extension builds", RequiresScopedSourceExtensionAdmission);
             Run("correlates semantic and build extension responses once", CorrelatesSourceExtensionResponsesOnce);
             Run("classifies source extension outcomes as host DDFX diagnostics", ClassifiesSourceExtensionOutcomes);
+            Run("publishes a closed versioned extension protocol inventory", PublishesExtensionProtocolInventory);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3395,6 +3396,39 @@ namespace DDFLanguageEditor.Tests
             Equal(DdfExtensionPluginDiagnosticDomain.Execution,
                 reported.Diagnostic.Domain);
             Equal(DdfExtensionSourceOperationKind.Build, reported.Kind);
+        }
+
+        private static void PublishesExtensionProtocolInventory()
+        {
+            string projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+                "..", "..", "..", ".."));
+            string json = File.ReadAllText(Path.Combine(projectRoot,
+                "ddf-extension-protocol.json"), Encoding.UTF8);
+            DdfExtensionProtocolCatalog.ValidateJson(json);
+            DdfExtensionProtocolCatalog.ValidateJson(DdfExtensionProtocolCatalog.ToJson());
+            Equal(4, DdfExtensionProtocolCatalog.All.Count);
+            Equal(true, DdfExtensionProtocolCatalog.TryGet(
+                DdfExtensionPointKind.BuildBackend, out DdfExtensionProtocolDescriptor build));
+            SequenceEqual(new[] { DdfExtensionHostMode.Standalone }, build.HostModes);
+            SequenceEqual(new[] { "file.read", "file.write" }, build.MinimumCapabilities);
+            Equal("ddf-extension-build-response.schema.json", build.ResponseSchema);
+            using JsonDocument document = JsonDocument.Parse(json);
+            foreach (JsonElement entry in document.RootElement.GetProperty("protocols").EnumerateArray())
+            {
+                foreach (string field in new[] { "requestSchema", "responseSchema", "frameSchema" })
+                    Equal(true, File.Exists(Path.Combine(projectRoot,
+                        entry.GetProperty(field).GetString())));
+            }
+            Throws<FormatException>(() => DdfExtensionProtocolCatalog.ValidateJson(
+                json.Replace("\"contracts-only\"", "\"active\"")));
+            Throws<FormatException>(() => DdfExtensionProtocolCatalog.ValidateJson(
+                json.Replace("\"Standalone\"", "\"Embedded\"")));
+            Throws<FormatException>(() => DdfExtensionProtocolCatalog.ValidateJson(
+                json.Replace("\"protocols\":", "\"extra\":0,\"protocols\":")));
+            Throws<FormatException>(() => DdfExtensionProtocolCatalog.ValidateJson(
+                json.Replace("ddf-extension-build-response.schema.json", "other.schema.json")));
+            Throws<ArgumentException>(() => DdfExtensionProtocolCatalog.ValidateJson(
+                new string(' ', 32769)));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

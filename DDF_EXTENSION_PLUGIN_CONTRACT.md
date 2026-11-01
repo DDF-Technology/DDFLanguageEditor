@@ -165,6 +165,16 @@ dell'errore del plug-in non viene riproposto nella diagnostica host. Una
 risposta semanticamente valida conserva comunque diagnostiche e artefatti
 non attendibili; nessuno dei due viene automaticamente applicato al progetto.
 
+`ddf-extension-protocol.json` pubblica l'inventario `1.0` dei protocolli per
+`SemanticOperation`, `RuntimeOperation`, `HostFunction` e `BuildBackend`:
+schemi di richiesta/risposta/frame, modalità host consentite e capability
+minime. `DdfExtensionProtocolCatalog` espone lo stesso inventario in Core e
+rifiuta un manifesto divergente o che dichiari uno stato diverso da
+`contracts-only`. Il file è incluso nel NuGet Core, insieme al suo schema.
+La versione `1.0` del protocollo dei punti non è la versione `0.42` dell'SDK
+dell'editor incorporabile. Il manifesto è documentazione verificabile, non
+un modo per registrare o invocare codice esterno.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di

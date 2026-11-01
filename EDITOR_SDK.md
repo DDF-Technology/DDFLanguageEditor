@@ -12,6 +12,11 @@ incremento uguale del prodotto o della ABI.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
 
+Il NuGet Core include anche `ddf-extension-protocol.json`, inventario dei
+futuri punti di estensione eseguibili. Il loro protocollo dati `1.0` è
+indipendente dal contratto dell'editor `0.42` e ha stato `contracts-only`:
+non abilita caricamento o esecuzione di plug-in.
+
 ## Pacchetti e applicazione standalone
 
 Il codice è separato in quattro artefatti:
