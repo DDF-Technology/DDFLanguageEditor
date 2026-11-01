@@ -118,6 +118,7 @@ namespace DDFLanguageEditor.Tests
             Run("authenticates extension point catalogs against signed manifests", AuthenticatesExtensionPointCatalogs);
             Run("bounds immutable extension call values without exposing host objects", BoundsImmutableExtensionCallValues);
             Run("round-trips extension calls through a strict versioned wire format", RoundTripsExtensionCallWireFormat);
+            Run("keeps extension responses typed and plugin errors namespaced", KeepsExtensionResponsesTypedAndNamespaced);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2645,6 +2646,52 @@ namespace DDFLanguageEditor.Tests
                 json.Replace("\"text\":", "\"text\":{\"kind\":\"Null\"},\"text\":"), catalog));
             Throws<JsonException>(() => DdfExtensionCallCodec.Parse(json + " // trailing", catalog));
             Throws<ArgumentException>(() => DdfExtensionCallCodec.Parse(new string(' ', 131073), catalog));
+        }
+
+        private static void KeepsExtensionResponsesTypedAndNamespaced()
+        {
+            var point = new DdfExtensionPointDescriptor("ddf.demo.call",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", Array.Empty<string>());
+            var request = new DdfExtensionCallRequest(point,
+                Array.Empty<KeyValuePair<string, DdfExtensionValue>>());
+            var success = DdfExtensionCallResponse.Success(point,
+                DdfExtensionValue.FromArray(new[] { DdfExtensionValue.FromInteger(42) }));
+            string successJson = DdfExtensionCallResponseCodec.Serialize(success);
+            DdfExtensionCallResponse decoded =
+                DdfExtensionCallResponseCodec.Parse(successJson, request);
+            Equal(DdfExtensionCallStatus.Succeeded, decoded.Status);
+            Equal(42, decoded.Value.Elements[0].Integer);
+            Equal(null, decoded.ErrorId);
+            Equal(successJson, DdfExtensionCallResponseCodec.Serialize(decoded));
+            var failure = DdfExtensionCallResponse.Failure(point,
+                "ddf.demo.call.error.invalid-input");
+            string failureJson = DdfExtensionCallResponseCodec.Serialize(failure);
+            decoded = DdfExtensionCallResponseCodec.Parse(failureJson, request);
+            Equal(DdfExtensionCallStatus.Failed, decoded.Status);
+            Equal(null, decoded.Value);
+            Equal("ddf.demo.call.error.invalid-input", decoded.ErrorId);
+            Equal(failureJson, DdfExtensionCallResponseCodec.Serialize(decoded));
+            Throws<ArgumentException>(() => DdfExtensionCallResponse.Failure(point, "DDFX601"));
+            Throws<ArgumentException>(() => DdfExtensionCallResponse.Failure(point,
+                "ddf.other.error.invalid-input"));
+            var other = new DdfExtensionPointDescriptor("ddf.demo.other",
+                DdfExtensionPointKind.HostFunction, "1.0", Array.Empty<string>());
+            Throws<FormatException>(() => DdfExtensionCallResponseCodec.Parse(successJson,
+                new DdfExtensionCallRequest(other,
+                    Array.Empty<KeyValuePair<string, DdfExtensionValue>>())));
+            Throws<FormatException>(() => DdfExtensionCallResponseCodec.Parse(
+                successJson.Replace("\"status\":\"Succeeded\"",
+                    "\"status\":\"Unknown\""), request));
+            Throws<FormatException>(() => DdfExtensionCallResponseCodec.Parse(
+                successJson.Replace("\"value\":", "\"extra\":0,\"value\":"), request));
+            Throws<FormatException>(() => DdfExtensionCallResponseCodec.Parse(
+                successJson.Replace("\"value\":", "\"value\":{\"kind\":\"Null\"},\"value\":"), request));
+            Throws<FormatException>(() => DdfExtensionCallResponseCodec.Parse(
+                failureJson.Replace("\"errorId\":", "\"value\":{\"kind\":\"Null\"},\"errorId\":"), request));
+            Throws<ArgumentException>(() => DdfExtensionCallResponseCodec.Parse(
+                failureJson.Replace("ddf.demo.call.error.invalid-input", "DDFX601"), request));
+            Throws<JsonException>(() => DdfExtensionCallResponseCodec.Parse(
+                successJson + " // trailing", request));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

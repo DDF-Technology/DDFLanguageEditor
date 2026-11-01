@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension call response 1.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "pointId", "status", "value"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "pointId": { "$ref": "#/$defs/pointId" },
+        "status": { "const": "Succeeded" },
+        "value": { "$ref": "ddf-extension-call.schema.json#/$defs/value" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "pointId", "status", "errorId"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "pointId": { "$ref": "#/$defs/pointId" },
+        "status": { "const": "Failed" },
+        "errorId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 200 }
+      }
+    }
+  ],
+  "$defs": {
+    "pointId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 160 }
+  }
+}

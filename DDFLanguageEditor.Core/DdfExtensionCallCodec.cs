@@ -11,7 +11,7 @@ namespace DDFLanguageEditor.Core
     public static class DdfExtensionCallCodec
     {
         public const string SchemaVersion = "1.0";
-        private const int MaximumBytes = 131072;
+        internal const int MaximumBytes = 131072;
 
         public static string Serialize(DdfExtensionCallRequest request)
         {
@@ -73,7 +73,7 @@ namespace DDFLanguageEditor.Core
             return new DdfExtensionCallRequest(point, values);
         }
 
-        private static void WriteValue(Utf8JsonWriter writer, DdfExtensionValue value)
+        internal static void WriteValue(Utf8JsonWriter writer, DdfExtensionValue value)
         {
             writer.WriteStartObject();
             writer.WriteString("kind", value.Kind.ToString());
@@ -105,7 +105,7 @@ namespace DDFLanguageEditor.Core
             writer.WriteEndObject();
         }
 
-        private static DdfExtensionValue ReadValue(JsonElement element, int depth,
+        internal static DdfExtensionValue ReadValue(JsonElement element, int depth,
             ref int remaining)
         {
             if (depth > 8 || --remaining < 0)
@@ -171,7 +171,7 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        private static string ReadString(JsonElement element, string name)
+        internal static string ReadString(JsonElement element, string name)
         {
             JsonElement value = element.GetProperty(name);
             if (value.ValueKind != JsonValueKind.String)
@@ -179,7 +179,7 @@ namespace DDFLanguageEditor.Core
             return value.GetString();
         }
 
-        private static void RequireFields(JsonElement element, params string[] names)
+        internal static void RequireFields(JsonElement element, params string[] names)
         {
             if (element.ValueKind != JsonValueKind.Object)
                 throw new FormatException("Oggetto richiesto.");

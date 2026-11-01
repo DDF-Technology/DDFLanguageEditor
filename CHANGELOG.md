@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto il formato di risposta tipizzata `1.0` delle future chiamate runtime/host: successo con valore DDF o fallimento con ID d'errore limitato al namespace del punto. Schema e parser rifiutano risposte ambigue o riferite a un altro punto; non esiste ancora dispatch o fiducia automatica nei dati del worker.
+
 - Le richieste dei punti runtime/host dispongono ora di un wire format JSON `1.0` con valori tipizzati, schema pubblicato e parser rigoroso su campi, quote, tipo e punto registrato. È solo trasporto descrittivo: nessun plug-in viene invocato.
 
 - Primo contratto di valore per lo SDK dei plug-in: scalari/array DDF immutabili, senza riferimenti a editor, host, VM o Roslyn. Le richieste descrittive per runtime e funzioni host hanno quote per argomenti e struttura; nessuna invocazione è abilitata.

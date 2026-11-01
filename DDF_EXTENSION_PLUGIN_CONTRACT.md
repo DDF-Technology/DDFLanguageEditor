@@ -49,7 +49,16 @@ numero di nodi, range `Int32` e float finiti, e risolve `pointId` solo nel
 catalogo ricevuto. Non verifica da solo la firma del catalogo: l'host deve
 passargli uno snapshot ottenuto da `VerifyCatalog` e completare anche i gate
 su artifact, dipendenze, consenso e risorse. Né il parsing né lo schema JSON
-autorizzano il dispatch; risposta e errori operativi restano futuri.
+autorizzano il dispatch.
+`DdfExtensionCallResponse@1.0` aggiunge una risposta dati separata, descritta
+da `ddf-extension-call-response.schema.json`: `Succeeded` contiene esattamente
+un valore tipizzato, `Failed` contiene solo un `errorId` con prefisso
+`<pointId>.error.`. Il codec rifiuta campi misti, duplicati, status sconosciuti,
+quote superate e `pointId` diverso dalla richiesta. L'errore dichiarato da un
+plug-in non può usare la famiglia diagnostica host `DDFX` e non equivale a una
+decisione di sicurezza. La risposta non porta ancora un ID univoco della
+singola invocazione: correlazione anti-replay, mapping degli errori dichiarati,
+timeout e isolamento del worker sono prerequisiti del futuro dispatch.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
