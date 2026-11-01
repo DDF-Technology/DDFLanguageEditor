@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Pubblicato il wire format JSON `1.0` per gli input sorgente dei futuri punti semantici e backend di build. Il parser rigoroso verifica struttura, hash SHA-256, percorsi logici, intervalli e quote senza accedere ai file né invocare plug-in.
+
 - Introdotti input sorgente immutabili per futuri punti semantici e backend di build: percorso relativo, UTF-8 rigoroso, hash SHA-256, limiti per documento e workspace, senza AST/IR o oggetti Roslyn. I punti devono dichiarare le capability file necessarie; non sono ancora disponibili dispatch, risultati o accesso fisico alle risorse.
 
 - Le firme runtime/host sono ora pubblicabili in un catalogo JSON `1.0` con schema rigoroso e firma staccata ECDSA P-256. Il preflight lega catalogo delle firme, catalogo dei punti e manifest all'editore attendibile; rifiuta alterazioni e copertura incompleta senza caricare plug-in.

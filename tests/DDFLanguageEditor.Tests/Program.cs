@@ -124,6 +124,7 @@ namespace DDFLanguageEditor.Tests
             Run("validates extension calls against explicit immutable signatures", ValidatesExtensionCallsAgainstSignatures);
             Run("authenticates machine-readable extension call signatures", AuthenticatesExtensionCallSignatures);
             Run("bounds source-only semantic and build extension requests", BoundsSourceOnlyExtensionRequests);
+            Run("round-trips strict semantic and build source requests", RoundTripsExtensionSourceRequests);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3019,6 +3020,68 @@ namespace DDFLanguageEditor.Tests
                 new DdfExtensionPointDescriptor("ddf.demo.no-read",
                     DdfExtensionPointKind.SemanticOperation, "1.0", Array.Empty<string>()),
                 main, "FunctionDeclaration", 0, 0));
+        }
+
+        private static void RoundTripsExtensionSourceRequests()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "file.read", "file.write" });
+            var semantic = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var backend = new DdfExtensionPointDescriptor("ddf.demo.backend",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var catalog = new DdfExtensionPointCatalog(manifest,
+                new[] { semantic, backend });
+            var main = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var helper = new DdfExtensionSourceSnapshot("src/helper.ddf", "α");
+            var semanticRequest = new DdfExtensionSemanticRequest(semantic, main,
+                "FunctionDeclaration", 0, 4);
+            string semanticJson = DdfExtensionSourceRequestCodec.SerializeSemantic(semanticRequest);
+            DdfExtensionSemanticRequest parsedSemantic =
+                DdfExtensionSourceRequestCodec.ParseSemantic(semanticJson, catalog);
+            Equal(semanticJson, DdfExtensionSourceRequestCodec.SerializeSemantic(parsedSemantic));
+            Equal(main.Sha256, parsedSemantic.Document.Sha256);
+            Equal(4, parsedSemantic.Length);
+            var build = new DdfExtensionBuildRequest(backend, new[] { main, helper },
+                "src/main.ddf", DdfExtensionBuildTargetKind.Executable);
+            string buildJson = DdfExtensionSourceRequestCodec.SerializeBuild(build);
+            DdfExtensionBuildRequest parsedBuild =
+                DdfExtensionSourceRequestCodec.ParseBuild(buildJson, catalog);
+            Equal(buildJson, DdfExtensionSourceRequestCodec.SerializeBuild(parsedBuild));
+            Equal(2, parsedBuild.Sources.Count);
+            Equal("src/main.ddf", parsedBuild.EntrySource);
+            Equal(DdfExtensionBuildTargetKind.Executable, parsedBuild.TargetKind);
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace(main.Sha256, new string('b', 64)), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseBuild(
+                buildJson.Replace(helper.Sha256, new string('b', 64)), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("\"schemaVersion\":\"1.0\"",
+                    "\"schemaVersion\":\"2.0\""), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseBuild(
+                buildJson.Replace("\"targetKind\":\"Executable\"",
+                    "\"targetKind\":\"Unknown\""), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseBuild(
+                buildJson.Replace("\"sources\":", "\"extra\":0,\"sources\":"), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("\"pointId\":\"ddf.demo.semantic\"",
+                    "\"pointId\":\"ddf.demo.missing\""), catalog));
+            Throws<ArgumentException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("ddf.demo.semantic", "ddf.demo.backend"), catalog));
+            Throws<FormatException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("\"ruleId\":", "\"ruleId\":\"Duplicate\",\"ruleId\":"), catalog));
+            Throws<ArgumentOutOfRangeException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("\"length\":4", "\"length\":9999"), catalog));
+            Throws<ArgumentException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                semanticJson.Replace("src/main.ddf", "../main.ddf"), catalog));
+            Throws<ArgumentException>(() => DdfExtensionSourceRequestCodec.ParseBuild(
+                buildJson.Replace("src/helper.ddf", "SRC/MAIN.DDF"), catalog));
+            Throws<JsonException>(() => DdfExtensionSourceRequestCodec.ParseBuild(
+                buildJson + " // trailing", catalog));
+            Throws<ArgumentException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
+                new string(' ', DdfExtensionSourceRequestCodec.MaximumWireBytes + 1), catalog));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

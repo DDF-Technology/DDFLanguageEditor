@@ -102,9 +102,16 @@ regola e un intervallo interno al documento; il punto deve dichiarare
 per percorso (confronto case-insensitive), massimo 8 MiB complessivi,
 sorgente principale presente nell'insieme e target eseguibile/libreria; il
 punto deve dichiarare `file.read` e `file.write`. Questi nomi sono logici:
-non devono essere usati direttamente per aprire file. I grant per risorsa
-esatta, la modalità standalone per la build, le risposte, il wire format e
-l'attestazione di questi input rimangono da definire prima di un dispatcher.
+non devono essere usati direttamente per aprire file.
+`DdfExtensionSourceRequestCodec` definisce il wire format JSON `1.0` di tali
+richieste (`ddf-extension-source-request.schema.json`). Il parser accetta solo
+campi noti, ricostruisce gli snapshot e ne verifica l'hash SHA-256 sul testo
+UTF-8, gli intervalli, i percorsi relativi, il punto nel catalogo e le quote
+(1 MiB per sorgente, 8 MiB per build, 128 sorgenti, 32 MiB di payload).
+Il catalogo passato al parser deve essere già verificato dall'host: il parser
+non autentica la provenienza. I grant per risorsa esatta, la modalità
+standalone per la build, le risposte e l'attestazione di questi input
+rimangono da definire prima di un dispatcher.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
