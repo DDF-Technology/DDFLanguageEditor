@@ -225,8 +225,9 @@ namespace DDFLanguageEditor.Core
                 !string.Equals(manifest.AssemblySha256, grant.AssemblySha256, StringComparison.Ordinal))
                 return DdfExtensionPluginDecision.IdentityMismatch;
             if (grant.Revoked) return DdfExtensionPluginDecision.Revoked;
-            return manifest.Capabilities.All(item => grant.Capabilities.Contains(item,
-                StringComparer.Ordinal)) ? DdfExtensionPluginDecision.Authorized :
+            return grant.Capabilities.Count == manifest.Capabilities.Count &&
+                manifest.Capabilities.All(item => grant.Capabilities.Contains(item,
+                    StringComparer.Ordinal)) ? DdfExtensionPluginDecision.Authorized :
                 DdfExtensionPluginDecision.CapabilityDenied;
         }
     }

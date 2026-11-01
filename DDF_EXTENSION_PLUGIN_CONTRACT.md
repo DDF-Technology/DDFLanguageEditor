@@ -21,6 +21,14 @@ L'ordine restituito pone sempre le dipendenze prima del plug-in radice.
 Il lockfile appartiene al progetto/host e non costituisce consenso a eseguire:
 ciascun plug-in richiederà comunque autorizzazioni proprie e il futuro loader
 dovrà usare esattamente i byte verificati, senza race sui file.
+`DdfExtensionPluginGraphAdmission` esegue il gate successivo, ancora senza
+caricare codice: dopo la verifica del lock richiede un grant distinto per ogni
+nodo raggiungibile, compresa la radice. Ogni grant deve coincidere con ID,
+editore, versione, hash e insieme esatto delle capability dichiarate;
+concessioni mancanti, revocate, duplicate o estranee negano l'intero grafo.
+Nessun permesso del plug-in principale si trasmette alle dipendenze. Un esito
+positivo non autorizza di per sé l'uso di risorse: ogni operazione rimane
+soggetta alla coppia capability/risorsa logica e all'audit.
 
 La firma è un documento staccato descritto da
 `ddf-extension-plugin-signature.schema.json`: algoritmo fisso
@@ -40,9 +48,9 @@ Le capability sono nomi granulari nei domini `file`, `network`, `process`,
 dell'utente/host è separato e vincolato a ID, editore, versione, hash e
 capability. Senza grant, con grant revocato, identità diversa o capability
 mancanti, la decisione è negativa. Un cambio di binario, versione o editore
-richiede quindi un nuovo consenso. Il Core non memorizza ancora grant né
-effettua richieste di consenso: persistenza, audit e UI arriveranno in una
-verticale successiva. Il confine di processo per plug-in non fidati è previsto
+richiede quindi un nuovo consenso. Il Core non mostra una UI di consenso né
+persiste grant automaticamente; il registro per sessione e l'audit sono
+descritti sotto. Il confine di processo per plug-in non fidati è previsto
 dalla 0.15.2; un controllo di manifest **non** è una sandbox.
 
 Una singola capability non autorizza tutte le risorse del dominio. La policy

@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Le dipendenze dei plug-in richiedono ora un consenso separato per ogni nodo del grafo verificato. Un grant mancante, revocato, duplicato, estraneo o con capability non coincidenti nega l'intero grafo; non c'è ereditarietà dei permessi dal plug-in principale.
+
 - Il contratto plug-in dispone ora di un lockfile per le dipendenze, con versioni e hash esatti di manifest e assembly. Il resolver Core verifica firme e chiusura transitiva, rifiuta cicli, nodi mancanti o estranei e restituisce un ordine deterministico senza caricare codice o concedere permessi.
 
 - Il journal di sicurezza dei plug-in registra ora anche concessioni e revoche esplicite dell'host nella stessa catena autenticata delle decisioni. Una concessione diventa attiva solo dopo la scrittura durevole; una revoca toglie immediatamente il permesso anche se l'audit fallisce. Nessun grant è ripristinato automaticamente al riavvio.

@@ -109,6 +109,7 @@ namespace DDFLanguageEditor.Tests
             Run("persists and authenticates plugin security decisions fail closed", PersistsPluginSecurityDecisionsFailClosed);
             Run("records explicit plugin consent and revocation without replay", RecordsExplicitPluginConsentAndRevocation);
             Run("resolves only signed and exactly pinned plugin dependency graphs", ResolvesExactlyPinnedPluginDependencies);
+            Run("requires separate consent for every plugin dependency", RequiresSeparateConsentForEveryPluginDependency);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2199,6 +2200,65 @@ namespace DDFLanguageEditor.Tests
                 artifacts.Append(extra), trust, "0.42").Success);
             Throws<FormatException>(() => DdfExtensionPluginDependencyLockCodec.Parse(
                 json.Replace("\"entries\":", "\"entries\":[],\"entries\":")));
+        }
+
+        private static void RequiresSeparateConsentForEveryPluginDependency()
+        {
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginArtifact Make(string id, string[] dependencies,
+                string[] capabilities)
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes("assembly:" + id);
+                string hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+                var manifest = new DdfExtensionPluginManifest(id, "ddf.technology",
+                    "1.0.0", "0.42", "0.50", "Plugin.dll", hash,
+                    dependencies, capabilities);
+                return new DdfExtensionPluginArtifact(manifest,
+                    DdfExtensionPluginSignatureVerifier.Sign(manifest, "key-1", publisher),
+                    bytes);
+            }
+            DdfExtensionPluginArtifact root = Make("ddf.root", new[] { "ddf.helper" },
+                new[] { "file.read" });
+            DdfExtensionPluginArtifact helper = Make("ddf.helper", Array.Empty<string>(),
+                new[] { "network.connect" });
+            DdfExtensionPluginArtifact[] artifacts = { root, helper };
+            var pins = new DdfExtensionPluginDependencyLockFile(artifacts.Select(item =>
+                DdfExtensionPluginLockEntry.FromManifest(item.Manifest)));
+            DdfExtensionPluginGrant Grant(DdfExtensionPluginArtifact artifact,
+                IEnumerable<string> capabilities, bool revoked = false) =>
+                new DdfExtensionPluginGrant(artifact.Manifest.Id,
+                    artifact.Manifest.Publisher, artifact.Manifest.Version,
+                    artifact.Manifest.AssemblySha256, capabilities, revoked);
+            DdfExtensionPluginGrant rootGrant = Grant(root, root.Manifest.Capabilities);
+            DdfExtensionPluginGrant helperGrant = Grant(helper, helper.Manifest.Capabilities);
+            DdfExtensionPluginGraphAdmissionResult Evaluate(params DdfExtensionPluginGrant[] grants) =>
+                DdfExtensionPluginGraphAdmission.Evaluate("ddf.root", pins,
+                    artifacts, trust, "0.42", grants);
+            DdfExtensionPluginGraphAdmissionResult missing = Evaluate(rootGrant);
+            Equal(false, missing.Success);
+            Equal(0, missing.OrderedIds.Count);
+            Equal(true, missing.Issues.Single().StartsWith("DDFP401", StringComparison.Ordinal));
+            Equal(true, Evaluate(rootGrant, helperGrant).Success);
+            SequenceEqual(new[] { "ddf.helper", "ddf.root" },
+                Evaluate(rootGrant, helperGrant).OrderedIds);
+            Equal(false, Evaluate(rootGrant, Grant(helper, new[] { "file.read" })).Success);
+            Equal(false, Evaluate(rootGrant, Grant(helper,
+                new[] { "network.connect", "file.read" })).Success);
+            Equal(false, Evaluate(rootGrant, Grant(helper,
+                new[] { "network.connect", "network.connect" })).Success);
+            Equal(false, Evaluate(rootGrant, Grant(helper, helper.Manifest.Capabilities,
+                revoked: true)).Success);
+            Equal(false, Evaluate(rootGrant, helperGrant, helperGrant).Success);
+            var foreign = new DdfExtensionPluginGrant("ddf.other", "ddf.technology",
+                "1.0.0", new string('a', 64), Array.Empty<string>());
+            Equal(false, Evaluate(rootGrant, helperGrant, foreign).Success);
+            var wrongHash = new DdfExtensionPluginGrant(helper.Manifest.Id,
+                helper.Manifest.Publisher, helper.Manifest.Version,
+                new string('b', 64), helper.Manifest.Capabilities);
+            Equal(false, Evaluate(rootGrant, wrongHash).Success);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
