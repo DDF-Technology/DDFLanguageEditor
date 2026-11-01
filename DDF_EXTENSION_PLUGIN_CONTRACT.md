@@ -60,9 +60,19 @@ URL o segreti dell'host, solo gli ID logici e l'identità del plug-in.
 
 Il journal non impedisce il rollback a una vecchia copia *valida* da parte di
 chi può sostituire il file: serve un'ancora monotona protetta dall'host prima
-di usare il meccanismo per codice reale. Restano inoltre aperti gli eventi
-espliciti di concessione/revoca e l'applicazione della policy negli adapter.
-Il lifecycle dei grant non è ancora implementato.
+di usare il meccanismo per codice reale. `DdfExtensionPluginConsentLedger`
+gestisce una sessione per un solo plug-in: `Approve` verifica firma, hash e
+compatibilità, poi scrive un evento `Granted` autenticato prima di attivare
+la coppia capability/risorsa. `Revoke` rimuove subito il permesso e registra
+`Revoked`; se il journal non è disponibile, il permesso rimane comunque
+revocato. Entrambe le azioni riportano un ID attore fornito dall'host: il
+Core non autentica da solo la persona o il processo dietro quell'ID.
+Le decisioni di autorizzazione e gli eventi di consenso condividono sequenza e
+catena HMAC. Il registro non ricostruisce permessi dal journal al riavvio:
+una nuova sessione parte senza grant e richiede un nuovo consenso esplicito.
+Restano aperti l'ancoraggio anti-rollback, la verifica dell'identità dell'attore,
+la persistenza governata dei grant, l'UI di consenso e l'applicazione della
+policy negli adapter.
 
 La decisione del contratto è distinta da errori del linguaggio DDF, del
 progetto e del motore. La futura diagnostica operativa aggiungerà codici

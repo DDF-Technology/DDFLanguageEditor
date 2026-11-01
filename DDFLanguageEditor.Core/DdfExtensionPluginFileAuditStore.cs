@@ -43,6 +43,63 @@ namespace DDFLanguageEditor.Core
             DdfExtensionPluginManifest manifest, DdfExtensionPluginOperationResult result,
             DateTimeOffset observedAtUtc)
         {
+            DdfExtensionPluginSecurityEvent entry = null;
+            AppendRecord(sequence =>
+            {
+                entry = new DdfExtensionPluginSecurityEvent(sequence,
+                    observedAtUtc, manifest, result);
+                return JsonSerializer.SerializeToUtf8Bytes(new
+                {
+                    schemaVersion = "1.0",
+                    eventType = "decision",
+                    sequence = entry.Sequence,
+                    observedAtUtc = entry.ObservedAtUtc,
+                    pluginId = entry.PluginId,
+                    publisher = entry.Publisher,
+                    version = entry.Version,
+                    assemblySha256 = entry.AssemblySha256,
+                    capability = entry.Capability,
+                    resourceId = entry.ResourceId,
+                    decision = entry.Decision.ToString(),
+                    admissionDecision = entry.AdmissionDecision.ToString(),
+                    code = entry.Code,
+                    domain = entry.Domain.ToString()
+                });
+            });
+            return entry;
+        }
+
+        internal DdfExtensionPluginConsentEvent AppendConsent(
+            DdfExtensionPluginManifest manifest, DdfExtensionPluginConsentAction action,
+            string capability, string resourceId, string actorId,
+            DateTimeOffset observedAtUtc)
+        {
+            DdfExtensionPluginConsentEvent entry = null;
+            AppendRecord(sequence =>
+            {
+                entry = new DdfExtensionPluginConsentEvent(sequence, observedAtUtc,
+                    manifest, action, capability, resourceId, actorId);
+                return JsonSerializer.SerializeToUtf8Bytes(new
+                {
+                    schemaVersion = "1.0",
+                    eventType = "consent",
+                    sequence = entry.Sequence,
+                    observedAtUtc = entry.ObservedAtUtc,
+                    pluginId = entry.PluginId,
+                    publisher = entry.Publisher,
+                    version = entry.Version,
+                    assemblySha256 = entry.AssemblySha256,
+                    capability = entry.Capability,
+                    resourceId = entry.ResourceId,
+                    action = entry.Action.ToString(),
+                    actorId = entry.ActorId
+                });
+            });
+            return entry;
+        }
+
+        private void AppendRecord(Func<long, byte[]> createPayload)
+        {
             lock (gate)
             {
                 if (disposed) throw new ObjectDisposedException(nameof(DdfExtensionPluginFileAuditStore));
@@ -58,24 +115,9 @@ namespace DDFLanguageEditor.Core
                 byte[] existing = new byte[(int)stream.Length];
                 stream.ReadExactly(existing);
                 (long sequence, byte[] previousMac) = Verify(existing);
-                var entry = new DdfExtensionPluginSecurityEvent(sequence + 1,
-                    observedAtUtc, manifest, result);
-                byte[] payload = JsonSerializer.SerializeToUtf8Bytes(new
-                {
-                    schemaVersion = "1.0",
-                    sequence = entry.Sequence,
-                    observedAtUtc = entry.ObservedAtUtc,
-                    pluginId = entry.PluginId,
-                    publisher = entry.Publisher,
-                    version = entry.Version,
-                    assemblySha256 = entry.AssemblySha256,
-                    capability = entry.Capability,
-                    resourceId = entry.ResourceId,
-                    decision = entry.Decision.ToString(),
-                    admissionDecision = entry.AdmissionDecision.ToString(),
-                    code = entry.Code,
-                    domain = entry.Domain.ToString()
-                });
+                if (sequence == long.MaxValue)
+                    throw new InvalidDataException("Sequenza audit esaurita.");
+                byte[] payload = createPayload(sequence + 1);
                 byte[] mac = ComputeMac(previousMac, payload);
                 byte[] line = StrictUtf8.GetBytes(Convert.ToBase64String(payload) + " " +
                     Convert.ToHexString(mac).ToLowerInvariant() + "\n");
@@ -84,7 +126,6 @@ namespace DDFLanguageEditor.Core
                 stream.Seek(0, SeekOrigin.End);
                 stream.Write(line);
                 stream.Flush(true);
-                return entry;
             }
         }
 

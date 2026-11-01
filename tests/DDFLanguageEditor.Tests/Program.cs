@@ -107,6 +107,7 @@ namespace DDFLanguageEditor.Tests
             Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
             Run("records plugin security decisions without mixing source diagnostics", RecordsPluginSecurityDecisions);
             Run("persists and authenticates plugin security decisions fail closed", PersistsPluginSecurityDecisionsFailClosed);
+            Run("records explicit plugin consent and revocation without replay", RecordsExplicitPluginConsentAndRevocation);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2038,6 +2039,83 @@ namespace DDFLanguageEditor.Tests
                     Equal(DdfExtensionPluginOperationDecision.AuditUnavailable,
                         Record(ledger).Decision);
                     Equal(false, File.Exists(path));
+                }
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        private static void RecordsExplicitPluginConsentAndRevocation()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-plugin-consent-" +
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                byte[] assembly = Encoding.UTF8.GetBytes("consent-lifecycle-test");
+                string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+                var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                    "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                    Array.Empty<string>(), new[] { "file.read" });
+                using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                    new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                        publisher.ExportSubjectPublicKeyInfo()) });
+                DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                    manifest, "key-1", publisher);
+                string path = Path.Combine(root, "consent-audit.log");
+                byte[] key = RandomNumberGenerator.GetBytes(32);
+                DateTimeOffset at = new DateTimeOffset(2026, 11, 1, 12, 0, 0,
+                    TimeSpan.Zero);
+                using (var audit = new DdfExtensionPluginFileAuditStore(path, key,
+                    createNew: true))
+                {
+                    var untrusted = new DdfExtensionPluginConsentLedger(manifest,
+                        null, trust, assembly, "0.42", audit);
+                    Equal(DdfExtensionPluginConsentChange.AdmissionDenied,
+                        untrusted.Approve("file.read", "project.sources", "host.user", at));
+                    Equal(0, untrusted.ActiveScopes().Count);
+                    var session = new DdfExtensionPluginConsentLedger(manifest,
+                        signature, trust, assembly, "0.42", audit);
+                    Equal(false, session.Evaluate("file.read", "project.sources", at)
+                        .IsAuthorized);
+                    Equal(DdfExtensionPluginConsentChange.CapabilityNotDeclared,
+                        session.Approve("process.start", "project.sources", "host.user", at));
+                    Equal(DdfExtensionPluginConsentChange.Granted,
+                        session.Approve("file.read", "project.sources", "host.user", at));
+                    Equal(DdfExtensionPluginConsentChange.AlreadyGranted,
+                        session.Approve("file.read", "project.sources", "host.user", at));
+                    Equal(true, session.Evaluate("file.read", "project.sources", at)
+                        .IsAuthorized);
+                    Equal(false, session.Evaluate("file.read", "project.secrets", at)
+                        .IsAuthorized);
+                    Equal(DdfExtensionPluginConsentChange.Revoked,
+                        session.Revoke("file.read", "project.sources", "host.user", at));
+                    Equal(false, session.Evaluate("file.read", "project.sources", at)
+                        .IsAuthorized);
+                    Equal(0, session.ActiveScopes().Count);
+                }
+                Equal(true, new FileInfo(path).Length > 0);
+                using (var audit = new DdfExtensionPluginFileAuditStore(path, key))
+                {
+                    var restarted = new DdfExtensionPluginConsentLedger(manifest,
+                        signature, trust, assembly, "0.42", audit);
+                    Equal(0, restarted.ActiveScopes().Count);
+                    Equal(false, restarted.Evaluate("file.read", "project.sources", at)
+                        .IsAuthorized);
+                    Equal(DdfExtensionPluginConsentChange.Granted,
+                        restarted.Approve("file.read", "project.sources", "host.user", at));
+                    audit.Dispose();
+                    Equal(DdfExtensionPluginConsentChange.AuditUnavailable,
+                        restarted.Revoke("file.read", "project.sources", "host.user", at));
+                    Equal(0, restarted.ActiveScopes().Count);
+                    Equal(DdfExtensionPluginConsentChange.AuditUnavailable,
+                        restarted.Approve("file.read", "project.sources", "host.user", at));
+                    Equal(0, restarted.ActiveScopes().Count);
+                    Equal(false, restarted.Evaluate("file.read", "project.sources", at)
+                        .IsAuthorized);
                 }
             }
             finally
