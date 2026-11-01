@@ -148,6 +148,17 @@ l'audit durevole, non apre file e non concede permessi persistenti. Ogni
 accesso fisico dovrà rifare il controllo sui grant correnti per evitare revoche
 o cambi di stato fra ammissione e uso.
 
+`DdfExtensionSourceFrameCodec@1.0` incapsula richiesta o risposta semantica/build
+con `callId` casuale e tipo esplicito; lo schema è
+`ddf-extension-source-frame.schema.json`. Il registro host
+`DdfExtensionSourceCorrelationLedger` mantiene al massimo 128 richieste
+pendenti, con scadenza basata su orologio monotono, cancellazione e consumo
+monouso prima di validare il payload di una risposta strutturalmente leggibile.
+Risposte fuori tipo, alterate, scadute o riutilizzate non producono un risultato.
+Il digest della richiesta nel payload resta un controllo di associazione,
+non una firma; neppure `callId` autentica worker o canale. L'host futuro dovrà
+legare il frame al trasporto isolato e registrare le decisioni di sicurezza.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di

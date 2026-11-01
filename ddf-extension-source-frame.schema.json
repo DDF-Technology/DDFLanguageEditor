@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension source request/response frame 1.0",
+  "oneOf": [
+    { "$ref": "#/$defs/semanticRequest" },
+    { "$ref": "#/$defs/buildRequest" },
+    { "$ref": "#/$defs/semanticResponse" },
+    { "$ref": "#/$defs/buildResponse" }
+  ],
+  "$defs": {
+    "callId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "semanticRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "kind", "request"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "kind": { "const": "Semantic" },
+        "request": { "allOf": [
+          { "$ref": "ddf-extension-source-request.schema.json" },
+          { "type": "object", "required": ["document", "ruleId"] }
+        ] }
+      }
+    },
+    "buildRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "kind", "request"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "kind": { "const": "Build" },
+        "request": { "allOf": [
+          { "$ref": "ddf-extension-source-request.schema.json" },
+          { "type": "object", "required": ["sources", "targetKind"] }
+        ] }
+      }
+    },
+    "semanticResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "kind", "response"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "kind": { "const": "Semantic" },
+        "response": { "$ref": "ddf-extension-semantic-response.schema.json" }
+      }
+    },
+    "buildResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "kind", "response"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "kind": { "const": "Build" },
+        "response": { "$ref": "ddf-extension-build-response.schema.json" }
+      }
+    }
+  }
+}

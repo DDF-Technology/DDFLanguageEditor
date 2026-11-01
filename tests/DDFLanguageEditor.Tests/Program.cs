@@ -128,6 +128,7 @@ namespace DDFLanguageEditor.Tests
             Run("binds bounded semantic extension diagnostics to their source request", BindsSemanticExtensionDiagnostics);
             Run("binds bounded build artifacts to their source request", BindsBuildExtensionArtifacts);
             Run("requires scoped source grants and standalone mode for extension builds", RequiresScopedSourceExtensionAdmission);
+            Run("correlates semantic and build extension responses once", CorrelatesSourceExtensionResponsesOnce);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3257,6 +3258,79 @@ namespace DDFLanguageEditor.Tests
                     DdfExtensionHostMode.Standalone, catalog, signature, trust,
                     Encoding.UTF8.GetBytes("modified"), "0.42", grant,
                     new[] { read, write }, "project.sources", "project.output").Decision);
+        }
+
+        private static void CorrelatesSourceExtensionResponsesOnce()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "file.read", "file.write" });
+            var semanticPoint = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var buildPoint = new DdfExtensionPointDescriptor("ddf.demo.build",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var catalog = new DdfExtensionPointCatalog(manifest,
+                new[] { semanticPoint, buildPoint });
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var semantic = new DdfExtensionSemanticRequest(semanticPoint, source,
+                "FunctionDeclaration", 0, 4);
+            var build = new DdfExtensionBuildRequest(buildPoint, new[] { source },
+                source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            var semanticResponse = DdfExtensionSemanticResponse.Success(semantic,
+                Array.Empty<DdfExtensionSemanticDiagnostic>());
+            var buildResponse = DdfExtensionBuildResponse.Success(build,
+                new[] { new DdfExtensionBuildArtifact(DdfExtensionBuildArtifactKind.Assembly,
+                    "bin/main.dll", new byte[] { 1, 2, 3 }) });
+            var clock = new TestExtensionTimeProvider();
+            var ledger = new DdfExtensionSourceCorrelationLedger(TimeSpan.FromSeconds(5),
+                maximumPending: 1, clock: clock);
+            DdfExtensionSourceTicket first = ledger.Issue(semantic);
+            Equal(DdfExtensionSourceOperationKind.Semantic,
+                DdfExtensionSourceFrameCodec.ParseRequest(first.RequestJson, catalog).Kind);
+            Equal(semantic.Point.Id, DdfExtensionSourceFrameCodec.ParseRequest(
+                first.RequestJson, catalog).Semantic.Point.Id);
+            Throws<InvalidOperationException>(() => ledger.Issue(build));
+            string reply = DdfExtensionSourceFrameCodec.SerializeResponse(
+                first.CallId, semanticResponse);
+            Equal(DdfExtensionCallStatus.Succeeded, ledger.AcceptSemantic(reply).Status);
+            Throws<InvalidOperationException>(() => ledger.AcceptSemantic(reply));
+
+            DdfExtensionSourceTicket second = ledger.Issue(build);
+            Equal(DdfExtensionSourceOperationKind.Build,
+                DdfExtensionSourceFrameCodec.ParseRequest(second.RequestJson, catalog).Kind);
+            string wrongKind = DdfExtensionSourceFrameCodec.SerializeResponse(
+                second.CallId, semanticResponse);
+            Throws<FormatException>(() => ledger.AcceptBuild(wrongKind));
+            Throws<InvalidOperationException>(() => ledger.AcceptBuild(
+                DdfExtensionSourceFrameCodec.SerializeResponse(second.CallId, buildResponse)));
+            DdfExtensionSourceTicket third = ledger.Issue(build);
+            string malformed = DdfExtensionSourceFrameCodec.SerializeResponse(
+                third.CallId, buildResponse).Replace("\"status\":\"Succeeded\"",
+                    "\"status\":\"Unknown\"");
+            Throws<FormatException>(() => ledger.AcceptBuild(malformed));
+            Throws<InvalidOperationException>(() => ledger.AcceptBuild(
+                DdfExtensionSourceFrameCodec.SerializeResponse(third.CallId, buildResponse)));
+            DdfExtensionSourceTicket fourth = ledger.Issue(build);
+            Equal(DdfExtensionCallStatus.Succeeded, ledger.AcceptBuild(
+                DdfExtensionSourceFrameCodec.SerializeResponse(fourth.CallId,
+                    buildResponse)).Status);
+            DdfExtensionSourceTicket cancelled = ledger.Issue(semantic);
+            Equal(true, ledger.Cancel(cancelled.CallId));
+            Throws<InvalidOperationException>(() => ledger.AcceptSemantic(
+                DdfExtensionSourceFrameCodec.SerializeResponse(cancelled.CallId,
+                    semanticResponse)));
+            DdfExtensionSourceTicket expired = ledger.Issue(semantic);
+            clock.Advance(TimeSpan.FromSeconds(6));
+            Throws<TimeoutException>(() => ledger.AcceptSemantic(
+                DdfExtensionSourceFrameCodec.SerializeResponse(expired.CallId,
+                    semanticResponse)));
+            Equal(0, ledger.PendingCount);
+            Throws<ArgumentException>(() => DdfExtensionSourceFrameCodec.SerializeRequest(
+                Guid.Empty, semantic));
+            Throws<FormatException>(() => DdfExtensionSourceFrameCodec.ParseRequest(
+                first.RequestJson.Replace("\"kind\":\"Semantic\"",
+                    "\"kind\":\"Unknown\""), catalog));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

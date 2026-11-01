@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Le future richieste semantiche e di build hanno un frame di correlazione con ID casuale monouso e un registro host con quota, scadenza e cancellazione. Replay, risposta del tipo errato e payload non conforme vengono respinti; non è ancora un trasporto autenticato né un dispatcher.
+
 - Le richieste delle future estensioni semantiche e di build hanno un gate preliminare su catalogo, consenso, firma/hash e risorse logiche. La build è negata in embedded e richiede grant di lettura e scrittura; non viene ancora invocato alcun plug-in o aperto alcun file.
 
 - Definito il formato della futura risposta dei backend di build: assembly e artefatti opzionali conservati come dati immutabili, con hash, percorsi logici, quote e legame alla richiesta. Il parser respinge payload alterati; nessun artefatto viene scritto, validato come PE o eseguito automaticamente.
