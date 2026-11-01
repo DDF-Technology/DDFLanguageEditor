@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension call signatures 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pluginId", "pluginVersion", "pointsCatalogSha256", "signatures"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "pluginId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 128 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "pointsCatalogSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "signatures": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pointId", "parameters", "resultType", "effect", "declaredErrors"],
+        "properties": {
+          "pointId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 160 },
+          "parameters": {
+            "type": "array", "maxItems": 64,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "maxLength": 128 },
+                "type": { "$ref": "#/$defs/typeShape" }
+              }
+            }
+          },
+          "resultType": { "$ref": "#/$defs/typeShape" },
+          "effect": { "enum": ["Pure", "HostMutation", "ExternalEffect"] },
+          "declaredErrors": {
+            "type": "array", "maxItems": 64, "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", "maxLength": 200 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "typeShape": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "enum": ["Null", "Boolean", "Integer", "Float", "String"] } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "elementType"],
+          "properties": {
+            "kind": { "const": "Array" },
+            "elementType": { "$ref": "#/$defs/typeShape" }
+          }
+        }
+      ]
+    }
+  }
+}

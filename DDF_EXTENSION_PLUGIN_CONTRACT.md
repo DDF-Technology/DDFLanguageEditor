@@ -81,10 +81,17 @@ ID degli errori ammessi. I tipi del protocollo sono scalari o array omogenei
 ricorsivi; `Null` rappresenta esplicitamente l'assenza di valore. Il registro
 può emettere una richiesta solo se conforme alla firma e controlla la
 risposta prima di restituirla; un risultato del tipo sbagliato o un errore non
-dichiarato viene consumato e classificato `DDFX602`. La firma è attualmente
-solo un oggetto Core: non è ancora un documento machine-readable né coperta
-dall'attestazione del catalogo. Nessun host deve considerarla attendibile
-finché non sarà legata all'artefatto firmato e al lock verificato.
+dichiarato viene consumato e classificato `DDFX602`.
+`DdfExtensionCallSignatureCatalog@1.0` rende le firme machine-readable secondo
+`ddf-extension-call-signatures.schema.json`: richiede una firma per ogni punto
+runtime/host, nessuna per semantica/build, e include il digest del catalogo
+dei punti. Il parser rifiuta versioni, campi, tipi, effetti o errori non validi,
+assenze e duplicati. La firma staccata ECDSA P-256 ha un dominio proprio e
+copre il catalogo delle firme canonico più il digest dei punti; la verifica
+richiede anche la firma valida dei punti e quella del manifest, con editore
+attendibile e chiavi non revocate. `VerifyCallSignatures` espone un preflight
+`DDFX006`/`DDFX007`/`DDFX105`. Questo non verifica da solo il lock del grafo,
+i byte dell'assembly, il consenso o le risorse: nessun plug-in è eseguibile.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

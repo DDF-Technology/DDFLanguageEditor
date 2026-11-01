@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Le firme runtime/host sono ora pubblicabili in un catalogo JSON `1.0` con schema rigoroso e firma staccata ECDSA P-256. Il preflight lega catalogo delle firme, catalogo dei punti e manifest all'editore attendibile; rifiuta alterazioni e copertura incompleta senza caricare plug-in.
+
 - Le chiamate runtime/host possono ora essere vincolate a firme immutabili: numero e tipo degli argomenti, array omogenei, tipo del risultato ed errori dichiarati. Il registro rifiuta richieste non conformi e consuma risposte con tipi o errori imprevisti come `DDFX602`; le firme non sono ancora serializzate o firmate.
 
 - Gli esiti del protocollo plug-in vengono ora classificati dall'host con diagnostiche `DDFX601`–`DDFX604` per errore dichiarato, risposta invalida, scadenza e replay. I codici forniti dal plug-in non diventano codici di sicurezza e non trapelano eccezioni grezze; il dispatch resta disabilitato.

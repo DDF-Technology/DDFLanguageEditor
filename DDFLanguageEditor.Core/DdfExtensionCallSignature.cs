@@ -71,7 +71,7 @@ namespace DDFLanguageEditor.Core
         UndeclaredError
     }
 
-    // In-memory signature for the 1.0 scalar/array protocol, not yet a signed catalog.
+    // Immutable signature for the 1.0 scalar/array protocol.
     public sealed class DdfExtensionCallSignature
     {
         private static readonly Regex ErrorPattern = new Regex(
@@ -148,7 +148,7 @@ namespace DDFLanguageEditor.Core
                 : DdfExtensionCallContractStatus.UndeclaredError;
         }
 
-        private bool MatchesPoint(DdfExtensionPointDescriptor other) =>
+        internal bool MatchesPoint(DdfExtensionPointDescriptor other) =>
             Point.Id == other.Id && Point.Kind == other.Kind &&
             Point.Version == other.Version &&
             Point.RequiredCapabilities.Count == other.RequiredCapabilities.Count &&

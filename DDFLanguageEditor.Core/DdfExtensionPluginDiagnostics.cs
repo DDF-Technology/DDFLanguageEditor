@@ -107,6 +107,43 @@ namespace DDFLanguageEditor.Core
                     "Catalogo o manifest non attestato: " + status + ".");
         }
 
+        public static DdfExtensionPluginCheck<DdfExtensionCallSignatureCatalog>
+            ParseCallSignatures(string json, DdfExtensionPointCatalog points) =>
+            Parse(() => DdfExtensionCallSignatureCatalogCodec.Parse(json, points),
+                "DDFX006", DdfExtensionPluginDiagnosticDomain.Manifest,
+                "Catalogo delle firme di chiamata non valido.");
+
+        public static DdfExtensionPluginCheck<DdfExtensionCallSignatureCatalog>
+            VerifyCallSignatures(string signaturesJson, string signaturesSignatureJson,
+                DdfExtensionPointCatalog points,
+                DdfExtensionPluginSignature pointsSignature,
+                DdfExtensionPluginSignature manifestSignature,
+                DdfExtensionPluginPublisherTrust trust)
+        {
+            DdfExtensionPluginCheck<DdfExtensionCallSignatureCatalog> signatures =
+                ParseCallSignatures(signaturesJson, points);
+            if (!signatures.Success) return signatures;
+            DdfExtensionPluginCheck<DdfExtensionPluginSignature> signature =
+                Parse(() => DdfExtensionPluginSignatureCodec.Parse(
+                        signaturesSignatureJson), "DDFX007",
+                    DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Firma del catalogo delle chiamate non valida.");
+            if (!signature.Success)
+                return Fail<DdfExtensionCallSignatureCatalog>(signature.Diagnostics[0]);
+            if (trust == null)
+                return Fail<DdfExtensionCallSignatureCatalog>("DDFX101",
+                    DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Nessun editore attendibile configurato.");
+            DdfExtensionCallSignatureAttestationStatus status =
+                DdfExtensionCallSignatureAttestation.Verify(signatures.Value,
+                    signature.Value, pointsSignature, manifestSignature, trust);
+            return status == DdfExtensionCallSignatureAttestationStatus.Verified
+                ? signatures
+                : Fail<DdfExtensionCallSignatureCatalog>("DDFX105",
+                    DdfExtensionPluginDiagnosticDomain.PublisherTrust,
+                    "Catalogo delle chiamate non attestato: " + status + ".");
+        }
+
         public static DdfExtensionPluginCheck<DdfExtensionPluginManifest> VerifyArtifact(
             string manifestJson, string signatureJson, byte[] assemblyBytes,
             DdfExtensionPluginPublisherTrust trust, string sdkContract)

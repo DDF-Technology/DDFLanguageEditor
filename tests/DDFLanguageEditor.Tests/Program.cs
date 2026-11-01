@@ -122,6 +122,7 @@ namespace DDFLanguageEditor.Tests
             Run("correlates extension responses once within bounded host sessions", CorrelatesExtensionResponsesOnce);
             Run("maps extension call outcomes into host-owned DDFX diagnostics", MapsExtensionCallOutcomesToHostDiagnostics);
             Run("validates extension calls against explicit immutable signatures", ValidatesExtensionCallsAgainstSignatures);
+            Run("authenticates machine-readable extension call signatures", AuthenticatesExtensionCallSignatures);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2887,6 +2888,74 @@ namespace DDFLanguageEditor.Tests
             DdfExtensionTypeShape atLimit = deep;
             Throws<ArgumentException>(() => new DdfExtensionTypeShape(
                 DdfExtensionValueKind.Array, atLimit));
+        }
+
+        private static void AuthenticatesExtensionCallSignatures()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), Array.Empty<string>());
+            var function = new DdfExtensionPointDescriptor("ddf.demo.function",
+                DdfExtensionPointKind.HostFunction, "1.0", Array.Empty<string>());
+            var semantic = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", Array.Empty<string>());
+            var points = new DdfExtensionPointCatalog(manifest, new[] { semantic, function });
+            var integer = new DdfExtensionTypeShape(DdfExtensionValueKind.Integer);
+            var signature = new DdfExtensionCallSignature(function, new[] {
+                new DdfExtensionCallParameter("values", new DdfExtensionTypeShape(
+                    DdfExtensionValueKind.Array, integer)) }, integer,
+                DdfExtensionCallEffect.Pure, new[] { "ddf.demo.function.error.invalid" });
+            var catalog = new DdfExtensionCallSignatureCatalog(points, new[] { signature });
+            string json = catalog.ToJson();
+            Equal(json, DdfExtensionCallSignatureCatalogCodec.Parse(json, points).ToJson());
+            Equal(true, catalog.TryGet(function.Id, out DdfExtensionCallSignature found));
+            Equal(DdfExtensionValueKind.Array, found.Parameters[0].Type.Kind);
+            Equal(false, catalog.TryGet(semantic.Id, out _));
+            Throws<ArgumentException>(() => new DdfExtensionCallSignatureCatalog(points,
+                Array.Empty<DdfExtensionCallSignature>()));
+            Throws<FormatException>(() => DdfExtensionCallSignatureCatalogCodec.Parse(
+                json.Replace("\"effect\":", "\"extra\":0,\"effect\":"), points));
+            Throws<FormatException>(() => DdfExtensionCallSignatureCatalogCodec.Parse(
+                json.Replace("\"effect\":\"Pure\"", "\"effect\":\"Unknown\""), points));
+            Throws<FormatException>(() => DdfExtensionCallSignatureCatalogCodec.Parse(
+                json.Replace("\"pointsCatalogSha256\":\"" + catalog.PointsCatalogSha256 + "\"",
+                    "\"pointsCatalogSha256\":\"" + new string('b', 64) + "\""), points));
+            Throws<JsonException>(() => DdfExtensionCallSignatureCatalogCodec.Parse(
+                json + " // trailing", points));
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginSignature manifestSignature =
+                DdfExtensionPluginSignatureVerifier.Sign(manifest, "key-1", publisher);
+            DdfExtensionPluginSignature pointsSignature =
+                DdfExtensionPointAttestation.Sign(points, "key-1", publisher);
+            DdfExtensionPluginSignature signaturesSignature =
+                DdfExtensionCallSignatureAttestation.Sign(catalog, "key-1", publisher);
+            string signatureJson = DdfExtensionPluginSignatureCodec.Serialize(signaturesSignature);
+            Equal(DdfExtensionCallSignatureAttestationStatus.Verified,
+                DdfExtensionCallSignatureAttestation.Verify(catalog, signaturesSignature,
+                    pointsSignature, manifestSignature, trust));
+            Equal(true, DdfExtensionPluginPreflight.VerifyCallSignatures(json,
+                signatureJson, points, pointsSignature, manifestSignature, trust).Success);
+            Equal("DDFX007", DdfExtensionPluginPreflight.VerifyCallSignatures(json,
+                "{}", points, pointsSignature, manifestSignature, trust).Diagnostics.Single().Code);
+            Equal("DDFX105", DdfExtensionPluginPreflight.VerifyCallSignatures(json,
+                signatureJson, points, null, manifestSignature, trust).Diagnostics.Single().Code);
+            Equal("DDFX105", DdfExtensionPluginPreflight.VerifyCallSignatures(json,
+                DdfExtensionPluginSignatureCodec.Serialize(pointsSignature), points,
+                pointsSignature, manifestSignature, trust).Diagnostics.Single().Code);
+            JsonObject altered = JsonNode.Parse(json).AsObject();
+            altered["signatures"][0]["resultType"]["kind"] = "Float";
+            Equal("DDFX105", DdfExtensionPluginPreflight.VerifyCallSignatures(
+                altered.ToJsonString(), signatureJson, points, pointsSignature,
+                manifestSignature, trust).Diagnostics.Single().Code);
+            var revoked = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo(), revoked: true) });
+            Equal("DDFX105", DdfExtensionPluginPreflight.VerifyCallSignatures(json,
+                signatureJson, points, pointsSignature, manifestSignature,
+                revoked).Diagnostics.Single().Code);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
