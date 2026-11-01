@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Primo contratto di valore per lo SDK dei plug-in: scalari/array DDF immutabili, senza riferimenti a editor, host, VM o Roslyn. Le richieste descrittive per runtime e funzioni host hanno quote per argomenti e struttura; nessuna invocazione è abilitata.
+
 - I punti di estensione hanno ora un'attestazione staccata ECDSA P-256 che lega catalogo canonico e manifest firmato all'editore attendibile. Il preflight rifiuta firme assenti, alterazioni e chiavi revocate con diagnostiche `DDFX`; la verifica non carica assembly né concede permessi.
 
 - Il catalogo dei punti di estensione è ora anche leggibile con parser rigoroso: schema chiuso, quote, identità e versione esatte del manifest, rifiuto di campi duplicati/sconosciuti e capability non dichiarate. Il parsing non costituisce verifica di firma e non abilita plug-in.

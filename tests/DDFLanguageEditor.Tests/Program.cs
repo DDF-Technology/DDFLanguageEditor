@@ -116,6 +116,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps extension point descriptions versioned and bound to plugin identity", KeepsExtensionPointsBoundToPluginIdentity);
             Run("parses extension point catalogs strictly before loading code", ParsesExtensionPointCatalogsStrictly);
             Run("authenticates extension point catalogs against signed manifests", AuthenticatesExtensionPointCatalogs);
+            Run("bounds immutable extension call values without exposing host objects", BoundsImmutableExtensionCallValues);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2554,6 +2555,57 @@ namespace DDFLanguageEditor.Tests
             Equal(DdfExtensionPointAttestationStatus.ManifestNotVerified,
                 DdfExtensionPointAttestation.Verify(catalog, catalogSignature,
                     manifestSignature, revoked));
+        }
+
+        private static void BoundsImmutableExtensionCallValues()
+        {
+            Equal("1.0", DdfExtensionValue.ContractVersion);
+            Equal(true, DdfExtensionValue.FromBoolean(true).Boolean);
+            Equal(int.MaxValue, DdfExtensionValue.FromInteger(int.MaxValue).Integer);
+            Equal(1.5, DdfExtensionValue.FromFloat(1.5).Float);
+            Equal("ciao", DdfExtensionValue.FromString("ciao").String);
+            Equal(DdfExtensionValueKind.Null, DdfExtensionValue.Null.Kind);
+            Throws<ArgumentOutOfRangeException>(() => DdfExtensionValue.FromFloat(double.NaN));
+            Throws<ArgumentOutOfRangeException>(() => DdfExtensionValue.FromFloat(double.PositiveInfinity));
+            Throws<ArgumentException>(() => DdfExtensionValue.FromString(new string('x', 4097)));
+            Throws<InvalidOperationException>(() => { _ = DdfExtensionValue.Null.Integer; });
+            DdfExtensionValue[] source = { DdfExtensionValue.FromInteger(3) };
+            DdfExtensionValue array = DdfExtensionValue.FromArray(source);
+            source[0] = DdfExtensionValue.FromInteger(99);
+            Equal(3, array.Elements[0].Integer);
+            Throws<ArgumentException>(() => DdfExtensionValue.FromArray(
+                new DdfExtensionValue[1]));
+            DdfExtensionValue deep = DdfExtensionValue.Null;
+            for (int index = 0; index < 7; index++) deep = DdfExtensionValue.FromArray(new[] { deep });
+            DdfExtensionValue atLimit = deep;
+            Throws<ArgumentException>(() => DdfExtensionValue.FromArray(new[] { atLimit }));
+            var child = DdfExtensionValue.FromArray(Enumerable.Repeat(DdfExtensionValue.Null, 4));
+            Throws<ArgumentException>(() => DdfExtensionValue.FromArray(Enumerable.Repeat(child, 256)));
+            var runtime = new DdfExtensionPointDescriptor("ddf.demo.runtime",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", Array.Empty<string>());
+            var host = new DdfExtensionPointDescriptor("ddf.demo.host",
+                DdfExtensionPointKind.HostFunction, "1.0", Array.Empty<string>());
+            var semantic = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", Array.Empty<string>());
+            KeyValuePair<string, DdfExtensionValue>[] inputs = {
+                new KeyValuePair<string, DdfExtensionValue>("value", array) };
+            var request = new DdfExtensionCallRequest(runtime, inputs);
+            inputs[0] = new KeyValuePair<string, DdfExtensionValue>("changed", DdfExtensionValue.Null);
+            Equal(3, request.Arguments["value"].Elements[0].Integer);
+            Equal("1.0", request.ContractVersion);
+            Equal(DdfExtensionPointKind.HostFunction,
+                new DdfExtensionCallRequest(host, Array.Empty<KeyValuePair<string,
+                    DdfExtensionValue>>()).Point.Kind);
+            Throws<ArgumentException>(() => new DdfExtensionCallRequest(semantic,
+                Array.Empty<KeyValuePair<string, DdfExtensionValue>>()));
+            Throws<ArgumentException>(() => new DdfExtensionCallRequest(runtime, new[] {
+                new KeyValuePair<string, DdfExtensionValue>("x", DdfExtensionValue.Null),
+                new KeyValuePair<string, DdfExtensionValue>("x", DdfExtensionValue.Null) }));
+            var twenty = DdfExtensionValue.FromArray(
+                Enumerable.Repeat(DdfExtensionValue.Null, 20));
+            Throws<ArgumentException>(() => new DdfExtensionCallRequest(runtime,
+                Enumerable.Range(0, 64).Select(index =>
+                    new KeyValuePair<string, DdfExtensionValue>("arg" + index, twenty))));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

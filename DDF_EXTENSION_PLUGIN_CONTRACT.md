@@ -32,6 +32,16 @@ spaziatura usati dal firmatario: il parser ricostruisce la forma canonica.
 L'esito non prova ancora i byte dell'assembly, il grafo delle dipendenze,
 il consenso o i grant delle risorse, e **non autorizza l'esecuzione**.
 
+Come primo segmento delle API `0.15.1`, `DdfExtensionValue@1.0` rappresenta
+solo `null`, booleani, interi `Int32`, float `Double` finiti, stringhe e array
+immutabili. `DdfExtensionCallRequest` collega uno snapshot di argomenti a un
+punto `RuntimeOperation` o `HostFunction`, con massimo 64 argomenti, 1024 nodi
+complessivi, profondità 8, 256 elementi per array e 4096 caratteri per
+stringa. Sono vietati riferimenti a controlli WinForms, oggetti host, AST/IR,
+delegate e tipi Roslyn. Questo è un contenitore tipizzato **non eseguibile**:
+firme di funzione, risultati/errori, serializzazione wire, transazioni,
+autorizzazione sul confine e contratti di semantica/build restano da definire.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di
