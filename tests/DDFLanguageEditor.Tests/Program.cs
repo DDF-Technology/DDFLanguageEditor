@@ -131,6 +131,7 @@ namespace DDFLanguageEditor.Tests
             Run("correlates semantic and build extension responses once", CorrelatesSourceExtensionResponsesOnce);
             Run("classifies source extension outcomes as host DDFX diagnostics", ClassifiesSourceExtensionOutcomes);
             Run("publishes a closed versioned extension protocol inventory", PublishesExtensionProtocolInventory);
+            Run("creates extension metadata snapshots only after chained verification", CreatesVerifiedExtensionCatalogSnapshots);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3429,6 +3430,103 @@ namespace DDFLanguageEditor.Tests
                 json.Replace("ddf-extension-build-response.schema.json", "other.schema.json")));
             Throws<ArgumentException>(() => DdfExtensionProtocolCatalog.ValidateJson(
                 new string(' ', 32769)));
+        }
+
+        private static void CreatesVerifiedExtensionCatalogSnapshots()
+        {
+            byte[] assembly = Encoding.UTF8.GetBytes("verified-metadata-fixture");
+            string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                Array.Empty<string>(), new[] { "file.read", "file.write" });
+            string manifestJson = JsonSerializer.Serialize(new {
+                schemaVersion = "1.0", id = manifest.Id,
+                publisher = manifest.Publisher, version = manifest.Version,
+                minimumSdkContract = manifest.MinimumSdkContract,
+                maximumSdkContract = manifest.MaximumSdkContract,
+                assemblyFile = manifest.AssemblyFile,
+                assemblySha256 = manifest.AssemblySha256,
+                dependencies = manifest.Dependencies,
+                capabilities = manifest.Capabilities });
+            var semantic = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var host = new DdfExtensionPointDescriptor("ddf.demo.host",
+                DdfExtensionPointKind.HostFunction, "1.0", Array.Empty<string>());
+            var build = new DdfExtensionPointDescriptor("ddf.demo.build",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var points = new DdfExtensionPointCatalog(manifest,
+                new[] { semantic, host, build });
+            var signature = new DdfExtensionCallSignature(host,
+                Array.Empty<DdfExtensionCallParameter>(),
+                new DdfExtensionTypeShape(DdfExtensionValueKind.Integer),
+                DdfExtensionCallEffect.Pure, Array.Empty<string>());
+            var signatures = new DdfExtensionCallSignatureCatalog(points,
+                new[] { signature });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            string manifestSignature = DdfExtensionPluginSignatureCodec.Serialize(
+                DdfExtensionPluginSignatureVerifier.Sign(manifest, "key-1", publisher));
+            string pointsSignature = DdfExtensionPluginSignatureCodec.Serialize(
+                DdfExtensionPointAttestation.Sign(points, "key-1", publisher));
+            string signaturesSignature = DdfExtensionPluginSignatureCodec.Serialize(
+                DdfExtensionCallSignatureAttestation.Sign(signatures, "key-1", publisher));
+            DdfExtensionPluginCheck<DdfVerifiedExtensionCatalog> Verify(
+                string manifestText, string pointText, string signatureText,
+                byte[] bytes, DdfExtensionPluginPublisherTrust publisherTrust,
+                string sdk = "0.42") => DdfVerifiedExtensionCatalog.Verify(
+                    manifestText, manifestSignature, pointText, pointsSignature,
+                    signatureText, signaturesSignature, bytes, publisherTrust, sdk);
+            var verified = Verify(manifestJson, points.ToJson(), signatures.ToJson(),
+                assembly, trust);
+            Equal(true, verified.Success);
+            Equal(hash, verified.Value.AssemblySha256);
+            Equal("key-1", verified.Value.PublisherKeyId);
+            Equal(true, verified.Value.TryGetPoint(build.Id, out _));
+            Equal(true, verified.Value.TryGetCallSignature(host.Id, out _));
+            Equal(false, verified.Value.TryGetCallSignature(semantic.Id, out _));
+            verified.Value.TryGetPoint(semantic.Id, out DdfExtensionPointDescriptor verifiedSemantic);
+            verified.Value.TryGetPoint(build.Id, out DdfExtensionPointDescriptor verifiedBuild);
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var semanticRequest = new DdfExtensionSemanticRequest(verifiedSemantic,
+                source, "FunctionDeclaration", 0, 4);
+            var buildRequest = new DdfExtensionBuildRequest(verifiedBuild,
+                new[] { source }, source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            var consent = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, hash, manifest.Capabilities);
+            var readScope = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.read", "project.sources");
+            var writeScope = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.write", "project.output");
+            var signedManifest = DdfExtensionPluginSignatureCodec.Parse(manifestSignature);
+            Equal(true, DdfExtensionSourceAdmission.EvaluateSemantic(
+                semanticRequest, verified.Value, signedManifest, trust, assembly,
+                "0.42", consent, new[] { readScope }, "project.sources").IsAuthorized);
+            Equal(true, DdfExtensionSourceAdmission.EvaluateBuild(buildRequest,
+                DdfExtensionHostMode.Standalone, verified.Value, signedManifest,
+                trust, assembly, "0.42", consent, new[] { readScope, writeScope },
+                "project.sources", "project.output").IsAuthorized);
+            Equal(false, DdfExtensionSourceAdmission.EvaluateBuild(buildRequest,
+                DdfExtensionHostMode.Embedded, verified.Value, signedManifest,
+                trust, assembly, "0.42", consent, new[] { readScope, writeScope },
+                "project.sources", "project.output").IsAuthorized);
+            Equal("DDFX102", Verify(manifestJson, points.ToJson(), signatures.ToJson(),
+                Encoding.UTF8.GetBytes("altered"), trust).Diagnostics.Single().Code);
+            Equal("DDFX103", Verify(manifestJson, points.ToJson(), signatures.ToJson(),
+                assembly, trust, "0.51").Diagnostics.Single().Code);
+            Equal("DDFX104", Verify(manifestJson,
+                points.ToJson().Replace(semantic.Id, "ddf.demo.other"),
+                signatures.ToJson(), assembly, trust).Diagnostics.Single().Code);
+            Equal("DDFX105", Verify(manifestJson, points.ToJson(),
+                signatures.ToJson().Replace("\"kind\":\"Integer\"",
+                    "\"kind\":\"Float\""), assembly, trust).Diagnostics.Single().Code);
+            var revoked = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey(manifest.Publisher, "key-1",
+                    publisher.ExportSubjectPublicKeyInfo(), revoked: true) });
+            Equal(false, Verify(manifestJson, points.ToJson(), signatures.ToJson(),
+                assembly, revoked).Success);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

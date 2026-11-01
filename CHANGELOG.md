@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Uno snapshot immutabile dei metadati di estensione viene ora creato solo dopo la verifica concatenata di assembly, manifest, catalogo dei punti e firme delle chiamate. Il gate per semantica/build può usarlo, senza considerarlo consenso o autorizzazione all'esecuzione.
+
 - Aggiunto alla soluzione un demo di compatibilità dei quattro contratti di estensione: verifica manifesto, frame, round-trip e classificazione di un errore build simulato. Non installa né esegue plug-in e non produce un PE.
 
 - Pubblicato nel Core/NuGet un inventario machine-readable dei quattro protocolli di estensione `1.0`, con schemi, modalità host e capability minime. Il gate rifiuta divergenze dal codice e mantiene esplicito lo stato `contracts-only`; l'SDK editor resta `0.42`.

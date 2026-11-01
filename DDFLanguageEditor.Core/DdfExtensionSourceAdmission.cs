@@ -36,6 +36,27 @@ namespace DDFLanguageEditor.Core
     public static class DdfExtensionSourceAdmission
     {
         public static DdfExtensionSourceAdmissionResult EvaluateSemantic(
+            DdfExtensionSemanticRequest request, DdfVerifiedExtensionCatalog verified,
+            DdfExtensionPluginSignature signature, DdfExtensionPluginPublisherTrust trust,
+            byte[] assemblyBytes, string sdkContract, DdfExtensionPluginGrant grant,
+            IEnumerable<DdfExtensionPluginResourceGrant> resourceGrants,
+            string readResourceId) => EvaluateSemantic(request,
+                (verified ?? throw new ArgumentNullException(nameof(verified))).Points,
+                signature, trust, assemblyBytes, sdkContract, grant,
+                resourceGrants, readResourceId);
+
+        public static DdfExtensionSourceAdmissionResult EvaluateBuild(
+            DdfExtensionBuildRequest request, DdfExtensionHostMode mode,
+            DdfVerifiedExtensionCatalog verified,
+            DdfExtensionPluginSignature signature, DdfExtensionPluginPublisherTrust trust,
+            byte[] assemblyBytes, string sdkContract, DdfExtensionPluginGrant grant,
+            IEnumerable<DdfExtensionPluginResourceGrant> resourceGrants,
+            string readResourceId, string writeResourceId) => EvaluateBuild(request,
+                mode, (verified ?? throw new ArgumentNullException(nameof(verified))).Points,
+                signature, trust, assemblyBytes, sdkContract, grant, resourceGrants,
+                readResourceId, writeResourceId);
+
+        public static DdfExtensionSourceAdmissionResult EvaluateSemantic(
             DdfExtensionSemanticRequest request, DdfExtensionPointCatalog catalog,
             DdfExtensionPluginSignature signature, DdfExtensionPluginPublisherTrust trust,
             byte[] assemblyBytes, string sdkContract, DdfExtensionPluginGrant grant,

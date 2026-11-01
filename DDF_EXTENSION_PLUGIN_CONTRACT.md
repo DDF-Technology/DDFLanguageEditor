@@ -32,6 +32,16 @@ spaziatura usati dal firmatario: il parser ricostruisce la forma canonica.
 L'esito non prova ancora i byte dell'assembly, il grafo delle dipendenze,
 il consenso o i grant delle risorse, e **non autorizza l'esecuzione**.
 
+`DdfVerifiedExtensionCatalog.Verify` compone i controlli già disponibili:
+hash dei byte dell'assembly, firma del manifest, compatibilità SDK, firma del
+catalogo dei punti e firma del catalogo delle chiamate. Solo un esito positivo
+restituisce uno snapshot immutabile consultabile per punto e firma; il gate
+delle richieste sorgente può riceverlo direttamente. È una verifica di
+provenienza **al momento della chiamata**, non un'ammissione: dipendenze,
+consenso, risorse, audit, revoca successiva e identità del worker devono essere
+controllati separatamente prima e durante qualunque esecuzione. Lo snapshot
+non carica l'assembly né dà allo script accesso a tipi CLR.
+
 Come primo segmento delle API `0.15.1`, `DdfExtensionValue@1.0` rappresenta
 solo `null`, booleani, interi `Int32`, float `Double` finiti, stringhe e array
 immutabili. `DdfExtensionCallRequest` collega uno snapshot di argomenti a un
