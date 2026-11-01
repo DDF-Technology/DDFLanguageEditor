@@ -16,6 +16,13 @@ non registra delegate, non espone AST/IR mutabili, editor o VM, non concede
 permessi e non collega ancora queste voci alle pipeline di analisi, runtime o
 build. L'host futuro dovrà verificare firma, lock, consenso e capability prima
 di attivare un punto e introdurre contratti tipizzati di input/output.
+`DdfExtensionPointCatalogCodec.Parse` accetta il JSON solo insieme al manifest
+atteso: schema, ID e versione del plug-in devono coincidere esattamente.
+Campi sconosciuti/duplicati, categorie o versioni API future, capability non
+dichiarate, commenti, trailing comma e input oltre quota vengono rifiutati.
+Il parsing **non autentica** il catalogo: firma e lock del manifest non coprono
+ancora questi byte. Un host futuro non deve usare il file come fonte di codice
+o autorizzazioni senza includerlo in un inventario firmato e verificato.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

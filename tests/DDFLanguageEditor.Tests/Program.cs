@@ -114,6 +114,7 @@ namespace DDFLanguageEditor.Tests
             Run("requires separate consent for every plugin dependency", RequiresSeparateConsentForEveryPluginDependency);
             Run("separates plugin preflight diagnostics from project and source errors", SeparatesPluginPreflightDiagnostics);
             Run("keeps extension point descriptions versioned and bound to plugin identity", KeepsExtensionPointsBoundToPluginIdentity);
+            Run("parses extension point catalogs strictly before loading code", ParsesExtensionPointCatalogsStrictly);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2459,6 +2460,38 @@ namespace DDFLanguageEditor.Tests
                     "1.0", new[] { "file.read" }) }));
             Throws<ArgumentException>(() => new DdfExtensionPointCatalog(manifest,
                 new[] { points[0], points[0] }));
+        }
+
+        private static void ParsesExtensionPointCatalogsStrictly()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), new[] { "file.read" });
+            var descriptor = new DdfExtensionPointDescriptor("ddf.demo.read",
+                DdfExtensionPointKind.HostFunction, "1.0", new[] { "file.read" });
+            string valid = new DdfExtensionPointCatalog(manifest, new[] { descriptor }).ToJson();
+            DdfExtensionPointCatalog parsed = DdfExtensionPointCatalogCodec.Parse(valid, manifest);
+            Equal(valid, parsed.ToJson());
+            Equal("ddf.demo.read", parsed.Points.Single().Id);
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"pluginId\":\"ddf.demo\"", "\"pluginId\":\"other.plugin\""), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"pluginVersion\":\"1.0.0\"", "\"pluginVersion\":\"2.0.0\""), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"schemaVersion\":\"1.0\"", "\"schemaVersion\":\"2.0\""), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"kind\":\"HostFunction\"", "\"kind\":\"Unknown\""), manifest));
+            Throws<ArgumentException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"file.read\"", "\"file.write\""), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"points\":", "\"extra\":0,\"points\":"), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"id\":", "\"id\":\"ddf.demo.duplicate\",\"id\":"), manifest));
+            Throws<FormatException>(() => DdfExtensionPointCatalogCodec.Parse(
+                valid.Replace("\"apiVersion\":", "\"apiVersion\":\"1.0\",\"apiVersion\":"), manifest));
+            Throws<ArgumentException>(() => DdfExtensionPointCatalogCodec.Parse(
+                new string(' ', 65537), manifest));
+            Throws<JsonException>(() => DdfExtensionPointCatalogCodec.Parse(valid + " // comment", manifest));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

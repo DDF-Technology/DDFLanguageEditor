@@ -97,4 +97,74 @@ namespace DDFLanguageEditor.Core
             })
         });
     }
+
+    public static class DdfExtensionPointCatalogCodec
+    {
+        private static readonly string[] RootNames =
+            { "schemaVersion", "pluginId", "pluginVersion", "points" };
+        private static readonly string[] PointNames =
+            { "id", "kind", "apiVersion", "requiredCapabilities" };
+
+        public static DdfExtensionPointCatalog Parse(string json,
+            DdfExtensionPluginManifest manifest)
+        {
+            if (manifest == null) throw new ArgumentNullException(nameof(manifest));
+            if (json == null || json.Length > 65536)
+                throw new ArgumentException("Catalogo assente o oltre quota.", nameof(json));
+            using JsonDocument document = JsonDocument.Parse(json, new JsonDocumentOptions
+            {
+                MaxDepth = 8,
+                CommentHandling = JsonCommentHandling.Disallow,
+                AllowTrailingCommas = false
+            });
+            JsonElement root = document.RootElement;
+            RequireFields(root, RootNames);
+            if (ReadString(root, "schemaVersion") != DdfExtensionPointCatalog.SchemaVersion ||
+                ReadString(root, "pluginId") != manifest.Id ||
+                ReadString(root, "pluginVersion") != manifest.Version)
+                throw new FormatException("Catalogo non corrispondente al manifest o versione schema sconosciuta.");
+            JsonElement entries = root.GetProperty("points");
+            if (entries.ValueKind != JsonValueKind.Array || entries.GetArrayLength() > 64)
+                throw new FormatException("Elenco dei punti di estensione non valido.");
+            var points = new List<DdfExtensionPointDescriptor>();
+            foreach (JsonElement entry in entries.EnumerateArray())
+            {
+                RequireFields(entry, PointNames);
+                string kindName = ReadString(entry, "kind");
+                if (!Enum.TryParse(kindName, false, out DdfExtensionPointKind kind) ||
+                    !Enum.IsDefined(typeof(DdfExtensionPointKind), kind) ||
+                    kind.ToString() != kindName)
+                    throw new FormatException("Categoria del punto di estensione sconosciuta.");
+                JsonElement required = entry.GetProperty("requiredCapabilities");
+                if (required.ValueKind != JsonValueKind.Array || required.GetArrayLength() > 64)
+                    throw new FormatException("Capability del punto di estensione non valide.");
+                string[] capabilities = required.EnumerateArray().Select(value =>
+                    value.ValueKind == JsonValueKind.String ? value.GetString() :
+                        throw new FormatException("Capability non testuale.")).ToArray();
+                points.Add(new DdfExtensionPointDescriptor(ReadString(entry, "id"), kind,
+                    ReadString(entry, "apiVersion"), capabilities));
+            }
+            return new DdfExtensionPointCatalog(manifest, points);
+        }
+
+        private static void RequireFields(JsonElement element, string[] names)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+                throw new FormatException("Oggetto del catalogo non valido.");
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JsonProperty property in element.EnumerateObject())
+                if (!names.Contains(property.Name, StringComparer.Ordinal) || !seen.Add(property.Name))
+                    throw new FormatException("Campo sconosciuto o duplicato: " + property.Name);
+            if (seen.Count != names.Length)
+                throw new FormatException("Campo obbligatorio mancante.");
+        }
+
+        private static string ReadString(JsonElement element, string name)
+        {
+            JsonElement value = element.GetProperty(name);
+            if (value.ValueKind != JsonValueKind.String)
+                throw new FormatException("Campo testuale non valido: " + name);
+            return value.GetString();
+        }
+    }
 }
