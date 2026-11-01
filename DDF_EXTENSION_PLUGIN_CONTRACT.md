@@ -93,6 +93,19 @@ attendibile e chiavi non revocate. `VerifyCallSignatures` espone un preflight
 `DDFX006`/`DDFX007`/`DDFX105`. Questo non verifica da solo il lock del grafo,
 i byte dell'assembly, il consenso o le risorse: nessun plug-in è eseguibile.
 
+Per `SemanticOperation` e `BuildBackend`, il primo confine `1.0` è solo un
+input sorgente: `DdfExtensionSourceSnapshot` contiene testo UTF-8 valido,
+percorso logico relativo e SHA-256, senza path assoluti o oggetti AST/IR.
+La quota è 1 MiB per documento. `DdfExtensionSemanticRequest` identifica una
+regola e un intervallo interno al documento; il punto deve dichiarare
+`file.read`. `DdfExtensionBuildRequest` accetta fino a 128 documenti univoci
+per percorso (confronto case-insensitive), massimo 8 MiB complessivi,
+sorgente principale presente nell'insieme e target eseguibile/libreria; il
+punto deve dichiarare `file.read` e `file.write`. Questi nomi sono logici:
+non devono essere usati direttamente per aprire file. I grant per risorsa
+esatta, la modalità standalone per la build, le risposte, il wire format e
+l'attestazione di questi input rimangono da definire prima di un dispatcher.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di

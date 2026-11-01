@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Introdotti input sorgente immutabili per futuri punti semantici e backend di build: percorso relativo, UTF-8 rigoroso, hash SHA-256, limiti per documento e workspace, senza AST/IR o oggetti Roslyn. I punti devono dichiarare le capability file necessarie; non sono ancora disponibili dispatch, risultati o accesso fisico alle risorse.
+
 - Le firme runtime/host sono ora pubblicabili in un catalogo JSON `1.0` con schema rigoroso e firma staccata ECDSA P-256. Il preflight lega catalogo delle firme, catalogo dei punti e manifest all'editore attendibile; rifiuta alterazioni e copertura incompleta senza caricare plug-in.
 
 - Le chiamate runtime/host possono ora essere vincolate a firme immutabili: numero e tipo degli argomenti, array omogenei, tipo del risultato ed errori dichiarati. Il registro rifiuta richieste non conformi e consuma risposte con tipi o errori imprevisti come `DDFX602`; le firme non sono ancora serializzate o firmate.
