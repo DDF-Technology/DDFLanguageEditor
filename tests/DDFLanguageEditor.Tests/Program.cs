@@ -127,6 +127,7 @@ namespace DDFLanguageEditor.Tests
             Run("round-trips strict semantic and build source requests", RoundTripsExtensionSourceRequests);
             Run("binds bounded semantic extension diagnostics to their source request", BindsSemanticExtensionDiagnostics);
             Run("binds bounded build artifacts to their source request", BindsBuildExtensionArtifacts);
+            Run("requires scoped source grants and standalone mode for extension builds", RequiresScopedSourceExtensionAdmission);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3176,6 +3177,86 @@ namespace DDFLanguageEditor.Tests
                 DdfExtensionBuildArtifactKind.Assembly, "../app.dll", new byte[] { 1 }));
             Throws<ArgumentException>(() => DdfExtensionBuildResponseCodec.Parse(
                 new string(' ', DdfExtensionBuildResponseCodec.MaximumWireBytes + 1), request));
+        }
+
+        private static void RequiresScopedSourceExtensionAdmission()
+        {
+            byte[] assembly = Encoding.UTF8.GetBytes("source-admission-test");
+            string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                Array.Empty<string>(), new[] { "file.read", "file.write" });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            var signature = DdfExtensionPluginSignatureVerifier.Sign(manifest,
+                "key-1", publisher);
+            var grant = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, hash, manifest.Capabilities);
+            var semanticPoint = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var buildPoint = new DdfExtensionPointDescriptor("ddf.demo.build",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var catalog = new DdfExtensionPointCatalog(manifest,
+                new[] { semanticPoint, buildPoint });
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var semantic = new DdfExtensionSemanticRequest(semanticPoint, source,
+                "FunctionDeclaration", 0, 4);
+            var build = new DdfExtensionBuildRequest(buildPoint, new[] { source },
+                source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            var read = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.read", "project.sources");
+            var write = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.write", "project.output");
+            DdfExtensionSourceAdmissionResult Semantic(params DdfExtensionPluginResourceGrant[] scopes) =>
+                DdfExtensionSourceAdmission.EvaluateSemantic(semantic, catalog,
+                    signature, trust, assembly, "0.42", grant, scopes, "project.sources");
+            DdfExtensionSourceAdmissionResult Build(DdfExtensionHostMode mode,
+                params DdfExtensionPluginResourceGrant[] scopes) =>
+                DdfExtensionSourceAdmission.EvaluateBuild(build, mode, catalog,
+                    signature, trust, assembly, "0.42", grant, scopes,
+                    "project.sources", "project.output");
+            Equal(true, Semantic(read).IsAuthorized);
+            Equal(false, Semantic().IsAuthorized);
+            Equal(DdfExtensionSourceAdmissionDecision.EmbeddedBuildDenied,
+                Build(DdfExtensionHostMode.Embedded, read, write).Decision);
+            Equal(DdfExtensionSourceAdmissionDecision.ReadDenied,
+                Build(DdfExtensionHostMode.Standalone, write).Decision);
+            Equal(DdfExtensionSourceAdmissionDecision.WriteDenied,
+                Build(DdfExtensionHostMode.Standalone, read).Decision);
+            Equal(true, Build(DdfExtensionHostMode.Standalone, read, write).IsAuthorized);
+            Equal(DdfExtensionSourceAdmissionDecision.ReadDenied,
+                DdfExtensionSourceAdmission.EvaluateSemantic(semantic, catalog,
+                    signature, trust, assembly, "0.42", grant, new[] { read },
+                    "project.other").Decision);
+            Equal(DdfExtensionSourceAdmissionDecision.WriteDenied,
+                DdfExtensionSourceAdmission.EvaluateBuild(build,
+                    DdfExtensionHostMode.Standalone, catalog, signature, trust,
+                    assembly, "0.42", grant, new[] { read, write },
+                    "project.sources", "project.other").Decision);
+            var revokedWrite = new DdfExtensionPluginResourceGrant(manifest.Id,
+                manifest.Publisher, manifest.Version, hash, "file.write",
+                "project.output", revoked: true);
+            Equal(DdfExtensionSourceAdmissionDecision.WriteDenied,
+                Build(DdfExtensionHostMode.Standalone, read, revokedWrite).Decision);
+            Equal(DdfExtensionSourceAdmissionDecision.ReadDenied,
+                Build(DdfExtensionHostMode.Standalone, read, read, write).Decision);
+            var forgedPoint = new DdfExtensionPointDescriptor(buildPoint.Id,
+                buildPoint.Kind, buildPoint.Version, buildPoint.RequiredCapabilities);
+            var forgedRequest = new DdfExtensionBuildRequest(forgedPoint,
+                new[] { source }, source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            Equal(DdfExtensionSourceAdmissionDecision.PointNotInCatalog,
+                DdfExtensionSourceAdmission.EvaluateBuild(forgedRequest,
+                    DdfExtensionHostMode.Standalone, catalog, signature, trust,
+                    assembly, "0.42", grant, new[] { read, write },
+                    "project.sources", "project.output").Decision);
+            Equal(DdfExtensionSourceAdmissionDecision.ReadDenied,
+                DdfExtensionSourceAdmission.EvaluateBuild(build,
+                    DdfExtensionHostMode.Standalone, catalog, signature, trust,
+                    Encoding.UTF8.GetBytes("modified"), "0.42", grant,
+                    new[] { read, write }, "project.sources", "project.output").Decision);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

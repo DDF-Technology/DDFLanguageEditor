@@ -136,6 +136,18 @@ dati all'input: non autentica il worker. Un payload `Assembly` non è ancora
 un PE valido o sicuro. Validazione dei byte, grant per risorsa, isolamento,
 policy standalone, staging e pubblicazione rimangono prerequisiti separati.
 
+`DdfExtensionSourceAdmission` è un gate descrittivo prima di qualunque uso
+delle richieste: richiede il medesimo oggetto punto dello snapshot del catalogo,
+rivaluta firma/hash/SDK/consenso con la policy plug-in e verifica un grant
+`file.read` su ID di risorsa opaco. Per la build richiede anche `file.write`
+su un secondo ID e `Standalone`; `Embedded` è sempre negato. Un punto che
+richiede capability ulteriori non viene ammesso da questo gate. Il chiamante
+deve fornire un catalogo previamente attestato e i binding delle risorse;
+questa API non verifica la firma del catalogo, il lock dell'intero grafo o
+l'audit durevole, non apre file e non concede permessi persistenti. Ogni
+accesso fisico dovrà rifare il controllo sui grant correnti per evitare revoche
+o cambi di stato fra ammissione e uso.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di
