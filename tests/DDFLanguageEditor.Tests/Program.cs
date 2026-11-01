@@ -126,6 +126,7 @@ namespace DDFLanguageEditor.Tests
             Run("bounds source-only semantic and build extension requests", BoundsSourceOnlyExtensionRequests);
             Run("round-trips strict semantic and build source requests", RoundTripsExtensionSourceRequests);
             Run("binds bounded semantic extension diagnostics to their source request", BindsSemanticExtensionDiagnostics);
+            Run("binds bounded build artifacts to their source request", BindsBuildExtensionArtifacts);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3125,6 +3126,56 @@ namespace DDFLanguageEditor.Tests
                 new[] { diagnostic }));
             Throws<ArgumentException>(() => DdfExtensionSemanticResponseCodec.Parse(
                 new string(' ', DdfExtensionSemanticResponseCodec.MaximumWireBytes + 1), request));
+        }
+
+        private static void BindsBuildExtensionArtifacts()
+        {
+            var point = new DdfExtensionPointDescriptor("ddf.demo.backend",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var request = new DdfExtensionBuildRequest(point, new[] { source },
+                source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            byte[] original = { 1, 2, 3, 4 };
+            var assembly = new DdfExtensionBuildArtifact(DdfExtensionBuildArtifactKind.Assembly,
+                "bin/app.dll", original);
+            original[0] = 9;
+            Equal((byte)1, assembly.GetBytes()[0]);
+            byte[] retrieved = assembly.GetBytes();
+            retrieved[0] = 8;
+            Equal((byte)1, assembly.GetBytes()[0]);
+            var symbols = new DdfExtensionBuildArtifact(DdfExtensionBuildArtifactKind.Symbols,
+                "bin/app.pdb", new byte[] { 5, 6 });
+            var success = DdfExtensionBuildResponse.Success(request,
+                new[] { symbols, assembly });
+            string json = DdfExtensionBuildResponseCodec.Serialize(success);
+            var parsed = DdfExtensionBuildResponseCodec.Parse(json, request);
+            Equal(json, DdfExtensionBuildResponseCodec.Serialize(parsed));
+            Equal(2, parsed.Artifacts.Count);
+            Equal(DdfExtensionBuildArtifactKind.Assembly, parsed.Artifacts[0].Kind);
+
+            var failure = DdfExtensionBuildResponse.Failure(request,
+                "ddf.demo.backend.error.compiler");
+            string failureJson = DdfExtensionBuildResponseCodec.Serialize(failure);
+            Equal(failureJson, DdfExtensionBuildResponseCodec.Serialize(
+                DdfExtensionBuildResponseCodec.Parse(failureJson, request)));
+            var changed = new DdfExtensionBuildRequest(point, new[] { source },
+                source.RelativePath, DdfExtensionBuildTargetKind.Library);
+            Throws<FormatException>(() => DdfExtensionBuildResponseCodec.Parse(json, changed));
+            Throws<FormatException>(() => DdfExtensionBuildResponseCodec.Parse(
+                json.Replace(assembly.Sha256, new string('b', 64)), request));
+            Throws<FormatException>(() => DdfExtensionBuildResponseCodec.Parse(
+                json.Replace("AQIDBA==", "AQIDBQ=="), request));
+            Throws<FormatException>(() => DdfExtensionBuildResponseCodec.Parse(
+                json.Replace("\"artifacts\":", "\"extra\":0,\"artifacts\":"), request));
+            Throws<FormatException>(() => DdfExtensionBuildResponseCodec.Parse(
+                json.Replace("\"bytesBase64\":", "\"bytesBase64\":\"AAAA\",\"bytesBase64\":"), request));
+            Throws<ArgumentException>(() => DdfExtensionBuildResponse.Success(request,
+                new[] { assembly, assembly }));
+            Throws<ArgumentException>(() => new DdfExtensionBuildArtifact(
+                DdfExtensionBuildArtifactKind.Assembly, "../app.dll", new byte[] { 1 }));
+            Throws<ArgumentException>(() => DdfExtensionBuildResponseCodec.Parse(
+                new string(' ', DdfExtensionBuildResponseCodec.MaximumWireBytes + 1), request));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

@@ -54,6 +54,7 @@
     <None Include="..\ddf-extension-call-signatures.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-source-request.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-semantic-response.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-extension-build-response.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\DDF_EXTENSION_PLUGIN_CONTRACT.md" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />

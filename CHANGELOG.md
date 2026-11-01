@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Definito il formato della futura risposta dei backend di build: assembly e artefatti opzionali conservati come dati immutabili, con hash, percorsi logici, quote e legame alla richiesta. Il parser respinge payload alterati; nessun artefatto viene scritto, validato come PE o eseguito automaticamente.
+
 - Definita la risposta delle future estensioni semantiche: diagnostiche tipizzate e limitate, o errore del plug-in, con formato JSON rigoroso e digest della richiesta sorgente. Il risultato non viene ancora prodotto da plug-in attivi né inserito nella pipeline dell'editor.
 
 - Pubblicato il wire format JSON `1.0` per gli input sorgente dei futuri punti semantici e backend di build. Il parser rigoroso verifica struttura, hash SHA-256, percorsi logici, intervalli e quote senza accedere ai file né invocare plug-in.

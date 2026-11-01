@@ -110,8 +110,8 @@ UTF-8, gli intervalli, i percorsi relativi, il punto nel catalogo e le quote
 (1 MiB per sorgente, 8 MiB per build, 128 sorgenti, 32 MiB di payload).
 Il catalogo passato al parser deve essere già verificato dall'host: il parser
 non autentica la provenienza. I grant per risorsa esatta, la modalità
-standalone per la build, le risposte e l'attestazione di questi input
-rimangono da definire prima di un dispatcher.
+standalone per la build e l'attestazione di questi input rimangono da definire
+prima di un dispatcher. I formati delle risposte sono descritti sotto.
 
 Per le sole operazioni semantiche, `DdfExtensionSemanticResponse@1.0`
 trasporta fino a 128 diagnostiche (`Info`, `Warning`, `Error`) con ID nel
@@ -121,8 +121,20 @@ oppure un errore `<pointId>.error.`. Il wire format è descritto da
 Il digest SHA-256 della richiesta canonica vincola la risposta all'esatto
 snapshot, regola e intervallo; non autentica il worker né sostituisce un ID
 monouso di correlazione. Le diagnostiche fornite dal plug-in non sono codici
-host `DDFX` e non diventano automaticamente errori del compilatore. Output di
-build, isolamento, autorizzazione e collegamento alla pipeline restano aperti.
+host `DDFX` e non diventano automaticamente errori del compilatore.
+Isolamento, autorizzazione e collegamento alla pipeline restano aperti.
+
+`DdfExtensionBuildResponse@1.0` trasporta un assembly obbligatorio e, se
+presenti, simboli e manifest. Ogni artefatto conserva in memoria una copia
+immutabile dei byte, un percorso **logico** relativo, il tipo e SHA-256: non è
+una destinazione di scrittura. La quota è 8 MiB per artefatto, 16 MiB
+complessivi e 24 MiB di wire JSON Base64; i ruoli e i percorsi non possono
+essere duplicati. Il parser di `ddf-extension-build-response.schema.json`
+verifica hash, formato canonico Base64 e digest della richiesta build, oppure
+accetta un errore namespaced senza artefatti. Il digest serve solo a legare i
+dati all'input: non autentica il worker. Un payload `Assembly` non è ancora
+un PE valido o sicuro. Validazione dei byte, grant per risorsa, isolamento,
+policy standalone, staging e pubblicazione rimangono prerequisiti separati.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
