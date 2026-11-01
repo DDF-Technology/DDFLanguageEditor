@@ -16,10 +16,11 @@ namespace DDFLanguageEditor.Core
         private readonly object gate = new object();
         private readonly string path;
         private readonly byte[] key;
+        private readonly IDdfExtensionPluginAuditAnchor anchor;
         private bool disposed;
 
         public DdfExtensionPluginFileAuditStore(string path, byte[] authenticationKey,
-            bool createNew = false)
+            bool createNew = false, IDdfExtensionPluginAuditAnchor anchor = null)
         {
             if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
                 throw new ArgumentException("Percorso audit assoluto richiesto.", nameof(path));
@@ -28,6 +29,7 @@ namespace DDFLanguageEditor.Core
                 throw new ArgumentException("Chiave audit di 32-64 byte richiesta.",
                     nameof(authenticationKey));
             this.path = Path.GetFullPath(path);
+            this.anchor = anchor;
             if (createNew)
             {
                 if (!Directory.Exists(Path.GetDirectoryName(this.path)))
@@ -35,6 +37,9 @@ namespace DDFLanguageEditor.Core
                 using var stream = new FileStream(this.path, FileMode.CreateNew,
                     FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough);
                 stream.Flush(true);
+                if (anchor != null && !anchor.TryInitialize(
+                        new DdfExtensionPluginAuditCheckpoint(0, new byte[32])))
+                    throw new InvalidDataException("Ancora audit già inizializzata o indisponibile.");
             }
             key = (byte[])authenticationKey.Clone();
         }
@@ -115,6 +120,10 @@ namespace DDFLanguageEditor.Core
                 byte[] existing = new byte[(int)stream.Length];
                 stream.ReadExactly(existing);
                 (long sequence, byte[] previousMac) = Verify(existing);
+                DdfExtensionPluginAuditCheckpoint checkpoint =
+                    new DdfExtensionPluginAuditCheckpoint(sequence, previousMac);
+                if (anchor != null && !checkpoint.Matches(anchor.Read()))
+                    throw new InvalidDataException("Journal e ancora audit divergenti.");
                 if (sequence == long.MaxValue)
                     throw new InvalidDataException("Sequenza audit esaurita.");
                 byte[] payload = createPayload(sequence + 1);
@@ -126,6 +135,9 @@ namespace DDFLanguageEditor.Core
                 stream.Seek(0, SeekOrigin.End);
                 stream.Write(line);
                 stream.Flush(true);
+                if (anchor != null && !anchor.TryAdvance(checkpoint,
+                        new DdfExtensionPluginAuditCheckpoint(sequence + 1, mac)))
+                    throw new InvalidDataException("Avanzamento ancora audit non riuscito.");
             }
         }
 

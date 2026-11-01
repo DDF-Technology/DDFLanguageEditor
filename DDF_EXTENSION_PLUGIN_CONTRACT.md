@@ -75,9 +75,19 @@ collegato alla voce precedente; chiave errata, modifica, troncamento, file
 mancante, quota o errore I/O negano l'operazione. Non vengono salvati percorsi,
 URL o segreti dell'host, solo gli ID logici e l'identità del plug-in.
 
-Il journal non impedisce il rollback a una vecchia copia *valida* da parte di
-chi può sostituire il file: serve un'ancora monotona protetta dall'host prima
-di usare il meccanismo per codice reale. `DdfExtensionPluginConsentLedger`
+Il solo journal non impedisce il rollback a una vecchia copia *valida*.
+`IDdfExtensionPluginAuditAnchor` consente all'host di fornire un checkpoint
+monotono (sequenza e ultimo HMAC) conservato fuori dalla directory del journal
+e protetto contro il rollback. Con un'ancora configurata, ogni append confronta
+il checkpoint, scrive e sincronizza il journal, poi avanza l'ancora tramite
+compare-and-swap durevole. Una copia vecchia, una discrepanza o un avanzamento
+fallito negano l'operazione; un arresto tra scrittura e avanzamento lascia il
+sistema chiuso e richiede recupero manuale verificato. L'implementazione Core
+non include un'ancora persistente: il test usa solo una doppia in memoria,
+che **non** è sicura per produzione. L'host dovrà fornire storage realmente
+monotono, protetto e coordinato tra processi prima di abilitare codice plug-in.
+
+`DdfExtensionPluginConsentLedger`
 gestisce una sessione per un solo plug-in: `Approve` verifica firma, hash e
 compatibilità, poi scrive un evento `Granted` autenticato prima di attivare
 la coppia capability/risorsa. `Revoke` rimuove subito il permesso e registra
@@ -87,7 +97,7 @@ Core non autentica da solo la persona o il processo dietro quell'ID.
 Le decisioni di autorizzazione e gli eventi di consenso condividono sequenza e
 catena HMAC. Il registro non ricostruisce permessi dal journal al riavvio:
 una nuova sessione parte senza grant e richiede un nuovo consenso esplicito.
-Restano aperti l'ancoraggio anti-rollback, la verifica dell'identità dell'attore,
+Restano aperti l'implementazione protetta dell'ancora, la verifica dell'identità dell'attore,
 la persistenza governata dei grant, l'UI di consenso e l'applicazione della
 policy negli adapter.
 

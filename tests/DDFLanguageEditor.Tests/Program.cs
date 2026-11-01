@@ -107,6 +107,7 @@ namespace DDFLanguageEditor.Tests
             Run("limits plugin capabilities to exact host resources", LimitsPluginCapabilitiesToExactHostResources);
             Run("records plugin security decisions without mixing source diagnostics", RecordsPluginSecurityDecisions);
             Run("persists and authenticates plugin security decisions fail closed", PersistsPluginSecurityDecisionsFailClosed);
+            Run("rejects rollback against a monotonic plugin audit anchor", RejectsPluginAuditRollback);
             Run("records explicit plugin consent and revocation without replay", RecordsExplicitPluginConsentAndRevocation);
             Run("resolves only signed and exactly pinned plugin dependency graphs", ResolvesExactlyPinnedPluginDependencies);
             Run("requires separate consent for every plugin dependency", RequiresSeparateConsentForEveryPluginDependency);
@@ -2042,6 +2043,60 @@ namespace DDFLanguageEditor.Tests
                         Record(ledger).Decision);
                     Equal(false, File.Exists(path));
                 }
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        private static void RejectsPluginAuditRollback()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "ddf-plugin-anchor-" +
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                byte[] assembly = Encoding.UTF8.GetBytes("audit-anchor-test");
+                string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+                var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                    "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                    Array.Empty<string>(), new[] { "file.read" });
+                using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                    new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                        publisher.ExportSubjectPublicKeyInfo()) });
+                DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                    manifest, "key-1", publisher);
+                var consent = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                    manifest.Version, hash, manifest.Capabilities);
+                var resource = new DdfExtensionPluginResourceGrant(manifest.Id,
+                    manifest.Publisher, manifest.Version, hash, "file.read",
+                    "project.sources");
+                byte[] key = RandomNumberGenerator.GetBytes(32);
+                string path = Path.Combine(root, "anchored-audit.log");
+                var anchor = new MemoryPluginAuditAnchor();
+                DateTimeOffset at = new DateTimeOffset(2026, 11, 1, 12, 0, 0,
+                    TimeSpan.Zero);
+                using var store = new DdfExtensionPluginFileAuditStore(path, key,
+                    createNew: true, anchor: anchor);
+                var ledger = new DdfExtensionPluginSecurityLedger(durableStore: store);
+                DdfExtensionPluginOperationResult Record() => ledger.EvaluateAndRecord(
+                    manifest, signature, trust, assembly, "0.42", consent,
+                    new[] { resource }, "file.read", "project.sources", at);
+                Equal(true, Record().IsAuthorized);
+                byte[] older = File.ReadAllBytes(path);
+                Equal(true, Record().IsAuthorized);
+                byte[] current = File.ReadAllBytes(path);
+                Equal(2L, anchor.Read().Sequence);
+                File.WriteAllBytes(path, older);
+                Equal(DdfExtensionPluginOperationDecision.AuditUnavailable, Record().Decision);
+                Equal(2L, anchor.Read().Sequence);
+                File.WriteAllBytes(path, current);
+                anchor.FailNextAdvance = true;
+                Equal(DdfExtensionPluginOperationDecision.AuditUnavailable, Record().Decision);
+                Equal(2L, anchor.Read().Sequence);
+                Equal(DdfExtensionPluginOperationDecision.AuditUnavailable, Record().Decision);
             }
             finally
             {
@@ -15553,6 +15608,49 @@ main() out int
                 {
                     RequestMessage = request
                 };
+            }
+        }
+
+        // Test double only: production hosts must use independently protected durable storage.
+        private sealed class MemoryPluginAuditAnchor : IDdfExtensionPluginAuditAnchor
+        {
+            private readonly object gate = new object();
+            private DdfExtensionPluginAuditCheckpoint current;
+
+            public bool FailNextAdvance { get; set; }
+
+            public bool TryInitialize(DdfExtensionPluginAuditCheckpoint initial)
+            {
+                lock (gate)
+                {
+                    if (current != null || initial == null || initial.Sequence != 0)
+                        return false;
+                    current = initial;
+                    return true;
+                }
+            }
+
+            public DdfExtensionPluginAuditCheckpoint Read()
+            {
+                lock (gate) return current;
+            }
+
+            public bool TryAdvance(DdfExtensionPluginAuditCheckpoint expected,
+                DdfExtensionPluginAuditCheckpoint next)
+            {
+                lock (gate)
+                {
+                    if (FailNextAdvance)
+                    {
+                        FailNextAdvance = false;
+                        return false;
+                    }
+                    if (current == null || !current.Matches(expected) ||
+                        next == null || next.Sequence != expected.Sequence + 1)
+                        return false;
+                    current = next;
+                    return true;
+                }
             }
         }
 
