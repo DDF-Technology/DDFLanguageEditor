@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension semantic response 1.0",
+  "oneOf": [
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "pointId", "requestSha256", "status", "diagnostics"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "pointId": { "$ref": "#/$defs/pointId" },
+        "requestSha256": { "$ref": "#/$defs/sha256" },
+        "status": { "const": "Succeeded" },
+        "diagnostics": { "type": "array", "maxItems": 128,
+          "items": { "$ref": "#/$defs/diagnostic" } }
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "pointId", "requestSha256", "status", "errorId"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "pointId": { "$ref": "#/$defs/pointId" },
+        "requestSha256": { "$ref": "#/$defs/sha256" },
+        "status": { "const": "Failed" },
+        "errorId": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    }
+  ],
+  "$defs": {
+    "pointId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "diagnostic": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "severity", "message", "start", "length"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "severity": { "enum": ["Info", "Warning", "Error"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "start": { "type": "integer", "minimum": 0 },
+        "length": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

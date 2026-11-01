@@ -113,6 +113,17 @@ non autentica la provenienza. I grant per risorsa esatta, la modalità
 standalone per la build, le risposte e l'attestazione di questi input
 rimangono da definire prima di un dispatcher.
 
+Per le sole operazioni semantiche, `DdfExtensionSemanticResponse@1.0`
+trasporta fino a 128 diagnostiche (`Info`, `Warning`, `Error`) con ID nel
+namespace `<pointId>.diagnostic.`, messaggio e intervallo interno al documento,
+oppure un errore `<pointId>.error.`. Il wire format è descritto da
+`ddf-extension-semantic-response.schema.json` e limita il payload a 256 KiB.
+Il digest SHA-256 della richiesta canonica vincola la risposta all'esatto
+snapshot, regola e intervallo; non autentica il worker né sostituisce un ID
+monouso di correlazione. Le diagnostiche fornite dal plug-in non sono codici
+host `DDFX` e non diventano automaticamente errori del compilatore. Output di
+build, isolamento, autorizzazione e collegamento alla pipeline restano aperti.
+
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
 `DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di

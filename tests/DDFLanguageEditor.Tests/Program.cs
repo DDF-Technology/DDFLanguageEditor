@@ -125,6 +125,7 @@ namespace DDFLanguageEditor.Tests
             Run("authenticates machine-readable extension call signatures", AuthenticatesExtensionCallSignatures);
             Run("bounds source-only semantic and build extension requests", BoundsSourceOnlyExtensionRequests);
             Run("round-trips strict semantic and build source requests", RoundTripsExtensionSourceRequests);
+            Run("binds bounded semantic extension diagnostics to their source request", BindsSemanticExtensionDiagnostics);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3082,6 +3083,48 @@ namespace DDFLanguageEditor.Tests
                 buildJson + " // trailing", catalog));
             Throws<ArgumentException>(() => DdfExtensionSourceRequestCodec.ParseSemantic(
                 new string(' ', DdfExtensionSourceRequestCodec.MaximumWireBytes + 1), catalog));
+        }
+
+        private static void BindsSemanticExtensionDiagnostics()
+        {
+            var point = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var request = new DdfExtensionSemanticRequest(point, source,
+                "FunctionDeclaration", 0, 4);
+            var diagnostic = new DdfExtensionSemanticDiagnostic(request,
+                "ddf.demo.semantic.diagnostic.style", DdfExtensionSemanticSeverity.Warning,
+                "Controllare lo stile", 0, 4);
+            var success = DdfExtensionSemanticResponse.Success(request,
+                new[] { diagnostic });
+            string successJson = DdfExtensionSemanticResponseCodec.Serialize(success);
+            var parsed = DdfExtensionSemanticResponseCodec.Parse(successJson, request);
+            Equal(successJson, DdfExtensionSemanticResponseCodec.Serialize(parsed));
+            Equal(1, parsed.Diagnostics.Count);
+            Equal(DdfExtensionSemanticSeverity.Warning, parsed.Diagnostics[0].Severity);
+
+            var failure = DdfExtensionSemanticResponse.Failure(request,
+                "ddf.demo.semantic.error.unavailable");
+            string failureJson = DdfExtensionSemanticResponseCodec.Serialize(failure);
+            Equal(failureJson, DdfExtensionSemanticResponseCodec.Serialize(
+                DdfExtensionSemanticResponseCodec.Parse(failureJson, request)));
+            var changed = new DdfExtensionSemanticRequest(point, source,
+                "FunctionDeclaration", 1, 4);
+            Throws<FormatException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                successJson, changed));
+            Throws<FormatException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                successJson.Replace("\"status\":\"Succeeded\"",
+                    "\"status\":\"Other\""), request));
+            Throws<FormatException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                successJson.Replace("\"diagnostics\":", "\"extra\":0,\"diagnostics\":"), request));
+            Throws<ArgumentOutOfRangeException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                successJson.Replace("\"length\":4", "\"length\":9999"), request));
+            Throws<ArgumentException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                successJson.Replace("ddf.demo.semantic.diagnostic.style", "DDFX601"), request));
+            Throws<ArgumentException>(() => DdfExtensionSemanticResponse.Success(changed,
+                new[] { diagnostic }));
+            Throws<ArgumentException>(() => DdfExtensionSemanticResponseCodec.Parse(
+                new string(' ', DdfExtensionSemanticResponseCodec.MaximumWireBytes + 1), request));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
