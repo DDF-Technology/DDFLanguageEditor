@@ -112,6 +112,7 @@ namespace DDFLanguageEditor.Tests
             Run("records explicit plugin consent and revocation without replay", RecordsExplicitPluginConsentAndRevocation);
             Run("resolves only signed and exactly pinned plugin dependency graphs", ResolvesExactlyPinnedPluginDependencies);
             Run("requires separate consent for every plugin dependency", RequiresSeparateConsentForEveryPluginDependency);
+            Run("separates plugin preflight diagnostics from project and source errors", SeparatesPluginPreflightDiagnostics);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -1987,8 +1988,8 @@ namespace DDFLanguageEditor.Tests
             var snapshot = ledger.Snapshot();
             Equal(2, snapshot.Count);
             Equal(1L, snapshot[0].Sequence);
-            Equal("DDFP000", snapshot[0].Code);
-            Equal("DDFP202", snapshot[1].Code);
+            Equal("DDFX000", snapshot[0].Code);
+            Equal("DDFX202", snapshot[1].Code);
             Equal(DdfExtensionPluginSecurityDomain.Resource, snapshot[1].Domain);
             Equal(at, snapshot[0].ObservedAtUtc);
             Equal("project.secrets", snapshot[1].ResourceId);
@@ -1996,7 +1997,7 @@ namespace DDFLanguageEditor.Tests
                 manifest, signature, trust, assembly, "0.42", grant,
                 new[] { resource }, "file.read", "project.sources", at);
             Equal(DdfExtensionPluginOperationDecision.AuditUnavailable, overflow.Decision);
-            Equal("DDFP900", overflow.SecurityCode);
+            Equal("DDFX900", overflow.SecurityCode);
             Equal(DdfExtensionPluginSecurityDomain.Audit, overflow.SecurityDomain);
             Equal(false, overflow.IsAuthorized);
             Equal(2, ledger.Snapshot().Count);
@@ -2004,7 +2005,7 @@ namespace DDFLanguageEditor.Tests
             separate.EvaluateAndRecord(manifest, null, trust, assembly,
                 "0.42", grant, new[] { resource }, "file.read",
                 "project.sources", at);
-            Equal("DDFP101", separate.Snapshot()[0].Code);
+            Equal("DDFX101", separate.Snapshot()[0].Code);
             Equal(DdfExtensionPluginSecurityDomain.PublisherTrust,
                 separate.Snapshot()[0].Domain);
         }
@@ -2333,7 +2334,7 @@ namespace DDFLanguageEditor.Tests
             DdfExtensionPluginGraphAdmissionResult missing = Evaluate(rootGrant);
             Equal(false, missing.Success);
             Equal(0, missing.OrderedIds.Count);
-            Equal(true, missing.Issues.Single().StartsWith("DDFP401", StringComparison.Ordinal));
+            Equal(true, missing.Issues.Single().StartsWith("DDFX401", StringComparison.Ordinal));
             Equal(true, Evaluate(rootGrant, helperGrant).Success);
             SequenceEqual(new[] { "ddf.helper", "ddf.root" },
                 Evaluate(rootGrant, helperGrant).OrderedIds);
@@ -2352,6 +2353,72 @@ namespace DDFLanguageEditor.Tests
                 helper.Manifest.Publisher, helper.Manifest.Version,
                 new string('b', 64), helper.Manifest.Capabilities);
             Equal(false, Evaluate(rootGrant, wrongHash).Success);
+        }
+
+        private static void SeparatesPluginPreflightDiagnostics()
+        {
+            Equal("DDFX001", DdfExtensionPluginPreflight.ParseManifest("{}").Diagnostics[0].Code);
+            Equal("DDFX002", DdfExtensionPluginPreflight.ParseSignature("{}").Diagnostics[0].Code);
+            Equal("DDFX003", DdfExtensionPluginPreflight.ParseLock("{}").Diagnostics[0].Code);
+            byte[] assembly = Encoding.UTF8.GetBytes("diagnostic-preflight-test");
+            string hash = Convert.ToHexString(SHA256.HashData(assembly)).ToLowerInvariant();
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", hash,
+                Array.Empty<string>(), new[] { "file.read" });
+            string manifestJson = JsonSerializer.Serialize(new {
+                schemaVersion = "1.0", id = manifest.Id, publisher = manifest.Publisher,
+                version = manifest.Version, minimumSdkContract = manifest.MinimumSdkContract,
+                maximumSdkContract = manifest.MaximumSdkContract,
+                assemblyFile = manifest.AssemblyFile, assemblySha256 = manifest.AssemblySha256,
+                dependencies = manifest.Dependencies, capabilities = manifest.Capabilities });
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginSignature signature = DdfExtensionPluginSignatureVerifier.Sign(
+                manifest, "key-1", publisher);
+            string signatureJson = DdfExtensionPluginSignatureCodec.Serialize(signature);
+            Equal(true, DdfExtensionPluginPreflight.VerifyArtifact(manifestJson,
+                signatureJson, assembly, trust, "0.42").Success);
+            Equal("DDFX102", DdfExtensionPluginPreflight.VerifyArtifact(manifestJson,
+                signatureJson, Encoding.UTF8.GetBytes("altered"), trust,
+                "0.42").Diagnostics[0].Code);
+            Equal("DDFX103", DdfExtensionPluginPreflight.VerifyArtifact(manifestJson,
+                signatureJson, assembly, trust, "0.51").Diagnostics[0].Code);
+            Equal("DDFX101", DdfExtensionPluginPreflight.VerifyArtifact(manifestJson,
+                signatureJson, assembly,
+                new DdfExtensionPluginPublisherTrust(Array.Empty<DdfExtensionPluginPublisherKey>()),
+                "0.42").Diagnostics[0].Code);
+            var artifact = new DdfExtensionPluginArtifact(manifest, signature, assembly);
+            var pins = new DdfExtensionPluginDependencyLockFile(new[] {
+                DdfExtensionPluginLockEntry.FromManifest(manifest) });
+            DdfExtensionPluginGraphAdmissionResult denied =
+                DdfExtensionPluginGraphAdmission.Evaluate(manifest.Id, pins,
+                    new[] { artifact }, trust, "0.42", null);
+            DdfExtensionPluginDiagnostic graphIssue =
+                DdfExtensionPluginPreflight.FromGraphAdmission(denied).Single();
+            Equal("DDFX401", graphIssue.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Authorization, graphIssue.Domain);
+            Equal(false, graphIssue.ToString().Contains("Codice sorgente",
+                StringComparison.Ordinal));
+            DdfExtensionPluginDependencyResolution missingArtifact =
+                DdfExtensionPluginDependencyResolver.Resolve(manifest.Id, pins,
+                    Array.Empty<DdfExtensionPluginArtifact>(), trust, "0.42");
+            DdfExtensionPluginDiagnostic dependencyIssue =
+                DdfExtensionPluginPreflight.FromDependencyResolution(missingArtifact).Single();
+            Equal("DDFX302", dependencyIssue.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Dependency, dependencyIssue.Domain);
+            var grant = new DdfExtensionPluginGrant(manifest.Id, manifest.Publisher,
+                manifest.Version, hash, manifest.Capabilities);
+            DdfExtensionPluginOperationResult operation =
+                DdfExtensionPluginResourcePolicy.Evaluate(manifest, signature,
+                    trust, assembly, "0.42", grant, null,
+                    "file.read", "project.sources");
+            DdfExtensionPluginDiagnostic scopeIssue =
+                DdfExtensionPluginPreflight.FromOperation(operation).Single();
+            Equal("DDFX202", scopeIssue.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Resource, scopeIssue.Domain);
+            Equal(false, scopeIssue.Code.StartsWith("DDFP", StringComparison.Ordinal));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

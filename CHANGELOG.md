@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Corretto il prefisso delle diagnostiche plug-in da `DDFP` a `DDFX`, evitando la collisione con gli errori del manifest di progetto. Aggiunto un preflight tipizzato per manifest, firma, lock, hash, SDK, dipendenze, consenso e risorse; nessun errore plug-in viene presentato come errore del sorgente DDF.
+
 - Definito il catalogo `1.0` delle capability dei plug-in: 19 operazioni ammesse nei sei domini file, rete, processi, dispositivi, UI e native. Manifest e grant rifiutano nomi inventati; schema e Core sono verificati insieme. Il catalogo dichiara requisiti di worker, ma non abilita adapter o esecuzione.
 
 - Definito un protocollo opzionale per ancorare il journal di sicurezza dei plug-in a uno storage monotono esterno: il rollback a una copia valida viene rilevato e l'avanzamento fallito nega le operazioni. L'implementazione protetta dell'ancora è ancora responsabilità futura dell'host; la doppia in memoria è solo per test.
@@ -14,7 +16,7 @@
 
 - Aggiunto un journal locale opzionale per le decisioni di sicurezza dei plug-in: append durevole con catena HMAC, chiave esterna fornita dall'host e comportamento fail-closed per manomissione, sparizione del file, quota e problemi I/O. Il rollback verso una copia valida più vecchia non è ancora prevenuto, quindi nessun plug-in viene caricato.
 
-- Il contratto plug-in dispone di un registro Core delle decisioni di sicurezza, distinto dalle diagnostiche del codice DDF. Ogni decisione registrata ha codice `DDFP`, dominio e sequenza; a capacità esaurita nuove operazioni vengono negate. Il registro resta in memoria e non abilita l'esecuzione di plug-in.
+- Il contratto plug-in dispone di un registro Core delle decisioni di sicurezza, distinto dalle diagnostiche del codice DDF. Ogni decisione registrata ha codice `DDFX`, dominio e sequenza; a capacità esaurita nuove operazioni vengono negate. Il registro resta in memoria e non abilita l'esecuzione di plug-in.
 
 - Introdotti grant di risorsa logica per i plug-in: anche con firma, hash e consenso validi, una capability può essere usata soltanto sulla coppia esatta capability/risorsa concessa dall'host. Permessi mancanti, duplicati o revocati negano l'operazione; non sono ancora attivi adapter o accessi fisici.
 

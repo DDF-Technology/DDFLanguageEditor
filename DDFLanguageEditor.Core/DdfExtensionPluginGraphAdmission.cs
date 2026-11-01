@@ -35,7 +35,7 @@ namespace DDFLanguageEditor.Core
             if (consent.Length > 128 || consent.Any(item => item == null) ||
                 consent.Select(item => item.Id).Distinct(StringComparer.Ordinal).Count() !=
                 consent.Length)
-                return Fail("DDFP400: Consensi duplicati o oltre quota.");
+                return Fail("DDFX400: Consensi duplicati o oltre quota.");
             DdfExtensionPluginDependencyResolution resolved =
                 DdfExtensionPluginDependencyResolver.Resolve(rootId, lockFile,
                     available, trust, sdkContract);
@@ -51,7 +51,7 @@ namespace DDFLanguageEditor.Core
             {
                 if (!byGrant.TryGetValue(id, out DdfExtensionPluginGrant grant))
                 {
-                    issues.Add("DDFP401: Consenso specifico mancante: " + id);
+                    issues.Add("DDFX401: Consenso specifico mancante: " + id);
                     continue;
                 }
                 DdfExtensionPluginArtifact artifact = byId[id];
@@ -60,11 +60,11 @@ namespace DDFLanguageEditor.Core
                         artifact.Manifest, artifact.Signature, trust,
                         artifact.BytesForVerification, sdkContract, grant);
                 if (decision != DdfExtensionPluginDecision.Authorized)
-                    issues.Add("DDFP402: Consenso non valido per " + id + ": " + decision);
+                    issues.Add("DDFX402: Consenso non valido per " + id + ": " + decision);
             }
             foreach (DdfExtensionPluginGrant grant in consent)
                 if (!resolved.OrderedIds.Contains(grant.Id, StringComparer.Ordinal))
-                    issues.Add("DDFP403: Consenso estraneo al grafo: " + grant.Id);
+                    issues.Add("DDFX403: Consenso estraneo al grafo: " + grant.Id);
             return new DdfExtensionPluginGraphAdmissionResult(
                 issues.Count == 0 ? resolved.OrderedIds : Array.Empty<string>(), issues);
         }

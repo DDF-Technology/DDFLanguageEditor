@@ -5,6 +5,16 @@ modulo DDF. Aprire codice, progetti o pacchetti lingua non deve installare o
 attivare plug-in. Questo documento definisce soltanto metadati e decisioni di
 autorizzazione: **nessun loader è abilitato** in questa verticale.
 
+Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
+`DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
+`DdfExtensionPluginPreflight` restituisce risultati tipizzati per parsing di
+manifest/firma/lock, verifica di firma/hash/SDK, grafo, consenso e operazione.
+Le famiglie `DDFX0xx`–`DDFX4xx` coprono i controlli attuali; `DDFX9xx` indica
+problemi di audit. I domini `Loading` ed `Execution` sono riservati al futuro
+host e non simulano funzionalità già attive. I vecchi journal di sviluppo
+possono contenere codici `DDFP` per eventi plug-in: non vengono riscritti né
+utilizzati come permesso; le nuove decisioni usano `DDFX`.
+
 `ddf-extension-plugin.schema.json` descrive il manifest `1.0`. `id` e
 `publisher` sono identificatori distinti; `version` è SemVer; l'intervallo
 `minimumSdkContract`–`maximumSdkContract` include gli estremi. `assemblyFile`
@@ -73,7 +83,7 @@ firma, hash e consenso a ogni decisione. Il futuro adapter deve applicare
 questa decisione **sul confine effettivo della risorsa** e associare il nome
 logico a configurazione host protetta; qui non viene ancora aperta alcuna
 risorsa. `DdfExtensionPluginSecurityLedger` conserva in memoria, in ordine,
-le decisioni con codici `DDFP` e dominio separato da sorgente/linguaggio/motore.
+le decisioni con codici `DDFX` e dominio separato da sorgente/linguaggio/motore.
 Il registro è limitato: quando è pieno, `EvaluateAndRecord` nega ulteriori
 operazioni invece di autorizzarle senza traccia. È disponibile un backend
 locale opzionale `DdfExtensionPluginFileAuditStore`: l'host crea una volta il

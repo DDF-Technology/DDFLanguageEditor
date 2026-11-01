@@ -53,32 +53,32 @@ namespace DDFLanguageEditor.Core
             switch (result.Decision)
             {
                 case DdfExtensionPluginOperationDecision.Authorized:
-                    return ("DDFP000", DdfExtensionPluginSecurityDomain.Authorization);
+                    return ("DDFX000", DdfExtensionPluginSecurityDomain.Authorization);
                 case DdfExtensionPluginOperationDecision.CapabilityNotDeclared:
-                    return ("DDFP201", DdfExtensionPluginSecurityDomain.Authorization);
+                    return ("DDFX201", DdfExtensionPluginSecurityDomain.Authorization);
                 case DdfExtensionPluginOperationDecision.ResourceNotGranted:
-                    return ("DDFP202", DdfExtensionPluginSecurityDomain.Resource);
+                    return ("DDFX202", DdfExtensionPluginSecurityDomain.Resource);
                 case DdfExtensionPluginOperationDecision.ResourceRevoked:
-                    return ("DDFP203", DdfExtensionPluginSecurityDomain.Resource);
+                    return ("DDFX203", DdfExtensionPluginSecurityDomain.Resource);
                 case DdfExtensionPluginOperationDecision.AuditUnavailable:
-                    return ("DDFP900", DdfExtensionPluginSecurityDomain.Audit);
+                    return ("DDFX900", DdfExtensionPluginSecurityDomain.Audit);
                 default:
                     switch (result.AdmissionDecision)
                     {
                         case DdfExtensionPluginDecision.SignatureNotVerified:
-                            return ("DDFP101", DdfExtensionPluginSecurityDomain.PublisherTrust);
+                            return ("DDFX101", DdfExtensionPluginSecurityDomain.PublisherTrust);
                         case DdfExtensionPluginDecision.AssemblyHashMismatch:
-                            return ("DDFP102", DdfExtensionPluginSecurityDomain.PublisherTrust);
+                            return ("DDFX102", DdfExtensionPluginSecurityDomain.PublisherTrust);
                         case DdfExtensionPluginDecision.Incompatible:
-                            return ("DDFP103", DdfExtensionPluginSecurityDomain.Compatibility);
+                            return ("DDFX103", DdfExtensionPluginSecurityDomain.Compatibility);
                         case DdfExtensionPluginDecision.Revoked:
-                            return ("DDFP104", DdfExtensionPluginSecurityDomain.Authorization);
+                            return ("DDFX104", DdfExtensionPluginSecurityDomain.Authorization);
                         case DdfExtensionPluginDecision.IdentityMismatch:
-                            return ("DDFP105", DdfExtensionPluginSecurityDomain.Authorization);
+                            return ("DDFX105", DdfExtensionPluginSecurityDomain.Authorization);
                         case DdfExtensionPluginDecision.CapabilityDenied:
-                            return ("DDFP106", DdfExtensionPluginSecurityDomain.Authorization);
+                            return ("DDFX106", DdfExtensionPluginSecurityDomain.Authorization);
                         default:
-                            return ("DDFP107", DdfExtensionPluginSecurityDomain.Authorization);
+                            return ("DDFX107", DdfExtensionPluginSecurityDomain.Authorization);
                     }
             }
         }

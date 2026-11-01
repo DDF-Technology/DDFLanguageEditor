@@ -190,7 +190,7 @@ namespace DDFLanguageEditor.Core
             if (available.Length > 128 || available.Any(item => item == null) ||
                 available.Select(item => item.Manifest.Id).Distinct(StringComparer.Ordinal).Count() !=
                 available.Length)
-                return Fail("DDFP301: Catalogo plug-in duplicato o oltre quota.");
+                return Fail("DDFX301: Catalogo plug-in duplicato o oltre quota.");
             var byId = available.ToDictionary(item => item.Manifest.Id,
                 StringComparer.Ordinal);
             var locked = lockFile.Entries.ToDictionary(item => item.Id,
@@ -204,24 +204,24 @@ namespace DDFLanguageEditor.Core
                 if (issues.Count != 0) return;
                 if (states.TryGetValue(id, out int state))
                 {
-                    if (state == 1) issues.Add("DDFP306: Ciclo dipendenze: " + id);
+                    if (state == 1) issues.Add("DDFX306: Ciclo dipendenze: " + id);
                     return;
                 }
                 if (!locked.TryGetValue(id, out DdfExtensionPluginLockEntry pin) ||
                     !byId.TryGetValue(id, out DdfExtensionPluginArtifact artifact))
                 {
-                    issues.Add("DDFP302: Dipendenza assente dal lock o dal catalogo: " + id);
+                    issues.Add("DDFX302: Dipendenza assente dal lock o dal catalogo: " + id);
                     return;
                 }
                 DdfExtensionPluginManifest manifest = artifact.Manifest;
                 if (!pin.Matches(manifest))
                 {
-                    issues.Add("DDFP303: Identità o hash lock divergente: " + id);
+                    issues.Add("DDFX303: Identità o hash lock divergente: " + id);
                     return;
                 }
                 if (!manifest.SupportsSdkContract(sdkContract))
                 {
-                    issues.Add("DDFP304: Contratto SDK incompatibile: " + id);
+                    issues.Add("DDFX304: Contratto SDK incompatibile: " + id);
                     return;
                 }
                 if (DdfExtensionPluginSignatureVerifier.Verify(manifest, artifact.Signature,
@@ -229,7 +229,7 @@ namespace DDFLanguageEditor.Core
                     !string.Equals(Convert.ToHexString(SHA256.HashData(artifact.BytesForVerification)),
                         manifest.AssemblySha256, StringComparison.OrdinalIgnoreCase))
                 {
-                    issues.Add("DDFP305: Firma o assembly non verificato: " + id);
+                    issues.Add("DDFX305: Firma o assembly non verificato: " + id);
                     return;
                 }
                 states[id] = 1;
@@ -241,7 +241,7 @@ namespace DDFLanguageEditor.Core
 
             Visit(rootId);
             if (issues.Count == 0 && ordered.Count != lockFile.Entries.Count)
-                issues.Add("DDFP307: Il lock contiene plug-in non raggiungibili dalla radice.");
+                issues.Add("DDFX307: Il lock contiene plug-in non raggiungibili dalla radice.");
             return new DdfExtensionPluginDependencyResolution(
                 issues.Count == 0 ? ordered : Array.Empty<string>(), issues);
         }
