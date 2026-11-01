@@ -129,6 +129,7 @@ namespace DDFLanguageEditor.Tests
             Run("binds bounded build artifacts to their source request", BindsBuildExtensionArtifacts);
             Run("requires scoped source grants and standalone mode for extension builds", RequiresScopedSourceExtensionAdmission);
             Run("correlates semantic and build extension responses once", CorrelatesSourceExtensionResponsesOnce);
+            Run("classifies source extension outcomes as host DDFX diagnostics", ClassifiesSourceExtensionOutcomes);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -3331,6 +3332,69 @@ namespace DDFLanguageEditor.Tests
             Throws<FormatException>(() => DdfExtensionSourceFrameCodec.ParseRequest(
                 first.RequestJson.Replace("\"kind\":\"Semantic\"",
                     "\"kind\":\"Unknown\""), catalog));
+        }
+
+        private static void ClassifiesSourceExtensionOutcomes()
+        {
+            var semanticPoint = new DdfExtensionPointDescriptor("ddf.demo.semantic",
+                DdfExtensionPointKind.SemanticOperation, "1.0", new[] { "file.read" });
+            var buildPoint = new DdfExtensionPointDescriptor("ddf.demo.build",
+                DdfExtensionPointKind.BuildBackend, "1.0",
+                new[] { "file.read", "file.write" });
+            var source = new DdfExtensionSourceSnapshot("src/main.ddf", "main() { ret 42; }");
+            var semantic = new DdfExtensionSemanticRequest(semanticPoint, source,
+                "FunctionDeclaration", 0, 4);
+            var build = new DdfExtensionBuildRequest(buildPoint, new[] { source },
+                source.RelativePath, DdfExtensionBuildTargetKind.Executable);
+            var semanticSuccess = DdfExtensionSemanticResponse.Success(semantic,
+                Array.Empty<DdfExtensionSemanticDiagnostic>());
+            var buildSuccess = DdfExtensionBuildResponse.Success(build,
+                new[] { new DdfExtensionBuildArtifact(DdfExtensionBuildArtifactKind.Assembly,
+                    "bin/main.dll", new byte[] { 1 }) });
+            Equal(true, DdfExtensionSourceAssessment.FromSemantic(semanticSuccess).Success);
+            Equal(true, DdfExtensionSourceAssessment.FromBuild(buildSuccess).Success);
+            var semanticFailure = DdfExtensionSemanticResponse.Failure(semantic,
+                "ddf.demo.semantic.error.internal");
+            var buildFailure = DdfExtensionBuildResponse.Failure(build,
+                "ddf.demo.build.error.internal");
+            Equal("DDFX601", DdfExtensionSourceAssessment.FromSemantic(
+                semanticFailure).Diagnostic.Code);
+            Equal("DDFX601", DdfExtensionSourceAssessment.FromBuild(
+                buildFailure).Diagnostic.Code);
+            Equal(false, DdfExtensionSourceAssessment.FromBuild(buildFailure).Diagnostic
+                .Message.Contains(buildFailure.ErrorId, StringComparison.Ordinal));
+
+            var clock = new TestExtensionTimeProvider();
+            var ledger = new DdfExtensionSourceCorrelationLedger(TimeSpan.FromSeconds(5),
+                clock: clock);
+            DdfExtensionSourceTicket semanticTicket = ledger.Issue(semantic);
+            string validSemantic = DdfExtensionSourceFrameCodec.SerializeResponse(
+                semanticTicket.CallId, semanticSuccess);
+            Equal(true, DdfExtensionSourceAssessment.AcceptSemantic(ledger,
+                validSemantic).Success);
+            Equal("DDFX604", DdfExtensionSourceAssessment.AcceptSemantic(ledger,
+                validSemantic).Diagnostic.Code);
+            DdfExtensionSourceTicket buildTicket = ledger.Issue(build);
+            string validBuild = DdfExtensionSourceFrameCodec.SerializeResponse(
+                buildTicket.CallId, buildSuccess);
+            Equal("DDFX602", DdfExtensionSourceAssessment.AcceptBuild(ledger,
+                validBuild.Replace("\"status\":\"Succeeded\"",
+                    "\"status\":\"Unknown\"")).Diagnostic.Code);
+            Equal("DDFX604", DdfExtensionSourceAssessment.AcceptBuild(ledger,
+                validBuild).Diagnostic.Code);
+            DdfExtensionSourceTicket expired = ledger.Issue(semantic);
+            clock.Advance(TimeSpan.FromSeconds(6));
+            Equal("DDFX603", DdfExtensionSourceAssessment.AcceptSemantic(ledger,
+                DdfExtensionSourceFrameCodec.SerializeResponse(expired.CallId,
+                    semanticSuccess)).Diagnostic.Code);
+            DdfExtensionSourceTicket failureTicket = ledger.Issue(build);
+            DdfExtensionSourceAssessment reported = DdfExtensionSourceAssessment.AcceptBuild(
+                ledger, DdfExtensionSourceFrameCodec.SerializeResponse(
+                    failureTicket.CallId, buildFailure));
+            Equal("DDFX601", reported.Diagnostic.Code);
+            Equal(DdfExtensionPluginDiagnosticDomain.Execution,
+                reported.Diagnostic.Domain);
+            Equal(DdfExtensionSourceOperationKind.Build, reported.Kind);
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

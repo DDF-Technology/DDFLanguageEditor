@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Gli esiti delle future risposte semantiche/build sono ora classificati dall'host con `DDFX601`–`DDFX604`, separando errore dichiarato dal plug-in, payload invalido, scadenza e replay. Diagnostiche e artefatti non vengono promossi automaticamente a risultati attendibili.
+
 - Le future richieste semantiche e di build hanno un frame di correlazione con ID casuale monouso e un registro host con quota, scadenza e cancellazione. Replay, risposta del tipo errato e payload non conforme vengono respinti; non è ancora un trasporto autenticato né un dispatcher.
 
 - Le richieste delle future estensioni semantiche e di build hanno un gate preliminare su catalogo, consenso, firma/hash e risorse logiche. La build è negata in embedded e richiede grant di lettura e scrittura; non viene ancora invocato alcun plug-in o aperto alcun file.

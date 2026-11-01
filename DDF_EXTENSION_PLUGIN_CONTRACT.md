@@ -158,6 +158,12 @@ Risposte fuori tipo, alterate, scadute o riutilizzate non producono un risultato
 Il digest della richiesta nel payload resta un controllo di associazione,
 non una firma; neppure `callId` autentica worker o canale. L'host futuro dovrà
 legare il frame al trasporto isolato e registrare le decisioni di sicurezza.
+`DdfExtensionSourceAssessment` classifica gli esiti nel dominio host
+`Execution`: `DDFX601` per errore del plug-in, `DDFX602` per risposta invalida,
+`DDFX603` per scadenza e `DDFX604` per ID sconosciuto o consumato. Il testo
+dell'errore del plug-in non viene riproposto nella diagnostica host. Una
+risposta semanticamente valida conserva comunque diagnostiche e artefatti
+non attendibili; nessuno dei due viene automaticamente applicato al progetto.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
