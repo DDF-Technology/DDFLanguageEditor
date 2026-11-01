@@ -108,6 +108,7 @@ namespace DDFLanguageEditor.Tests
             Run("records plugin security decisions without mixing source diagnostics", RecordsPluginSecurityDecisions);
             Run("persists and authenticates plugin security decisions fail closed", PersistsPluginSecurityDecisionsFailClosed);
             Run("records explicit plugin consent and revocation without replay", RecordsExplicitPluginConsentAndRevocation);
+            Run("resolves only signed and exactly pinned plugin dependency graphs", ResolvesExactlyPinnedPluginDependencies);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2122,6 +2123,82 @@ namespace DDFLanguageEditor.Tests
             {
                 Directory.Delete(root, true);
             }
+        }
+
+        private static void ResolvesExactlyPinnedPluginDependencies()
+        {
+            using ECDsa publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var trust = new DdfExtensionPluginPublisherTrust(new[] {
+                new DdfExtensionPluginPublisherKey("ddf.technology", "key-1",
+                    publisher.ExportSubjectPublicKeyInfo()) });
+            DdfExtensionPluginArtifact Make(string id, params string[] dependencies)
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes("assembly:" + id);
+                string hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+                var manifest = new DdfExtensionPluginManifest(id, "ddf.technology",
+                    "1.0.0", "0.42", "0.50", "Plugin.dll", hash,
+                    dependencies, Array.Empty<string>());
+                return new DdfExtensionPluginArtifact(manifest,
+                    DdfExtensionPluginSignatureVerifier.Sign(manifest, "key-1", publisher),
+                    bytes);
+            }
+            DdfExtensionPluginArtifact root = Make("ddf.root", "ddf.math", "ddf.text");
+            DdfExtensionPluginArtifact math = Make("ddf.math", "ddf.common");
+            DdfExtensionPluginArtifact text = Make("ddf.text", "ddf.common");
+            DdfExtensionPluginArtifact common = Make("ddf.common");
+            DdfExtensionPluginArtifact[] artifacts = { root, math, text, common };
+            var pins = new DdfExtensionPluginDependencyLockFile(artifacts.Select(item =>
+                DdfExtensionPluginLockEntry.FromManifest(item.Manifest)));
+            string json = DdfExtensionPluginDependencyLockCodec.Serialize(pins);
+            DdfExtensionPluginDependencyLockFile roundTrip =
+                DdfExtensionPluginDependencyLockCodec.Parse(json);
+            DdfExtensionPluginDependencyResolution resolved =
+                DdfExtensionPluginDependencyResolver.Resolve("ddf.root", roundTrip,
+                    artifacts, trust, "0.42");
+            Equal(true, resolved.Success);
+            SequenceEqual(new[] { "ddf.common", "ddf.math", "ddf.text", "ddf.root" },
+                resolved.OrderedIds);
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", roundTrip,
+                artifacts.Where(item => item != common), trust, "0.42").Success);
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", roundTrip,
+                artifacts, trust, "0.51").Success);
+            var wrongPin = new DdfExtensionPluginDependencyLockFile(roundTrip.Entries
+                .Where(item => item.Id != "ddf.math").Concat(new[] {
+                    new DdfExtensionPluginLockEntry("ddf.math", "ddf.technology",
+                        "1.0.0", new string('b', 64),
+                        DdfExtensionPluginLockEntry.FromManifest(math.Manifest).ManifestSha256) }));
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", wrongPin,
+                artifacts, trust, "0.42").Success);
+            var wrongManifestPin = new DdfExtensionPluginDependencyLockFile(roundTrip.Entries
+                .Where(item => item.Id != "ddf.math").Concat(new[] {
+                    new DdfExtensionPluginLockEntry("ddf.math", "ddf.technology",
+                        "1.0.0", math.Manifest.AssemblySha256, new string('c', 64)) }));
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root",
+                wrongManifestPin, artifacts, trust, "0.42").Success);
+            var alteredBytes = artifacts.Select(item => item == math
+                ? new DdfExtensionPluginArtifact(item.Manifest, item.Signature,
+                    Encoding.UTF8.GetBytes("altered")) : item).ToArray();
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", roundTrip,
+                alteredBytes, trust, "0.42").Success);
+            var unsigned = artifacts.Select(item => item == math
+                ? new DdfExtensionPluginArtifact(item.Manifest, null, item.AssemblyBytes)
+                : item).ToArray();
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", roundTrip,
+                unsigned, trust, "0.42").Success);
+            DdfExtensionPluginArtifact cycleRoot = Make("ddf.root", "ddf.math");
+            DdfExtensionPluginArtifact cycleMath = Make("ddf.math", "ddf.root");
+            var cyclePins = new DdfExtensionPluginDependencyLockFile(new[] {
+                DdfExtensionPluginLockEntry.FromManifest(cycleRoot.Manifest),
+                DdfExtensionPluginLockEntry.FromManifest(cycleMath.Manifest) });
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", cyclePins,
+                new[] { cycleRoot, cycleMath }, trust, "0.42").Success);
+            DdfExtensionPluginArtifact extra = Make("ddf.extra");
+            var extraPins = new DdfExtensionPluginDependencyLockFile(roundTrip.Entries
+                .Concat(new[] { DdfExtensionPluginLockEntry.FromManifest(extra.Manifest) }));
+            Equal(false, DdfExtensionPluginDependencyResolver.Resolve("ddf.root", extraPins,
+                artifacts.Append(extra), trust, "0.42").Success);
+            Throws<FormatException>(() => DdfExtensionPluginDependencyLockCodec.Parse(
+                json.Replace("\"entries\":", "\"entries\":[],\"entries\":")));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

@@ -12,6 +12,15 @@ autorizzazione: **nessun loader è abilitato** in questa verticale.
 consentiti. `dependencies` contiene ID di plug-in, non riferimenti impliciti a
 DLL di sistema. Il loader futuro dovrà risolvere versioni e hash delle
 dipendenze tramite lockfile verificato; il solo ID non basta a caricarle.
+Il formato `ddf-extension-plugin-lock.schema.json` fissa per ogni ID editore,
+versione, SHA-256 dell'assembly e SHA-256 del payload canonico del manifest.
+`DdfExtensionPluginDependencyResolver` verifica il grafo transitivo completo,
+le firme di tutti i manifest, i byte degli assembly e la compatibilità SDK;
+rifiuta assenze, duplicati, cicli, pin divergenti e voci non raggiungibili.
+L'ordine restituito pone sempre le dipendenze prima del plug-in radice.
+Il lockfile appartiene al progetto/host e non costituisce consenso a eseguire:
+ciascun plug-in richiederà comunque autorizzazioni proprie e il futuro loader
+dovrà usare esattamente i byte verificati, senza race sui file.
 
 La firma è un documento staccato descritto da
 `ddf-extension-plugin-signature.schema.json`: algoritmo fisso
