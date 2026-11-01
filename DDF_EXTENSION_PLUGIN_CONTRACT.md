@@ -38,9 +38,9 @@ immutabili. `DdfExtensionCallRequest` collega uno snapshot di argomenti a un
 punto `RuntimeOperation` o `HostFunction`, con massimo 64 argomenti, 1024 nodi
 complessivi, profondità 8, 256 elementi per array e 4096 caratteri per
 stringa. Sono vietati riferimenti a controlli WinForms, oggetti host, AST/IR,
-delegate e tipi Roslyn. Questo è un contenitore tipizzato **non eseguibile**:
-firme di funzione, risultati/errori, transazioni,
-autorizzazione sul confine e contratti di semantica/build restano da definire.
+delegate e tipi Roslyn. Questo è un contenitore tipizzato **non eseguibile**;
+transazioni, autorizzazione sul confine e contratti di semantica/build restano
+da definire.
 `DdfExtensionCallCodec` aggiunge ora il formato wire JSON `1.0` per la sola
 richiesta, descritto da `ddf-extension-call.schema.json`: ogni valore ha un
 tag `kind` esplicito e gli argomenti sono ordinati nella serializzazione.
@@ -74,6 +74,17 @@ riportano eccezioni grezze o dati del worker. Queste diagnostiche descrivono
 il protocollo, non un plug-in realmente eseguito. Autorizzazione sul confine,
 autenticazione del trasporto e isolamento del worker restano prerequisiti
 del dispatch.
+`DdfExtensionCallSignature@1.0` aggiunge una firma in memoria per i punti
+`RuntimeOperation` e `HostFunction`: nomi e tipi esatti dei parametri, tipo
+del risultato, effetto dichiarato (`Pure`, `HostMutation`, `ExternalEffect`) e
+ID degli errori ammessi. I tipi del protocollo sono scalari o array omogenei
+ricorsivi; `Null` rappresenta esplicitamente l'assenza di valore. Il registro
+può emettere una richiesta solo se conforme alla firma e controlla la
+risposta prima di restituirla; un risultato del tipo sbagliato o un errore non
+dichiarato viene consumato e classificato `DDFX602`. La firma è attualmente
+solo un oggetto Core: non è ancora un documento machine-readable né coperta
+dall'attestazione del catalogo. Nessun host deve considerarla attendibile
+finché non sarà legata all'artefatto firmato e al lock verificato.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.

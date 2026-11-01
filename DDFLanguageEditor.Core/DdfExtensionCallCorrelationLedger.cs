@@ -14,6 +14,17 @@ namespace DDFLanguageEditor.Core
         public DdfExtensionCallExpiredException() : base("Risposta arrivata dopo la scadenza.") { }
     }
 
+    public sealed class DdfExtensionCallContractException : FormatException
+    {
+        public DdfExtensionCallContractException(DdfExtensionCallContractStatus status)
+            : base("Risposta non conforme alla firma: " + status + ".")
+        {
+            Status = status;
+        }
+
+        public DdfExtensionCallContractStatus Status { get; }
+    }
+
     // Host-side single-use correlation only; not authentication or a dispatcher.
     public sealed class DdfExtensionCallCorrelationLedger
     {
@@ -47,7 +58,23 @@ namespace DDFLanguageEditor.Core
             }
         }
 
-        public DdfExtensionCallTicket Issue(DdfExtensionCallRequest request)
+        public DdfExtensionCallTicket Issue(DdfExtensionCallRequest request) =>
+            IssueCore(request, null);
+
+        public DdfExtensionCallTicket Issue(DdfExtensionCallRequest request,
+            DdfExtensionCallSignature signature)
+        {
+            if (signature == null) throw new ArgumentNullException(nameof(signature));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            DdfExtensionCallContractStatus status = signature.CheckRequest(request);
+            if (status != DdfExtensionCallContractStatus.Valid)
+                throw new ArgumentException("Richiesta non conforme alla firma: " + status + ".",
+                    nameof(request));
+            return IssueCore(request, signature);
+        }
+
+        private DdfExtensionCallTicket IssueCore(DdfExtensionCallRequest request,
+            DdfExtensionCallSignature signature)
         {
             if (request == null) throw new ArgumentNullException(nameof(request));
             Guid id = Guid.NewGuid();
@@ -62,7 +89,7 @@ namespace DDFLanguageEditor.Core
                 while (pending.ContainsKey(id)) id = Guid.NewGuid();
                 if (id != originalId)
                     json = DdfExtensionCallFrameCodec.SerializeRequest(id, request);
-                pending.Add(id, new PendingCall(request, now));
+                pending.Add(id, new PendingCall(request, signature, now));
             }
             return new DdfExtensionCallTicket(id, json);
         }
@@ -79,7 +106,16 @@ namespace DDFLanguageEditor.Core
                 if (Expired(call, clock.GetTimestamp()))
                     throw new DdfExtensionCallExpiredException();
             }
-            return DdfExtensionCallResponseCodec.Parse(payload, call.Request);
+            DdfExtensionCallResponse response =
+                DdfExtensionCallResponseCodec.Parse(payload, call.Request);
+            if (call.Signature != null)
+            {
+                DdfExtensionCallContractStatus status =
+                    call.Signature.CheckResponse(response);
+                if (status != DdfExtensionCallContractStatus.Valid)
+                    throw new DdfExtensionCallContractException(status);
+            }
+            return response;
         }
 
         public bool Cancel(Guid callId)
@@ -99,13 +135,16 @@ namespace DDFLanguageEditor.Core
 
         private sealed class PendingCall
         {
-            internal PendingCall(DdfExtensionCallRequest request, long startTimestamp)
+            internal PendingCall(DdfExtensionCallRequest request,
+                DdfExtensionCallSignature signature, long startTimestamp)
             {
                 Request = request;
+                Signature = signature;
                 StartTimestamp = startTimestamp;
             }
 
             internal DdfExtensionCallRequest Request { get; }
+            internal DdfExtensionCallSignature Signature { get; }
             internal long StartTimestamp { get; }
         }
     }

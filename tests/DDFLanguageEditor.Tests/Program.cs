@@ -121,6 +121,7 @@ namespace DDFLanguageEditor.Tests
             Run("keeps extension responses typed and plugin errors namespaced", KeepsExtensionResponsesTypedAndNamespaced);
             Run("correlates extension responses once within bounded host sessions", CorrelatesExtensionResponsesOnce);
             Run("maps extension call outcomes into host-owned DDFX diagnostics", MapsExtensionCallOutcomesToHostDiagnostics);
+            Run("validates extension calls against explicit immutable signatures", ValidatesExtensionCallsAgainstSignatures);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2798,6 +2799,94 @@ namespace DDFLanguageEditor.Tests
             Equal(DdfExtensionCallAssessmentStatus.Expired, assessment.Status);
             Equal("DDFX603", assessment.Diagnostic.Code);
             Equal(DdfExtensionPluginDiagnosticDomain.Execution, assessment.Diagnostic.Domain);
+        }
+
+        private static void ValidatesExtensionCallsAgainstSignatures()
+        {
+            var point = new DdfExtensionPointDescriptor("ddf.demo.sum",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", new[] { "file.read" });
+            var integer = new DdfExtensionTypeShape(DdfExtensionValueKind.Integer);
+            var integerArray = new DdfExtensionTypeShape(DdfExtensionValueKind.Array,
+                integer);
+            var parameter = new DdfExtensionCallParameter("values", integerArray);
+            DdfExtensionCallParameter[] parameterSource = { parameter };
+            string[] errorSource = { "ddf.demo.sum.error.invalid-input" };
+            var signature = new DdfExtensionCallSignature(point, parameterSource,
+                integer, DdfExtensionCallEffect.Pure, errorSource);
+            parameterSource[0] = new DdfExtensionCallParameter("other", integer);
+            errorSource[0] = "ddf.demo.sum.error.changed";
+            Equal("values", signature.Parameters.Single().Name);
+            Equal("ddf.demo.sum.error.invalid-input", signature.DeclaredErrors.Single());
+            Equal("1.0", signature.ContractVersion);
+            var request = new DdfExtensionCallRequest(point, new[] {
+                new KeyValuePair<string, DdfExtensionValue>("values",
+                    DdfExtensionValue.FromArray(new[] {
+                        DdfExtensionValue.FromInteger(2), DdfExtensionValue.FromInteger(3) })) });
+            Equal(DdfExtensionCallContractStatus.Valid, signature.CheckRequest(request));
+            Equal(DdfExtensionCallContractStatus.Valid, signature.CheckRequest(
+                new DdfExtensionCallRequest(point, new[] {
+                    new KeyValuePair<string, DdfExtensionValue>("values",
+                        DdfExtensionValue.FromArray(Array.Empty<DdfExtensionValue>())) })));
+            Equal(DdfExtensionCallContractStatus.MissingArgument, signature.CheckRequest(
+                new DdfExtensionCallRequest(point,
+                    Array.Empty<KeyValuePair<string, DdfExtensionValue>>())));
+            Equal(DdfExtensionCallContractStatus.ArgumentTypeMismatch, signature.CheckRequest(
+                new DdfExtensionCallRequest(point, new[] {
+                    new KeyValuePair<string, DdfExtensionValue>("values",
+                        DdfExtensionValue.FromArray(new[] { DdfExtensionValue.FromFloat(2) })) })));
+            Equal(DdfExtensionCallContractStatus.UnexpectedArgument, signature.CheckRequest(
+                new DdfExtensionCallRequest(point, new[] {
+                    new KeyValuePair<string, DdfExtensionValue>("values",
+                        DdfExtensionValue.FromArray(Array.Empty<DdfExtensionValue>())),
+                    new KeyValuePair<string, DdfExtensionValue>("extra", DdfExtensionValue.Null) })));
+            var other = new DdfExtensionPointDescriptor("ddf.demo.other",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", new[] { "file.read" });
+            Equal(DdfExtensionCallContractStatus.WrongPoint, signature.CheckRequest(
+                new DdfExtensionCallRequest(other, request.Arguments)));
+            Equal(DdfExtensionCallContractStatus.Valid, signature.CheckResponse(
+                DdfExtensionCallResponse.Success(point, DdfExtensionValue.FromInteger(5))));
+            Equal(DdfExtensionCallContractStatus.ResultTypeMismatch, signature.CheckResponse(
+                DdfExtensionCallResponse.Success(point, DdfExtensionValue.FromFloat(5))));
+            Equal(DdfExtensionCallContractStatus.Valid, signature.CheckResponse(
+                DdfExtensionCallResponse.Failure(point,
+                    "ddf.demo.sum.error.invalid-input")));
+            Equal(DdfExtensionCallContractStatus.UndeclaredError, signature.CheckResponse(
+                DdfExtensionCallResponse.Failure(point,
+                    "ddf.demo.sum.error.not-declared")));
+            var ledger = new DdfExtensionCallCorrelationLedger(TimeSpan.FromSeconds(5));
+            Throws<ArgumentException>(() => ledger.Issue(
+                new DdfExtensionCallRequest(point,
+                    Array.Empty<KeyValuePair<string, DdfExtensionValue>>()), signature));
+            DdfExtensionCallTicket valid = ledger.Issue(request, signature);
+            Equal(5, ledger.Accept(DdfExtensionCallFrameCodec.SerializeResponse(
+                valid.CallId, DdfExtensionCallResponse.Success(point,
+                    DdfExtensionValue.FromInteger(5)))).Value.Integer);
+            DdfExtensionCallTicket wrongResult = ledger.Issue(request, signature);
+            DdfExtensionCallAssessment assessment = DdfExtensionCallAssessment.Accept(
+                ledger, DdfExtensionCallFrameCodec.SerializeResponse(wrongResult.CallId,
+                    DdfExtensionCallResponse.Success(point, DdfExtensionValue.FromFloat(5))));
+            Equal("DDFX602", assessment.Diagnostic.Code);
+            Equal(0, ledger.PendingCount);
+            DdfExtensionCallTicket undeclared = ledger.Issue(request, signature);
+            assessment = DdfExtensionCallAssessment.Accept(ledger,
+                DdfExtensionCallFrameCodec.SerializeResponse(undeclared.CallId,
+                    DdfExtensionCallResponse.Failure(point,
+                        "ddf.demo.sum.error.not-declared")));
+            Equal("DDFX602", assessment.Diagnostic.Code);
+            Throws<ArgumentException>(() => new DdfExtensionCallSignature(point,
+                new[] { parameter, parameter }, integer, DdfExtensionCallEffect.Pure,
+                Array.Empty<string>()));
+            Throws<ArgumentException>(() => new DdfExtensionCallSignature(point,
+                Array.Empty<DdfExtensionCallParameter>(), integer,
+                DdfExtensionCallEffect.Pure, new[] { "DDFX601" }));
+            Throws<ArgumentException>(() => new DdfExtensionTypeShape(
+                DdfExtensionValueKind.Array));
+            DdfExtensionTypeShape deep = integer;
+            for (int index = 0; index < 7; index++)
+                deep = new DdfExtensionTypeShape(DdfExtensionValueKind.Array, deep);
+            DdfExtensionTypeShape atLimit = deep;
+            Throws<ArgumentException>(() => new DdfExtensionTypeShape(
+                DdfExtensionValueKind.Array, atLimit));
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()
