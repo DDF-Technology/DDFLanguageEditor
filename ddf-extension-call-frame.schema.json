@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF extension call correlation frame 1.0",
+  "oneOf": [
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "request"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "request": { "$ref": "ddf-extension-call.schema.json" }
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "callId", "response"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "callId": { "$ref": "#/$defs/callId" },
+        "response": { "$ref": "ddf-extension-call-response.schema.json" }
+      }
+    }
+  ],
+  "$defs": {
+    "callId": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+  }
+}

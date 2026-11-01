@@ -119,6 +119,7 @@ namespace DDFLanguageEditor.Tests
             Run("bounds immutable extension call values without exposing host objects", BoundsImmutableExtensionCallValues);
             Run("round-trips extension calls through a strict versioned wire format", RoundTripsExtensionCallWireFormat);
             Run("keeps extension responses typed and plugin errors namespaced", KeepsExtensionResponsesTypedAndNamespaced);
+            Run("correlates extension responses once within bounded host sessions", CorrelatesExtensionResponsesOnce);
             Run("requires explicit authorization for native extensions", RequiresExplicitNativeExtensionAuthorization);
             Run("rejects invalid native extension identities atomically", RejectsInvalidNativeExtensionIdentitiesAtomically);
             Run("lowers DDF to a common intermediate representation", LowersDdfToCommonIntermediateRepresentation);
@@ -2692,6 +2693,65 @@ namespace DDFLanguageEditor.Tests
                 failureJson.Replace("ddf.demo.call.error.invalid-input", "DDFX601"), request));
             Throws<JsonException>(() => DdfExtensionCallResponseCodec.Parse(
                 successJson + " // trailing", request));
+        }
+
+        private static void CorrelatesExtensionResponsesOnce()
+        {
+            var manifest = new DdfExtensionPluginManifest("ddf.demo", "ddf.technology",
+                "1.0.0", "0.42", "0.50", "Demo.dll", new string('a', 64),
+                Array.Empty<string>(), Array.Empty<string>());
+            var point = new DdfExtensionPointDescriptor("ddf.demo.call",
+                DdfExtensionPointKind.RuntimeOperation, "1.0", Array.Empty<string>());
+            var catalog = new DdfExtensionPointCatalog(manifest, new[] { point });
+            var request = new DdfExtensionCallRequest(point,
+                Array.Empty<KeyValuePair<string, DdfExtensionValue>>());
+            var response = DdfExtensionCallResponse.Success(point,
+                DdfExtensionValue.FromInteger(42));
+            var clock = new TestExtensionTimeProvider();
+            var ledger = new DdfExtensionCallCorrelationLedger(
+                TimeSpan.FromSeconds(5), maximumPending: 1, clock: clock);
+            DdfExtensionCallTicket first = ledger.Issue(request);
+            Equal(false, first.CallId == Guid.Empty);
+            DdfExtensionRequestFrame parsed =
+                DdfExtensionCallFrameCodec.ParseRequest(first.RequestJson, catalog);
+            Equal(first.CallId, parsed.CallId);
+            Equal(point.Id, parsed.Request.Point.Id);
+            Equal(1, ledger.PendingCount);
+            Throws<InvalidOperationException>(() => ledger.Issue(request));
+            string reply = DdfExtensionCallFrameCodec.SerializeResponse(first.CallId, response);
+            Equal(42, ledger.Accept(reply).Value.Integer);
+            Equal(0, ledger.PendingCount);
+            Throws<InvalidOperationException>(() => ledger.Accept(reply));
+            DdfExtensionCallTicket second = ledger.Issue(request);
+            string unknown = DdfExtensionCallFrameCodec.SerializeResponse(Guid.NewGuid(), response);
+            Throws<InvalidOperationException>(() => ledger.Accept(unknown));
+            Equal(1, ledger.PendingCount);
+            string malformed = DdfExtensionCallFrameCodec.SerializeResponse(second.CallId,
+                response).Replace("\"status\":\"Succeeded\"", "\"status\":\"Unknown\"");
+            Throws<FormatException>(() => ledger.Accept(malformed));
+            Throws<InvalidOperationException>(() => ledger.Accept(
+                DdfExtensionCallFrameCodec.SerializeResponse(second.CallId, response)));
+            DdfExtensionCallTicket cancelled = ledger.Issue(request);
+            Equal(true, ledger.Cancel(cancelled.CallId));
+            Equal(false, ledger.Cancel(cancelled.CallId));
+            Throws<InvalidOperationException>(() => ledger.Accept(
+                DdfExtensionCallFrameCodec.SerializeResponse(cancelled.CallId, response)));
+            DdfExtensionCallTicket expired = ledger.Issue(request);
+            clock.Advance(TimeSpan.FromSeconds(6));
+            Throws<TimeoutException>(() => ledger.Accept(
+                DdfExtensionCallFrameCodec.SerializeResponse(expired.CallId, response)));
+            Equal(0, ledger.PendingCount);
+            Throws<FormatException>(() => DdfExtensionCallFrameCodec.ParseRequest(
+                first.RequestJson.Replace(first.CallId.ToString("N"), new string('F', 32)), catalog));
+            Throws<ArgumentException>(() => DdfExtensionCallFrameCodec.SerializeRequest(Guid.Empty, request));
+        }
+
+        private sealed class TestExtensionTimeProvider : TimeProvider
+        {
+            private long timestamp;
+            public override long TimestampFrequency => 1000;
+            public override long GetTimestamp() => timestamp;
+            public void Advance(TimeSpan duration) => timestamp += (long)duration.TotalMilliseconds;
         }
 
         private static void RequiresExplicitNativeExtensionAuthorization()

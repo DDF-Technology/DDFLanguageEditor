@@ -56,9 +56,18 @@ un valore tipizzato, `Failed` contiene solo un `errorId` con prefisso
 `<pointId>.error.`. Il codec rifiuta campi misti, duplicati, status sconosciuti,
 quote superate e `pointId` diverso dalla richiesta. L'errore dichiarato da un
 plug-in non può usare la famiglia diagnostica host `DDFX` e non equivale a una
-decisione di sicurezza. La risposta non porta ancora un ID univoco della
-singola invocazione: correlazione anti-replay, mapping degli errori dichiarati,
-timeout e isolamento del worker sono prerequisiti del futuro dispatch.
+decisione di sicurezza. Il payload `1.0` non porta un ID univoco della
+singola invocazione: `DdfExtensionCallFrameCodec` aggiunge un frame esterno
+`1.0` con `callId` GUID casuale e request/response tipizzate, descritto
+da `ddf-extension-call-frame.schema.json`.
+`DdfExtensionCallCorrelationLedger` conserva fino a 128 chiamate pendenti in
+memoria, usa un orologio monotono per la scadenza, permette la cancellazione e
+consuma l'ID alla prima risposta, anche se il payload è malformato. Un frame
+con ID ignoto o già usato è rifiutato; la risposta deve inoltre riferirsi al
+punto della richiesta originale. È soltanto correlazione locale: il `callId`
+non autentica il worker o il canale e non prova che il codice sia isolato.
+Mapping degli errori dichiarati, autorizzazione sul confine, autenticazione
+del trasporto e isolamento del worker restano prerequisiti del dispatch.
 
 Le diagnostiche plug-in usano esclusivamente il prefisso `DDFX`, distinto da
 `DDFP` del manifest di progetto, dai codici del sorgente DDF e dal motore.
