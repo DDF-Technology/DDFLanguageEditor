@@ -4613,6 +4613,28 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         impact.Contains("Esempio:"),
                     "La guida non mostra le dipendenze e l'esempio della parola chiave.");
                 string originalKeyword = guidedKeyword.SelectedItem.ToString();
+                MethodInfo replaceTokens = studio.GetType().GetMethod(
+                    "ReplaceKeywordTokens", BindingFlags.Static | BindingFlags.NonPublic);
+                string protectedSource = originalKeyword + "(flag) { print(\"" +
+                    originalKeyword + "\"); // " + originalKeyword + "\n ret 0; }";
+                string convertedSource = (string)replaceTokens.Invoke(null,
+                    new object[] { protectedSource, originalKeyword,
+                        "qualora_smoke", DdfTokenKind.ControlFlowKeyword,
+                        activePackage.Language });
+                Require(convertedSource.StartsWith("qualora_smoke(") &&
+                        convertedSource.Contains("print(\"" + originalKeyword +
+                            "\")") &&
+                        convertedSource.Contains("// " + originalKeyword),
+                    "Il cambio guidato altera stringhe o commenti nel codice di test.");
+                MethodInfo replaceEbnf = studio.GetType().GetMethod(
+                    "ReplaceEbnfTerminal", BindingFlags.Static | BindingFlags.NonPublic);
+                string convertedEbnf = (string)replaceEbnf.Invoke(null,
+                    new object[] { "rule = \"" + originalKeyword +
+                        "\" ; # \"" + originalKeyword + "\"", originalKeyword,
+                        "qualora_smoke" });
+                Require(convertedEbnf.Contains("\"qualora_smoke\" ; # \"" +
+                        originalKeyword + "\""),
+                    "Il cambio guidato altera i commenti EBNF.");
                 guidedKeywordText.Text = guidedKeyword.Items[1].ToString();
                 FindControl<Button>(studio,
                     "languageStudioGuidedKeywordPreviewButton").PerformClick();
@@ -4631,8 +4653,20 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioPreviewTextBox").Text.Contains("lexicon.json") &&
                         FindControl<TextBox>(studio,
                             "languageStudioPreviewTextBox").Text.Contains(
-                                originalKeyword + "_smoke"),
-                    "Il cambio lessicale guidato non genera l'anteprima delle conseguenze.");
+                                originalKeyword + "_smoke") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("grammar.ebnf") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("grammar.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("tests.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("intellisense.json") &&
+                        FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains("convalidato"),
+                    "Il cambio guidato non genera un profilo coerente e convalidato.");
                 foreach (DataGridViewRow row in keywordGrid.Rows)
                     if (!row.IsNewRow && Convert.ToString(row.Cells[0].Value) ==
                         originalKeyword + "_smoke")
@@ -4814,6 +4848,35 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioRuntimeDescriptionTextBox").Text.Contains(
                                 "Smoke runtime"),
                     "Redo non ripristina tutte le sezioni guidate.");
+                keywordGrid = FindControl<DataGridView>(studio,
+                    "languageStudioKeywordsGrid");
+                ifKeyword = keywordGrid.Rows.Cast<DataGridViewRow>().First(row =>
+                    !row.IsNewRow && Convert.ToString(row.Cells[2].Value) == "If");
+                string oldIf = Convert.ToString(ifKeyword.Cells[0].Value);
+                guidedKeyword = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedKeywordComboBox");
+                guidedKeyword.SelectedItem = oldIf;
+                FindControl<TextBox>(studio,
+                    "languageStudioGuidedKeywordTextBox").Text = "qualora_smoke";
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "Il cambio coordinato della keyword non supera la convalida: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<Button>(studio,
+                    "languageStudioConfirmPreviewButton").PerformClick();
+                Require(FindControl<DataGridView>(studio,
+                            "languageStudioKeywordsGrid").Rows.Cast<DataGridViewRow>()
+                        .Any(row => !row.IsNewRow &&
+                            Convert.ToString(row.Cells[0].Value) ==
+                            "qualora_smoke" &&
+                            Convert.ToString(row.Cells[2].Value) == "If"),
+                    "La conferma non applica il profilo coordinato allo snapshot.");
                 studioTools.Items["languageStudioValidateButton"].PerformClick();
                 PumpMessages(80);
                 Require(FindControl<TextBox>(studio,
@@ -4822,6 +4885,28 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         form.EmbeddedEditor.LanguageSession.ActivePackage.Name ==
                             originalPackageName,
                     "Il Package Studio non convalida lo snapshot o modifica il pacchetto attivo.");
+                string archivePath = Path.Combine(Path.GetTempPath(),
+                    "ddf-guided-profile-smoke-" + Guid.NewGuid().ToString("N") +
+                    ".ddflang");
+                try
+                {
+                    DdfLanguageAuthoringSession studioSession =
+                        GetPrivateField<DdfLanguageAuthoringSession>(studio, "session");
+                    DdfLanguagePackageArchiveResult archive =
+                        DdfLanguagePackageArchiveBuilder.Generate(
+                            studioSession.Project, archivePath);
+                    DdfLanguagePackageLoadResult reloaded =
+                        DdfLanguagePackageLoader.Load(archivePath);
+                    Require(archive.Success && reloaded.Success &&
+                            reloaded.Package.Language.TryGetKeyword(
+                                "qualora_smoke", out DdfKeywordDefinition exportedIf) &&
+                            exportedIf.RoleId == "If",
+                        "Il profilo guidato non produce un archivio valido e ricaricabile.");
+                }
+                finally
+                {
+                    if (File.Exists(archivePath)) File.Delete(archivePath);
+                }
                 FindControl<Button>(studio, "languageStudioCloseButton").PerformClick();
                 PumpMessages(40);
                 Require(studio.IsDisposed, "Chiudi non termina il Package Studio.");

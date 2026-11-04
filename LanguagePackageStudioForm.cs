@@ -1238,8 +1238,8 @@ namespace DDF___Program_Language_Editor
                 text.AppendLine("Riferimenti non leggibili: correggere prima i sorgenti JSON/EBNF. " +
                     exception.Message);
             }
-            text.Append("Dopo il cambio: verificare il diff, correggere i riferimenti " +
-                "e i test, poi confermare e convalidare.");
+            text.Append("Il cambio guidato prepara insieme lessico, grammatica, " +
+                "test e snippet. Verificare il diff prima della conferma.");
             guidedKeywordImpactTextBox.Text = text.ToString();
         }
 
@@ -1923,37 +1923,213 @@ namespace DDF___Program_Language_Editor
         private void PreviewGuidedKeywordChange(object sender, EventArgs e)
         {
             if (session == null || guidedKeywordComboBox.SelectedItem == null) return;
-            keywordsGrid.EndEdit();
             string original = guidedKeywordComboBox.SelectedItem.ToString();
             string replacement = guidedKeywordTextBox.Text.Trim();
-            if (replacement.Length == 0 ||
-                !sourcePackage.Language.LexicalRules.IsValidIdentifier(replacement))
+            DdfLanguagePackageLoadResult current =
+                DdfLanguagePackageAuthoring.Validate(session.Project);
+            if (!current.Success)
             {
-                ShowPreviewFailure("La nuova parola chiave deve essere un identificatore valido " +
-                    "per le regole lessicali del pacchetto di origine.");
+                ShowPreviewFailure("Convalidare lo snapshot corrente prima di cambiare " +
+                    "la sintassi.\r\n" + FormatDiagnostics(current.Diagnostics));
                 return;
             }
-            if (keywordsGrid.Rows.Cast<DataGridViewRow>().Any(row => !row.IsNewRow &&
-                Cell(row, 0) == replacement && Cell(row, 0) != original))
+            DdfLanguageDefinition language = current.Package.Language;
+            if (replacement.Length == 0 ||
+                !language.LexicalRules.IsValidIdentifier(replacement))
+            {
+                ShowPreviewFailure("La nuova parola chiave deve essere un identificatore valido " +
+                    "per le regole lessicali del pacchetto corrente.");
+                return;
+            }
+            if (language.Keywords.Any(item => item.Text == replacement &&
+                item.Text != original))
             {
                 ShowPreviewFailure("La parola chiave '" + replacement +
                     "' esiste gia nel lessico. Scegliere una scrittura diversa.");
                 return;
             }
-            DataGridViewRow target = keywordsGrid.Rows.Cast<DataGridViewRow>()
-                .FirstOrDefault(row => !row.IsNewRow && Cell(row, 0) == original);
-            if (target == null)
+            if (!language.TryGetKeyword(original, out DdfKeywordDefinition keyword))
             {
                 ShowPreviewFailure("La parola chiave scelta non e piu presente nella " +
-                    "griglia. Controllare le modifiche in Lessico.");
+                    "versione confermata del pacchetto. Ricaricare la guida.");
                 return;
             }
-            target.Cells[0].Value = replacement;
+            if (replacement == original)
+            {
+                ShowPreviewFailure("La nuova scrittura coincide con quella corrente.");
+                return;
+            }
             PreviewGuidedChanges(sender, e);
-            if (pendingPreview != null && !pendingPreview.Success)
-                diagnosticsTextBox.Text = "Il cambio richiede anche l'aggiornamento di " +
-                    "esempi, test o altre regole che usano la vecchia parola. " +
-                    "Nessuna modifica e stata applicata.\r\n\r\n" + diagnosticsTextBox.Text;
+            if (pendingPreview == null || !pendingPreview.Success) return;
+            if (HasSemanticChanges(session.Project, pendingPreview.ResultingProject))
+            {
+                diagnosticsTextBox.Text = "Ci sono altre modifiche non confermate. " +
+                    "Controllare e confermare questa anteprima prima di avviare il " +
+                    "cambio di sintassi, poi ripetere l'operazione.\r\n\r\n" +
+                    diagnosticsTextBox.Text;
+                return;
+            }
+            try
+            {
+                JsonObject lexicon = ParseObject("lexicon.json");
+                foreach (JsonNode node in lexicon["keywords"].AsArray())
+                    if (node is JsonObject item && TextValue(item, "text") == original)
+                        item["text"] = replacement;
+                var changes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["lexicon.json"] = Serialize(lexicon)
+                };
+                if (session.Project.TryGetDocument("grammar.ebnf",
+                    out DdfLanguageAuthoringDocument ebnf))
+                    changes["grammar.ebnf"] = ReplaceEbnfTerminal(ebnf.Content,
+                        original, replacement);
+                JsonObject grammar = ParseObject("grammar.json");
+                foreach (JsonNode node in grammar["rules"]?.AsArray() ?? new JsonArray())
+                    if (node is JsonObject rule && rule["ide"] is JsonObject ide &&
+                        ContainsWord(TextValue(ide, "breadcrumbLabel"), original))
+                    {
+                        string oldLabel = TextValue(ide, "breadcrumbLabel");
+                        ide["breadcrumbLabel"] = ReplaceDisplayWord(oldLabel,
+                            original, replacement);
+                        if (ide["breadcrumbSelectionLength"] != null &&
+                            oldLabel.StartsWith(original, StringComparison.Ordinal))
+                            ide["breadcrumbSelectionLength"] = replacement.Length;
+                    }
+                changes["grammar.json"] = Serialize(grammar);
+                JsonObject tests = ParseObject("tests.json");
+                foreach (JsonNode node in tests["cases"]?.AsArray() ?? new JsonArray())
+                    if (node is JsonObject test)
+                        test["source"] = ReplaceKeywordTokens(TextValue(test, "source"),
+                            original, replacement, keyword.TokenKind, language);
+                changes["tests.json"] = Serialize(tests);
+                JsonObject intellisense = ParseObject("intellisense.json");
+                foreach (JsonNode node in intellisense["snippets"]?.AsArray() ??
+                    new JsonArray())
+                    if (node is JsonObject snippet)
+                    {
+                        if (TextValue(snippet, "prefix") == original)
+                            snippet["prefix"] = replacement;
+                        string display = TextValue(snippet, "displayText");
+                        snippet["displayText"] = ReplaceDisplayWord(display,
+                            original, replacement);
+                        snippet["body"] = ReplaceKeywordTokens(TextValue(snippet,
+                            "body"), original, replacement, keyword.TokenKind, language);
+                    }
+                changes["intellisense.json"] = Serialize(intellisense);
+                PreviewChanges(changes.Select(item =>
+                    DdfLanguageAuthoringChange.Upsert(item.Key, item.Value)),
+                    "Cambio coordinato della parola chiave " + original + " → " + replacement);
+                if (pendingPreview?.ResultingProject == null) return;
+                DdfLanguagePackageLoadResult checkedPackage =
+                    DdfLanguagePackageAuthoring.Validate(pendingPreview.ResultingProject);
+                if (!checkedPackage.Success)
+                {
+                    confirmPreviewButton.Enabled = false;
+                    diagnosticsTextBox.Text = "Il profilo risultante non supera la " +
+                        "convalida. Nessuna modifica e stata applicata.\r\n\r\n" +
+                        FormatDiagnostics(checkedPackage.Diagnostics);
+                }
+                else
+                    diagnosticsTextBox.Text = "Lessico, grammatica, test e snippet " +
+                        "aggiornati nello stesso diff. Pacchetto convalidato; controllare " +
+                        "l'anteprima prima di confermare.";
+            }
+            catch (Exception exception) when (exception is JsonException ||
+                exception is InvalidDataException || exception is InvalidOperationException)
+            {
+                ShowPreviewFailure(exception.Message);
+            }
+        }
+
+        private static bool HasSemanticChanges(DdfLanguageAuthoringProject before,
+            DdfLanguageAuthoringProject after)
+        {
+            foreach (KeyValuePair<string, DdfLanguageAuthoringDocument> entry in
+                before.Documents)
+            {
+                if (!after.TryGetDocument(entry.Key, out DdfLanguageAuthoringDocument next))
+                    return true;
+                if (entry.Key.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!JsonNode.DeepEquals(JsonNode.Parse(entry.Value.Content),
+                        JsonNode.Parse(next.Content))) return true;
+                }
+                else if (!string.Equals(entry.Value.Content, next.Content,
+                    StringComparison.Ordinal)) return true;
+            }
+            return after.Documents.Count != before.Documents.Count;
+        }
+
+        private static string ReplaceKeywordTokens(string source, string original,
+            string replacement, DdfTokenKind kind, DdfLanguageDefinition language)
+        {
+            var result = new StringBuilder(source.Length);
+            int position = 0;
+            foreach (DdfToken token in DdfLexer.Lex(source, language).Tokens)
+            {
+                if (token.Kind != kind || token.Length != original.Length ||
+                    !string.Equals(source.Substring(token.Start, token.Length),
+                        original, StringComparison.Ordinal)) continue;
+                result.Append(source, position, token.Start - position);
+                result.Append(replacement);
+                position = token.Start + token.Length;
+            }
+            result.Append(source, position, source.Length - position);
+            return result.ToString();
+        }
+
+        private static string ReplaceDisplayWord(string source, string original,
+            string replacement)
+        {
+            var result = new StringBuilder(source.Length);
+            int position = 0;
+            int match;
+            while ((match = source.IndexOf(original, position,
+                StringComparison.Ordinal)) >= 0)
+            {
+                int end = match + original.Length;
+                if ((match == 0 || !IsWordCharacter(source[match - 1])) &&
+                    (end == source.Length || !IsWordCharacter(source[end])))
+                {
+                    result.Append(source, position, match - position);
+                    result.Append(replacement);
+                    position = end;
+                }
+                else
+                {
+                    result.Append(source, position, end - position);
+                    position = end;
+                }
+            }
+            result.Append(source, position, source.Length - position);
+            return result.ToString();
+        }
+
+        private static string ReplaceEbnfTerminal(string source, string original,
+            string replacement)
+        {
+            var result = new StringBuilder(source.Length);
+            bool comment = false;
+            for (int index = 0; index < source.Length; index++)
+            {
+                char current = source[index];
+                if (current == '\r' || current == '\n') comment = false;
+                if (current == '#' && !comment) comment = true;
+                if (!comment && current == '"')
+                {
+                    int end = source.IndexOf('"', index + 1);
+                    if (end > index)
+                    {
+                        string literal = source.Substring(index + 1, end - index - 1);
+                        result.Append('"').Append(literal == original ? replacement :
+                            literal).Append('"');
+                        index = end;
+                        continue;
+                    }
+                }
+                result.Append(current);
+            }
+            return result.ToString();
         }
 
         private void PreviewGuidedChanges(object sender, EventArgs e)
@@ -2467,18 +2643,18 @@ namespace DDF___Program_Language_Editor
             }
             PreviewGuidedChanges(sender, e);
             if (pendingPreview == null) return;
-            if (pendingPreview.HasChanges)
-            {
-                diagnosticsTextBox.Text = "Prima di generare l'archivio, controllare " +
-                    "l'anteprima, correggere eventuali errori e premere 'Conferma e applica " +
-                    "anteprima'. Poi scegliere di nuovo 'Genera .ddflang...'." +
-                    Environment.NewLine + Environment.NewLine + diagnosticsTextBox.Text;
-                return;
-            }
             if (!pendingPreview.Success)
             {
                 diagnosticsTextBox.Text = "Il pacchetto non supera la convalida. " +
                     "Correggere le diagnostiche prima di distribuire." +
+                    Environment.NewLine + Environment.NewLine + diagnosticsTextBox.Text;
+                return;
+            }
+            if (HasSemanticChanges(session.Project, pendingPreview.ResultingProject))
+            {
+                diagnosticsTextBox.Text = "Prima di generare l'archivio, controllare " +
+                    "l'anteprima, correggere eventuali errori e premere 'Conferma e applica " +
+                    "anteprima'. Poi scegliere di nuovo 'Genera .ddflang...'." +
                     Environment.NewLine + Environment.NewLine + diagnosticsTextBox.Text;
                 return;
             }

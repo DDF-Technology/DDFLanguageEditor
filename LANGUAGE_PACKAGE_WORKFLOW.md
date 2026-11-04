@@ -42,13 +42,17 @@ Per provare un cambio lessicale semplice, nella scheda `Inizia` scegliere una
 parola chiave, digitare la nuova scrittura e premere `Mostra anteprima`.
 Il riquadro sottostante mostra il ruolo della parola, i possibili riferimenti
 in grammatica EBNF, i test e gli snippet IntelliSense, con una riga di codice
-di esempio quando disponibile. È una guida alla revisione, non una conversione
-automatica di tutti i documenti: il diff e la convalida restano obbligatori.
-L'anteprima mostra il diff di `lexicon.json` e le diagnostiche: **non applica**
-la modifica. Una scrittura non valida o già presente viene rifiutata subito.
-Se esempi, test o regole usano la vecchia parola, occorre aggiornarli nelle
-schede tecniche e ripetere l'anteprima; solo dopo una convalida positiva si
-può confermare ed esportare. Il pacchetto attivo nell'editor non cambia.
+di esempio quando disponibile. Il cambio guidato di una singola parola prepara
+insieme `lexicon.json`, i terminali di `grammar.ebnf`, le etichette pertinenti
+di `grammar.json`, i sorgenti dei casi in `tests.json` e gli snippet di
+`intellisense.json`. Nei programmi di prova stringhe e commenti restano intatti.
+L'anteprima mostra il diff e convalida il pacchetto risultante: **non applica**
+la modifica. Una scrittura non valida, duplicata o un risultato non convalidabile
+non può essere confermato. Dopo aver esaminato il diff, premere `Conferma e
+applica anteprima`, quindi usare `Genera .ddflang...`. Le modifiche precedenti
+non confermate vanno prima esaminate e confermate separatamente. Per cambiare
+più parole o operatori insieme sono ancora necessarie le schede avanzate.
+Il pacchetto attivo nell'editor non cambia.
 
 Il pulsante `5 · Genera .ddflang...` della scheda `Inizia` è operativo:
 se trova modifiche guidate non confermate mostra l'anteprima e richiede
