@@ -46,6 +46,13 @@ Se esempi, test o regole usano la vecchia parola, occorre aggiornarli nelle
 schede tecniche e ripetere l'anteprima; solo dopo una convalida positiva si
 può confermare ed esportare. Il pacchetto attivo nell'editor non cambia.
 
+Il pulsante `5 · Genera .ddflang...` della scheda `Inizia` è operativo:
+se trova modifiche guidate non confermate mostra l'anteprima e richiede
+la conferma; se lo snapshot è già pronto apre la scelta del percorso
+dell'archivio. I draft JSON/EBNF richiedono prima `Anteprima sorgenti` o
+`Anteprima EBNF` e conferma. La generazione convalida il pacchetto, ma non lo
+installa né lo attiva: per questo si usa il gestore pacchetti dell'editor.
+
 ## Moduli e libreria standard
 
 Il pacchetto DDF include una libreria standard minima (`ddf.standard`), ma

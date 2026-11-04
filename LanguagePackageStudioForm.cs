@@ -578,8 +578,8 @@ namespace DDF___Program_Language_Editor
                 "languageStudioPlaygroundPage");
             AddGuideRow(3, "4 · Verifica", "Usa Anteprima editor guidati e conferma le modifiche; poi Convalida. Gli errori devono essere risolti prima della distribuzione.",
                 "languageStudioPreviewPage");
-            AddGuideRow(4, "5 · Distribuisci", "Genera .ddflang, quindi installalo da Linguaggio > Gestisci pacchetti nell'editor. La generazione non lo attiva automaticamente.",
-                "languageStudioManifestPage");
+            AddGuideRow(4, "5 · Genera .ddflang...", "Convalida la bozza e scegli dove salvare l'archivio. Se ci sono modifiche non confermate, mostra prima l'anteprima. L'installazione resta separata.",
+                null, PrepareGuidedDistribution);
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var note = new Label
             {
@@ -622,7 +622,7 @@ namespace DDF___Program_Language_Editor
             return page;
 
             void AddGuideRow(int row, string title, string description,
-                string destination)
+                string destination, EventHandler action = null)
             {
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
                 var button = new Button
@@ -632,9 +632,12 @@ namespace DDF___Program_Language_Editor
                     Margin = new Padding(4, 6, 8, 6),
                     UseVisualStyleBackColor = false
                 };
-                button.Click += (sender, args) => editorTabs.SelectedTab =
-                    editorTabs.TabPages.Cast<TabPage>().First(tab =>
-                        tab.Name == destination);
+                if (action != null)
+                    button.Click += action;
+                else
+                    button.Click += (sender, args) => editorTabs.SelectedTab =
+                        editorTabs.TabPages.Cast<TabPage>().First(tab =>
+                            tab.Name == destination);
                 layout.Controls.Add(button, 0, row);
                 layout.Controls.Add(new Label
                 {
@@ -2339,6 +2342,40 @@ namespace DDF___Program_Language_Editor
                 ? "Pacchetto validato e generato in: " + result.OutputPath
                 : FormatDiagnostics(result.Diagnostics);
             editorTabs.SelectedTab = previewPage;
+        }
+
+        private void PrepareGuidedDistribution(object sender, EventArgs e)
+        {
+            if (session == null) return;
+            if (sourceDrafts.Any(item =>
+                !session.Project.TryGetDocument(item.Key,
+                    out DdfLanguageAuthoringDocument document) ||
+                !string.Equals(item.Value, document.Content,
+                    StringComparison.Ordinal)))
+            {
+                ShowPreviewFailure("Ci sono sorgenti JSON/EBNF modificati ma non confermati. " +
+                    "Usare 'Anteprima sorgenti' o 'Anteprima EBNF', confermare " +
+                    "e poi ripetere la distribuzione.");
+                return;
+            }
+            PreviewGuidedChanges(sender, e);
+            if (pendingPreview == null) return;
+            if (pendingPreview.HasChanges)
+            {
+                diagnosticsTextBox.Text = "Prima di generare l'archivio, controllare " +
+                    "l'anteprima, correggere eventuali errori e premere 'Conferma e applica " +
+                    "anteprima'. Poi scegliere di nuovo 'Genera .ddflang...'." +
+                    Environment.NewLine + Environment.NewLine + diagnosticsTextBox.Text;
+                return;
+            }
+            if (!pendingPreview.Success)
+            {
+                diagnosticsTextBox.Text = "Il pacchetto non supera la convalida. " +
+                    "Correggere le diagnostiche prima di distribuire." +
+                    Environment.NewLine + Environment.NewLine + diagnosticsTextBox.Text;
+                return;
+            }
+            GenerateArchive(sender, e);
         }
 
         private void GenerateArchive(object sender, EventArgs e)

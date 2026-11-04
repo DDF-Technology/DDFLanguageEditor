@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il quinto pulsante della guida Package Studio genera ora realmente il `.ddflang`: prima apre l'anteprima se ci sono modifiche non confermate e blocca l'export con sorgenti draft ancora aperti.
+
 - Nel Package Studio, la scheda `Inizia` offre un cambio guidato delle parole chiave con controllo di scrittura e duplicati, diff e diagnostiche prima della conferma. Il pacchetto attivo resta intatto; aggiunto smoke UI del percorso.
 
 - Uno smoke opt-in del debugger compilato ha verificato una pausa reale di 315 secondi, Step Into, Stop e cleanup del Runner sul workspace multifile. Non allunga la suite ordinaria.

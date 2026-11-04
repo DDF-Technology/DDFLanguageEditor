@@ -4573,6 +4573,25 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         ebnfReferences.Items.Count > 20 &&
                         ebnfDiagnostics.Items.Count == 0,
                     "L'editor EBNF non espone regole, riferimenti e diagnostiche live.");
+                TextBox guidedPackageName = FindControl<TextBox>(studio,
+                    "languageStudioPackageNameTextBox");
+                string nameBeforeDistribution = guidedPackageName.Text;
+                guidedPackageName.Text += " distribuzione smoke";
+                FindControl<Button>(studio,
+                    "languageStudioGuideStep4Button").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("manifest.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains(
+                                "Prima di generare l'archivio") &&
+                        FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").SelectedTab.Name ==
+                            "languageStudioPreviewPage",
+                    "Distribuisci non apre l'anteprima delle modifiche prima dell'export.");
+                guidedPackageName.Text = nameBeforeDistribution;
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
                 ComboBox guidedKeyword = FindControl<ComboBox>(studio,
                     "languageStudioGuidedKeywordComboBox");
                 TextBox guidedKeywordText = FindControl<TextBox>(studio,
