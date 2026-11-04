@@ -87,6 +87,12 @@ namespace DDFLanguageEditor.Compiler.Tests
                     return 0;
                 }
                 if ((args ?? Array.Empty<string>()).Contains(
+                        "--debug-pause-endurance-only", StringComparer.Ordinal))
+                {
+                    VerifiesLongInteractiveDebugPauseAndCleanup();
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
                         "--dynamic-breakpoints-only", StringComparer.Ordinal))
                 {
                     RunsBufferedInputOutOfProcess();
@@ -316,6 +322,99 @@ namespace DDFLanguageEditor.Compiler.Tests
                     limits.MaxProcessCpuTime == cpu,
                 "I limiti del worker non separano wall-clock e CPU.");
             Console.WriteLine("PASS debug interattivo: tempo di pausa e CPU separati");
+        }
+
+        private static void VerifiesLongInteractiveDebugPauseAndCleanup()
+        {
+            string root = Path.Combine(RepositoryRoot(), "samples",
+                "language-features-debug-workspace");
+            DdfLanguagePackage package = DdfLanguagePackageLoader
+                .LoadEmbeddedDefault().Package;
+            DdfProjectManifestLoadResult project = DdfProjectManifestLoader
+                .Load(root);
+            Require(project.Success, "Workspace di debug non valido.");
+            var documents = new OpenDocumentCollection();
+            string mainPath = Path.Combine(root, "main.ddf");
+            OpenDocumentBuffer main = documents.Open(mainPath,
+                File.ReadAllText(mainPath, Encoding.UTF8));
+            var language = new DdfLanguagePackageSession(package);
+            string tempRoot = Path.GetTempPath();
+            var existingWorkerDirectories = Directory
+                .EnumerateDirectories(tempRoot, "ddf-worker-*")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            DdfEditorExecutionBuildContext Build(
+                DdfEditorExecutionRequest request,
+                IReadOnlyList<DdfEditorBuildDocumentSnapshot> snapshots,
+                DdfLanguagePackage activePackage)
+            {
+                var buffers = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => Path.GetFullPath(item.FilePath),
+                        item => item.SourceText,
+                        StringComparer.OrdinalIgnoreCase);
+                DdfBuildResult result = new DdfBuildService().Validate(root,
+                    project.Manifest, activePackage, buffers);
+                var paths = snapshots.Where(item =>
+                        !string.IsNullOrWhiteSpace(item.FilePath))
+                    .ToDictionary(item => item.Id,
+                        item => Path.GetFullPath(item.FilePath),
+                        StringComparer.Ordinal);
+                return new DdfEditorExecutionBuildContext(result,
+                    activePackage, paths);
+            }
+
+            using var debugger = new DdfDotNetEditorDebugService(
+                () => documents, () => language, Build);
+            using var pauses = new DebugPauseRecorder(debugger);
+            debugger.SetBreakpoints(new[] {
+                new DdfEditorBreakpoint(main.Id, 27, true) });
+            Task<DdfEditorExecutionCompletion> run = debugger.RunAsync();
+            try
+            {
+                DdfEditorDebugSnapshot first = pauses.Wait();
+                Require(first.Location.DocumentId == main.Id &&
+                        debugger.IsPaused,
+                    "Il debugger non si è fermato nel file principale.");
+                Console.WriteLine("PAUSA DEBUG INIZIATA: " +
+                    DateTimeOffset.Now.ToString("O"));
+                var elapsed = Stopwatch.StartNew();
+                TimeSpan required = TimeSpan.FromMinutes(5) +
+                    TimeSpan.FromSeconds(15);
+                while (elapsed.Elapsed < required)
+                {
+                    Thread.Sleep(TimeSpan.FromSeconds(15));
+                    Require(!run.IsCompleted && debugger.IsPaused,
+                        "Il debug è terminato automaticamente mentre era in pausa " +
+                        "dopo " + elapsed.Elapsed + ".");
+                    Console.WriteLine("PAUSA ANCORA ATTIVA: " +
+                        Math.Round(elapsed.Elapsed.TotalSeconds) + " s");
+                }
+                Require(debugger.StepInto(),
+                    "Step Into non riprende dopo la pausa prolungata.");
+                DdfEditorDebugSnapshot second = pauses.Wait();
+                Require(second.Location != null && debugger.IsPaused,
+                    "Step Into non produce una nuova pausa valida.");
+                Require(debugger.Stop(),
+                    "Stop non termina la sessione dopo la pausa prolungata.");
+                Require(run.Wait(TimeSpan.FromSeconds(20)) &&
+                        run.Result.WasCancelled && !debugger.IsActive,
+                    "Il debugger o il Runner non terminano dopo Stop.");
+                string[] remaining = Directory.EnumerateDirectories(tempRoot,
+                        "ddf-worker-*")
+                    .Where(item => !existingWorkerDirectories.Contains(item))
+                    .ToArray();
+                Require(remaining.Length == 0,
+                    "Directory temporanee del Runner residue: " +
+                    string.Join(", ", remaining));
+                Console.WriteLine("PASS pausa debug >5 minuti, Step Into, Stop " +
+                    "e cleanup Runner");
+            }
+            finally
+            {
+                if (debugger.IsActive) debugger.Stop();
+                run.Wait(TimeSpan.FromSeconds(20));
+            }
         }
 
         private static void DebugsShippedLanguageFeaturesWorkspace()

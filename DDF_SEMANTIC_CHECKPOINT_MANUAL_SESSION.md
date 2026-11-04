@@ -37,6 +37,12 @@ reale.
 - Avviare Run e Debug dal `main`, entrare in una funzione esterna con F11,
   usare F10 e Shift+F11, controllare cambio scheda, riga corrente, Call Stack,
   Variabili e Watch, quindi completare l'esecuzione.
+- Sul workspace `samples/language-features-debug-workspace`, lasciare il
+  debugger fermo su un breakpoint per oltre cinque minuti; confermare che la
+  riga evidenziata, Watch e comandi restino utilizzabili, fare un passo,
+  cambiare un breakpoint durante la pausa e usare Stop. Verificare in Gestione
+  attività che non resti alcun Runner della sessione. Lo smoke non visuale
+  ripetibile è `dotnet tests/DDFLanguageEditor.Compiler.Tests/bin/Release/DDFLanguageEditor.Compiler.Tests.dll --debug-pause-endurance-only`.
 - Aprire `samples/debug-large-workspace` e seguire la procedura nel relativo
   README: l'interfaccia deve restare reattiva lungo la catena profonda e i
   breakpoint non raggiungibili non devono interrompere il programma.
