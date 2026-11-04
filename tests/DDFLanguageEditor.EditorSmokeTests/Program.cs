@@ -4599,6 +4599,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(guidedKeyword.Items.Count > 10 &&
                         guidedKeyword.SelectedItem != null,
                     "Il percorso guidato non presenta le parole chiave disponibili.");
+                DataGridView keywordGrid = FindControl<DataGridView>(studio,
+                    "languageStudioKeywordsGrid");
+                DataGridViewRow ifKeyword = keywordGrid.Rows.Cast<DataGridViewRow>()
+                    .First(row => !row.IsNewRow &&
+                        Convert.ToString(row.Cells[2].Value) == "If");
+                guidedKeyword.SelectedItem = Convert.ToString(ifKeyword.Cells[0].Value);
+                string impact = FindControl<TextBox>(studio,
+                    "languageStudioGuidedKeywordImpactTextBox").Text;
+                Require(impact.Contains("Grammatica EBNF:") &&
+                        impact.Contains("Test da controllare:") &&
+                        impact.Contains("Snippet IntelliSense:") &&
+                        impact.Contains("Esempio:"),
+                    "La guida non mostra le dipendenze e l'esempio della parola chiave.");
                 string originalKeyword = guidedKeyword.SelectedItem.ToString();
                 guidedKeywordText.Text = guidedKeyword.Items[1].ToString();
                 FindControl<Button>(studio,
@@ -4620,8 +4633,6 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioPreviewTextBox").Text.Contains(
                                 originalKeyword + "_smoke"),
                     "Il cambio lessicale guidato non genera l'anteprima delle conseguenze.");
-                DataGridView keywordGrid = FindControl<DataGridView>(studio,
-                    "languageStudioKeywordsGrid");
                 foreach (DataGridViewRow row in keywordGrid.Rows)
                     if (!row.IsNewRow && Convert.ToString(row.Cells[0].Value) ==
                         originalKeyword + "_smoke")

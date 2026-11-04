@@ -28,6 +28,7 @@ namespace DDF___Program_Language_Editor
         private readonly DataGridView keywordsGrid;
         private readonly ComboBox guidedKeywordComboBox;
         private readonly TextBox guidedKeywordTextBox;
+        private readonly TextBox guidedKeywordImpactTextBox;
         private readonly DataGridView operatorsGrid;
         private readonly TextBox typesDescriptionTextBox;
         private readonly DataGridView primitiveTypesGrid;
@@ -168,8 +169,18 @@ namespace DDF___Program_Language_Editor
             guidedKeywordTextBox = Field("languageStudioGuidedKeywordTextBox");
             guidedKeywordTextBox.Dock = DockStyle.None;
             guidedKeywordTextBox.Width = 170;
+            guidedKeywordImpactTextBox = new TextBox
+            {
+                Dock = DockStyle.Fill, Height = 140, Multiline = true,
+                Name = "languageStudioGuidedKeywordImpactTextBox",
+                ReadOnly = true, ScrollBars = ScrollBars.Vertical,
+                BackColor = AppTheme.Surface
+            };
             guidedKeywordComboBox.SelectedIndexChanged += (sender, args) =>
+            {
                 guidedKeywordTextBox.Text = guidedKeywordComboBox.SelectedItem?.ToString() ?? string.Empty;
+                UpdateGuidedKeywordImpact();
+            };
             operatorsGrid = Grid("languageStudioOperatorsGrid");
             operatorsGrid.Columns.Add(TextColumn("operatorTextColumn", "Operatore", 110));
             operatorsGrid.Columns.Add(TextColumn("operatorBinaryPrecedenceColumn", "Precedenza binaria", 140));
@@ -561,12 +572,13 @@ namespace DDF___Program_Language_Editor
             var page = new TabPage("Inizia")
             {
                 Name = "languageStudioGettingStartedPage",
-                Padding = new Padding(24), BackColor = AppTheme.Surface
+                Padding = new Padding(24), BackColor = AppTheme.Surface,
+                AutoScroll = true
             };
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
-                Padding = new Padding(8), RowCount = 7
+                Padding = new Padding(8), RowCount = 8
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -618,6 +630,9 @@ namespace DDF___Program_Language_Editor
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.Controls.Add(keywordEditor, 0, 6);
             layout.SetColumnSpan(keywordEditor, 2);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
+            layout.Controls.Add(guidedKeywordImpactTextBox, 0, 7);
+            layout.SetColumnSpan(guidedKeywordImpactTextBox, 2);
             page.Controls.Add(layout);
             return page;
 
@@ -1154,6 +1169,98 @@ namespace DDF___Program_Language_Editor
                     TextValue(op, "role"));
             }
         }
+
+        private void UpdateGuidedKeywordImpact()
+        {
+            string keyword = guidedKeywordComboBox.SelectedItem?.ToString();
+            if (session == null || string.IsNullOrEmpty(keyword))
+            {
+                guidedKeywordImpactTextBox.Clear();
+                return;
+            }
+            var text = new StringBuilder();
+            DataGridViewRow row = keywordsGrid.Rows.Cast<DataGridViewRow>()
+                .FirstOrDefault(item => !item.IsNewRow && Cell(item, 0) == keyword);
+            text.Append("Parola: ").Append(keyword);
+            if (row != null)
+                text.Append("    Categoria: ").Append(Cell(row, 1))
+                    .Append("    Ruolo: ").Append(Cell(row, 2));
+            text.AppendLine();
+            text.AppendLine("Il lessico riconosce la scrittura; grammatica, test e snippet possono usarla ancora. L'anteprima indica se il pacchetto resta valido.");
+            try
+            {
+                if (session.Project.TryGetDocument("grammar.ebnf",
+                    out DdfLanguageAuthoringDocument grammar))
+                {
+                    string ebnf = sourceDrafts.TryGetValue("grammar.ebnf", out string draft)
+                        ? draft : grammar.Content;
+                    string[] rules = ebnf.Split(new[] { '\r', '\n' },
+                        StringSplitOptions.RemoveEmptyEntries)
+                        .Where(line => line.Contains("\"" + keyword + "\""))
+                        .Select(line => line.Split('=')[0].Trim())
+                        .Where(name => name.Length != 0).Distinct().Take(4).ToArray();
+                    text.AppendLine("Grammatica EBNF: " + (rules.Length == 0
+                        ? "nessun terminale letterale trovato"
+                        : string.Join(", ", rules)));
+                }
+                JsonObject tests = ParseObject("tests.json");
+                var matchingTests = new List<JsonObject>();
+                foreach (JsonNode node in tests?["cases"]?.AsArray() ?? new JsonArray())
+                    if (node is JsonObject test &&
+                        ContainsWord(TextValue(test, "source"), keyword))
+                        matchingTests.Add(test);
+                text.AppendLine("Test da controllare: " + matchingTests.Count +
+                    (matchingTests.Count == 0 ? string.Empty : " (" +
+                        string.Join(", ", matchingTests.Take(4).Select(item =>
+                            TextValue(item, "name"))) +
+                        (matchingTests.Count > 4 ? ", ..." : string.Empty) + ")"));
+                if (matchingTests.Count != 0)
+                {
+                    string example = TextValue(matchingTests[0], "source")
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.None)
+                        .FirstOrDefault(line => ContainsWord(line, keyword))?.Trim();
+                    if (!string.IsNullOrEmpty(example))
+                        text.AppendLine("Esempio: " + (example.Length > 100
+                            ? example.Substring(0, 100) + "..." : example));
+                }
+                JsonObject intellisense = ParseObject("intellisense.json");
+                string[] snippets = (intellisense?["snippets"]?.AsArray() ??
+                    new JsonArray()).OfType<JsonObject>()
+                    .Where(item => ContainsWord(TextValue(item, "prefix"), keyword) ||
+                        ContainsWord(TextValue(item, "body"), keyword))
+                    .Select(item => TextValue(item, "prefix")).Take(5).ToArray();
+                text.AppendLine("Snippet IntelliSense: " + (snippets.Length == 0
+                    ? "nessuno trovato" : string.Join(", ", snippets)));
+            }
+            catch (Exception exception) when (exception is JsonException ||
+                exception is InvalidDataException || exception is InvalidOperationException)
+            {
+                text.AppendLine("Riferimenti non leggibili: correggere prima i sorgenti JSON/EBNF. " +
+                    exception.Message);
+            }
+            text.Append("Dopo il cambio: verificare il diff, correggere i riferimenti " +
+                "e i test, poi confermare e convalidare.");
+            guidedKeywordImpactTextBox.Text = text.ToString();
+        }
+
+        private static bool ContainsWord(string text, string word)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(word)) return false;
+            int position = 0;
+            while ((position = text.IndexOf(word, position,
+                StringComparison.Ordinal)) >= 0)
+            {
+                int end = position + word.Length;
+                bool left = position == 0 || !IsWordCharacter(text[position - 1]);
+                bool right = end == text.Length || !IsWordCharacter(text[end]);
+                if (left && right) return true;
+                position = end;
+            }
+            return false;
+        }
+
+        private static bool IsWordCharacter(char value) =>
+            char.IsLetterOrDigit(value) || value == '_';
 
         private void LoadTypesAndSemantics()
         {

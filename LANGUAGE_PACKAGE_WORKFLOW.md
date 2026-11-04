@@ -40,6 +40,10 @@ duplicati. Il percorso iniziale nella scheda `Inizia` guida identità → sintas
 
 Per provare un cambio lessicale semplice, nella scheda `Inizia` scegliere una
 parola chiave, digitare la nuova scrittura e premere `Mostra anteprima`.
+Il riquadro sottostante mostra il ruolo della parola, i possibili riferimenti
+in grammatica EBNF, i test e gli snippet IntelliSense, con una riga di codice
+di esempio quando disponibile. È una guida alla revisione, non una conversione
+automatica di tutti i documenti: il diff e la convalida restano obbligatori.
 L'anteprima mostra il diff di `lexicon.json` e le diagnostiche: **non applica**
 la modifica. Una scrittura non valida o già presente viene rifiutata subito.
 Se esempi, test o regole usano la vecchia parola, occorre aggiornarli nelle

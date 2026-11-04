@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- La guida del Package Studio mostra ora per ogni parola chiave ruolo, possibili dipendenze in grammatica, test e snippet, più un esempio sorgente; la modifica di un profilo completo rimane un passo successivo.
+
 - Il quinto pulsante della guida Package Studio genera ora realmente il `.ddflang`: prima apre l'anteprima se ci sono modifiche non confermate e blocca l'export con sorgenti draft ancora aperti.
 
 - Nel Package Studio, la scheda `Inizia` offre un cambio guidato delle parole chiave con controllo di scrittura e duplicati, diff e diagnostiche prima della conferma. Il pacchetto attivo resta intatto; aggiunto smoke UI del percorso.
