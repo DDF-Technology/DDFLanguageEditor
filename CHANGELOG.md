@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto un descrittore JSON rigoroso per librerie/provider con metadati di portabilità, licenza, dipendenze e capability. Il fingerprint lo vincola alla superficie `DdfExternalApiDefinition` esistente; non installa né carica librerie.
+
 - Uno snapshot immutabile dei metadati di estensione viene ora creato solo dopo la verifica concatenata di assembly, manifest, catalogo dei punti e firme delle chiamate. Il gate per semantica/build può usarlo, senza considerarlo consenso o autorizzazione all'esecuzione.
 
 - Aggiunto alla soluzione un demo di compatibilità dei quattro contratti di estensione: verifica manifesto, frame, round-trip e classificazione di un errore build simulato. Non installa né esegue plug-in e non produce un PE.

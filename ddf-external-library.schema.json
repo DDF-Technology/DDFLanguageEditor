@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DDF external library/provider descriptor 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "namespace", "apiFingerprint", "portability", "license", "documentation", "capabilities", "dependencies", "runtimeIdentifiers", "architectures"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$", "maxLength": 128 },
+    "version": { "type": "string", "maxLength": 64 },
+    "namespace": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z][A-Za-z0-9]*)*$", "maxLength": 128 },
+    "apiFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "portability": { "enum": ["portable", "dotnet", "platform", "host"] },
+    "license": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "documentation": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "capabilities": { "$ref": "#/$defs/ids" },
+    "dependencies": { "$ref": "#/$defs/ids" },
+    "runtimeIdentifiers": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$", "maxLength": 64 } },
+    "architectures": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "enum": ["any", "x86", "x64", "arm64"] } }
+  },
+  "$defs": {
+    "ids": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$", "maxLength": 128 } }
+  }
+}

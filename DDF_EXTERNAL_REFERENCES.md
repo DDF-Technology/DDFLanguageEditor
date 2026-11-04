@@ -70,7 +70,7 @@ di seguito entra inoltre nel lockfile e alimenta i servizi del linguaggio.
 
 ## Descrittore API tipizzato
 
-`DdfExternalApiDefinition` `1.0` è un contratto immutabile privo di codice
+`DdfExternalApiDefinition` `1.1` è un contratto immutabile privo di codice
 eseguibile e tipi CLR. Associa all'identità/versione del riferimento:
 
 - permessi documentati;
@@ -92,6 +92,23 @@ DDF, senza reflection, oggetti assembly o `P/Invoke` scoperti automaticamente.
 Ogni `DdfBuildResult` espone inoltre la raccolta immutabile
 `ResolvedExternalReferences`, permettendo alla shell standalone o all'host di
 proiettare soltanto le API effettivamente risolte per quella build.
+
+## Metadati di libreria/provider
+
+`DdfExternalLibraryDescriptor` `1.0` aggiunge un documento JSON chiuso
+(`ddf-external-library.schema.json`) per identità/versione, namespace DDF,
+licenza, documentazione, capability, dipendenze e classe di portabilità
+`portable`, `dotnet`, `platform` o `host`. RID e architetture possono
+restringere le destinazioni; per `portable` devono restare vuoti e per
+`platform` almeno un vincolo è obbligatorio. Il campo `apiFingerprint` deve
+corrispondere esattamente al fingerprint di `DdfExternalApiDefinition` con la
+stessa identità/versione. Firme, effetti ed errori continuano a vivere
+esclusivamente in quest'ultimo contratto, non in una seconda tabella.
+
+`Matches` verifica soltanto la coerenza dei metadati: **non autentica** il
+provider, non concede capability, non controlla le dipendenze installate e
+non carica codice. Installazione, firma, lockfile e proiezione del descrittore
+su uno snapshot autorizzato rimangono passi aperti della roadmap `0.15.1`.
 
 Per il backend Roslyn, `DdfDotNetResolvedReferenceSetBuilder` trasforma solo i
 binding `ManagedAssembly` già presenti in quella raccolta in reference di

@@ -230,6 +230,7 @@ namespace DDFLanguageEditor.Tests
             Run("locates actionable external-reference diagnostics in the manifest", LocatesExternalReferenceDiagnosticsInManifest);
             Run("governs adapter families without promoting planned integrations", GovernsAdapterFamiliesWithoutPromotion);
             Run("projects one external API contract across analysis and runtime", ProjectsExternalApiAcrossAnalysisAndRuntime);
+            Run("binds external library metadata to the existing typed API", BindsExternalLibraryMetadataToTypedApi);
             Run("resolves versioned modules with export visibility and cycle checks", ResolvesVersionedModulesWithExportVisibilityAndCycleChecks);
             Run("validates direct module visibility collisions and deterministic navigation", ValidatesDirectModuleVisibilityCollisionsAndDeterministicNavigation);
             Run("validates the shipped sample project", ValidatesShippedSampleProject);
@@ -11165,6 +11166,48 @@ namespace DDFLanguageEditor.Tests
                 DdfAdapterFamilyCatalogLoader.Parse(unknown.ToJsonString());
             Equal(false, unknownResult.Success);
             Equal("DDFAC002", unknownResult.Issues.Single().Code);
+        }
+
+        private static void BindsExternalLibraryMetadataToTypedApi()
+        {
+            var api = new DdfExternalApiDefinition("sample.analytics", "1.2.0",
+                functions: new[] { new DdfExternalApiFunctionDefinition(
+                    "sum", "sum.binding", "int", new[] {
+                        new DdfExternalApiParameterDefinition("left", "int"),
+                        new DdfExternalApiParameterDefinition("right", "int") }) });
+            var descriptor = new DdfExternalLibraryDescriptor("sample.analytics",
+                "1.2.0", "Sample.Analytics", api.Fingerprint, "dotnet",
+                "MIT", "Somma due interi.",
+                new[] { "math.read" }, new[] { "sample.base" },
+                new[] { "win-x64" }, new[] { "x64" });
+            Equal(true, descriptor.Matches(api));
+            Equal(descriptor.ToJson(), DdfExternalLibraryDescriptor.Parse(
+                descriptor.ToJson()).ToJson());
+            Equal(false, descriptor.Matches(new DdfExternalApiDefinition(
+                "sample.analytics", "1.2.0")));
+            Equal(false, descriptor.Matches(new DdfExternalApiDefinition(
+                "sample.analytics", "1.3.0")));
+            var document = JsonNode.Parse(descriptor.ToJson()).AsObject();
+            document["unexpected"] = true;
+            Throws<FormatException>(() => DdfExternalLibraryDescriptor.Parse(
+                document.ToJsonString()));
+            document.Remove("unexpected");
+            document["apiFingerprint"] = new string('0', 64);
+            Equal(false, DdfExternalLibraryDescriptor.Parse(
+                document.ToJsonString()).Matches(api));
+            document["apiFingerprint"] = api.Fingerprint;
+            document["portability"] = "portable";
+            Throws<FormatException>(() => DdfExternalLibraryDescriptor.Parse(
+                document.ToJsonString()));
+            document["portability"] = "dotnet";
+            document["dependencies"].AsArray().Add("sample.base");
+            Throws<FormatException>(() => DdfExternalLibraryDescriptor.Parse(
+                document.ToJsonString()));
+            Throws<ArgumentException>(() => new DdfExternalLibraryDescriptor(
+                "sample.analytics", "1.2.0", "Sample.Analytics",
+                api.Fingerprint, "platform", "MIT", "Docs"));
+            Throws<FormatException>(() => DdfExternalLibraryDescriptor.Parse(
+                new string('x', DdfExternalLibraryDescriptor.MaximumBytes + 1)));
         }
 
         private static void ProjectsExternalApiAcrossAnalysisAndRuntime()

@@ -58,6 +58,7 @@
     <None Include="..\ddf-extension-source-frame.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-protocol.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-extension-protocol.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
+    <None Include="..\ddf-external-library.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\DDF_EXTENSION_PLUGIN_CONTRACT.md" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.json" Pack="true" PackagePath="contentFiles\any\any\" />
     <None Include="..\ddf-language-integration.schema.json" Pack="true" PackagePath="contentFiles\any\any\" />
