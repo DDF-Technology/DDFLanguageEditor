@@ -26,6 +26,8 @@ namespace DDF___Program_Language_Editor
         private readonly TextBox languageVersionTextBox;
         private readonly TextBox fileExtensionsTextBox;
         private readonly DataGridView keywordsGrid;
+        private readonly ComboBox guidedKeywordComboBox;
+        private readonly TextBox guidedKeywordTextBox;
         private readonly DataGridView operatorsGrid;
         private readonly TextBox typesDescriptionTextBox;
         private readonly DataGridView primitiveTypesGrid;
@@ -157,6 +159,17 @@ namespace DDF___Program_Language_Editor
             keywordsGrid.Columns.Add(TextColumn("keywordTextColumn", "Testo", 190));
             keywordsGrid.Columns.Add(TextColumn("keywordTokenKindColumn", "Token kind", 220));
             keywordsGrid.Columns.Add(TextColumn("keywordRoleColumn", "Ruolo", 220));
+            guidedKeywordComboBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Name = "languageStudioGuidedKeywordComboBox",
+                Width = 170
+            };
+            guidedKeywordTextBox = Field("languageStudioGuidedKeywordTextBox");
+            guidedKeywordTextBox.Dock = DockStyle.None;
+            guidedKeywordTextBox.Width = 170;
+            guidedKeywordComboBox.SelectedIndexChanged += (sender, args) =>
+                guidedKeywordTextBox.Text = guidedKeywordComboBox.SelectedItem?.ToString() ?? string.Empty;
             operatorsGrid = Grid("languageStudioOperatorsGrid");
             operatorsGrid.Columns.Add(TextColumn("operatorTextColumn", "Operatore", 110));
             operatorsGrid.Columns.Add(TextColumn("operatorBinaryPrecedenceColumn", "Precedenza binaria", 140));
@@ -553,7 +566,7 @@ namespace DDF___Program_Language_Editor
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
-                Padding = new Padding(8), RowCount = 6
+                Padding = new Padding(8), RowCount = 7
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -577,6 +590,34 @@ namespace DDF___Program_Language_Editor
             };
             layout.Controls.Add(note, 0, 5);
             layout.SetColumnSpan(note, 2);
+            var keywordEditor = new FlowLayoutPanel
+            {
+                AutoSize = true, Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(4, 16, 4, 4), WrapContents = true
+            };
+            keywordEditor.Controls.Add(new Label
+            {
+                AutoSize = true, Margin = new Padding(0, 7, 8, 0),
+                Text = "Cambia parola chiave:"
+            });
+            keywordEditor.Controls.Add(guidedKeywordComboBox);
+            keywordEditor.Controls.Add(new Label
+            {
+                AutoSize = true, Margin = new Padding(12, 7, 8, 0),
+                Text = "Nuova scrittura:"
+            });
+            keywordEditor.Controls.Add(guidedKeywordTextBox);
+            var keywordPreviewButton = new Button
+            {
+                AutoSize = true, Name = "languageStudioGuidedKeywordPreviewButton",
+                Text = "Mostra anteprima", UseVisualStyleBackColor = false
+            };
+            keywordPreviewButton.Click += PreviewGuidedKeywordChange;
+            keywordEditor.Controls.Add(keywordPreviewButton);
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.Controls.Add(keywordEditor, 0, 6);
+            layout.SetColumnSpan(keywordEditor, 2);
             page.Controls.Add(layout);
             return page;
 
@@ -1089,12 +1130,17 @@ namespace DDF___Program_Language_Editor
         {
             JsonObject lexicon = ParseObject("lexicon.json");
             keywordsGrid.Rows.Clear();
+            guidedKeywordComboBox.Items.Clear();
             foreach (JsonNode node in lexicon?["keywords"]?.AsArray() ?? new JsonArray())
             {
                 JsonObject keyword = node as JsonObject;
-                keywordsGrid.Rows.Add(TextValue(keyword, "text"),
+                string keywordText = TextValue(keyword, "text");
+                keywordsGrid.Rows.Add(keywordText,
                     TextValue(keyword, "tokenKind"), TextValue(keyword, "role"));
+                guidedKeywordComboBox.Items.Add(keywordText);
             }
+            if (guidedKeywordComboBox.Items.Count > 0)
+                guidedKeywordComboBox.SelectedIndex = 0;
             operatorsGrid.Rows.Clear();
             foreach (JsonNode node in lexicon?["operators"]?.AsArray() ?? new JsonArray())
             {
@@ -1762,6 +1808,42 @@ namespace DDF___Program_Language_Editor
             {
                 ShowPreviewFailure(exception.Message);
             }
+        }
+
+        private void PreviewGuidedKeywordChange(object sender, EventArgs e)
+        {
+            if (session == null || guidedKeywordComboBox.SelectedItem == null) return;
+            keywordsGrid.EndEdit();
+            string original = guidedKeywordComboBox.SelectedItem.ToString();
+            string replacement = guidedKeywordTextBox.Text.Trim();
+            if (replacement.Length == 0 ||
+                !sourcePackage.Language.LexicalRules.IsValidIdentifier(replacement))
+            {
+                ShowPreviewFailure("La nuova parola chiave deve essere un identificatore valido " +
+                    "per le regole lessicali del pacchetto di origine.");
+                return;
+            }
+            if (keywordsGrid.Rows.Cast<DataGridViewRow>().Any(row => !row.IsNewRow &&
+                Cell(row, 0) == replacement && Cell(row, 0) != original))
+            {
+                ShowPreviewFailure("La parola chiave '" + replacement +
+                    "' esiste gia nel lessico. Scegliere una scrittura diversa.");
+                return;
+            }
+            DataGridViewRow target = keywordsGrid.Rows.Cast<DataGridViewRow>()
+                .FirstOrDefault(row => !row.IsNewRow && Cell(row, 0) == original);
+            if (target == null)
+            {
+                ShowPreviewFailure("La parola chiave scelta non e piu presente nella " +
+                    "griglia. Controllare le modifiche in Lessico.");
+                return;
+            }
+            target.Cells[0].Value = replacement;
+            PreviewGuidedChanges(sender, e);
+            if (pendingPreview != null && !pendingPreview.Success)
+                diagnosticsTextBox.Text = "Il cambio richiede anche l'aggiornamento di " +
+                    "esempi, test o altre regole che usano la vecchia parola. " +
+                    "Nessuna modifica e stata applicata.\r\n\r\n" + diagnosticsTextBox.Text;
         }
 
         private void PreviewGuidedChanges(object sender, EventArgs e)

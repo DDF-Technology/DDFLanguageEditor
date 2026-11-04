@@ -4573,6 +4573,40 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         ebnfReferences.Items.Count > 20 &&
                         ebnfDiagnostics.Items.Count == 0,
                     "L'editor EBNF non espone regole, riferimenti e diagnostiche live.");
+                ComboBox guidedKeyword = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedKeywordComboBox");
+                TextBox guidedKeywordText = FindControl<TextBox>(studio,
+                    "languageStudioGuidedKeywordTextBox");
+                Require(guidedKeyword.Items.Count > 10 &&
+                        guidedKeyword.SelectedItem != null,
+                    "Il percorso guidato non presenta le parole chiave disponibili.");
+                string originalKeyword = guidedKeyword.SelectedItem.ToString();
+                guidedKeywordText.Text = guidedKeyword.Items[1].ToString();
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                Require(!FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains("esiste gia"),
+                    "Il cambio guidato accetta una parola chiave duplicata.");
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                guidedKeywordText.Text = originalKeyword + "_smoke";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("lexicon.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains(
+                                originalKeyword + "_smoke"),
+                    "Il cambio lessicale guidato non genera l'anteprima delle conseguenze.");
+                DataGridView keywordGrid = FindControl<DataGridView>(studio,
+                    "languageStudioKeywordsGrid");
+                foreach (DataGridViewRow row in keywordGrid.Rows)
+                    if (!row.IsNewRow && Convert.ToString(row.Cells[0].Value) ==
+                        originalKeyword + "_smoke")
+                        row.Cells[0].Value = originalKeyword;
                 string originalEbnf = ebnfSource.Text;
                 ebnfSource.AppendText("$");
                 PumpMessages(400);

@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Nel Package Studio, la scheda `Inizia` offre un cambio guidato delle parole chiave con controllo di scrittura e duplicati, diff e diagnostiche prima della conferma. Il pacchetto attivo resta intatto; aggiunto smoke UI del percorso.
+
 - Uno smoke opt-in del debugger compilato ha verificato una pausa reale di 315 secondi, Step Into, Stop e cleanup del Runner sul workspace multifile. Non allunga la suite ordinaria.
 
 - Il debug Roslyn interattivo non usa più i cinque minuti wall-clock anche mentre l'utente esamina una pausa: resta un limite lungo alla sessione e un limite separato al tempo CPU del worker. Corrette le indicazioni del menu Linguaggio, rimossa la scheda Linguaggio dalle Impostazioni, chiarito il conteggio dei pacchetti installati e aggiunta una guida iniziale al Package Studio. Il popup update spiega lo stato senza release più recenti.
