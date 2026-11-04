@@ -15,6 +15,8 @@ namespace DDF___Program_Language_Editor
         private readonly Action<DdfLanguagePackage> openPlayground;
         private readonly Func<DdfLanguagePackage> activePackage;
         private readonly ListView packagesList;
+        private readonly Label activePackageLabel;
+        private readonly Button installActiveButton;
         private readonly TextBox resultTextBox;
 
         public LanguagePackageManagerForm(DdfLanguagePackageStore store, Action<string> activate,
@@ -44,6 +46,14 @@ namespace DDF___Program_Language_Editor
                 Font = new Font("Segoe UI Semibold", 13F, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft,
                 Text = "Pacchetti installati"
             };
+            activePackageLabel = new Label
+            {
+                Dock = DockStyle.Top, Height = 48,
+                Name = "languagePackageManagerActiveLabel",
+                Padding = new Padding(12, 0, 12, 0),
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
+            };
             packagesList = new ListView
             {
                 BackColor = AppTheme.Surface, Dock = DockStyle.Fill, ForeColor = AppTheme.Text,
@@ -72,8 +82,11 @@ namespace DDF___Program_Language_Editor
             buttons.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var archive = Button("languagePackageInstallArchiveButton", "Installa archivio...", InstallArchive, 174);
             var folder = Button("languagePackageInstallFolderButton", "Installa cartella...", InstallFolder, 174);
+            installActiveButton = Button("languagePackageInstallActiveButton",
+                "Installa attivo", InstallActive, 120);
             buttons.Controls.Add(archive, 0, 0); buttons.SetColumnSpan(archive, 2);
-            buttons.Controls.Add(folder, 2, 0); buttons.SetColumnSpan(folder, 3);
+            buttons.Controls.Add(folder, 2, 0); buttons.SetColumnSpan(folder, 2);
+            buttons.Controls.Add(installActiveButton, 4, 0);
             buttons.Controls.Add(Button("languagePackageValidateButton", "Convalida", (s, e) => ValidateSelected(), 100), 0, 1);
             buttons.Controls.Add(Button("languagePackageActivateButton", "Attiva", (s, e) => ActivateSelected(), 90), 1, 1);
             buttons.Controls.Add(Button("languagePackageDisableButton", "Disattiva", (s, e) => { disable(); RefreshPackages(); }, 90), 2, 1);
@@ -85,6 +98,7 @@ namespace DDF___Program_Language_Editor
             Controls.Add(packagesList);
             Controls.Add(resultTextBox);
             Controls.Add(buttons);
+            Controls.Add(activePackageLabel);
             Controls.Add(title);
             CancelButton = close;
             AppTheme.ApplyLight(this);
@@ -103,7 +117,8 @@ namespace DDF___Program_Language_Editor
         private void RefreshPackages()
         {
             packagesList.Items.Clear();
-            foreach (DdfInstalledLanguagePackage package in store.List())
+            var installed = store.List();
+            foreach (DdfInstalledLanguagePackage package in installed)
             {
                 var item = new ListViewItem(package.Name) { Tag = package };
                 item.SubItems.Add(package.Id);
@@ -112,6 +127,28 @@ namespace DDF___Program_Language_Editor
                 packagesList.Items.Add(item);
             }
             Text = "Gestione pacchetti linguaggio — " + packagesList.Items.Count + " installati";
+            DdfLanguagePackage active = activePackage();
+            bool inStore = active != null && installed.Any(item =>
+                string.Equals(item.Path, active.Source,
+                    StringComparison.OrdinalIgnoreCase));
+            bool versionInstalled = active != null && installed.Any(item =>
+                string.Equals(item.Id, active.Id, StringComparison.Ordinal) &&
+                string.Equals(item.Version, active.PackageVersion,
+                    StringComparison.Ordinal));
+            installActiveButton.Enabled = active != null &&
+                active.Origin != DdfLanguagePackageOrigin.Embedded &&
+                !versionInstalled && (Directory.Exists(active.Source) ||
+                    File.Exists(active.Source));
+            activePackageLabel.Text = active == null
+                ? "Nessun pacchetto attivo."
+                : "Attivo: " + active.Name + " " + active.PackageVersion +
+                    (active.Origin == DdfLanguagePackageOrigin.Embedded
+                        ? " — DDF incorporato (fallback, non è un'installazione utente)."
+                        : inStore
+                            ? " — installato nello store utente."
+                            : versionInstalled
+                                ? " — versione installata, ma questa sessione usa una copia esterna. Seleziona la versione in elenco e premi Attiva."
+                            : " — caricato da cartella/archivio esterno; non compare tra gli installati. Premi Installa attivo per copiarlo nello store.");
         }
 
         private void InstallArchive(object sender, EventArgs e)
@@ -143,6 +180,14 @@ namespace DDF___Program_Language_Editor
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             { resultTextBox.Text = "Installazione non riuscita: " + exception.Message; }
+        }
+
+        private void InstallActive(object sender, EventArgs e)
+        {
+            DdfLanguagePackage current = activePackage();
+            if (current == null || current.Origin ==
+                DdfLanguagePackageOrigin.Embedded) return;
+            Install(current.Source);
         }
 
         private DdfInstalledLanguagePackage Selected() =>

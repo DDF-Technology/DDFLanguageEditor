@@ -417,6 +417,7 @@ namespace DDF___Program_Language_Editor
             previewPage.Controls.Add(diagnosticsTextBox);
             previewPage.Controls.Add(confirmPreviewButton);
             editorTabs.TabPages.Add(previewPage);
+            editorTabs.TabPages.Insert(0, BuildGettingStartedPage());
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 44 };
             var sourceLabel = new Label
@@ -541,6 +542,68 @@ namespace DDF___Program_Language_Editor
             Name = name,
             View = View.Details
         };
+
+        private TabPage BuildGettingStartedPage()
+        {
+            var page = new TabPage("Inizia")
+            {
+                Name = "languageStudioGettingStartedPage",
+                Padding = new Padding(24), BackColor = AppTheme.Surface
+            };
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
+                Padding = new Padding(8), RowCount = 6
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            AddGuideRow(0, "1 · Identità", "Assegna ID e nome diversi dal DDF incorporato; aggiorna la versione del pacchetto.",
+                "languageStudioManifestPage");
+            AddGuideRow(1, "2 · Sintassi", "In Lessico modifica parole chiave e operatori. Per nuove regole usa Grammatica EBNF e Tipi e semantica.",
+                "languageStudioLexiconPage");
+            AddGuideRow(2, "3 · Prova", "Nel Playground e test scrivi codice di esempio e leggi token e diagnostiche. Il pacchetto attivo nell'editor non cambia.",
+                "languageStudioPlaygroundPage");
+            AddGuideRow(3, "4 · Verifica", "Usa Anteprima editor guidati e conferma le modifiche; poi Convalida. Gli errori devono essere risolti prima della distribuzione.",
+                "languageStudioPreviewPage");
+            AddGuideRow(4, "5 · Distribuisci", "Genera .ddflang, quindi installalo da Linguaggio > Gestisci pacchetti nell'editor. La generazione non lo attiva automaticamente.",
+                "languageStudioManifestPage");
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var note = new Label
+            {
+                AutoSize = true, Dock = DockStyle.Fill,
+                ForeColor = AppTheme.MutedText,
+                Margin = new Padding(4, 18, 4, 4),
+                Text = "Percorso semplice: modifica una copia del DDF, prova nel Playground, convalida ed esporta. Le altre schede sono strumenti avanzati: non occorre toccarle per cambiare soltanto la sintassi."
+            };
+            layout.Controls.Add(note, 0, 5);
+            layout.SetColumnSpan(note, 2);
+            page.Controls.Add(layout);
+            return page;
+
+            void AddGuideRow(int row, string title, string description,
+                string destination)
+            {
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
+                var button = new Button
+                {
+                    Name = "languageStudioGuideStep" + row + "Button",
+                    Text = title, Dock = DockStyle.Fill,
+                    Margin = new Padding(4, 6, 8, 6),
+                    UseVisualStyleBackColor = false
+                };
+                button.Click += (sender, args) => editorTabs.SelectedTab =
+                    editorTabs.TabPages.Cast<TabPage>().First(tab =>
+                        tab.Name == destination);
+                layout.Controls.Add(button, 0, row);
+                layout.Controls.Add(new Label
+                {
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Text = description,
+                    Margin = new Padding(4, 3, 4, 3)
+                }, 1, row);
+            }
+        }
 
         private TabPage BuildManifestPage()
         {

@@ -41,8 +41,8 @@ risultato azionabile. `DdfReleaseManifestVerifier` e
 `DdfReleaseUpdatePolicy` costituiscono il gate condiviso con cui un evaluator
 seleziona il manifesto canonico, verifica firma e compatibilità e soltanto
 allora restituisce una URI verificata. La costruzione del provider non effettua
-rete e nessuna istanza viene ancora collegata automaticamente allo standalone o
-all'embedded.
+rete. La shell standalone lo collega al comando Help e al controllo automatico
+opzionale; l'embedded non lo collega automaticamente e lascia la scelta all'host.
 
 ## Standalone
 
@@ -76,8 +76,9 @@ staging sullo stesso volume, piano e journal immutabili, swap di directory a
 editor chiuso, verifica successiva e rollback. Contratti, staging, worker,
 swap, health check, rollback, ispezione del recovery, consensi e riavvio
 opzionale sono implementati ma non collegati al provider remoto; installazione
-e download reali restano disabilitati fino al provisioning della chiave
-ufficiale. Il sistema non richiede privilegi
+e download reali restano disabilitati fino alla prima release remota reale,
+più recente dell'applicazione e firmata con la chiave ufficiale già
+provisionata. Il sistema non richiede privilegi
 in modo silenzioso e non sostituisce file mentre l'editor è in esecuzione.
 
 ## Embedded
@@ -140,9 +141,9 @@ con la chiave pubblica derivata. Le build push/PR passano intenzionalmente
 `-SkipSignedManifest` e producono candidati non distribuibili; il
 `workflow_dispatch` fallisce se il secret ufficiale manca. La chiave privata
 non viene salvata nel repository, negli artefatti o nei log. Prima della prima
-release aggiornabile resta obbligatorio creare fuori dal repository la chiave
-ufficiale, registrare la privata come secret GitHub e fissare la pubblica nel
-trust store del prodotto.
+release aggiornabile è obbligatorio verificare il pacchetto remoto firmato con
+la chiave ufficiale già custodita fuori dal repository e nel secret GitHub,
+la cui parte pubblica è fissata nel trust store del prodotto.
 
 Le credenziali GitHub non sono richieste per il repository pubblico. Un token
 eventuale per installazioni private appartiene all'host o al credential store e

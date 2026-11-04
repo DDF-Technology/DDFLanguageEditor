@@ -923,7 +923,7 @@ namespace DDFLanguageEditor.Compiler
                 commands.Length > 256 || plan.MaxPauses <= 0 ||
                 plan.MaxPauses > 256 || commands.Length > plan.MaxPauses ||
                 plan.PauseTimeoutMilliseconds < 1 ||
-                plan.PauseTimeoutMilliseconds > 30000 ||
+                plan.PauseTimeoutMilliseconds > 300000 ||
                 plan.Interactive && commands.Length != 0 ||
                 commands.Any(command => !Enum.IsDefined(command) ||
                     !plan.Interactive &&

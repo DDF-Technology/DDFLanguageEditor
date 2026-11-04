@@ -1414,7 +1414,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
             using (Form studio = DdfLanguagePackageStudio.CreateForm(embedded))
             {
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 12,
+                            "languagePackageStudioTabs").TabPages.Count == 13,
                     "La shell autonoma non riusa le schede del Package Studio integrato.");
             }
 
@@ -4529,7 +4529,12 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioGenerateArchiveButton"] != null,
                     "Il Package Studio non espone la generazione .ddflang.");
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 12 &&
+                            "languagePackageStudioTabs").TabPages.Count == 13 &&
+                        FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").TabPages[0].Name ==
+                            "languageStudioGettingStartedPage" &&
+                        FindControl<Button>(studio,
+                            "languageStudioGuideStep0Button") != null &&
                         FindControl<ListBox>(studio,
                             "languageStudioSourceFilesListBox").Items.Count >= 10 &&
                         FindControl<DataGridView>(studio,
@@ -4794,6 +4799,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(manager != null && manager.StartPosition == FormStartPosition.CenterScreen &&
                         FindControl<ListView>(manager, "languagePackagesListView") != null &&
                         FindControl<Button>(manager, "languagePackageInstallArchiveButton") != null &&
+                        FindControl<Button>(manager, "languagePackageInstallActiveButton") != null &&
+                        FindControl<Label>(manager, "languagePackageManagerActiveLabel")
+                            .Text.Contains("Attivo:", StringComparison.Ordinal) &&
                         FindControl<Button>(manager, "languagePackageDisableButton") != null,
                     "La gestione pacchetti non espone installazione, selezione e disattivazione.");
                 foreach (Size size in new[] { manager.Size, manager.MinimumSize })
@@ -8822,9 +8830,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 dialogCount++;
                 Require(FindControl<Button>(dialog, "settingsDefaultsButton") != null,
                     "Il comando Predefiniti manca dalla finestra Impostazioni.");
-                Require(FindControl<TabControl>(dialog, "settingsTabs").TabPages
+                Require(!FindControl<TabControl>(dialog, "settingsTabs").TabPages
                         .Cast<TabPage>().Any(page => page.Name == "settingsLanguageTab"),
-                    "Le Impostazioni non mostrano il pacchetto linguaggio attivo.");
+                    "La scheda Linguaggio non deve più comparire nelle Impostazioni.");
                 dialog.ResetToDefaults();
                 return DialogResult.OK;
             }));

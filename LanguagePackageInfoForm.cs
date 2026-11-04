@@ -118,7 +118,7 @@ namespace DDF___Program_Language_Editor
                 Location = new Point(27, 419),
                 Name = "languagePackageNoteLabel",
                 Size = new Size(669, 37),
-                Text = "Usa Help > Linguaggio o il pulsante dedicato nella barra strumenti per cambiare pacchetto. La scelta viene ripristinata al prossimo avvio."
+                Text = "Usa Linguaggio > Gestisci pacchetti o il pulsante Linguaggio nella barra strumenti. 'Ripristina DDF incorporato' è un'azione di fallback, non un'opzione da deselezionare."
             };
             var copyButton = new Button
             {

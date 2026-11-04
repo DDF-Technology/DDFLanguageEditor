@@ -107,7 +107,6 @@ namespace DDF___Program_Language_Editor
 
             var tabs = new TabControl { Name = "settingsTabs", Dock = DockStyle.Fill };
             tabs.TabPages.Add(createEditorTab());
-            tabs.TabPages.Add(createLanguageTab(languagePackage));
             if (productUpdateSettings != null)
                 tabs.TabPages.Add(createProductUpdatesTab());
             var shortcutTab = new TabPage("Scorciatoie") { Name = "settingsShortcutsTab", Padding = new Padding(12) };
@@ -245,43 +244,6 @@ namespace DDF___Program_Language_Editor
             return page;
         }
 
-        private static TabPage createLanguageTab(DdfLanguagePackage activePackage)
-        {
-            DdfLanguagePackage package = activePackage ?? DdfLanguagePackageLoader.LoadEmbeddedDefault().Package;
-            var page = new TabPage("Linguaggio")
-            {
-                Name = "settingsLanguageTab",
-                Padding = new Padding(24),
-                BackColor = AppTheme.Surface
-            };
-            var layout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 2,
-                RowCount = 6
-            };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            addLanguageRow(layout, 0, "Linguaggio attivo", package.Name + " " + package.LanguageVersion);
-            addLanguageRow(layout, 1, "Pacchetto", package.Id + " " + package.PackageVersion);
-            addLanguageRow(layout, 2, "Origine", package.Origin.ToString());
-            addLanguageRow(layout, 3, "Estensioni", string.Join(", ", package.FileExtensions));
-            addLanguageRow(layout, 4, "Sorgente", package.Source);
-            var note = new Label
-            {
-                AutoSize = true,
-                Dock = DockStyle.Fill,
-                ForeColor = AppTheme.MutedText,
-                Margin = new Padding(3, 18, 3, 3),
-                Text = "Per cambiare pacchetto usa Help > Linguaggio o il pulsante Linguaggio nella barra strumenti."
-            };
-            layout.Controls.Add(note, 0, 5);
-            layout.SetColumnSpan(note, 2);
-            page.Controls.Add(layout);
-            return page;
-        }
-
         private TabPage createProductUpdatesTab()
         {
             var page = new TabPage("Aggiornamenti")
@@ -328,25 +290,6 @@ namespace DDF___Program_Language_Editor
             layout.SetColumnSpan(note, 2);
             page.Controls.Add(layout);
             return page;
-        }
-
-        private static void addLanguageRow(TableLayoutPanel layout, int row, string caption, string value)
-        {
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.Controls.Add(new Label
-            {
-                AutoSize = true,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Margin = new Padding(3, 7, 3, 7),
-                Text = caption
-            }, 0, row);
-            layout.Controls.Add(new Label
-            {
-                AutoEllipsis = true,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(3, 7, 3, 7),
-                Text = value ?? string.Empty
-            }, 1, row);
         }
 
         private DataGridView createShortcutGrid()

@@ -1448,6 +1448,15 @@ host che non possono essere descritti in modo sicuro come dati.
 - un plug-in guasto o revocato non compromette documenti, impostazioni o fallback del linguaggio;
 - build e runtime registrano esattamente plug-in e versioni coinvolti.
 
+### Consolidamento trasversale dell'esperienza (prima della 1.0)
+
+- [x] Eliminare la scheda Linguaggio delle Impostazioni, correggere il percorso del menu nella finestra informativa e chiarire in UI/documentazione la differenza tra DDF incorporato, pacchetto attivo, installazione, Playground e Package Studio. Aggiungere una scheda iniziale guidata al Package Studio; mantenere le schede tecniche per gli autori avanzati (`2026-11-04`).
+- [x] Separare nel debug compilato il tempo di pausa umana dal budget CPU del worker: sessione interattiva con limite wall-clock lungo, CPU worker ancora limitata, Stop e timeout espliciti preservati (`2026-11-04`).
+- [ ] Completare una sessione visuale/manuale di debug prolungato su workspace multifile, inclusi pausa superiore a cinque minuti, Step, Stop, breakpoint dinamici e nessun processo Runner residuo.
+- [ ] Migliorare ulteriormente il Package Studio con un flusso guidato per i casi semplici (cambio lessico/keyword e profili sintattici), esempi contestuali, errori comprensibili e anteprima delle conseguenze; non nascondere i contratti avanzati né generare pacchetti invalidi in silenzio.
+- [ ] Rifare integralmente le icone di tutte le iconbar con un sistema coerente, piatto, ad alto DPI e accessibile: simboli distinti e immediatamente riconoscibili, tooltip e nomi accessibili, stati disabilitati/attivi, verifica visuale a 100%/150%/200% sia standalone sia embedded. Evitare glifi di font che cambiano significato o spariscono sul sistema utente.
+- [ ] Concludere l'updater con una **nuova release reale** dal repository ufficiale, versione successiva, manifesto e asset firmati: verifica online dal consumer precedente, download esplicito, staging, consenso, installazione fuori processo, health check, rollback e recovery. Le release GitHub attualmente disponibili sono antecedenti a `0.12.5`; test in memoria/loopback non sostituiscono questo gate. Non installare build non firmate o creare tag fittizi per far apparire il pulsante.
+
 ## 0.16 — Assistente IA locale e cloud
 
 Offrire assistenza alla scrittura, spiegazione degli errori, creazione di test e
@@ -1504,6 +1513,14 @@ backend maturo e la VM come oracolo semantico.
 - [ ] Realizzare applicazioni standalone ed embedded rappresentative che usino moduli, librerie, errori, stato, asincronia, debug, persistenza e capability senza dipendere da scorciatoie interne dell'editor.
 - [ ] Definire i gate finali di compatibilità, sicurezza, prestazioni, accessibilità, distribuzione, documentazione e supporto per `1.0.0`.
 - [ ] Dichiarare portabile soltanto un progetto verificato end-to-end su ogni piattaforma supportata con lo stesso lockfile compatibile; COM, DLL native e API host specifiche impediscono il profilo `portable` salvo adapter alternativi espliciti.
+
+### Manuali e guida contestuale (gate di documentazione 1.0)
+
+- [ ] Redigere la documentazione **Markdown come sorgente autorevole**, versionata insieme a codice, grammatica, SDK e pacchetti: capitoli separati su editor/interfaccia e ogni comando, plugin e permessi, moduli e dipendenze, creazione/installazione dei pacchetti linguaggio e manuale di programmazione DDF. Ogni funzione deve avere scopo, prerequisiti, passaggi, esempio eseguibile, risultato atteso, errori e limiti; gli esempi devono essere testati contro la versione documentata.
+- [ ] Rendere il Markdown adatto anche all'istruzione di una IA esterna: struttura e URI stabili per argomento, glossario, indice machine-readable di comandi/keyword/API/versioni, esempi con input/output verificati, distinzione esplicita fra comportamento implementato, sperimentale e pianificato; niente istruzioni contraddittorie o affermazioni di compatibilità con linguaggi terzi.
+- [ ] Generare dal Markdown un manuale Windows **CHM** suddiviso negli stessi capitoli, con indice analitico e ricerca; mantenere build riproducibile, link e screenshot verificati e un'alternativa Markdown/HTML per SDK e piattaforme dove CHM non è disponibile.
+- [ ] Collegare `Help` ai capitoli e `F1` al contesto effettivo: keyword/simbolo/diagnostica sotto il cursore, controllo o finestra con focus, comando menu e palette; prevedere fallback all'indice quando non esiste un topic. I mapping verso topic versionati vanno testati in standalone e, per i contesti consentiti, embedded.
+- [ ] Produrre screenshot e diagrammi originali per UI, package workflow, debugger, flowchart, moduli e plugin; catturarli dalla build corrente con DPI/tema noti, annotarli, aggiungere testo alternativo e rigenerarli quando cambia l'interfaccia. Verificare visivamente Markdown e CHM prima di ogni release.
 
 ### Famiglie matematiche, grafiche e audio per la 1.0
 

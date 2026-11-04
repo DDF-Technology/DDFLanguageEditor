@@ -463,6 +463,7 @@ Per eseguire soltanto i test del core dopo una build Debug:
 - `MENU_TEST_MATRIX.md`: copertura dinamica dei comandi e delle scorciatoie dei menu;
 - `EDITOR_PERFORMANCE_BUDGETS.md`: workload, target p95 e ceiling di regressione dell'esperienza editor;
 - `PRODUCT_UPDATE_DESIGN.md`: verifica delle release, fiducia, canali e confine standalone/embedded;
+- `LANGUAGE_PACKAGE_WORKFLOW.md`: differenza tra pacchetto attivo/installato, fallback DDF, Playground e Package Studio;
 - `PRODUCT_UPDATE_INSTALLATION_DESIGN.md`: contratto dell'updater standalone fuori processo; piano, journal, staging, worker, swap, rollback, health check, consensi, riavvio opzionale e pulizia differita sono implementati, mentre download/installazione end-to-end attendono la prima release remota firmata reale;
 - `RELEASE_SIGNING_KEYS.md`: chiave pubblica ufficiale, custodia DPAPI della privata, secret GitHub e procedura di rotazione/revoca;
 - `ROADMAP.md`: piano di sviluppo e registro delle decisioni;

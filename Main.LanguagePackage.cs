@@ -145,7 +145,8 @@ namespace DDF___Program_Language_Editor
             saveLanguagePackagePathSetting = AppSettingsStore.SaveLanguagePackagePath;
             useEmbeddedLanguageMenuItem = new ToolStripMenuItem("Ripristina DDF incorporato")
             {
-                Name = "useEmbeddedLanguageMenuItem"
+                Name = "useEmbeddedLanguageMenuItem",
+                ToolTipText = "Torna al profilo DDF incorporato. Per scegliere un altro pacchetto usa Gestisci pacchetti."
             };
             useEmbeddedLanguageMenuItem.Click += useEmbeddedLanguageMenuItem_Click;
             manageLanguagePackagesMenuItem = new ToolStripMenuItem("Gestisci pacchetti...")
@@ -261,7 +262,10 @@ namespace DDF___Program_Language_Editor
             }
 
             if (useEmbeddedLanguageMenuItem != null)
+            {
                 useEmbeddedLanguageMenuItem.Checked = package.Origin == DdfLanguagePackageOrigin.Embedded;
+                useEmbeddedLanguageMenuItem.Enabled = package.Origin != DdfLanguagePackageOrigin.Embedded;
+            }
             if (languagePackageInfoMenuItem != null)
             {
                 languagePackageInfoMenuItem.Text = "&Linguaggio";

@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il debug Roslyn interattivo non usa più i cinque minuti wall-clock anche mentre l'utente esamina una pausa: resta un limite lungo alla sessione e un limite separato al tempo CPU del worker. Corrette le indicazioni del menu Linguaggio, rimossa la scheda Linguaggio dalle Impostazioni, chiarito il conteggio dei pacchetti installati e aggiunta una guida iniziale al Package Studio. Il popup update spiega lo stato senza release più recenti.
+
 - Aggiunto un descrittore JSON rigoroso per librerie/provider con metadati di portabilità, licenza, dipendenze e capability. Il fingerprint lo vincola alla superficie `DdfExternalApiDefinition` esistente; non installa né carica librerie.
 
 - Uno snapshot immutabile dei metadati di estensione viene ora creato solo dopo la verifica concatenata di assembly, manifest, catalogo dei punti e firme delle chiamate. Il gate per semantica/build può usarlo, senza considerarlo consenso o autorizzazione all'esecuzione.

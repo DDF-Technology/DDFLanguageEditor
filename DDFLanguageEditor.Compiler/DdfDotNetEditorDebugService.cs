@@ -20,6 +20,13 @@ namespace DDFLanguageEditor.Compiler
         IDdfEditorCooperativeExecutionService,
         IDdfDotNetWorkerCooperativeExecutionObserver
     {
+        // Interactive pauses are user think-time, not execution time. Keep a
+        // bounded wall clock for abandoned sessions and a separate CPU quota.
+        internal static readonly TimeSpan InteractiveSessionWallLimit =
+            TimeSpan.FromHours(12);
+        internal static readonly TimeSpan InteractiveWorkerCpuLimit =
+            TimeSpan.FromMinutes(5);
+        internal const int InteractiveProgressLimitMilliseconds = 300000;
         private readonly object sync = new();
         private readonly Func<IDdfEditorDocumentService> documentsProvider;
         private readonly Func<IDdfLanguagePackageSession> languageProvider;
@@ -268,7 +275,8 @@ namespace DDFLanguageEditor.Compiler
                         Breakpoints = workerBreakpoints,
                         Interactive = true,
                         MaxPauses = 256,
-                        PauseTimeoutMilliseconds = 30000
+                        PauseTimeoutMilliseconds =
+                            InteractiveProgressLimitMilliseconds
                     };
                     DdfDotNetWorkerRequest workerRequest =
                         DdfDotNetWorkerProtocol.CreateRequest(bundled.Bundle,
@@ -282,7 +290,8 @@ namespace DDFLanguageEditor.Compiler
                     DdfDotNetWorkerExecutionResult executed = await
                         DdfDotNetWorkerClient.ExecuteDuplexAsync(workerPath,
                             workerRequest, new DdfDotNetWorkerResourceLimits(
-                                request.Timeout ?? TimeSpan.FromMinutes(5)),
+                                request.Timeout ?? InteractiveSessionWallLimit,
+                                maxProcessCpuTime: InteractiveWorkerCpuLimit),
                             handler, this, source.Token).ConfigureAwait(false);
                     foreach (string output in executed.Response?.Output ??
                              new List<string>())

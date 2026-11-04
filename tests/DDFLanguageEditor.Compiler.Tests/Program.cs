@@ -118,8 +118,9 @@ namespace DDFLanguageEditor.Compiler.Tests
                 BuildsEditorArtifactsThroughStandaloneBridge();
                 StressesShippedLargeWorkspaceAcrossVmAndCompiledBackend();
                 DebugsShippedLanguageFeaturesWorkspace();
+                VerifiesInteractiveDebugTimeoutPolicy();
                 GeneratesSafeSyntaxTreesAndModuleInitializers();
-                Console.WriteLine("All 31 compiler contract tests passed.");
+                Console.WriteLine("All 32 compiler contract tests passed.");
                 return 0;
             }
             catch (Exception exception)
@@ -291,6 +292,30 @@ namespace DDFLanguageEditor.Compiler.Tests
             Console.WriteLine("PASS gate completo equivalenza VM/Roslyn: " +
                 "valore, Output, errori, effetti host, ordine di valutazione, " +
                 "aliasing, cleanup, state, sospensioni e debug DDF");
+        }
+
+        private static void VerifiesInteractiveDebugTimeoutPolicy()
+        {
+            Type type = typeof(DdfDotNetEditorDebugService);
+            var flags = BindingFlags.Static | BindingFlags.NonPublic;
+            TimeSpan wall = (TimeSpan)type.GetField(
+                "InteractiveSessionWallLimit", flags).GetValue(null);
+            TimeSpan cpu = (TimeSpan)type.GetField(
+                "InteractiveWorkerCpuLimit", flags).GetValue(null);
+            int progress = (int)type.GetField(
+                "InteractiveProgressLimitMilliseconds", flags).GetRawConstantValue();
+            Require(wall >= TimeSpan.FromHours(1) &&
+                    cpu == TimeSpan.FromMinutes(5) &&
+                    progress >= TimeSpan.FromMinutes(5).TotalMilliseconds,
+                "Il debug interattivo non deve consumare il budget CPU mentre " +
+                "l'utente esamina una pausa, né interrompersi dopo 30 secondi " +
+                "di lavoro tra due pause.");
+            var limits = new DdfDotNetWorkerResourceLimits(wall,
+                maxProcessCpuTime: cpu);
+            Require(limits.Timeout == wall &&
+                    limits.MaxProcessCpuTime == cpu,
+                "I limiti del worker non separano wall-clock e CPU.");
+            Console.WriteLine("PASS debug interattivo: tempo di pausa e CPU separati");
         }
 
         private static void DebugsShippedLanguageFeaturesWorkspace()

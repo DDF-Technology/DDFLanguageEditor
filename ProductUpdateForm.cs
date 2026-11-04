@@ -141,6 +141,11 @@ namespace DDF___Program_Language_Editor
         {
             if (value.State == DdfProductUpdateState.Unknown)
                 return value.StatusDetail;
+            if (value.State == DdfProductUpdateState.UpToDate)
+                return "Non risultano release più recenti nel canale selezionato. " +
+                    "Il controllo non installa versioni dal codice sorgente: " +
+                    "per proporre un aggiornamento serve una release pubblicata " +
+                    "con manifesto firmato e compatibile.";
             string details = value.ReleaseNotes;
             if (value.CompatibilityReasons.Count > 0)
                 details = string.Join(Environment.NewLine,

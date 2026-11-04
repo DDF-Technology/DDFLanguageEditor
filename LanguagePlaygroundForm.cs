@@ -76,7 +76,7 @@ namespace DDF___Program_Language_Editor
             {
                 Dock = DockStyle.Top, Height = 30, Padding = new Padding(8, 0, 0, 0),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Sorgente isolato (non modifica i documenti aperti)"
+                Text = "Prova il pacchetto attivo: analisi isolata, senza modificare documenti o pacchetti"
             };
             var sourcePanel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
             sourcePanel.Controls.Add(sourceTextBox);
