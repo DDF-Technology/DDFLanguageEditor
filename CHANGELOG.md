@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- La scheda `Inizia` del Package Studio permette ora di comporre un profilo con più parole chiave, anche scambiando due scritture in una sola conversione. Rifiuta destinazioni duplicate e invalida le anteprime obsolete; il profilo confermato è esportabile e ricaricabile.
+
 - Il cambio guidato di una parola chiave nel Package Studio prepara ora un profilo coerente: aggiorna grammatica, casi di test e snippet insieme al lessico, preserva stringhe/commenti e blocca la conferma se la convalida fallisce. Le modifiche precedenti non confermate richiedono una conferma separata; l'esportazione non si ferma per differenze di sola formattazione JSON.
 
 - La guida del Package Studio mostra ora per ogni parola chiave ruolo, possibili dipendenze in grammatica, test e snippet, più un esempio sorgente; la modifica di un profilo completo rimane un passo successivo.

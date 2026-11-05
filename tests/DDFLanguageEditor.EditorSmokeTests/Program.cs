@@ -4635,6 +4635,61 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(convertedEbnf.Contains("\"qualora_smoke\" ; # \"" +
                         originalKeyword + "\""),
                     "Il cambio guidato altera i commenti EBNF.");
+                DataGridViewRow elseKeywordRow = keywordGrid.Rows
+                    .Cast<DataGridViewRow>().First(row => !row.IsNewRow &&
+                        Convert.ToString(row.Cells[2].Value) == "Else");
+                string elseKeyword = Convert.ToString(elseKeywordRow.Cells[0].Value);
+                guidedKeywordText.Text = elseKeyword;
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordStageButton").PerformClick();
+                guidedKeyword.SelectedItem = elseKeyword;
+                guidedKeywordText.Text = originalKeyword;
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordStageButton").PerformClick();
+                ListView profileList = FindControl<ListView>(studio,
+                    "languageStudioGuidedProfileListView");
+                Require(profileList.Items.Count == 2,
+                    "Il wizard non mette in coda più parole nello stesso profilo.");
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains("convalidato"),
+                    "Lo scambio simultaneo di due parole chiave non resta valido: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                guidedKeywordText.Text = "duplicato_smoke";
+                Require(!FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "La modifica del campo lascia confermabile un'anteprima obsoleta.");
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordStageButton").PerformClick();
+                guidedKeyword.SelectedItem = originalKeyword;
+                guidedKeywordText.Text = "duplicato_smoke";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                Require(!FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains(
+                                "stessa scrittura finale"),
+                    "Il wizard accetta due parole con la stessa scrittura finale.");
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                while (profileList.Items.Count != 0)
+                {
+                    profileList.Items[0].Selected = true;
+                    FindControl<Button>(studio,
+                        "languageStudioGuidedProfileRemoveButton").PerformClick();
+                }
+                Require(!FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "La rimozione di una parola conserva una vecchia anteprima confermabile.");
+                guidedKeyword.SelectedItem = originalKeyword;
                 guidedKeywordText.Text = guidedKeyword.Items[1].ToString();
                 FindControl<Button>(studio,
                     "languageStudioGuidedKeywordPreviewButton").PerformClick();
@@ -4885,6 +4940,32 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         form.EmbeddedEditor.LanguageSession.ActivePackage.Name ==
                             originalPackageName,
                     "Il Package Studio non convalida lo snapshot o modifica il pacchetto attivo.");
+                guidedKeyword = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedKeywordComboBox");
+                guidedKeywordText = FindControl<TextBox>(studio,
+                    "languageStudioGuidedKeywordTextBox");
+                guidedKeyword.SelectedItem = "qualora_smoke";
+                guidedKeywordText.Text = elseKeyword;
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordStageButton").PerformClick();
+                guidedKeyword.SelectedItem = elseKeyword;
+                guidedKeywordText.Text = "qualora_smoke";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "Il profilo multiplo non produce un'anteprima confermabile: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<Button>(studio,
+                    "languageStudioConfirmPreviewButton").PerformClick();
+                studioTools.Items["languageStudioValidateButton"].PerformClick();
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains(
+                                "completati correttamente"),
+                    "Il profilo multiplo confermato non supera la convalida.");
                 string archivePath = Path.Combine(Path.GetTempPath(),
                     "ddf-guided-profile-smoke-" + Guid.NewGuid().ToString("N") +
                     ".ddflang");
@@ -4899,8 +4980,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         DdfLanguagePackageLoader.Load(archivePath);
                     Require(archive.Success && reloaded.Success &&
                             reloaded.Package.Language.TryGetKeyword(
-                                "qualora_smoke", out DdfKeywordDefinition exportedIf) &&
-                            exportedIf.RoleId == "If",
+                                elseKeyword, out DdfKeywordDefinition exportedIf) &&
+                            exportedIf.RoleId == "If" &&
+                            reloaded.Package.Language.TryGetKeyword(
+                                "qualora_smoke", out DdfKeywordDefinition exportedElse) &&
+                            exportedElse.RoleId == "Else",
                         "Il profilo guidato non produce un archivio valido e ricaricabile.");
                 }
                 finally

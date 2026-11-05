@@ -29,6 +29,9 @@ namespace DDF___Program_Language_Editor
         private readonly ComboBox guidedKeywordComboBox;
         private readonly TextBox guidedKeywordTextBox;
         private readonly TextBox guidedKeywordImpactTextBox;
+        private readonly ListView guidedProfileListView;
+        private readonly Dictionary<string, string> guidedKeywordChanges =
+            new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly DataGridView operatorsGrid;
         private readonly TextBox typesDescriptionTextBox;
         private readonly DataGridView primitiveTypesGrid;
@@ -169,6 +172,8 @@ namespace DDF___Program_Language_Editor
             guidedKeywordTextBox = Field("languageStudioGuidedKeywordTextBox");
             guidedKeywordTextBox.Dock = DockStyle.None;
             guidedKeywordTextBox.Width = 170;
+            guidedKeywordTextBox.TextChanged += (sender, args) =>
+                InvalidateGuidedProfilePreview();
             guidedKeywordImpactTextBox = new TextBox
             {
                 Dock = DockStyle.Fill, Height = 140, Multiline = true,
@@ -176,9 +181,21 @@ namespace DDF___Program_Language_Editor
                 ReadOnly = true, ScrollBars = ScrollBars.Vertical,
                 BackColor = AppTheme.Surface
             };
+            guidedProfileListView = new ListView
+            {
+                Dock = DockStyle.Fill, FullRowSelect = true,
+                GridLines = true, HideSelection = false,
+                MultiSelect = false,
+                Name = "languageStudioGuidedProfileListView",
+                View = View.Details
+            };
+            guidedProfileListView.Columns.Add("Parola corrente", 190);
+            guidedProfileListView.Columns.Add("Nuova scrittura", 190);
             guidedKeywordComboBox.SelectedIndexChanged += (sender, args) =>
             {
-                guidedKeywordTextBox.Text = guidedKeywordComboBox.SelectedItem?.ToString() ?? string.Empty;
+                string selected = guidedKeywordComboBox.SelectedItem?.ToString() ?? string.Empty;
+                guidedKeywordTextBox.Text = guidedKeywordChanges.TryGetValue(selected,
+                    out string staged) ? staged : selected;
                 UpdateGuidedKeywordImpact();
             };
             operatorsGrid = Grid("languageStudioOperatorsGrid");
@@ -578,7 +595,7 @@ namespace DDF___Program_Language_Editor
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
-                Padding = new Padding(8), RowCount = 8
+                Padding = new Padding(8), RowCount = 9
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -620,10 +637,17 @@ namespace DDF___Program_Language_Editor
                 Text = "Nuova scrittura:"
             });
             keywordEditor.Controls.Add(guidedKeywordTextBox);
+            var stageButton = new Button
+            {
+                AutoSize = true, Name = "languageStudioGuidedKeywordStageButton",
+                Text = "Aggiungi al profilo", UseVisualStyleBackColor = false
+            };
+            stageButton.Click += StageGuidedKeywordChange;
+            keywordEditor.Controls.Add(stageButton);
             var keywordPreviewButton = new Button
             {
                 AutoSize = true, Name = "languageStudioGuidedKeywordPreviewButton",
-                Text = "Mostra anteprima", UseVisualStyleBackColor = false
+                Text = "Anteprima profilo", UseVisualStyleBackColor = false
             };
             keywordPreviewButton.Click += PreviewGuidedKeywordChange;
             keywordEditor.Controls.Add(keywordPreviewButton);
@@ -633,6 +657,25 @@ namespace DDF___Program_Language_Editor
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
             layout.Controls.Add(guidedKeywordImpactTextBox, 0, 7);
             layout.SetColumnSpan(guidedKeywordImpactTextBox, 2);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 115));
+            var profilePanel = new TableLayoutPanel
+            {
+                ColumnCount = 2, Dock = DockStyle.Fill,
+                Margin = new Padding(4, 5, 4, 5), RowCount = 1
+            };
+            profilePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            profilePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 165));
+            profilePanel.Controls.Add(guidedProfileListView, 0, 0);
+            var removeProfileButton = new Button
+            {
+                Dock = DockStyle.Top, Height = 32,
+                Name = "languageStudioGuidedProfileRemoveButton",
+                Text = "Rimuovi selezionata", UseVisualStyleBackColor = false
+            };
+            removeProfileButton.Click += RemoveGuidedKeywordChange;
+            profilePanel.Controls.Add(removeProfileButton, 1, 0);
+            layout.Controls.Add(profilePanel, 0, 8);
+            layout.SetColumnSpan(profilePanel, 2);
             page.Controls.Add(layout);
             return page;
 
@@ -1104,6 +1147,8 @@ namespace DDF___Program_Language_Editor
         {
             if (session == null) return;
             sourceDrafts.Clear();
+            guidedKeywordChanges.Clear();
+            guidedProfileListView.Items.Clear();
             pendingPreview = null;
             confirmPreviewButton.Enabled = false;
             diagnosticsTextBox.Clear();
@@ -1240,6 +1285,8 @@ namespace DDF___Program_Language_Editor
             }
             text.Append("Il cambio guidato prepara insieme lessico, grammatica, " +
                 "test e snippet. Verificare il diff prima della conferma.");
+            text.AppendLine().Append("Parole nel profilo: ")
+                .Append(guidedKeywordChanges.Count);
             guidedKeywordImpactTextBox.Text = text.ToString();
         }
 
@@ -1923,8 +1970,12 @@ namespace DDF___Program_Language_Editor
         private void PreviewGuidedKeywordChange(object sender, EventArgs e)
         {
             if (session == null || guidedKeywordComboBox.SelectedItem == null) return;
-            string original = guidedKeywordComboBox.SelectedItem.ToString();
-            string replacement = guidedKeywordTextBox.Text.Trim();
+            if (!StageGuidedKeywordChange()) return;
+            if (guidedKeywordChanges.Count == 0)
+            {
+                ShowPreviewFailure("Aggiungere almeno una parola modificata al profilo.");
+                return;
+            }
             DdfLanguagePackageLoadResult current =
                 DdfLanguagePackageAuthoring.Validate(session.Project);
             if (!current.Success)
@@ -1934,29 +1985,34 @@ namespace DDF___Program_Language_Editor
                 return;
             }
             DdfLanguageDefinition language = current.Package.Language;
-            if (replacement.Length == 0 ||
-                !language.LexicalRules.IsValidIdentifier(replacement))
+            foreach (KeyValuePair<string, string> change in guidedKeywordChanges)
             {
-                ShowPreviewFailure("La nuova parola chiave deve essere un identificatore valido " +
-                    "per le regole lessicali del pacchetto corrente.");
-                return;
+                if (!language.TryGetKeyword(change.Key, out _))
+                {
+                    ShowPreviewFailure("La parola chiave '" + change.Key +
+                        "' non e piu presente nel pacchetto confermato.");
+                    return;
+                }
+                if (!language.LexicalRules.IsValidIdentifier(change.Value))
+                {
+                    ShowPreviewFailure("'" + change.Value +
+                        "' non e un identificatore valido per il pacchetto corrente.");
+                    return;
+                }
+                if (language.Keywords.Any(item => item.Text == change.Value) &&
+                    !guidedKeywordChanges.ContainsKey(change.Value))
+                {
+                    ShowPreviewFailure("La parola chiave '" + change.Value +
+                        "' esiste gia e non viene rinominata nel profilo.");
+                    return;
+                }
             }
-            if (language.Keywords.Any(item => item.Text == replacement &&
-                item.Text != original))
+            string duplicate = guidedKeywordChanges.Values.GroupBy(value => value,
+                StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1)?.Key;
+            if (duplicate != null)
             {
-                ShowPreviewFailure("La parola chiave '" + replacement +
-                    "' esiste gia nel lessico. Scegliere una scrittura diversa.");
-                return;
-            }
-            if (!language.TryGetKeyword(original, out DdfKeywordDefinition keyword))
-            {
-                ShowPreviewFailure("La parola chiave scelta non e piu presente nella " +
-                    "versione confermata del pacchetto. Ricaricare la guida.");
-                return;
-            }
-            if (replacement == original)
-            {
-                ShowPreviewFailure("La nuova scrittura coincide con quella corrente.");
+                ShowPreviewFailure("Due parole chiave del profilo usano la stessa " +
+                    "scrittura finale: '" + duplicate + "'.");
                 return;
             }
             PreviewGuidedChanges(sender, e);
@@ -1973,52 +2029,60 @@ namespace DDF___Program_Language_Editor
             {
                 JsonObject lexicon = ParseObject("lexicon.json");
                 foreach (JsonNode node in lexicon["keywords"].AsArray())
-                    if (node is JsonObject item && TextValue(item, "text") == original)
-                        item["text"] = replacement;
+                    if (node is JsonObject item && guidedKeywordChanges.TryGetValue(
+                        TextValue(item, "text"), out string changedText))
+                        item["text"] = changedText;
                 var changes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["lexicon.json"] = Serialize(lexicon)
                 };
                 if (session.Project.TryGetDocument("grammar.ebnf",
                     out DdfLanguageAuthoringDocument ebnf))
-                    changes["grammar.ebnf"] = ReplaceEbnfTerminal(ebnf.Content,
-                        original, replacement);
+                    changes["grammar.ebnf"] = ReplaceEbnfTerminals(ebnf.Content,
+                        guidedKeywordChanges);
                 JsonObject grammar = ParseObject("grammar.json");
                 foreach (JsonNode node in grammar["rules"]?.AsArray() ?? new JsonArray())
-                    if (node is JsonObject rule && rule["ide"] is JsonObject ide &&
-                        ContainsWord(TextValue(ide, "breadcrumbLabel"), original))
+                    if (node is JsonObject rule && rule["ide"] is JsonObject ide)
                     {
                         string oldLabel = TextValue(ide, "breadcrumbLabel");
-                        ide["breadcrumbLabel"] = ReplaceDisplayWord(oldLabel,
-                            original, replacement);
+                        string newLabel = ReplaceDisplayWords(oldLabel,
+                            guidedKeywordChanges);
+                        if (newLabel == oldLabel) continue;
+                        ide["breadcrumbLabel"] = newLabel;
+                        string firstWord = new string(oldLabel.TakeWhile(
+                            IsWordCharacter).ToArray());
                         if (ide["breadcrumbSelectionLength"] != null &&
-                            oldLabel.StartsWith(original, StringComparison.Ordinal))
-                            ide["breadcrumbSelectionLength"] = replacement.Length;
+                            guidedKeywordChanges.TryGetValue(firstWord,
+                                out string changedFirstWord))
+                            ide["breadcrumbSelectionLength"] =
+                                changedFirstWord.Length;
                     }
                 changes["grammar.json"] = Serialize(grammar);
                 JsonObject tests = ParseObject("tests.json");
                 foreach (JsonNode node in tests["cases"]?.AsArray() ?? new JsonArray())
                     if (node is JsonObject test)
-                        test["source"] = ReplaceKeywordTokens(TextValue(test, "source"),
-                            original, replacement, keyword.TokenKind, language);
+                        test["source"] = ReplaceKeywordTokensBatch(TextValue(test, "source"),
+                            guidedKeywordChanges, language);
                 changes["tests.json"] = Serialize(tests);
                 JsonObject intellisense = ParseObject("intellisense.json");
                 foreach (JsonNode node in intellisense["snippets"]?.AsArray() ??
                     new JsonArray())
                     if (node is JsonObject snippet)
                     {
-                        if (TextValue(snippet, "prefix") == original)
-                            snippet["prefix"] = replacement;
+                        if (guidedKeywordChanges.TryGetValue(TextValue(snippet,
+                            "prefix"), out string changedPrefix))
+                            snippet["prefix"] = changedPrefix;
                         string display = TextValue(snippet, "displayText");
-                        snippet["displayText"] = ReplaceDisplayWord(display,
-                            original, replacement);
-                        snippet["body"] = ReplaceKeywordTokens(TextValue(snippet,
-                            "body"), original, replacement, keyword.TokenKind, language);
+                        snippet["displayText"] = ReplaceDisplayWords(display,
+                            guidedKeywordChanges);
+                        snippet["body"] = ReplaceKeywordTokensBatch(TextValue(snippet,
+                            "body"), guidedKeywordChanges, language);
                     }
                 changes["intellisense.json"] = Serialize(intellisense);
                 PreviewChanges(changes.Select(item =>
                     DdfLanguageAuthoringChange.Upsert(item.Key, item.Value)),
-                    "Cambio coordinato della parola chiave " + original + " → " + replacement);
+                    "Cambio coordinato di " + guidedKeywordChanges.Count +
+                    " parole chiave");
                 if (pendingPreview?.ResultingProject == null) return;
                 DdfLanguagePackageLoadResult checkedPackage =
                     DdfLanguagePackageAuthoring.Validate(pendingPreview.ResultingProject);
@@ -2039,6 +2103,67 @@ namespace DDF___Program_Language_Editor
             {
                 ShowPreviewFailure(exception.Message);
             }
+        }
+
+        private void StageGuidedKeywordChange(object sender, EventArgs e) =>
+            StageGuidedKeywordChange();
+
+        private bool StageGuidedKeywordChange()
+        {
+            string original = guidedKeywordComboBox.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(original)) return false;
+            string replacement = guidedKeywordTextBox.Text.Trim();
+            if (replacement.Length == 0)
+            {
+                guidedKeywordImpactTextBox.Text = "Specificare la nuova scrittura " +
+                    "prima di aggiungerla al profilo.";
+                guidedKeywordTextBox.Focus();
+                return false;
+            }
+            if (replacement == original)
+                guidedKeywordChanges.Remove(original);
+            else
+                guidedKeywordChanges[original] = replacement;
+            InvalidateGuidedProfilePreview();
+            RefreshGuidedProfileList();
+            return true;
+        }
+
+        private void RemoveGuidedKeywordChange(object sender, EventArgs e)
+        {
+            if (guidedProfileListView.SelectedItems.Count != 1) return;
+            string original = guidedProfileListView.SelectedItems[0].Tag as string;
+            if (original == null) return;
+            guidedKeywordChanges.Remove(original);
+            if (string.Equals(guidedKeywordComboBox.SelectedItem?.ToString(),
+                original, StringComparison.Ordinal))
+                guidedKeywordTextBox.Text = original;
+            InvalidateGuidedProfilePreview();
+            RefreshGuidedProfileList();
+        }
+
+        private void InvalidateGuidedProfilePreview()
+        {
+            if (pendingPreview?.ChangeSet?.Description?.StartsWith(
+                "Cambio coordinato di ", StringComparison.Ordinal) != true) return;
+            pendingPreview = null;
+            confirmPreviewButton.Enabled = false;
+            previewTextBox.Text = "Il profilo e stato modificato. Generare una nuova anteprima.";
+        }
+
+        private void RefreshGuidedProfileList()
+        {
+            guidedProfileListView.BeginUpdate();
+            guidedProfileListView.Items.Clear();
+            foreach (KeyValuePair<string, string> change in guidedKeywordChanges
+                .OrderBy(item => item.Key, StringComparer.Ordinal))
+            {
+                var item = new ListViewItem(change.Key) { Tag = change.Key };
+                item.SubItems.Add(change.Value);
+                guidedProfileListView.Items.Add(item);
+            }
+            guidedProfileListView.EndUpdate();
+            UpdateGuidedKeywordImpact();
         }
 
         private static bool HasSemanticChanges(DdfLanguageAuthoringProject before,
@@ -2063,13 +2188,26 @@ namespace DDF___Program_Language_Editor
         private static string ReplaceKeywordTokens(string source, string original,
             string replacement, DdfTokenKind kind, DdfLanguageDefinition language)
         {
+            if (!language.TryGetKeyword(original, out DdfKeywordDefinition keyword) ||
+                keyword.TokenKind != kind) return source;
+            return ReplaceKeywordTokensBatch(source,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [original] = replacement
+                }, language);
+        }
+
+        private static string ReplaceKeywordTokensBatch(string source,
+            IReadOnlyDictionary<string, string> changes, DdfLanguageDefinition language)
+        {
             var result = new StringBuilder(source.Length);
             int position = 0;
             foreach (DdfToken token in DdfLexer.Lex(source, language).Tokens)
             {
-                if (token.Kind != kind || token.Length != original.Length ||
-                    !string.Equals(source.Substring(token.Start, token.Length),
-                        original, StringComparison.Ordinal)) continue;
+                string spelling = source.Substring(token.Start, token.Length);
+                if (!changes.TryGetValue(spelling, out string replacement) ||
+                    !language.TryGetKeyword(spelling, out DdfKeywordDefinition keyword) ||
+                    token.Kind != keyword.TokenKind) continue;
                 result.Append(source, position, token.Start - position);
                 result.Append(replacement);
                 position = token.Start + token.Length;
@@ -2081,32 +2219,46 @@ namespace DDF___Program_Language_Editor
         private static string ReplaceDisplayWord(string source, string original,
             string replacement)
         {
+            return ReplaceDisplayWords(source,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [original] = replacement
+                });
+        }
+
+        private static string ReplaceDisplayWords(string source,
+            IReadOnlyDictionary<string, string> changes)
+        {
             var result = new StringBuilder(source.Length);
-            int position = 0;
-            int match;
-            while ((match = source.IndexOf(original, position,
-                StringComparison.Ordinal)) >= 0)
+            for (int index = 0; index < source.Length;)
             {
-                int end = match + original.Length;
-                if ((match == 0 || !IsWordCharacter(source[match - 1])) &&
-                    (end == source.Length || !IsWordCharacter(source[end])))
+                if (!IsWordCharacter(source[index]))
                 {
-                    result.Append(source, position, match - position);
-                    result.Append(replacement);
-                    position = end;
+                    result.Append(source[index++]);
+                    continue;
                 }
-                else
-                {
-                    result.Append(source, position, end - position);
-                    position = end;
-                }
+                int start = index;
+                while (index < source.Length && IsWordCharacter(source[index]))
+                    index++;
+                string word = source.Substring(start, index - start);
+                result.Append(changes.TryGetValue(word, out string replacement)
+                    ? replacement : word);
             }
-            result.Append(source, position, source.Length - position);
             return result.ToString();
         }
 
         private static string ReplaceEbnfTerminal(string source, string original,
             string replacement)
+        {
+            return ReplaceEbnfTerminals(source,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [original] = replacement
+                });
+        }
+
+        private static string ReplaceEbnfTerminals(string source,
+            IReadOnlyDictionary<string, string> changes)
         {
             var result = new StringBuilder(source.Length);
             bool comment = false;
@@ -2121,8 +2273,8 @@ namespace DDF___Program_Language_Editor
                     if (end > index)
                     {
                         string literal = source.Substring(index + 1, end - index - 1);
-                        result.Append('"').Append(literal == original ? replacement :
-                            literal).Append('"');
+                        result.Append('"').Append(changes.TryGetValue(literal,
+                            out string replacement) ? replacement : literal).Append('"');
                         index = end;
                         continue;
                     }
