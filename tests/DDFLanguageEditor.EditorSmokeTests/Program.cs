@@ -4690,6 +4690,92 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioConfirmPreviewButton").Enabled,
                     "La rimozione di una parola conserva una vecchia anteprima confermabile.");
                 guidedKeyword.SelectedItem = originalKeyword;
+                ComboBox guidedOperator = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedOperatorComboBox");
+                TextBox guidedOperatorText = FindControl<TextBox>(studio,
+                    "languageStudioGuidedOperatorTextBox");
+                guidedOperator.SelectedItem = "&&";
+                Require(FindControl<TextBox>(studio,
+                            "languageStudioGuidedKeywordImpactTextBox").Text.Contains(
+                                "Grammatica operatore:") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioGuidedKeywordImpactTextBox").Text.Contains(
+                                "logical.and"),
+                    "La guida non mostra grammatica e binding runtime dell'operatore.");
+                MethodInfo replaceSyntax = studio.GetType().GetMethod(
+                    "ReplaceSyntaxTokensBatch", BindingFlags.Static |
+                    BindingFlags.NonPublic);
+                string operatorSource = "main() out int { bool ready << true && " +
+                    "false; print(\"&&\"); // &&\n ret 0; }";
+                string convertedOperatorSource = (string)replaceSyntax.Invoke(null,
+                    new object[] { operatorSource,
+                        new Dictionary<string, string>(),
+                        new Dictionary<string, string> { ["&&"] = "&&&" },
+                        activePackage.Language });
+                Require(convertedOperatorSource.Contains("true &&& false") &&
+                        convertedOperatorSource.Contains("print(\"&&\")") &&
+                        convertedOperatorSource.Contains("// &&"),
+                    "Il cambio di un operatore altera stringhe o commenti.");
+                guidedOperatorText.Text = "||";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorPreviewButton").PerformClick();
+                Require(!FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioDiagnosticsTextBox").Text.Contains(
+                                "esiste gia"),
+                    "Il wizard accetta un operatore di destinazione gia esistente.");
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                guidedOperatorText.Text = "&&&";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorStageButton").PerformClick();
+                Require(profileList.Items.Count == 1 &&
+                        profileList.Items[0].Text == "Operatore",
+                    "Il wizard non mette in coda l'operatore scelto.");
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorPreviewButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("runtime.json") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("grammar.ebnf") &&
+                        FindControl<TextBox>(studio,
+                            "languageStudioPreviewTextBox").Text.Contains("tests.json"),
+                    "L'operatore guidato non aggiorna grammatica, test e runtime: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                profileList.Items[0].Selected = true;
+                FindControl<Button>(studio,
+                    "languageStudioGuidedProfileRemoveButton").PerformClick();
+                guidedOperator.SelectedItem = "<<";
+                guidedOperatorText.Text = ">>";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorStageButton").PerformClick();
+                guidedOperator.SelectedItem = ">>";
+                guidedOperatorText.Text = "<<";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorStageButton").PerformClick();
+                FindControl<Button>(studio,
+                    "languageStudioGuidedKeywordPreviewButton").PerformClick();
+                PumpMessages(80);
+                Require(FindControl<Button>(studio,
+                            "languageStudioConfirmPreviewButton").Enabled,
+                    "Lo scambio simultaneo degli operatori non resta valido: " +
+                    FindControl<TextBox>(studio,
+                        "languageStudioDiagnosticsTextBox").Text);
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
+                while (profileList.Items.Count != 0)
+                {
+                    profileList.Items[0].Selected = true;
+                    FindControl<Button>(studio,
+                        "languageStudioGuidedProfileRemoveButton").PerformClick();
+                }
                 guidedKeywordText.Text = guidedKeyword.Items[1].ToString();
                 FindControl<Button>(studio,
                     "languageStudioGuidedKeywordPreviewButton").PerformClick();
@@ -4952,6 +5038,14 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "languageStudioGuidedKeywordStageButton").PerformClick();
                 guidedKeyword.SelectedItem = elseKeyword;
                 guidedKeywordText.Text = "qualora_smoke";
+                guidedOperator = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedOperatorComboBox");
+                guidedOperatorText = FindControl<TextBox>(studio,
+                    "languageStudioGuidedOperatorTextBox");
+                guidedOperator.SelectedItem = "&&";
+                guidedOperatorText.Text = "&&&";
+                FindControl<Button>(studio,
+                    "languageStudioGuidedOperatorStageButton").PerformClick();
                 FindControl<Button>(studio,
                     "languageStudioGuidedKeywordPreviewButton").PerformClick();
                 Require(FindControl<Button>(studio,
@@ -4984,7 +5078,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             exportedIf.RoleId == "If" &&
                             reloaded.Package.Language.TryGetKeyword(
                                 "qualora_smoke", out DdfKeywordDefinition exportedElse) &&
-                            exportedElse.RoleId == "Else",
+                            exportedElse.RoleId == "Else" &&
+                            reloaded.Package.Language.TryGetOperator("&&&",
+                                out DdfOperatorDefinition exportedAnd) &&
+                            exportedAnd.BinaryPrecedence == 4,
                         "Il profilo guidato non produce un archivio valido e ricaricabile.");
                 }
                 finally

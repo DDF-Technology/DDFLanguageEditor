@@ -38,27 +38,30 @@ Playground del menu verifica il pacchetto già caricato. Non sono quindi
 duplicati. Il percorso iniziale nella scheda `Inizia` guida identità → sintassi
 → prova → convalida → distribuzione; le altre schede restano avanzate.
 
-Per creare un profilo lessicale semplice, nella scheda `Inizia` scegliere una
-parola chiave, digitare la nuova scrittura e premere `Aggiungi al profilo`.
-Ripetere per le altre parole; l'elenco mostra tutte le sostituzioni preparate
-e permette di rimuoverle. È possibile anche scambiare due scritture, purché
-entrambe le parole siano incluse e ogni scrittura finale sia univoca. Premere
+Per creare un profilo sintattico semplice, nella scheda `Inizia` scegliere una
+parola chiave o un operatore, digitare la nuova scrittura e premere il relativo
+`Aggiungi al profilo`. Ripetere per gli altri elementi: l'elenco mostra tutte
+le sostituzioni preparate e permette di rimuoverle. È possibile anche scambiare
+due scritture dello stesso tipo, purché entrambe siano incluse e ogni scrittura
+finale sia univoca. Il cambio di un operatore conserva ruolo e precedenze.
+Premere
 `Anteprima profilo` per elaborare tutto insieme; senza passare da `Aggiungi`
-il pulsante include anche la parola attualmente selezionata.
+il pulsante include anche gli elementi attualmente selezionati e modificati.
 Il riquadro sottostante mostra il ruolo della parola, i possibili riferimenti
 in grammatica EBNF, i test e gli snippet IntelliSense, con una riga di codice
-di esempio quando disponibile. Il cambio guidato prepara
-insieme `lexicon.json`, i terminali di `grammar.ebnf`, le etichette pertinenti
-di `grammar.json`, i sorgenti dei casi in `tests.json` e gli snippet di
-`intellisense.json`. Nei programmi di prova stringhe e commenti restano intatti.
+di esempio quando disponibile; per l'operatore mostra ruolo, precedenza e
+binding runtime. Il cambio guidato prepara insieme `lexicon.json`, i terminali
+di `grammar.ebnf`, le etichette pertinenti di `grammar.json`, i sorgenti dei
+casi in `tests.json`, gli snippet di `intellisense.json` e i binding in
+`runtime.json`. Nei programmi di prova stringhe e commenti restano intatti.
 L'anteprima mostra il diff e convalida il pacchetto risultante: **non applica**
 la modifica. Una scrittura non valida, duplicata o un risultato non convalidabile
 non può essere confermato. Dopo aver esaminato il diff, premere `Conferma e
 applica anteprima`, quindi usare `Genera .ddflang...`. Le modifiche precedenti
 non confermate vanno prima esaminate e confermate separatamente. Qualsiasi
 modifica all'elenco o al campo annulla l'anteprima precedente, per impedire una
-conferma obsoleta. Per cambiare operatori o regole strutturali sono ancora
-necessarie le schede avanzate.
+conferma obsoleta. Per cambiare precedenze, ruoli, nuove operazioni o regole
+strutturali sono ancora necessarie le schede avanzate.
 Il pacchetto attivo nell'editor non cambia.
 
 Il pulsante `5 · Genera .ddflang...` della scheda `Inizia` è operativo:

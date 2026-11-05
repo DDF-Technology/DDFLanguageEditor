@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- I profili guidati del Package Studio includono ora anche gli operatori, con aggiornamento coordinato di lessico, grammatica, test, snippet e binding runtime. Supportati rinomina, scambio simultaneo e profili misti parole/operatori; ruolo e precedenza restano invariati.
+
 - La scheda `Inizia` del Package Studio permette ora di comporre un profilo con più parole chiave, anche scambiando due scritture in una sola conversione. Rifiuta destinazioni duplicate e invalida le anteprime obsolete; il profilo confermato è esportabile e ricaricabile.
 
 - Il cambio guidato di una parola chiave nel Package Studio prepara ora un profilo coerente: aggiorna grammatica, casi di test e snippet insieme al lessico, preserva stringhe/commenti e blocca la conferma se la convalida fallisce. Le modifiche precedenti non confermate richiedono una conferma separata; l'esportazione non si ferma per differenze di sola formattazione JSON.

@@ -32,6 +32,10 @@ namespace DDF___Program_Language_Editor
         private readonly ListView guidedProfileListView;
         private readonly Dictionary<string, string> guidedKeywordChanges =
             new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly ComboBox guidedOperatorComboBox;
+        private readonly TextBox guidedOperatorTextBox;
+        private readonly Dictionary<string, string> guidedOperatorChanges =
+            new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly DataGridView operatorsGrid;
         private readonly TextBox typesDescriptionTextBox;
         private readonly DataGridView primitiveTypesGrid;
@@ -189,8 +193,9 @@ namespace DDF___Program_Language_Editor
                 Name = "languageStudioGuidedProfileListView",
                 View = View.Details
             };
-            guidedProfileListView.Columns.Add("Parola corrente", 190);
-            guidedProfileListView.Columns.Add("Nuova scrittura", 190);
+            guidedProfileListView.Columns.Add("Tipo", 120);
+            guidedProfileListView.Columns.Add("Scrittura corrente", 170);
+            guidedProfileListView.Columns.Add("Nuova scrittura", 170);
             guidedKeywordComboBox.SelectedIndexChanged += (sender, args) =>
             {
                 string selected = guidedKeywordComboBox.SelectedItem?.ToString() ?? string.Empty;
@@ -205,6 +210,24 @@ namespace DDF___Program_Language_Editor
             operatorsGrid.Columns.Add(TextColumn("operatorPrefixPrecedenceColumn", "Prefissa", 100));
             operatorsGrid.Columns.Add(TextColumn("operatorPostfixPrecedenceColumn", "Postfissa", 100));
             operatorsGrid.Columns.Add(TextColumn("operatorRoleColumn", "Ruolo", 180));
+            guidedOperatorComboBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Name = "languageStudioGuidedOperatorComboBox", Width = 170
+            };
+            guidedOperatorTextBox = Field("languageStudioGuidedOperatorTextBox");
+            guidedOperatorTextBox.Dock = DockStyle.None;
+            guidedOperatorTextBox.Width = 170;
+            guidedOperatorTextBox.TextChanged += (sender, args) =>
+                InvalidateGuidedProfilePreview();
+            guidedOperatorComboBox.SelectedIndexChanged += (sender, args) =>
+            {
+                string selected = guidedOperatorComboBox.SelectedItem?.ToString() ??
+                    string.Empty;
+                guidedOperatorTextBox.Text = guidedOperatorChanges.TryGetValue(
+                    selected, out string staged) ? staged : selected;
+                UpdateGuidedKeywordImpact();
+            };
             editorTabs.TabPages.Add(BuildLexiconPage());
 
             typesDescriptionTextBox = Field("languageStudioTypesDescriptionTextBox");
@@ -595,13 +618,13 @@ namespace DDF___Program_Language_Editor
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
-                Padding = new Padding(8), RowCount = 9
+                Padding = new Padding(8), RowCount = 10
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             AddGuideRow(0, "1 · Identità", "Assegna ID e nome diversi dal DDF incorporato; aggiorna la versione del pacchetto.",
                 "languageStudioManifestPage");
-            AddGuideRow(1, "2 · Sintassi", "In Lessico modifica parole chiave e operatori. Per nuove regole usa Grammatica EBNF e Tipi e semantica.",
+            AddGuideRow(1, "2 · Sintassi", "Qui sotto prepara parole chiave e operatori. Per cambiare le regole strutturali usa Grammatica EBNF e Tipi e semantica.",
                 "languageStudioLexiconPage");
             AddGuideRow(2, "3 · Prova", "Nel Playground e test scrivi codice di esempio e leggi token e diagnostiche. Il pacchetto attivo nell'editor non cambia.",
                 "languageStudioPlaygroundPage");
@@ -649,13 +672,48 @@ namespace DDF___Program_Language_Editor
                 AutoSize = true, Name = "languageStudioGuidedKeywordPreviewButton",
                 Text = "Anteprima profilo", UseVisualStyleBackColor = false
             };
-            keywordPreviewButton.Click += PreviewGuidedKeywordChange;
+            keywordPreviewButton.Click += PreviewGuidedProfileChange;
             keywordEditor.Controls.Add(keywordPreviewButton);
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.Controls.Add(keywordEditor, 0, 6);
             layout.SetColumnSpan(keywordEditor, 2);
+            var operatorEditor = new FlowLayoutPanel
+            {
+                AutoSize = true, Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(4, 4, 4, 4), WrapContents = true
+            };
+            operatorEditor.Controls.Add(new Label
+            {
+                AutoSize = true, Margin = new Padding(0, 7, 8, 0),
+                Text = "Cambia operatore:"
+            });
+            operatorEditor.Controls.Add(guidedOperatorComboBox);
+            operatorEditor.Controls.Add(new Label
+            {
+                AutoSize = true, Margin = new Padding(12, 7, 8, 0),
+                Text = "Nuova scrittura:"
+            });
+            operatorEditor.Controls.Add(guidedOperatorTextBox);
+            var stageOperatorButton = new Button
+            {
+                AutoSize = true, Name = "languageStudioGuidedOperatorStageButton",
+                Text = "Aggiungi al profilo", UseVisualStyleBackColor = false
+            };
+            stageOperatorButton.Click += StageGuidedOperatorChange;
+            operatorEditor.Controls.Add(stageOperatorButton);
+            var operatorPreviewButton = new Button
+            {
+                AutoSize = true, Name = "languageStudioGuidedOperatorPreviewButton",
+                Text = "Anteprima profilo", UseVisualStyleBackColor = false
+            };
+            operatorPreviewButton.Click += PreviewGuidedProfileChange;
+            operatorEditor.Controls.Add(operatorPreviewButton);
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.Controls.Add(operatorEditor, 0, 7);
+            layout.SetColumnSpan(operatorEditor, 2);
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
-            layout.Controls.Add(guidedKeywordImpactTextBox, 0, 7);
+            layout.Controls.Add(guidedKeywordImpactTextBox, 0, 8);
             layout.SetColumnSpan(guidedKeywordImpactTextBox, 2);
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 115));
             var profilePanel = new TableLayoutPanel
@@ -674,7 +732,7 @@ namespace DDF___Program_Language_Editor
             };
             removeProfileButton.Click += RemoveGuidedKeywordChange;
             profilePanel.Controls.Add(removeProfileButton, 1, 0);
-            layout.Controls.Add(profilePanel, 0, 8);
+            layout.Controls.Add(profilePanel, 0, 9);
             layout.SetColumnSpan(profilePanel, 2);
             page.Controls.Add(layout);
             return page;
@@ -1148,6 +1206,7 @@ namespace DDF___Program_Language_Editor
             if (session == null) return;
             sourceDrafts.Clear();
             guidedKeywordChanges.Clear();
+            guidedOperatorChanges.Clear();
             guidedProfileListView.Items.Clear();
             pendingPreview = null;
             confirmPreviewButton.Enabled = false;
@@ -1205,19 +1264,25 @@ namespace DDF___Program_Language_Editor
             if (guidedKeywordComboBox.Items.Count > 0)
                 guidedKeywordComboBox.SelectedIndex = 0;
             operatorsGrid.Rows.Clear();
+            guidedOperatorComboBox.Items.Clear();
             foreach (JsonNode node in lexicon?["operators"]?.AsArray() ?? new JsonArray())
             {
                 JsonObject op = node as JsonObject;
-                operatorsGrid.Rows.Add(TextValue(op, "text"),
+                string operatorText = TextValue(op, "text");
+                operatorsGrid.Rows.Add(operatorText,
                     NumberValue(op, "binaryPrecedence"), TextValue(op, "associativity"),
                     NumberValue(op, "prefixPrecedence"), NumberValue(op, "postfixPrecedence"),
                     TextValue(op, "role"));
+                guidedOperatorComboBox.Items.Add(operatorText);
             }
+            if (guidedOperatorComboBox.Items.Count > 0)
+                guidedOperatorComboBox.SelectedIndex = 0;
         }
 
         private void UpdateGuidedKeywordImpact()
         {
             string keyword = guidedKeywordComboBox.SelectedItem?.ToString();
+            string selectedOperator = guidedOperatorComboBox.SelectedItem?.ToString();
             if (session == null || string.IsNullOrEmpty(keyword))
             {
                 guidedKeywordImpactTextBox.Clear();
@@ -1247,6 +1312,17 @@ namespace DDF___Program_Language_Editor
                     text.AppendLine("Grammatica EBNF: " + (rules.Length == 0
                         ? "nessun terminale letterale trovato"
                         : string.Join(", ", rules)));
+                    if (!string.IsNullOrEmpty(selectedOperator))
+                    {
+                        string[] operatorRules = ebnf.Split(new[] { '\r', '\n' },
+                            StringSplitOptions.RemoveEmptyEntries)
+                            .Where(line => line.Contains("\"" + selectedOperator + "\""))
+                            .Select(line => line.Split('=')[0].Trim())
+                            .Where(name => name.Length != 0).Distinct().Take(4).ToArray();
+                        text.AppendLine("Grammatica operatore: " +
+                            (operatorRules.Length == 0 ? "nessun terminale trovato"
+                                : string.Join(", ", operatorRules)));
+                    }
                 }
                 JsonObject tests = ParseObject("tests.json");
                 var matchingTests = new List<JsonObject>();
@@ -1276,6 +1352,23 @@ namespace DDF___Program_Language_Editor
                     .Select(item => TextValue(item, "prefix")).Take(5).ToArray();
                 text.AppendLine("Snippet IntelliSense: " + (snippets.Length == 0
                     ? "nessuno trovato" : string.Join(", ", snippets)));
+                if (!string.IsNullOrEmpty(selectedOperator))
+                {
+                    var bindings = new List<string>();
+                    JsonObject expressions = ParseObject("runtime.json")
+                        ["expressionOperations"] as JsonObject;
+                    if (expressions != null)
+                        foreach (KeyValuePair<string, JsonNode> category in expressions)
+                            foreach (JsonNode node in category.Value?.AsArray() ??
+                                new JsonArray())
+                                if (node is JsonObject binding &&
+                                    TextValue(binding, "token") == selectedOperator)
+                                    bindings.Add(category.Key + ":" +
+                                        TextValue(binding, "operation"));
+                    text.AppendLine("Binding runtime operatore: " +
+                        (bindings.Count == 0 ? "nessuno trovato"
+                            : string.Join(", ", bindings)));
+                }
             }
             catch (Exception exception) when (exception is JsonException ||
                 exception is InvalidDataException || exception is InvalidOperationException)
@@ -1284,9 +1377,17 @@ namespace DDF___Program_Language_Editor
                     exception.Message);
             }
             text.Append("Il cambio guidato prepara insieme lessico, grammatica, " +
-                "test e snippet. Verificare il diff prima della conferma.");
-            text.AppendLine().Append("Parole nel profilo: ")
-                .Append(guidedKeywordChanges.Count);
+                "test, snippet e runtime. Verificare il diff prima della conferma.");
+            DataGridViewRow operatorRow = operatorsGrid.Rows.Cast<DataGridViewRow>()
+                .FirstOrDefault(item => !item.IsNewRow &&
+                    Cell(item, 0) == selectedOperator);
+            if (operatorRow != null)
+                text.AppendLine().Append("Operatore: ").Append(selectedOperator)
+                    .Append("    Ruolo: ").Append(Cell(operatorRow, 5))
+                    .Append("    Precedenza binaria: ").Append(Cell(operatorRow, 1));
+            text.AppendLine().Append("Nel profilo: ")
+                .Append(guidedKeywordChanges.Count).Append(" parole, ")
+                .Append(guidedOperatorChanges.Count).Append(" operatori.");
             guidedKeywordImpactTextBox.Text = text.ToString();
         }
 
@@ -1967,13 +2068,14 @@ namespace DDF___Program_Language_Editor
             }
         }
 
-        private void PreviewGuidedKeywordChange(object sender, EventArgs e)
+        private void PreviewGuidedProfileChange(object sender, EventArgs e)
         {
             if (session == null || guidedKeywordComboBox.SelectedItem == null) return;
-            if (!StageGuidedKeywordChange()) return;
-            if (guidedKeywordChanges.Count == 0)
+            if (!StageGuidedKeywordChange() || !StageGuidedOperatorChange()) return;
+            if (guidedKeywordChanges.Count == 0 && guidedOperatorChanges.Count == 0)
             {
-                ShowPreviewFailure("Aggiungere almeno una parola modificata al profilo.");
+                ShowPreviewFailure("Aggiungere almeno una parola o un operatore " +
+                    "modificato al profilo.");
                 return;
             }
             DdfLanguagePackageLoadResult current =
@@ -2015,6 +2117,48 @@ namespace DDF___Program_Language_Editor
                     "scrittura finale: '" + duplicate + "'.");
                 return;
             }
+            foreach (KeyValuePair<string, string> change in guidedOperatorChanges)
+            {
+                if (!language.TryGetOperator(change.Key, out _))
+                {
+                    ShowPreviewFailure("L'operatore '" + change.Key +
+                        "' non e piu presente nel pacchetto confermato.");
+                    return;
+                }
+                if (change.Value.Length == 0 || change.Value.Any(char.IsWhiteSpace))
+                {
+                    ShowPreviewFailure("La nuova scrittura di '" + change.Key +
+                        "' non puo essere vuota o contenere spazi.");
+                    return;
+                }
+                if (language.Operators.Any(item => item.Text == change.Value) &&
+                    !guidedOperatorChanges.ContainsKey(change.Value))
+                {
+                    ShowPreviewFailure("L'operatore '" + change.Value +
+                        "' esiste gia e non viene rinominato nel profilo.");
+                    return;
+                }
+            }
+            duplicate = guidedOperatorChanges.Values.GroupBy(value => value,
+                StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1)?.Key;
+            if (duplicate != null)
+            {
+                ShowPreviewFailure("Due operatori del profilo usano la stessa " +
+                    "scrittura finale: '" + duplicate + "'.");
+                return;
+            }
+            var finalKeywords = new HashSet<string>(language.Keywords.Select(item =>
+                guidedKeywordChanges.TryGetValue(item.Text, out string changed)
+                    ? changed : item.Text), StringComparer.Ordinal);
+            string conflict = language.Operators.Select(item =>
+                guidedOperatorChanges.TryGetValue(item.Text, out string changed)
+                    ? changed : item.Text).FirstOrDefault(finalKeywords.Contains);
+            if (conflict != null)
+            {
+                ShowPreviewFailure("'" + conflict + "' sarebbe sia una parola " +
+                    "chiave sia un operatore nel profilo risultante.");
+                return;
+            }
             PreviewGuidedChanges(sender, e);
             if (pendingPreview == null || !pendingPreview.Success) return;
             if (HasSemanticChanges(session.Project, pendingPreview.ResultingProject))
@@ -2032,6 +2176,14 @@ namespace DDF___Program_Language_Editor
                     if (node is JsonObject item && guidedKeywordChanges.TryGetValue(
                         TextValue(item, "text"), out string changedText))
                         item["text"] = changedText;
+                foreach (JsonNode node in lexicon["operators"].AsArray())
+                    if (node is JsonObject item && guidedOperatorChanges.TryGetValue(
+                        TextValue(item, "text"), out string changedText))
+                        item["text"] = changedText;
+                var spellings = new Dictionary<string, string>(guidedKeywordChanges,
+                    StringComparer.Ordinal);
+                foreach (KeyValuePair<string, string> op in guidedOperatorChanges)
+                    spellings.Add(op.Key, op.Value);
                 var changes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["lexicon.json"] = Serialize(lexicon)
@@ -2039,7 +2191,7 @@ namespace DDF___Program_Language_Editor
                 if (session.Project.TryGetDocument("grammar.ebnf",
                     out DdfLanguageAuthoringDocument ebnf))
                     changes["grammar.ebnf"] = ReplaceEbnfTerminals(ebnf.Content,
-                        guidedKeywordChanges);
+                        spellings);
                 JsonObject grammar = ParseObject("grammar.json");
                 foreach (JsonNode node in grammar["rules"]?.AsArray() ?? new JsonArray())
                     if (node is JsonObject rule && rule["ide"] is JsonObject ide)
@@ -2061,28 +2213,40 @@ namespace DDF___Program_Language_Editor
                 JsonObject tests = ParseObject("tests.json");
                 foreach (JsonNode node in tests["cases"]?.AsArray() ?? new JsonArray())
                     if (node is JsonObject test)
-                        test["source"] = ReplaceKeywordTokensBatch(TextValue(test, "source"),
-                            guidedKeywordChanges, language);
+                        test["source"] = ReplaceSyntaxTokensBatch(TextValue(test,
+                            "source"), guidedKeywordChanges, guidedOperatorChanges,
+                            language);
                 changes["tests.json"] = Serialize(tests);
                 JsonObject intellisense = ParseObject("intellisense.json");
                 foreach (JsonNode node in intellisense["snippets"]?.AsArray() ??
                     new JsonArray())
                     if (node is JsonObject snippet)
                     {
-                        if (guidedKeywordChanges.TryGetValue(TextValue(snippet,
+                        if (spellings.TryGetValue(TextValue(snippet,
                             "prefix"), out string changedPrefix))
                             snippet["prefix"] = changedPrefix;
                         string display = TextValue(snippet, "displayText");
                         snippet["displayText"] = ReplaceDisplayWords(display,
                             guidedKeywordChanges);
-                        snippet["body"] = ReplaceKeywordTokensBatch(TextValue(snippet,
-                            "body"), guidedKeywordChanges, language);
+                        snippet["body"] = ReplaceSyntaxTokensBatch(TextValue(snippet,
+                            "body"), guidedKeywordChanges, guidedOperatorChanges,
+                            language);
                     }
                 changes["intellisense.json"] = Serialize(intellisense);
+                JsonObject runtime = ParseObject("runtime.json");
+                if (runtime["expressionOperations"] is JsonObject expressions)
+                    foreach (KeyValuePair<string, JsonNode> category in expressions)
+                        foreach (JsonNode node in category.Value?.AsArray() ??
+                            new JsonArray())
+                            if (node is JsonObject binding &&
+                                guidedOperatorChanges.TryGetValue(TextValue(binding,
+                                    "token"), out string changedToken))
+                                binding["token"] = changedToken;
+                changes["runtime.json"] = Serialize(runtime);
                 PreviewChanges(changes.Select(item =>
                     DdfLanguageAuthoringChange.Upsert(item.Key, item.Value)),
                     "Cambio coordinato di " + guidedKeywordChanges.Count +
-                    " parole chiave");
+                    " parole chiave e " + guidedOperatorChanges.Count + " operatori");
                 if (pendingPreview?.ResultingProject == null) return;
                 DdfLanguagePackageLoadResult checkedPackage =
                     DdfLanguagePackageAuthoring.Validate(pendingPreview.ResultingProject);
@@ -2094,8 +2258,8 @@ namespace DDF___Program_Language_Editor
                         FormatDiagnostics(checkedPackage.Diagnostics);
                 }
                 else
-                    diagnosticsTextBox.Text = "Lessico, grammatica, test e snippet " +
-                        "aggiornati nello stesso diff. Pacchetto convalidato; controllare " +
+                    diagnosticsTextBox.Text = "Lessico, grammatica, test, snippet " +
+                        "e runtime aggiornati nello stesso diff. Pacchetto convalidato; controllare " +
                         "l'anteprima prima di confermare.";
             }
             catch (Exception exception) when (exception is JsonException ||
@@ -2107,6 +2271,30 @@ namespace DDF___Program_Language_Editor
 
         private void StageGuidedKeywordChange(object sender, EventArgs e) =>
             StageGuidedKeywordChange();
+
+        private void StageGuidedOperatorChange(object sender, EventArgs e) =>
+            StageGuidedOperatorChange();
+
+        private bool StageGuidedOperatorChange()
+        {
+            string original = guidedOperatorComboBox.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(original)) return true;
+            string replacement = guidedOperatorTextBox.Text.Trim();
+            if (replacement.Length == 0)
+            {
+                guidedKeywordImpactTextBox.Text = "Specificare la nuova scrittura " +
+                    "prima di aggiungere l'operatore al profilo.";
+                guidedOperatorTextBox.Focus();
+                return false;
+            }
+            if (replacement == original)
+                guidedOperatorChanges.Remove(original);
+            else
+                guidedOperatorChanges[original] = replacement;
+            InvalidateGuidedProfilePreview();
+            RefreshGuidedProfileList();
+            return true;
+        }
 
         private bool StageGuidedKeywordChange()
         {
@@ -2132,12 +2320,22 @@ namespace DDF___Program_Language_Editor
         private void RemoveGuidedKeywordChange(object sender, EventArgs e)
         {
             if (guidedProfileListView.SelectedItems.Count != 1) return;
-            string original = guidedProfileListView.SelectedItems[0].Tag as string;
-            if (original == null) return;
-            guidedKeywordChanges.Remove(original);
-            if (string.Equals(guidedKeywordComboBox.SelectedItem?.ToString(),
-                original, StringComparison.Ordinal))
-                guidedKeywordTextBox.Text = original;
+            if (guidedProfileListView.SelectedItems[0].Tag is not
+                Tuple<bool, string> entry) return;
+            if (entry.Item1)
+            {
+                guidedKeywordChanges.Remove(entry.Item2);
+                if (string.Equals(guidedKeywordComboBox.SelectedItem?.ToString(),
+                    entry.Item2, StringComparison.Ordinal))
+                    guidedKeywordTextBox.Text = entry.Item2;
+            }
+            else
+            {
+                guidedOperatorChanges.Remove(entry.Item2);
+                if (string.Equals(guidedOperatorComboBox.SelectedItem?.ToString(),
+                    entry.Item2, StringComparison.Ordinal))
+                    guidedOperatorTextBox.Text = entry.Item2;
+            }
             InvalidateGuidedProfilePreview();
             RefreshGuidedProfileList();
         }
@@ -2158,7 +2356,22 @@ namespace DDF___Program_Language_Editor
             foreach (KeyValuePair<string, string> change in guidedKeywordChanges
                 .OrderBy(item => item.Key, StringComparer.Ordinal))
             {
-                var item = new ListViewItem(change.Key) { Tag = change.Key };
+                var item = new ListViewItem("Parola chiave")
+                {
+                    Tag = Tuple.Create(true, change.Key)
+                };
+                item.SubItems.Add(change.Key);
+                item.SubItems.Add(change.Value);
+                guidedProfileListView.Items.Add(item);
+            }
+            foreach (KeyValuePair<string, string> change in guidedOperatorChanges
+                .OrderBy(item => item.Key, StringComparer.Ordinal))
+            {
+                var item = new ListViewItem("Operatore")
+                {
+                    Tag = Tuple.Create(false, change.Key)
+                };
+                item.SubItems.Add(change.Key);
                 item.SubItems.Add(change.Value);
                 guidedProfileListView.Items.Add(item);
             }
@@ -2190,24 +2403,33 @@ namespace DDF___Program_Language_Editor
         {
             if (!language.TryGetKeyword(original, out DdfKeywordDefinition keyword) ||
                 keyword.TokenKind != kind) return source;
-            return ReplaceKeywordTokensBatch(source,
+            return ReplaceSyntaxTokensBatch(source,
                 new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     [original] = replacement
-                }, language);
+                }, new Dictionary<string, string>(StringComparer.Ordinal), language);
         }
 
-        private static string ReplaceKeywordTokensBatch(string source,
-            IReadOnlyDictionary<string, string> changes, DdfLanguageDefinition language)
+        private static string ReplaceSyntaxTokensBatch(string source,
+            IReadOnlyDictionary<string, string> keywordChanges,
+            IReadOnlyDictionary<string, string> operatorChanges,
+            DdfLanguageDefinition language)
         {
             var result = new StringBuilder(source.Length);
             int position = 0;
             foreach (DdfToken token in DdfLexer.Lex(source, language).Tokens)
             {
                 string spelling = source.Substring(token.Start, token.Length);
-                if (!changes.TryGetValue(spelling, out string replacement) ||
-                    !language.TryGetKeyword(spelling, out DdfKeywordDefinition keyword) ||
-                    token.Kind != keyword.TokenKind) continue;
+                string replacement = null;
+                if (keywordChanges.TryGetValue(spelling, out string keywordReplacement) &&
+                    language.TryGetKeyword(spelling, out DdfKeywordDefinition keyword) &&
+                    token.Kind == keyword.TokenKind)
+                    replacement = keywordReplacement;
+                else if (token.Kind == DdfTokenKind.Operator &&
+                    operatorChanges.TryGetValue(spelling, out string operatorReplacement) &&
+                    language.TryGetOperator(spelling, out _))
+                    replacement = operatorReplacement;
+                if (replacement == null) continue;
                 result.Append(source, position, token.Start - position);
                 result.Append(replacement);
                 position = token.Start + token.Length;
