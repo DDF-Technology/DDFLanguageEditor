@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il Package Studio presenta ora quattro schede principali (`Inizia`, `Playground e test`, `Anteprima`, `Avanzate`); i dieci editor tecnici restano accessibili sotto `Avanzate`. Guida, diagnostiche e navigazione EBNF/sorgenti aprono la sezione giusta anche con schede annidate. Verificati interfaccia e smoke WinForms completo.
+
 - I profili guidati del Package Studio includono ora anche gli operatori, con aggiornamento coordinato di lessico, grammatica, test, snippet e binding runtime. Supportati rinomina, scambio simultaneo e profili misti parole/operatori; ruolo e precedenza restano invariati.
 
 - La scheda `Inizia` del Package Studio permette ora di comporre un profilo con più parole chiave, anche scambiando due scritture in una sola conversione. Rifiuta destinazioni duplicate e invalida le anteprime obsolete; il profilo confermato è esportabile e ricaricabile.

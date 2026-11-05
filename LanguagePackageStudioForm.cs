@@ -19,6 +19,7 @@ namespace DDF___Program_Language_Editor
         private readonly DdfLanguagePackage sourcePackage;
         private readonly DdfLanguageAuthoringProject initialProject;
         private readonly TabControl editorTabs;
+        private readonly TabControl advancedTabs;
         private readonly TabPage previewPage;
         private readonly TextBox packageIdTextBox;
         private readonly TextBox packageNameTextBox;
@@ -482,6 +483,26 @@ namespace DDF___Program_Language_Editor
             previewPage.Controls.Add(confirmPreviewButton);
             editorTabs.TabPages.Add(previewPage);
             editorTabs.TabPages.Insert(0, BuildGettingStartedPage());
+            advancedTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Name = "languageStudioAdvancedTabs",
+                Padding = new Point(12, 5)
+            };
+            foreach (TabPage page in editorTabs.TabPages.Cast<TabPage>()
+                .Where(page => page.Name != "languageStudioGettingStartedPage" &&
+                    page.Name != "languageStudioPlaygroundPage" &&
+                    page.Name != "languageStudioPreviewPage").ToArray())
+            {
+                editorTabs.TabPages.Remove(page);
+                advancedTabs.TabPages.Add(page);
+            }
+            var advancedPage = new TabPage("Avanzate")
+            {
+                Name = "languageStudioAdvancedPage"
+            };
+            advancedPage.Controls.Add(advancedTabs);
+            editorTabs.TabPages.Add(advancedPage);
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 44 };
             var sourceLabel = new Label
@@ -751,9 +772,7 @@ namespace DDF___Program_Language_Editor
                 if (action != null)
                     button.Click += action;
                 else
-                    button.Click += (sender, args) => editorTabs.SelectedTab =
-                        editorTabs.TabPages.Cast<TabPage>().First(tab =>
-                            tab.Name == destination);
+                    button.Click += (sender, args) => SelectEditorPage(destination);
                 layout.Controls.Add(button, 0, row);
                 layout.Controls.Add(new Label
                 {
@@ -763,6 +782,23 @@ namespace DDF___Program_Language_Editor
                     Margin = new Padding(4, 3, 4, 3)
                 }, 1, row);
             }
+        }
+
+        private void SelectEditorPage(string pageName)
+        {
+            TabPage page = editorTabs.TabPages[pageName];
+            if (page != null)
+            {
+                editorTabs.SelectedTab = page;
+                return;
+            }
+
+            page = advancedTabs.TabPages[pageName];
+            if (page == null)
+                throw new ArgumentOutOfRangeException(nameof(pageName), pageName,
+                    "Scheda Package Studio sconosciuta.");
+            editorTabs.SelectedTab = editorTabs.TabPages["languageStudioAdvancedPage"];
+            advancedTabs.SelectedTab = page;
         }
 
         private TabPage BuildManifestPage()
@@ -1227,7 +1263,7 @@ namespace DDF___Program_Language_Editor
                 diagnosticsTextBox.Text = "Gli editor guidati richiedono JSON validi. " +
                     "Correggere il documento nella scheda Sorgenti JSON / EBNF. " +
                     exception.Message;
-                editorTabs.SelectedTab = editorTabs.TabPages["languageStudioSourcesPage"];
+                SelectEditorPage("languageStudioSourcesPage");
             }
             LoadSourceList();
             undoButton.Enabled = session.CanUndo;
@@ -1780,8 +1816,7 @@ namespace DDF___Program_Language_Editor
 
         private void NavigateEbnf(int start, int length)
         {
-            editorTabs.SelectedTab = editorTabs.TabPages[
-                "languageStudioEbnfPage"];
+            SelectEditorPage("languageStudioEbnfPage");
             ebnfTextBox.Focus();
             ebnfTextBox.Select(Math.Min(start, ebnfTextBox.TextLength),
                 Math.Min(Math.Max(1, length), Math.Max(0,
@@ -2015,8 +2050,7 @@ namespace DDF___Program_Language_Editor
             }
             if (index < 0) return;
             sourceFilesListBox.SelectedIndex = index;
-            editorTabs.SelectedTab = editorTabs.TabPages[
-                "languageStudioSourcesPage"];
+            SelectEditorPage("languageStudioSourcesPage");
             sourceTextBox.Focus();
         }
 

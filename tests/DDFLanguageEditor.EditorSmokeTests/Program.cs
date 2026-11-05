@@ -1414,7 +1414,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             using (Form studio = DdfLanguagePackageStudio.CreateForm(embedded))
             {
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 13,
+                            "languagePackageStudioTabs").TabPages.Count == 4 &&
+                    FindControl<TabControl>(studio,
+                            "languageStudioAdvancedTabs").TabPages.Count == 10,
                     "La shell autonoma non riusa le schede del Package Studio integrato.");
             }
 
@@ -1436,6 +1438,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 Require(FindControl<TabControl>(studio,
                             "languagePackageStudioTabs").SelectedTab.Name ==
+                        "languageStudioAdvancedPage" &&
+                    FindControl<TabControl>(studio,
+                            "languageStudioAdvancedTabs").SelectedTab.Name ==
                         "languageStudioSourcesPage" &&
                     FindControl<ListBox>(studio,
                         "languageStudioSourceFilesListBox").Items.Count > 0 &&
@@ -4529,7 +4534,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                             "languageStudioGenerateArchiveButton"] != null,
                     "Il Package Studio non espone la generazione .ddflang.");
                 Require(FindControl<TabControl>(studio,
-                            "languagePackageStudioTabs").TabPages.Count == 13 &&
+                            "languagePackageStudioTabs").TabPages.Count == 4 &&
+                        FindControl<TabControl>(studio,
+                            "languageStudioAdvancedTabs").TabPages.Count == 10 &&
                         FindControl<TabControl>(studio,
                             "languagePackageStudioTabs").TabPages[0].Name ==
                             "languageStudioGettingStartedPage" &&
@@ -4560,6 +4567,17 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         FindControl<TextBox>(studio,
                             "languageStudioPackageIdTextBox").Text == activePackage.Id,
                     "Il Package Studio non espone manifest, lessico, tipi, semantica e sorgenti autorevoli.");
+                FindControl<Button>(studio,
+                    "languageStudioGuideStep0Button").PerformClick();
+                Require(FindControl<TabControl>(studio,
+                            "languagePackageStudioTabs").SelectedTab.Name ==
+                        "languageStudioAdvancedPage" &&
+                    FindControl<TabControl>(studio,
+                            "languageStudioAdvancedTabs").SelectedTab.Name ==
+                        "languageStudioManifestPage",
+                    "La guida non apre la scheda tecnica corretta in Avanzate.");
+                FindControl<TabControl>(studio,
+                    "languagePackageStudioTabs").SelectedIndex = 0;
                 TreeView ebnfTree = FindControl<TreeView>(studio,
                     "languageStudioEbnfTreeView");
                 ListView ebnfDiagnostics = FindControl<ListView>(studio,
@@ -4850,6 +4868,9 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 PumpMessages(700);
                 FindControl<TabControl>(studio,
                     "languagePackageStudioTabs").SelectedTab =
+                    FindControl<TabPage>(studio, "languageStudioAdvancedPage");
+                FindControl<TabControl>(studio,
+                    "languageStudioAdvancedTabs").SelectedTab =
                     FindControl<TabPage>(studio, "languageStudioEbnfPage");
                 PumpMessages(40);
                 FindControl<Button>(studio,

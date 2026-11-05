@@ -31,12 +31,15 @@ diagnostiche, IR e anteprima della formattazione. Non cambia il pacchetto,
 non salva codice e non modifica i documenti dell'editor.
 
 `Package Studio` serve invece a **creare e modificare** un pacchetto. Lavora
-su una copia/autoring project, espone manifest, lessico, grammatica e altri
+su una copia/progetto di authoring, espone manifest, lessico, grammatica e altri
 contratti, richiede anteprima/conferma e convalida, e genera una cartella o
 un `.ddflang`. Il suo `Playground e test` verifica la bozza corrente; il
 Playground del menu verifica il pacchetto già caricato. Non sono quindi
-duplicati. Il percorso iniziale nella scheda `Inizia` guida identità → sintassi
-→ prova → convalida → distribuzione; le altre schede restano avanzate.
+duplicati. La finestra presenta quattro schede principali: `Inizia`,
+`Playground e test`, `Anteprima` e `Avanzate`. `Inizia` guida identità → sintassi
+→ prova → convalida → distribuzione; `Avanzate` raccoglie i dieci editor tecnici
+senza renderli tappe obbligatorie. I pulsanti della guida aprono direttamente
+la scheda pertinente, anche quando si trova in `Avanzate`.
 
 Per creare un profilo sintattico semplice, nella scheda `Inizia` scegliere una
 parola chiave o un operatore, digitare la nuova scrittura e premere il relativo
