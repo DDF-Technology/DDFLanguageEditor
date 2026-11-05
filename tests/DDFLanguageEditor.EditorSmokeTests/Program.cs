@@ -4519,6 +4519,16 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         studio.StartPosition == FormStartPosition.CenterScreen &&
                         IsLight(studio.BackColor),
                     "Il Package Studio non si apre come finestra chiara e centrata.");
+                TabPage startPage = FindControl<TabPage>(studio,
+                    "languageStudioGettingStartedPage");
+                ComboBox keywordInput = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedKeywordComboBox");
+                ComboBox operatorInput = FindControl<ComboBox>(studio,
+                    "languageStudioGuidedOperatorComboBox");
+                Require(keywordInput.Left == operatorInput.Left &&
+                        keywordInput.Width == operatorInput.Width &&
+                        !startPage.VerticalScroll.Visible,
+                    "La guida Package Studio non allinea i campi o mostra uno scorrimento esterno all'apertura.");
                 FindMenuItem(form, "languagePackageStudioMenuItem").PerformClick();
                 PumpMessages(40);
                 Require(Application.OpenForms.Cast<Form>().Count(openForm =>
@@ -4623,7 +4633,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     .First(row => !row.IsNewRow &&
                         Convert.ToString(row.Cells[2].Value) == "If");
                 guidedKeyword.SelectedItem = Convert.ToString(ifKeyword.Cells[0].Value);
-                string impact = FindControl<TextBox>(studio,
+                string impact = FindControl<RichTextBox>(studio,
                     "languageStudioGuidedKeywordImpactTextBox").Text;
                 Require(impact.Contains("Grammatica EBNF:") &&
                         impact.Contains("Test da controllare:") &&
@@ -4713,10 +4723,10 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 TextBox guidedOperatorText = FindControl<TextBox>(studio,
                     "languageStudioGuidedOperatorTextBox");
                 guidedOperator.SelectedItem = "&&";
-                Require(FindControl<TextBox>(studio,
+                Require(FindControl<RichTextBox>(studio,
                             "languageStudioGuidedKeywordImpactTextBox").Text.Contains(
                                 "Grammatica operatore:") &&
-                        FindControl<TextBox>(studio,
+                        FindControl<RichTextBox>(studio,
                             "languageStudioGuidedKeywordImpactTextBox").Text.Contains(
                                 "logical.and"),
                     "La guida non mostra grammatica e binding runtime dell'operatore.");

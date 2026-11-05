@@ -29,7 +29,7 @@ namespace DDF___Program_Language_Editor
         private readonly DataGridView keywordsGrid;
         private readonly ComboBox guidedKeywordComboBox;
         private readonly TextBox guidedKeywordTextBox;
-        private readonly TextBox guidedKeywordImpactTextBox;
+        private readonly RichTextBox guidedKeywordImpactTextBox;
         private readonly ListView guidedProfileListView;
         private readonly Dictionary<string, string> guidedKeywordChanges =
             new Dictionary<string, string>(StringComparer.Ordinal);
@@ -112,12 +112,14 @@ namespace DDF___Program_Language_Editor
             initialProject = project;
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = AppTheme.Window;
-            ClientSize = new Size(1120, 740);
+            Rectangle workArea = Screen.FromPoint(Cursor.Position).WorkingArea;
+            ClientSize = new Size(Math.Min(1380, Math.Max(900, workArea.Width - 64)),
+                Math.Min(900, Math.Max(620, workArea.Height - 92)));
             Font = new Font("Segoe UI", 9F);
             ForeColor = AppTheme.Text;
             FormBorderStyle = FormBorderStyle.Sizable;
             Icon = AppIconProvider.LoadIcon();
-            MinimumSize = new Size(880, 600);
+            MinimumSize = new Size(960, 700);
             Name = "LanguagePackageStudioForm";
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -179,11 +181,11 @@ namespace DDF___Program_Language_Editor
             guidedKeywordTextBox.Width = 170;
             guidedKeywordTextBox.TextChanged += (sender, args) =>
                 InvalidateGuidedProfilePreview();
-            guidedKeywordImpactTextBox = new TextBox
+            guidedKeywordImpactTextBox = new RichTextBox
             {
                 Dock = DockStyle.Fill, Height = 140, Multiline = true,
                 Name = "languageStudioGuidedKeywordImpactTextBox",
-                ReadOnly = true, ScrollBars = ScrollBars.Vertical,
+                ReadOnly = true, ScrollBars = RichTextBoxScrollBars.Vertical,
                 BackColor = AppTheme.Surface
             };
             guidedProfileListView = new ListView
@@ -633,13 +635,13 @@ namespace DDF___Program_Language_Editor
             var page = new TabPage("Inizia")
             {
                 Name = "languageStudioGettingStartedPage",
-                Padding = new Padding(24), BackColor = AppTheme.Surface,
+                Padding = new Padding(16), BackColor = AppTheme.Surface,
                 AutoScroll = true
             };
             var layout = new TableLayoutPanel
             {
-                Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2,
-                Padding = new Padding(8), RowCount = 10
+                Dock = DockStyle.Fill, ColumnCount = 2,
+                Padding = new Padding(4), RowCount = 9
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -653,90 +655,69 @@ namespace DDF___Program_Language_Editor
                 "languageStudioPreviewPage");
             AddGuideRow(4, "5 · Genera .ddflang...", "Convalida la bozza e scegli dove salvare l'archivio. Se ci sono modifiche non confermate, mostra prima l'anteprima. L'installazione resta separata.",
                 null, PrepareGuidedDistribution);
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             var note = new Label
             {
                 AutoSize = true, Dock = DockStyle.Fill,
                 ForeColor = AppTheme.MutedText,
-                Margin = new Padding(4, 18, 4, 4),
+                Margin = new Padding(4, 4, 4, 4),
                 Text = "Percorso semplice: modifica una copia del DDF, prova nel Playground, convalida ed esporta. Le altre schede sono strumenti avanzati: non occorre toccarle per cambiare soltanto la sintassi."
             };
             layout.Controls.Add(note, 0, 5);
             layout.SetColumnSpan(note, 2);
-            var keywordEditor = new FlowLayoutPanel
+            var guidedEditors = new TableLayoutPanel
             {
-                AutoSize = true, Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                Margin = new Padding(4, 16, 4, 4), WrapContents = true
+                ColumnCount = 6, Dock = DockStyle.Fill, RowCount = 2,
+                Margin = new Padding(4, 0, 4, 0),
+                Name = "languageStudioGuidedEditorsLayout"
             };
-            keywordEditor.Controls.Add(new Label
-            {
-                AutoSize = true, Margin = new Padding(0, 7, 8, 0),
-                Text = "Cambia parola chiave:"
-            });
-            keywordEditor.Controls.Add(guidedKeywordComboBox);
-            keywordEditor.Controls.Add(new Label
-            {
-                AutoSize = true, Margin = new Padding(12, 7, 8, 0),
-                Text = "Nuova scrittura:"
-            });
-            keywordEditor.Controls.Add(guidedKeywordTextBox);
+            foreach (float width in new[] { 16F, 17F, 13F, 17F, 18F, 19F })
+                guidedEditors.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, width));
+            guidedEditors.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            guidedEditors.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            guidedEditors.Controls.Add(EditorLabel("Cambia parola chiave:"), 0, 0);
+            guidedEditors.Controls.Add(EditorField(guidedKeywordComboBox), 1, 0);
+            guidedEditors.Controls.Add(EditorLabel("Nuova scrittura:"), 2, 0);
+            guidedEditors.Controls.Add(EditorField(guidedKeywordTextBox), 3, 0);
             var stageButton = new Button
             {
-                AutoSize = true, Name = "languageStudioGuidedKeywordStageButton",
+                Dock = DockStyle.Fill, Name = "languageStudioGuidedKeywordStageButton",
                 Text = "Aggiungi al profilo", UseVisualStyleBackColor = false
             };
             stageButton.Click += StageGuidedKeywordChange;
-            keywordEditor.Controls.Add(stageButton);
+            guidedEditors.Controls.Add(stageButton, 4, 0);
             var keywordPreviewButton = new Button
             {
-                AutoSize = true, Name = "languageStudioGuidedKeywordPreviewButton",
+                Dock = DockStyle.Fill, Name = "languageStudioGuidedKeywordPreviewButton",
                 Text = "Anteprima profilo", UseVisualStyleBackColor = false
             };
             keywordPreviewButton.Click += PreviewGuidedProfileChange;
-            keywordEditor.Controls.Add(keywordPreviewButton);
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.Controls.Add(keywordEditor, 0, 6);
-            layout.SetColumnSpan(keywordEditor, 2);
-            var operatorEditor = new FlowLayoutPanel
-            {
-                AutoSize = true, Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                Margin = new Padding(4, 4, 4, 4), WrapContents = true
-            };
-            operatorEditor.Controls.Add(new Label
-            {
-                AutoSize = true, Margin = new Padding(0, 7, 8, 0),
-                Text = "Cambia operatore:"
-            });
-            operatorEditor.Controls.Add(guidedOperatorComboBox);
-            operatorEditor.Controls.Add(new Label
-            {
-                AutoSize = true, Margin = new Padding(12, 7, 8, 0),
-                Text = "Nuova scrittura:"
-            });
-            operatorEditor.Controls.Add(guidedOperatorTextBox);
+            guidedEditors.Controls.Add(keywordPreviewButton, 5, 0);
+            guidedEditors.Controls.Add(EditorLabel("Cambia operatore:"), 0, 1);
+            guidedEditors.Controls.Add(EditorField(guidedOperatorComboBox), 1, 1);
+            guidedEditors.Controls.Add(EditorLabel("Nuova scrittura:"), 2, 1);
+            guidedEditors.Controls.Add(EditorField(guidedOperatorTextBox), 3, 1);
             var stageOperatorButton = new Button
             {
-                AutoSize = true, Name = "languageStudioGuidedOperatorStageButton",
+                Dock = DockStyle.Fill, Name = "languageStudioGuidedOperatorStageButton",
                 Text = "Aggiungi al profilo", UseVisualStyleBackColor = false
             };
             stageOperatorButton.Click += StageGuidedOperatorChange;
-            operatorEditor.Controls.Add(stageOperatorButton);
+            guidedEditors.Controls.Add(stageOperatorButton, 4, 1);
             var operatorPreviewButton = new Button
             {
-                AutoSize = true, Name = "languageStudioGuidedOperatorPreviewButton",
+                Dock = DockStyle.Fill, Name = "languageStudioGuidedOperatorPreviewButton",
                 Text = "Anteprima profilo", UseVisualStyleBackColor = false
             };
             operatorPreviewButton.Click += PreviewGuidedProfileChange;
-            operatorEditor.Controls.Add(operatorPreviewButton);
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            layout.Controls.Add(operatorEditor, 0, 7);
-            layout.SetColumnSpan(operatorEditor, 2);
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
-            layout.Controls.Add(guidedKeywordImpactTextBox, 0, 8);
+            guidedEditors.Controls.Add(operatorPreviewButton, 5, 1);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 82));
+            layout.Controls.Add(guidedEditors, 0, 6);
+            layout.SetColumnSpan(guidedEditors, 2);
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 67));
+            layout.Controls.Add(guidedKeywordImpactTextBox, 0, 7);
             layout.SetColumnSpan(guidedKeywordImpactTextBox, 2);
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 115));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33));
             var profilePanel = new TableLayoutPanel
             {
                 ColumnCount = 2, Dock = DockStyle.Fill,
@@ -753,7 +734,7 @@ namespace DDF___Program_Language_Editor
             };
             removeProfileButton.Click += RemoveGuidedKeywordChange;
             profilePanel.Controls.Add(removeProfileButton, 1, 0);
-            layout.Controls.Add(profilePanel, 0, 9);
+            layout.Controls.Add(profilePanel, 0, 8);
             layout.SetColumnSpan(profilePanel, 2);
             page.Controls.Add(layout);
             return page;
@@ -761,12 +742,12 @@ namespace DDF___Program_Language_Editor
             void AddGuideRow(int row, string title, string description,
                 string destination, EventHandler action = null)
             {
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
                 var button = new Button
                 {
                     Name = "languageStudioGuideStep" + row + "Button",
                     Text = title, Dock = DockStyle.Fill,
-                    Margin = new Padding(4, 6, 8, 6),
+                    Margin = new Padding(4, 3, 8, 3),
                     UseVisualStyleBackColor = false
                 };
                 if (action != null)
@@ -781,6 +762,21 @@ namespace DDF___Program_Language_Editor
                     Text = description,
                     Margin = new Padding(4, 3, 4, 3)
                 }, 1, row);
+            }
+
+            Label EditorLabel(string value) => new Label
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4, 2, 4, 2),
+                Text = value,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            Control EditorField(Control control)
+            {
+                control.Dock = DockStyle.Fill;
+                control.Margin = new Padding(4, 5, 8, 5);
+                return control;
             }
         }
 
