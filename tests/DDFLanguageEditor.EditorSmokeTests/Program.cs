@@ -1497,6 +1497,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 AssertWrappedGutterHasNoMissingLogicalLines(form, editor, lineNumbers);
                 AssertDocumentTabsDoNotCoverSource(form, editor);
                 AssertMainToolbar(form);
+                AssertToolbarDpiGeometry();
                 AssertUnifiedLightTheme(form, editor, foldedView, lineNumbers);
                 AssertAccessibilityAndDpi(form, editor);
                 AssertEditorSettings(form, editor);
@@ -8849,6 +8850,33 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         if (first.GetPixel(x, y) != second.GetPixel(x, y)) return false;
                 return true;
             }
+        }
+
+        private static void AssertToolbarDpiGeometry()
+        {
+            foreach (bool embedded in new[] { false, true })
+            using (var form = new MainForm(embedded))
+            {
+                ToolStrip[] strips = FindToolbars(form).ToArray();
+                ToolStripDropDownButton language = strips.SelectMany(strip => strip.Items.OfType<ToolStripDropDownButton>())
+                    .Single(item => item.Name == "toolbarLanguageButton");
+                foreach (int dpi in new[] { 96, 144, 192, 96 })
+                {
+                    InvokePrivate(form, "applyToolbarDpi", dpi);
+                    int icon = (int)Math.Round(20 * dpi / 96d);
+                    int width = (int)Math.Round(30 * dpi / 96d);
+                    int height = (int)Math.Round(28 * dpi / 96d);
+                    Require(strips.All(strip => strip.ImageScalingSize == new Size(icon, icon)),
+                        "Iconbar senza scala immagine " + dpi + " DPI (embedded=" + embedded + ").");
+                    Require(strips.SelectMany(strip => strip.Items.OfType<ToolStripButton>()).All(button =>
+                            button.Size == new Size(width, height) && button.Image != null &&
+                            !string.IsNullOrWhiteSpace(button.AccessibleName)),
+                        "Pulsante iconbar non scalato o non accessibile a " + dpi + " DPI (embedded=" + embedded + ").");
+                    Require(language.Size == new Size((int)Math.Round(38 * dpi / 96d), height),
+                        "Selettore lingua non scalato a " + dpi + " DPI (embedded=" + embedded + ").");
+                }
+            }
+            Console.WriteLine("PASS geometria toolbar standalone/embedded a 96/144/192 DPI e ritorno a 96");
         }
 
         private static void AssertRunLastBuildCommand(bool visible)

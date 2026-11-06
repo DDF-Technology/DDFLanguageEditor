@@ -109,6 +109,7 @@ namespace DDF___Program_Language_Editor
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            applyToolbarDpi(DeviceDpi);
             applyInitialToolbarPositions();
             if (paneFocusMessageFilterRegistered) return;
             Application.AddMessageFilter(this);
@@ -156,6 +157,10 @@ namespace DDF___Program_Language_Editor
         protected override void OnDpiChanged(DpiChangedEventArgs e)
         {
             base.OnDpiChanged(e);
+            toolbarLayoutSaveTimer?.Stop();
+            toolbarLayoutReady = false;
+            suppressToolbarLayoutSave = true;
+            applyToolbarDpi(DeviceDpi);
             if (outlinePinned) expandOutlinePalette();
             else collapseOutlinePalette();
             if (diagnosticsPinned) expandDiagnosticsPalette();
@@ -165,9 +170,9 @@ namespace DDF___Program_Language_Editor
             if (toolbarInitialLayoutApplied)
             {
                 toolbarInitialLayoutApplied = false;
-                toolbarLayoutReady = false;
                 applyInitialToolbarPositions();
             }
+            else suppressToolbarLayoutSave = false;
         }
     }
 }

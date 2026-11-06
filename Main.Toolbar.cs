@@ -366,6 +366,51 @@ namespace DDF___Program_Language_Editor
             strip.Text = definition.DisplayName;
         }
 
+        private void applyToolbarDpi(int dpi)
+        {
+            if (toolStripPanelMain == null || toolbarGroups.Count == 0) return;
+
+            int buttonWidth = DpiLayout.ScaleLogical(30, dpi);
+            int dropdownWidth = DpiLayout.ScaleLogical(38, dpi);
+            int buttonHeight = DpiLayout.ScaleLogical(28, dpi);
+            int iconSize = DpiLayout.ScaleLogical(20, dpi);
+            int gap = DpiLayout.ScaleLogical(1, dpi);
+            toolStripPanelMain.SuspendLayout();
+            try
+            {
+                toolStripPanelMain.Padding = new Padding(
+                    DpiLayout.ScaleLogical(2, dpi), gap,
+                    DpiLayout.ScaleLogical(2, dpi), gap);
+                foreach (ToolbarGroup group in toolbarGroups)
+                {
+                    ToolStrip strip = group.Strip;
+                    strip.SuspendLayout();
+                    try
+                    {
+                        strip.ImageScalingSize = new Size(iconSize, iconSize);
+                        strip.Padding = new Padding(gap);
+                        foreach (ToolStripItem item in strip.Items)
+                        {
+                            if (!(item is ToolStripButton) && !(item is ToolStripDropDownButton)) continue;
+                            item.AutoSize = false;
+                            item.Margin = new Padding(gap, gap, gap, DpiLayout.ScaleLogical(2, dpi));
+                            item.Size = new Size(item is ToolStripDropDownButton ? dropdownWidth : buttonWidth,
+                                buttonHeight);
+                        }
+                    }
+                    finally
+                    {
+                        strip.ResumeLayout(true);
+                    }
+                }
+            }
+            finally
+            {
+                toolStripPanelMain.ResumeLayout(true);
+            }
+            updateEditorChromeInset();
+        }
+
         private void toolbarVisibilityMenuItem_Click(object sender, EventArgs e)
         {
             if (!(sender is ToolStripMenuItem item) || !(item.Tag is ToolbarGroup group)) return;
