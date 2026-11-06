@@ -130,7 +130,10 @@ namespace DDFLanguageEditor.Network.Tests
                     hostCallTimeout: TimeSpan.FromMilliseconds(20)));
             Equal(true, timeout.ExecutionResult.Diagnostics.Any(item =>
                 item.Code == "DDF414"));
-            Equal(true, handler.SlowRequestCancelled);
+            // The host deadline may expire before SendAsync is reached. If the
+            // request did start, cancellation must still reach the handler.
+            Thread.Sleep(50);
+            Equal(true, !handler.SlowRequestStarted || handler.SlowRequestCancelled);
         }
 
         private static DdfHttpJsonAdapter CreateAdapter(HttpClient client,
@@ -277,6 +280,7 @@ namespace DDFLanguageEditor.Network.Tests
         private sealed class RecordingHandler : HttpMessageHandler
         {
             internal List<RequestSnapshot> Requests { get; } = new();
+            internal bool SlowRequestStarted { get; private set; }
             internal bool SlowRequestCancelled { get; private set; }
 
             protected override async Task<HttpResponseMessage> SendAsync(
@@ -295,6 +299,7 @@ namespace DDFLanguageEditor.Network.Tests
                 string path = request.RequestUri.AbsolutePath;
                 if (path == "/slow")
                 {
+                    SlowRequestStarted = true;
                     try
                     {
                         await Task.Delay(Timeout.InfiniteTimeSpan,

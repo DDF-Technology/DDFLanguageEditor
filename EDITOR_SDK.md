@@ -7,7 +7,7 @@ Il contratto pubblico corrente è `DdfEditorSdkContract.CurrentVersion == "0.42"
 La fonte autorevole dei domini di versione è `ddf-version-matrix.json`: versione
 del prodotto, pacchetti NuGet, contratto SDK, ABI Runtime, protocollo worker,
 formati e schemi persistiti rimangono separati. Il pacchetto SDK corrente è
-`0.12.5-beta`; l'incremento del contratto API non implica automaticamente un
+`0.12.6-beta`; l'incremento del contratto API non implica automaticamente un
 incremento uguale del prodotto o della ABI.
 È ancora sperimentale: non coincide con la versione dell'applicazione e verrà
 evoluto esplicitamente quando saranno estratti nuovi servizi.
@@ -34,7 +34,7 @@ ancora pubblicati su un feed pubblico; dopo aver configurato una sorgente che li
 contiene, un host WinForms può dichiarare:
 
 ```xml
-<PackageReference Include="DDFLanguageEditor.WinForms" Version="0.12.5-beta" />
+<PackageReference Include="DDFLanguageEditor.WinForms" Version="0.12.6-beta" />
 ```
 
 La dipendenza da `DDFLanguageEditor.Core` viene risolta automaticamente. Durante

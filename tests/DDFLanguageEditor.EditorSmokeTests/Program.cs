@@ -4434,7 +4434,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         FindToolbarButton(form,
                             "toolbarLanguageStudioButton").Available,
                     "Package Studio non e coerente tra menu, Command Palette e toolbar.");
-                Require(form.Text.Contains("DDFLanguageEditor 0.12.5 Beta", StringComparison.Ordinal),
+                Require(form.Text.Contains("DDFLanguageEditor " +
+                    DdfProductVersionCatalog.Current.DisplayVersion, StringComparison.Ordinal),
                     "La shell standalone non espone la versione prodotto candidata.");
                 languageMenu.PerformClick();
                 PumpMessages(30);
@@ -5194,7 +5195,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     "About non è configurato per apparire al centro dello schermo.");
                 Require(FindControl<Label>(about, "aboutProductLabel").Text == "DDFLanguageEditor",
                     "About non riporta il nome dell'applicazione.");
-                Require(FindControl<Label>(about, "aboutVersionLabel").Text == "Versione 0.12.5 Beta",
+                Require(FindControl<Label>(about, "aboutVersionLabel").Text ==
+                    "Versione " + DdfProductVersionCatalog.Current.DisplayVersion,
                     "About non riporta versione e stato beta.");
                 Require(FindControl<Label>(about, "aboutBuildLabel").Text.Contains("Build"),
                     "About non espone l'identificativo della build corrente.");

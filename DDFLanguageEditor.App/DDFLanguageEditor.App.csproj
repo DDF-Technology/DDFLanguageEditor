@@ -6,10 +6,10 @@
     <RootNamespace>DDF___Program_Language_Editor</RootNamespace>
     <AssemblyName>DDFLanguageEditor</AssemblyName>
     <ApplicationIcon>..\Resource\DDFLanguageEditor.ico</ApplicationIcon>
-    <Version>0.12.5</Version>
-    <FileVersion>0.12.5.0</FileVersion>
-    <AssemblyVersion>0.12.5.0</AssemblyVersion>
-    <InformationalVersion>0.12.5</InformationalVersion>
+    <Version>0.12.6</Version>
+    <FileVersion>0.12.6.0</FileVersion>
+    <AssemblyVersion>0.12.6.0</AssemblyVersion>
+    <InformationalVersion>0.12.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>DDF.Technology</Company>
     <Product>DDFLanguageEditor</Product>

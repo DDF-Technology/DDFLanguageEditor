@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.12.5 — progetto sperimentale in sviluppo.** La versione disponibile è
+> **Beta 0.12.6 — progetto sperimentale in sviluppo.** La versione disponibile è
 > un editor con il primo interprete DDF interno; linguaggio e runtime non sono
 > ancora completi né stabili.
 

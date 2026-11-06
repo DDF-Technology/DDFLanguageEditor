@@ -1,4 +1,34 @@
-# DDFLanguageEditor 0.11.2
+# DDFLanguageEditor 0.12.6 Beta
+
+Windows x64 self-contained beta under the MIT License. This is a real product
+release candidate, not a declaration that the DDF language or Editor SDK has
+reached 1.0.
+
+Highlights since the last public GitHub release:
+
+- Multi-file workspace editing, source-linked flowchart and a debugger with
+  cross-file stepping, breakpoints, Watch, Variables and Call Stack.
+- Standalone DDF execution and compilation on .NET 10 with a separately
+  embeddable WinForms editor SDK (`0.12.6-beta` package version, contract `0.42`).
+- Language package management and a guided Package Studio for syntax profiles,
+  with validation and preview before package export.
+- Flat, accessible toolbar icons with per-monitor DPI sizing; Package Studio
+  layout and navigation improvements.
+- Signed GitHub update metadata and a standalone update check. Automatic
+  download and installation are not enabled by this release: their separate
+  staging, consent, health-check and rollback path still requires end-to-end
+  acceptance against this real signed release.
+- Extension plug-in protocols and catalogs remain **contracts only**; this
+  release does not load arbitrary plug-ins or grant new host capabilities.
+
+The DDF language remains experimental. Native/COM libraries, physical hardware
+providers and industrial protocols are not implied by the editor's contract
+catalogs. Embedded hosts retain control of scripting capabilities and their
+own distribution.
+
+## Earlier release notes
+
+### DDFLanguageEditor 0.11.2
 
 This is an unsigned, experimental Windows beta released under the MIT License.
 

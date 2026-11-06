@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Preparato il candidato di prodotto `0.12.6 Beta` per la prima release remota firmata: matrice autorevole, metadati assembly e NuGet, README, About e note di rilascio sono coerenti; i test UI leggono ora la versione dalla matrice. Build Debug/Release senza warning, Core `337/337`, smoke WinForms completo e gate pack SDK `0.12.6-beta` verdi. Il test Network sul timeout mantiene 20 ms e ammette correttamente la scadenza prima dell'invio HTTP; se l'invio è iniziato, verifica comunque la cancellazione. Pubblicazione GitHub e prova updater reale restano separate.
+
 - Le iconbar ora adeguano esplicitamente icone, pulsanti e spazi al DPI del monitor all'apertura e quando la finestra passa a un altro DPI. Smoke standalone/embedded a 96/144/192 DPI e ritorno a 96 verdi; verifica visiva diretta al 100% e prova manuale dell'utente al 150%/200% su standalone e DatabaseDemo embedded, inclusi stati attivi/disabilitati e passaggio tra monitor, senza difetti segnalati. Schermi ripristinati al 100%.
 
 - Sostituiti i glifi di font delle iconbar con 58 icone vettoriali piatte, distinte e renderizzate localmente anche nella shell embedded; invariati comandi, tooltip e nomi accessibili. Smoke WinForms completo e controlli automatici a 20/30/40 px verdi.
