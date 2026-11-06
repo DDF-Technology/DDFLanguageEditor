@@ -130,3 +130,25 @@ editor e palette proporzionati, icon bar ordinate su tre righe e diagramma
 leggibile. Build Release, smoke WinForms completo e matrice geometrica risultano
 verdi. Tutti i punti manuali sono conclusi positivamente e la ricevuta può
 essere promossa a `passed`/`ready`.
+
+## Verifica debug prolungato 2026-11-06
+
+Sulla build Release `4d11903`, nel workspace
+`samples/language-features-debug-workspace`, la sessione UI è rimasta in
+`DEBUG IN PAUSA` dal `09:19:58` al `09:25:24` UTC senza timeout. Durante la
+pausa Watch ha mostrato `completedRuns = 0`; dopo F10 la riga corrente è
+avanzata e Watch è diventato `1`. Un breakpoint aggiunto a debug avviato
+alla riga 7 di `main.ddf` è stato raggiunto con F5. Proseguendo fino alla
+chiamata in riga 15, F10 è entrato in `safeDivide` su `calculations.ddf`;
+la scheda e la Flowchart si sono aggiornate e Call Stack ha mostrato
+`safeDivide()` e `main()`. Shift+F5 ha terminato la sessione, svuotato lo
+stack e riabilitato i comandi normali. Nessun processo
+`DDFLanguageEditor.Runner` era attivo dopo Stop. Watch e i due breakpoint
+temporanei sono stati rimossi; il breakpoint preesistente in riga 3 è
+rimasto intatto e i sorgenti non sono stati modificati.
+
+Questa osservazione UI riguarda il debugger VM dello standalone. La pausa
+del worker compilato e la terminazione del relativo PID sono verificate
+separatamente dallo smoke opt-in `--debug-pause-endurance-only`, già
+registrato nella roadmap: non attribuire alla sessione UI l'avvio di un
+Runner che non è avvenuto.

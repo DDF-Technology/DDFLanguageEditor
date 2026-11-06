@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Completata la verifica visiva del debug multifile dopo oltre cinque minuti in pausa: Watch e Step reattivi, breakpoint aggiunto durante la sessione e raggiunto, ingresso F10 nella funzione esterna con scheda/Flowchart/Call Stack sincronizzati, Stop pulito e nessun Runner residuo. Distinta la prova UI sul backend VM dallo smoke automatico del worker compilato.
+
 - Il Package Studio apre una finestra più ampia adattata allo spazio disponibile; nella scheda `Inizia` le due righe per parole chiave e operatori condividono colonne allineate, la guida è più compatta e spiegazioni/profili usano l'altezza libera. Eliminati gli scorrimenti superflui all'apertura; verifica visiva e smoke WinForms completo verdi.
 
 - Il Package Studio presenta ora quattro schede principali (`Inizia`, `Playground e test`, `Anteprima`, `Avanzate`); i dieci editor tecnici restano accessibili sotto `Avanzate`. Guida, diagnostiche e navigazione EBNF/sorgenti aprono la sezione giusta anche con schede annidate. Verificati interfaccia e smoke WinForms completo.
