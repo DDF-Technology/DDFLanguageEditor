@@ -234,6 +234,13 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfProductUpdateStager : IDisposable
     {
         private const int BufferSize = 64 * 1024;
+        private static readonly HashSet<string> AllowedRedirectHosts = new(
+            new[]
+            {
+                "release-assets.githubusercontent.com",
+                "objects.githubusercontent.com",
+                "github-releases.githubusercontent.com"
+            }, StringComparer.OrdinalIgnoreCase);
         private readonly HttpClient client;
         private readonly DdfProductUpdateStagingOptions options;
         private bool disposed;
@@ -396,55 +403,106 @@ namespace DDFLanguageEditor.Core
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
             timeout.CancelAfter(options.Timeout);
-            using var request = new HttpRequestMessage(HttpMethod.Get, plan.AssetUri);
-            request.Headers.AcceptEncoding.Clear();
-            using HttpResponseMessage response = await client.SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead, timeout.Token)
-                .ConfigureAwait(false);
-            if (response.StatusCode != HttpStatusCode.OK)
-                throw new HttpRequestException("Risposta download non valida: " +
-                    (int)response.StatusCode + ".");
-            if (response.RequestMessage?.RequestUri == null ||
-                !Uri.Equals(response.RequestMessage.RequestUri, plan.AssetUri))
-                throw new HttpRequestException("Redirect dell'asset non autorizzato.");
-            if (response.Content.Headers.ContentEncoding.Count != 0)
-                throw new InvalidDataException("Content-Encoding non ammesso.");
-            if (response.Content.Headers.ContentLength.HasValue &&
-                response.Content.Headers.ContentLength.Value != plan.AssetSize)
-                throw new InvalidDataException("Dimensione HTTP divergente dal piano.");
-
-            await using Stream input = await response.Content.ReadAsStreamAsync(
-                timeout.Token).ConfigureAwait(false);
-            await using var output = new FileStream(destination, FileMode.CreateNew,
-                FileAccess.Write, FileShare.None, BufferSize, FileOptions.Asynchronous |
-                FileOptions.WriteThrough);
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            byte[] buffer = new byte[BufferSize];
-            long total = 0;
-            while (true)
+            using HttpResponseMessage first = await SendDownloadRequestAsync(
+                plan.AssetUri, timeout.Token).ConfigureAwait(false);
+            HttpResponseMessage response = first;
+            HttpResponseMessage redirected = null;
+            try
             {
-                int read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length),
+                if (first.RequestMessage?.RequestUri == null ||
+                    !Uri.Equals(first.RequestMessage.RequestUri, plan.AssetUri))
+                    throw new HttpRequestException("Redirect dell'asset non autorizzato.");
+                Uri expectedUri = plan.AssetUri;
+                if (IsRedirect(first.StatusCode))
+                {
+                    Uri location = first.Headers.Location;
+                    if (location != null && !location.IsAbsoluteUri)
+                        location = new Uri(plan.AssetUri, location);
+                    ValidateRedirectUri(location);
+                    expectedUri = location;
+                    redirected = await SendDownloadRequestAsync(location,
+                        timeout.Token).ConfigureAwait(false);
+                    response = redirected;
+                    if (IsRedirect(response.StatusCode))
+                        throw new HttpRequestException(
+                            "Catena di redirect dell'asset non ammessa.");
+                }
+                if (response.StatusCode != HttpStatusCode.OK)
+                    throw new HttpRequestException("Risposta download non valida: " +
+                        (int)response.StatusCode + ".");
+                if (response.RequestMessage?.RequestUri == null ||
+                    !Uri.Equals(response.RequestMessage.RequestUri, expectedUri))
+                    throw new HttpRequestException("Redirect dell'asset non autorizzato.");
+                if (response.Content.Headers.ContentEncoding.Count != 0)
+                    throw new InvalidDataException("Content-Encoding non ammesso.");
+                if (response.Content.Headers.ContentLength.HasValue &&
+                    response.Content.Headers.ContentLength.Value != plan.AssetSize)
+                    throw new InvalidDataException("Dimensione HTTP divergente dal piano.");
+
+                await using Stream input = await response.Content.ReadAsStreamAsync(
                     timeout.Token).ConfigureAwait(false);
-                if (read == 0) break;
-                total = checked(total + read);
-                if (total > plan.AssetSize || total > options.MaximumAssetBytes)
-                    throw new InvalidDataException("Asset oltre la dimensione attesa.");
-                hash.AppendData(buffer, 0, read);
-                await output.WriteAsync(buffer.AsMemory(0, read), timeout.Token)
-                    .ConfigureAwait(false);
-                progress?.Report(new DdfProductUpdateStagingProgress(total,
-                    plan.AssetSize));
+                await using var output = new FileStream(destination, FileMode.CreateNew,
+                    FileAccess.Write, FileShare.None, BufferSize, FileOptions.Asynchronous |
+                    FileOptions.WriteThrough);
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                byte[] buffer = new byte[BufferSize];
+                long total = 0;
+                while (true)
+                {
+                    int read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length),
+                        timeout.Token).ConfigureAwait(false);
+                    if (read == 0) break;
+                    total = checked(total + read);
+                    if (total > plan.AssetSize || total > options.MaximumAssetBytes)
+                        throw new InvalidDataException("Asset oltre la dimensione attesa.");
+                    hash.AppendData(buffer, 0, read);
+                    await output.WriteAsync(buffer.AsMemory(0, read), timeout.Token)
+                        .ConfigureAwait(false);
+                    progress?.Report(new DdfProductUpdateStagingProgress(total,
+                        plan.AssetSize));
+                }
+                await output.FlushAsync(timeout.Token).ConfigureAwait(false);
+                output.Flush(true);
+                if (total != plan.AssetSize)
+                    throw new InvalidDataException("Asset tronco.");
+                string actualHash = Convert.ToHexString(hash.GetHashAndReset())
+                    .ToLowerInvariant();
+                if (!string.Equals(actualHash, plan.AssetSha256,
+                        StringComparison.Ordinal))
+                    throw new InvalidDataException("SHA-256 asset non valido.");
             }
-            await output.FlushAsync(timeout.Token).ConfigureAwait(false);
-            output.Flush(true);
-            if (total != plan.AssetSize)
-                throw new InvalidDataException("Asset tronco.");
-            string actualHash = Convert.ToHexString(hash.GetHashAndReset())
-                .ToLowerInvariant();
-            if (!string.Equals(actualHash, plan.AssetSha256,
-                    StringComparison.Ordinal))
-                throw new InvalidDataException("SHA-256 asset non valido.");
+            finally
+            {
+                redirected?.Dispose();
+            }
         }
+
+        private async Task<HttpResponseMessage> SendDownloadRequestAsync(Uri uri,
+            CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.AcceptEncoding.Clear();
+            return await client.SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        private static void ValidateRedirectUri(Uri uri)
+        {
+            if (uri == null || !uri.IsAbsoluteUri ||
+                uri.Scheme != Uri.UriSchemeHttps ||
+                !AllowedRedirectHosts.Contains(uri.Host) ||
+                uri.UserInfo.Length != 0 || uri.Fragment.Length != 0)
+                throw new HttpRequestException(
+                    "Redirect dell'asset non autorizzato.");
+        }
+
+        private static bool IsRedirect(HttpStatusCode status) =>
+            status == HttpStatusCode.MovedPermanently ||
+            status == HttpStatusCode.Redirect ||
+            status == HttpStatusCode.RedirectMethod ||
+            status == HttpStatusCode.TemporaryRedirect ||
+            (int)status == 308;
 
         private static ExtractionSummary ExtractAndVerify(
             DdfProductUpdateInstallationPlan plan, string archivePath,

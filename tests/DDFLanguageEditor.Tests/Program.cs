@@ -204,6 +204,7 @@ namespace DDFLanguageEditor.Tests
             Run("models immutable versioned product update results", ModelsImmutableVersionedProductUpdateResults);
             Run("persists update installation plans and crash journals atomically", PersistsUpdateInstallationPlansAndCrashJournalsAtomically);
             Run("downloads and seals verified update staging safely", DownloadsAndSealsVerifiedUpdateStagingSafely);
+            Run("accepts only one trusted GitHub asset redirect", AcceptsOnlyOneTrustedGitHubAssetRedirect);
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
             Run("completes updates only after a successful health check", CompletesUpdatesOnlyAfterSuccessfulHealthCheck);
@@ -8775,6 +8776,110 @@ namespace DDFLanguageEditor.Tests
                 Equal(archive.LongLength, progress.Last().BytesReceived);
                 Equal(0, Directory.GetFiles(root, "*.partial",
                     SearchOption.TopDirectoryOnly).Length);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void AcceptsOnlyOneTrustedGitHubAssetRedirect()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-redirect-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var files = new Dictionary<string, byte[]>
+                {
+                    ["DDFLanguageEditor.exe"] = Encoding.UTF8.GetBytes("editor")
+                };
+                byte[] archive = CreateProductUpdateArchive(files);
+                DateTimeOffset now = DateTimeOffset.UtcNow.AddMinutes(-1);
+                using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfReleaseTrustStore(new Dictionary<string, byte[]>
+                {
+                    ["release-2026"] = key.ExportSubjectPublicKeyInfo()
+                });
+                var uri = new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.2/editor.zip");
+                var asset = new DdfReleaseManifestAsset(
+                    DdfProductUpdateComponentKind.Standalone,
+                    DdfProductVersionCatalog.Current.ProductId, "0.13.6-beta.2",
+                    "win-x64", "x64", uri, archive.LongLength,
+                    HashBytes(archive));
+                string manifest = DdfReleaseManifestCodec.Serialize(
+                    DdfReleaseManifestSigner.Sign(
+                        DdfReleaseManifest.CreateUnsigned(
+                            DdfProductVersionCatalog.Current.ProductId,
+                            "0.13.6-beta.2", DdfProductUpdateChannel.Beta, now,
+                            "Redirect test.", new DdfReleaseCompatibility("0.34",
+                                "0.99", new Dictionary<string, string>
+                                {
+                                    ["editorState"] = "1.0"
+                                }),
+                            new[] { asset }), "release-2026", key));
+
+                void Exercise(string caseName, Uri redirect, bool accepted,
+                    bool secondRedirect = false)
+                {
+                    string caseRoot = Path.Combine(root, caseName);
+                    var plan = CreateStagingPlan(caseRoot, "0.13.6-beta.2",
+                        uri, archive, manifest, files, now);
+                    var store = new DdfProductUpdateInstallationJournalStore(
+                        Path.Combine(caseRoot, "state", "journal.json"));
+                    var journal = store.Create(
+                        DdfProductUpdateInstallationJson.ComputePlanSha256(plan),
+                        now);
+                    store.Transition(journal.Revision,
+                        DdfProductUpdateInstallationState.DownloadAuthorized,
+                        now.AddSeconds(1));
+                    var handler = new QueueHttpMessageHandler();
+                    handler.Enqueue((request, cancellationToken) =>
+                    {
+                        var response = new HttpResponseMessage(HttpStatusCode.Redirect);
+                        response.Headers.Location = redirect;
+                        return Task.FromResult(response);
+                    });
+                    handler.Enqueue((request, cancellationToken) =>
+                        Task.FromResult(secondRedirect
+                            ? new HttpResponseMessage(HttpStatusCode.Redirect)
+                            {
+                                Headers = { Location = redirect }
+                            }
+                            : new HttpResponseMessage(HttpStatusCode.OK)
+                            {
+                                Content = new ByteArrayContent(archive)
+                            }));
+                    using var stager = new DdfProductUpdateStager(handler,
+                        new DdfProductUpdateStagingOptions(
+                            TimeSpan.FromSeconds(10), archive.LongLength));
+                    if (accepted)
+                    {
+                        stager.StageAsync(plan, manifest, trust, store,
+                            now.AddSeconds(2)).GetAwaiter().GetResult();
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            store.Read().State);
+                        Equal(2, handler.Requests.Count);
+                        Equal(redirect, handler.Requests[1].Uri);
+                    }
+                    else
+                    {
+                        Throws<HttpRequestException>(() => stager.StageAsync(plan,
+                            manifest, trust, store, now.AddSeconds(2))
+                            .GetAwaiter().GetResult());
+                        Equal(DdfProductUpdateInstallationState.Failed,
+                            store.Read().State);
+                        Equal(false, Directory.Exists(plan.StagingRoot));
+                    }
+                }
+
+                Exercise("trusted", new Uri(
+                    "https://release-assets.githubusercontent.com/asset?token=test"),
+                    true);
+                Exercise("foreign", new Uri("https://example.test/asset"), false);
+                Exercise("chain", new Uri(
+                    "https://release-assets.githubusercontent.com/asset"),
+                    false, true);
             }
             finally
             {

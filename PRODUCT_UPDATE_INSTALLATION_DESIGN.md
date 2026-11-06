@@ -1,13 +1,14 @@
 # Installazione aggiornamenti standalone — contratto di progetto
 
-Stato: **fasi 1–4 implementate; attivazione end-to-end non attiva**
+Stato: **fasi 1–4 implementate; accettazione su copia isolata avviata;
+attivazione generale non attiva**
 (`0.13.6`).
 
 Questo documento definisce il confine di sicurezza dell'eventuale updater di
 DDFLanguageEditor. Non abilita download, installazione, elevazione, chiusura o
-riavvio dell'applicazione. La chiave ufficiale è provisionata; l'attivazione
-richiede ancora una release remota firmata reale e il completamento dei gate
-descritti qui sotto. Il
+riavvio dell'applicazione. La chiave ufficiale è provisionata e la prima
+release remota firmata è pubblicata; l'attivazione richiede ancora il
+completamento dei gate descritti qui sotto. Il
 Core comprende ora i contratti `DdfProductUpdateInstallationPlan@1.0` e
 `DdfProductUpdateInstallationJournal@1.0`, la persistenza atomica, la macchina
 a stati e il pianificatore deterministico di recovery. Il downloader/stager
@@ -20,8 +21,11 @@ directory e conserva backup/quarantena per il rollback. Il worker esegue ora il
 self-test fisso, completa o ripristina atomicamente, applica l'eventuale scelta
 di riavvio e offre una pulizia differita separata. La shell ispeziona in modo
 read-only piano e journal all'avvio e dispone dei dialoghi di consenso; il
-flusso non è ancora attivato perché manca la prova end-to-end su una release
-remota con un nuovo numero di versione reale.
+flusso non è ancora attivato per l'utente finale. La release remota firmata
+`v0.12.6` è stata verificata dal consumer `0.12.5`; download, staging e
+installazione con health check sono riusciti su una copia isolata. Restano le
+prove di rollback/recovery e la matrice di accettazione. La release `0.12.6`
+pubblicata non include la successiva correzione per il redirect CDN del download.
 
 ## Perimetro
 
@@ -174,8 +178,19 @@ dati dell'host.
 4. **Health check e UX — completato** — self-test fisso con timeout e marker,
    ispezione fail-closed del recovery all'avvio, consenso accessibile distinto,
    restart opzionale e pulizia differita esplicita.
-5. **Attivazione** — chiave ufficiale completata; restano release firmata reale
-   e completamento della matrice di accettazione.
+5. **Attivazione** — chiave ufficiale e release firmata reale completate;
+   download, staging, swap e health check riusciti su una copia isolata.
+   Restano rollback/recovery reali, matrice di accettazione e un nuovo
+   pacchetto che includa la correzione del redirect CDN prima dell'abilitazione.
+
+La prova ripetibile usa `tools/test-real-update-acceptance.ps1` con archivio e
+manifesto della release firmata, una directory nuova sotto `.artifacts` e,
+per l'applicazione completa, `-PreviousBuildRoot` puntato a una pubblicazione
+`0.12.5` sotto `.artifacts/publish`. Lo script rifiuta una destinazione già
+presente, valida la firma ufficiale e l'hash dell'archivio, confronta
+l'inventario estratto, attesta che il worker attenda l'esatto processo di prova
+prima dello swap e verifica versione, stato `Completed` e backup. Non pulisce
+automaticamente target e backup, per lasciare l'evidenza ispezionabile.
 
 ## Matrice di verifica obbligatoria
 
