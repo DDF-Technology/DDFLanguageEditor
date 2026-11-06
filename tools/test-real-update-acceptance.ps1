@@ -6,7 +6,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$AcceptanceRoot,
     [string]$PreviousBuildRoot,
-    [string]$CurrentVersion = '0.12.5'
+    [string]$CurrentVersion = '0.12.5',
+    [switch]$RollbackProbe,
+    [switch]$CrashProbe
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +24,12 @@ if (Test-Path -LiteralPath $root) {
     throw 'La directory di accettazione esiste già; scegliere una directory nuova.'
 }
 $previous = $null
+if (($RollbackProbe -or $CrashProbe) -and -not $PreviousBuildRoot) {
+    throw 'Le prove di recovery richiedono -PreviousBuildRoot.'
+}
+if ($RollbackProbe -and $CrashProbe) {
+    throw 'RollbackProbe e CrashProbe sono mutuamente esclusivi.'
+}
 if ($PreviousBuildRoot) {
     $previous = [IO.Path]::GetFullPath($PreviousBuildRoot)
     $publishPrefix = [IO.Path]::GetFullPath((Join-Path $artifactRoot 'publish')).
@@ -80,7 +88,7 @@ try {
 finally { $zip.Dispose() }
 
 $parent = $null
-if ($previous) {
+if ($previous -and -not $RollbackProbe -and -not $CrashProbe) {
     $parent = Start-Process -FilePath (Get-Command pwsh).Source -PassThru `
         -WindowStyle Hidden -ArgumentList @('-NoProfile', '-Command',
             'Start-Sleep -Seconds 600')
@@ -133,6 +141,75 @@ if ($previous) {
     $null = $store.Transition($current.Revision,
         [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::InstallAuthorized,
         [DateTimeOffset]::UtcNow)
+    if ($CrashProbe) {
+        $targetExe = Join-Path $plan.TargetRoot 'DDFLanguageEditor.exe'
+        $oldHash = (Get-FileHash -LiteralPath $targetExe -Algorithm SHA256).Hash
+        $current = $store.Read()
+        $current = $store.Transition($current.Revision,
+            [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::WaitingForEditorExit,
+            [DateTimeOffset]::UtcNow)
+        $null = $store.Transition($current.Revision,
+            [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::Applying,
+            [DateTimeOffset]::UtcNow)
+        [IO.Directory]::Move($plan.TargetRoot, $plan.BackupRoot)
+        $engine = [DDFLanguageEditor.Core.DdfProductUpdateWorker]::new()
+        $recovered = $engine.Recover($planPath, $journalPath, $plan.Nonce)
+        if ($recovered.Kind.ToString() -ne 'RolledBack' -or
+            $store.Read().State -ne
+            [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::RolledBack -or
+            -not (Test-Path -LiteralPath $plan.StagingRoot) -or
+            (Test-Path -LiteralPath $plan.BackupRoot) -or
+            (Get-FileHash -LiteralPath $targetExe -Algorithm SHA256).Hash -ne $oldHash) {
+            throw 'Recovery reale non ha ripristinato il target dopo lo swap interrotto.'
+        }
+        $health = [DDFLanguageEditor.Core.DdfProductUpdateProcessHealthCheck]::new(
+            [TimeSpan]::FromSeconds(30)).CheckAsync($plan,
+                [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+        if (-not $health.Success) { throw 'La build ripristinata non supera il self-test.' }
+        "RECOVERY ISOLATO OK: $CurrentVersion ripristinata dopo swap interrotto."
+    }
+    elseif ($RollbackProbe) {
+        Add-Type -ReferencedAssemblies $core -TypeDefinition @'
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using DDFLanguageEditor.Core;
+public sealed class DdfUpdateAcceptanceImmediateWaiter : IDdfProductUpdateProcessWaiter
+{
+    public Task WaitForExitAsync(int processId, DateTimeOffset processStartedUtc,
+        TimeSpan timeout, CancellationToken cancellationToken) => Task.CompletedTask;
+}
+'@
+        $targetExe = Join-Path $plan.TargetRoot 'DDFLanguageEditor.exe'
+        $targetCore = Join-Path $plan.TargetRoot 'DDFLanguageEditor.Core.dll'
+        $oldExe = (Get-FileHash -LiteralPath $targetExe -Algorithm SHA256).Hash
+        $oldCore = (Get-FileHash -LiteralPath $targetCore -Algorithm SHA256).Hash
+        $engine = [DDFLanguageEditor.Core.DdfProductUpdateWorker]::new(
+            [DdfUpdateAcceptanceImmediateWaiter]::new())
+        $applied = $engine.ApplyAsync($planPath, $journalPath,
+            $plan.Nonce).GetAwaiter().GetResult()
+        if ($applied.Kind.ToString() -ne 'AwaitingHealthCheck' -or
+            $store.Read().State -ne
+            [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::Verifying) {
+            throw 'Swap isolato non arrivato a Verifying.'
+        }
+        [IO.File]::WriteAllBytes($targetExe, [byte[]](1, 2, 3, 4))
+        $recovered = $engine.Recover($planPath, $journalPath, $plan.Nonce)
+        if ($recovered.Kind.ToString() -ne 'RolledBack' -or
+            $store.Read().State -ne
+            [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::RolledBack -or
+            (Get-FileHash -LiteralPath $targetExe -Algorithm SHA256).Hash -ne $oldExe -or
+            (Get-FileHash -LiteralPath $targetCore -Algorithm SHA256).Hash -ne $oldCore -or
+            -not (Test-Path -LiteralPath $recovered.QuarantineRoot)) {
+            throw 'Rollback reale non ha ripristinato la build precedente.'
+        }
+        $health = [DDFLanguageEditor.Core.DdfProductUpdateProcessHealthCheck]::new(
+            [TimeSpan]::FromSeconds(30)).CheckAsync($plan,
+                [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+        if (-not $health.Success) { throw 'La build ripristinata non supera il self-test.' }
+        "ROLLBACK ISOLATO OK: $CurrentVersion ripristinata; nuova copia in quarantena."
+    }
+    else {
     $workerExe = Join-Path $repositoryRoot `
         'DDFLanguageEditor.Updater\bin\Debug\DDFLanguageEditor.Updater.exe'
     if (-not (Test-Path -LiteralPath $workerExe)) {
@@ -177,6 +254,7 @@ if ($previous) {
         "INSTALLAZIONE ISOLATA OK: $newVersion; backup preservato; health check completato."
     }
     finally { $worker.Dispose() }
+    }
 }
 }
 finally {

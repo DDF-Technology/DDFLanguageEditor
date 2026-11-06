@@ -23,8 +23,10 @@ di riavvio e offre una pulizia differita separata. La shell ispeziona in modo
 read-only piano e journal all'avvio e dispone dei dialoghi di consenso; il
 flusso non è ancora attivato per l'utente finale. La release remota firmata
 `v0.12.6` è stata verificata dal consumer `0.12.5`; download, staging e
-installazione con health check sono riusciti su una copia isolata. Restano le
-prove di rollback/recovery e la matrice di accettazione. La release `0.12.6`
+installazione con health check sono riusciti su una copia isolata. Anche il
+rollback di una nuova copia danneggiata e il recovery dopo un'interruzione tra
+backup e promozione hanno ripristinato `0.12.5` funzionante. Restano gli altri
+casi della matrice di accettazione. La release `0.12.6`
 pubblicata non include la successiva correzione per il redirect CDN del download.
 
 ## Perimetro
@@ -180,7 +182,8 @@ dati dell'host.
    restart opzionale e pulizia differita esplicita.
 5. **Attivazione** — chiave ufficiale e release firmata reale completate;
    download, staging, swap e health check riusciti su una copia isolata.
-   Restano rollback/recovery reali, matrice di accettazione e un nuovo
+   Rollback e recovery dei due punti critici dello swap sono riusciti con la
+   release reale; restano gli altri casi della matrice e un nuovo
    pacchetto che includa la correzione del redirect CDN prima dell'abilitazione.
 
 La prova ripetibile usa `tools/test-real-update-acceptance.ps1` con archivio e
@@ -191,6 +194,10 @@ presente, valida la firma ufficiale e l'hash dell'archivio, confronta
 l'inventario estratto, attesta che il worker attenda l'esatto processo di prova
 prima dello swap e verifica versione, stato `Completed` e backup. Non pulisce
 automaticamente target e backup, per lasciare l'evidenza ispezionabile.
+`-RollbackProbe` corrompe soltanto l'EXE della nuova copia dopo lo swap e
+verifica quarantena, hash e self-test del target ripristinato; `-CrashProbe`
+simula l'interruzione dopo il rename target→backup e verifica il recovery e il
+self-test della versione precedente. Ogni modalità usa una directory nuova.
 
 ## Matrice di verifica obbligatoria
 
