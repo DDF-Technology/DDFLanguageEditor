@@ -12579,7 +12579,8 @@ namespace DDFLanguageEditor.Tests
                 Encoding.UTF8);
             JsonObject example = JsonNode.Parse(File.ReadAllText(Path.Combine(
                 sampleRoot, "example-test-case.json"), Encoding.UTF8)).AsObject();
-            Equal(source.Trim(), example["source"].GetValue<string>().Trim());
+            Equal(source.Replace("\r\n", "\n").Trim(),
+                example["source"].GetValue<string>().Replace("\r\n", "\n").Trim());
             var suite = new DdfLanguagePackageTestSuite
             {
                 Cases = new List<DdfLanguagePackageTestCase>
