@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il Core può scaricare la release firmata dopo il consenso del chiamante e preparare ZIP e inventario senza installare: manifesto e asset vengono ricorrelati al risultato del controllo, con un solo redirect CDN ammesso, limiti su dimensione e pulizia dei download parziali. Test Core `340/340` e download reale di `v0.12.6` (373 file) verdi. I dialoghi standalone non sono ancora collegati al flusso.
+
 - Aggiunto `DdfProductUpdateArchiveInspector` per costruire l'inventario d'installazione da un archivio locale soltanto dopo firma ufficiale, policy di compatibilità, SHA-256 e dimensione; lettura limitata senza estrazione e rifiuto di file essenziali mancanti, percorsi insicuri e link. Core `339/339`, archivio reale `v0.12.6` (373 file) e installazione isolata in percorso con spazi verificati. Acquisizione iniziale dello ZIP e consensi UI non sono ancora collegati.
 
 - Il downloader dell'updater segue ora un solo redirect HTTPS verso i CDN GitHub esplicitamente ammessi, mantenendo controllo di firma, hash, dimensione e inventario; rifiuta host estranei e catene di redirect. Il test della release reale `v0.12.6` ha completato download e staging di 373 file e installazione fuori processo su una copia isolata `0.12.5`, con attesa della chiusura, health check e backup preservato. Su altre copie isolate, rollback dopo corruzione e recovery da swap interrotto hanno ripristinato la build precedente, che supera il self-test. La correzione richiede una release successiva prima dell'attivazione della UI.

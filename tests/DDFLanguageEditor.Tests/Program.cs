@@ -205,6 +205,7 @@ namespace DDFLanguageEditor.Tests
             Run("persists update installation plans and crash journals atomically", PersistsUpdateInstallationPlansAndCrashJournalsAtomically);
             Run("downloads and seals verified update staging safely", DownloadsAndSealsVerifiedUpdateStagingSafely);
             Run("inspects signed update archives before planning", InspectsSignedUpdateArchivesBeforePlanning);
+            Run("downloads authorized signed packages before planning", DownloadsAuthorizedSignedPackagesBeforePlanning);
             Run("accepts only one trusted GitHub asset redirect", AcceptsOnlyOneTrustedGitHubAssetRedirect);
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
@@ -8669,6 +8670,133 @@ namespace DDFLanguageEditor.Tests
                         .StartsWith("https://www.ddf.technology/schemas/",
                             StringComparison.Ordinal));
                 }
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void DownloadsAuthorizedSignedPackagesBeforePlanning()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-download-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var files = new Dictionary<string, byte[]>
+                {
+                    ["DDFLanguageEditor.exe"] = Encoding.UTF8.GetBytes("exe"),
+                    ["DDFLanguageEditor.dll"] = Encoding.UTF8.GetBytes("app"),
+                    ["DDFLanguageEditor.Core.dll"] = Encoding.UTF8.GetBytes("core"),
+                    ["DDFLanguageEditor.runtimeconfig.json"] = Encoding.UTF8.GetBytes("{}"),
+                    ["coreclr.dll"] = Encoding.UTF8.GetBytes("clr"),
+                    ["hostfxr.dll"] = Encoding.UTF8.GetBytes("fxr"),
+                    ["hostpolicy.dll"] = Encoding.UTF8.GetBytes("policy")
+                };
+                byte[] archive = CreateProductUpdateArchive(files);
+                using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfReleaseTrustStore(new Dictionary<string, byte[]>
+                {
+                    ["release-2026"] = key.ExportSubjectPublicKeyInfo()
+                });
+                const string version = "0.13.6-beta.2";
+                var uri = new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.2/editor.zip");
+                var asset = new DdfReleaseManifestAsset(
+                    DdfProductUpdateComponentKind.Standalone,
+                    DdfProductVersionCatalog.Current.ProductId, version,
+                    "win-x64", "x64", uri, archive.LongLength,
+                    HashBytes(archive));
+                string manifest = DdfReleaseManifestCodec.Serialize(
+                    DdfReleaseManifestSigner.Sign(
+                        DdfReleaseManifest.CreateUnsigned(
+                            DdfProductVersionCatalog.Current.ProductId, version,
+                            DdfProductUpdateChannel.Beta, DateTimeOffset.UtcNow,
+                            "Download test.", new DdfReleaseCompatibility(
+                                "0.34", "0.99", DdfProductVersionCatalog.Current
+                                    .PersistenceVersions), new[] { asset }),
+                        "release-2026", key));
+                var request = DdfProductUpdateRequest.ForStandalone();
+                DdfProductUpdateResult checkedResult =
+                    DdfReleaseUpdatePolicy.Evaluate(
+                        DdfReleaseManifestVerifier.Verify(manifest, trust),
+                        request, "win-x64", "x64", DateTimeOffset.UtcNow);
+                Equal(true, checkedResult.IsActionable);
+                Uri cdn = new Uri("https://release-assets.githubusercontent.com/asset");
+                var handler = new QueueHttpMessageHandler();
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.Redirect)
+                    {
+                        Headers = { Location = cdn }
+                    }));
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(Encoding.UTF8.GetBytes(manifest))
+                    }));
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.Redirect)
+                    {
+                        Headers = { Location = cdn }
+                    }));
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(archive)
+                    }));
+                using (var downloader = new DdfProductUpdatePackageDownloader(
+                    trust, handler))
+                {
+                    DdfProductUpdatePreparedPackage prepared = downloader
+                        .DownloadAuthorizedAsync(checkedResult, request,
+                            "win-x64", "x64", Path.Combine(root, "allowed"))
+                        .GetAwaiter().GetResult();
+                    Equal(files.Count, prepared.Inventory.Count);
+                    Equal(HashBytes(archive), HashBytes(
+                        File.ReadAllBytes(prepared.ArchivePath)));
+                    Equal(manifest, prepared.SignedManifestJson);
+                }
+                Equal(4, handler.Requests.Count);
+
+                var foreign = new QueueHttpMessageHandler();
+                foreign.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.Redirect)
+                    {
+                        Headers = { Location = new Uri("https://example.test/asset") }
+                    }));
+                using (var downloader = new DdfProductUpdatePackageDownloader(
+                    trust, foreign))
+                {
+                    Throws<HttpRequestException>(() => downloader
+                        .DownloadAuthorizedAsync(checkedResult, request,
+                            "win-x64", "x64", Path.Combine(root, "blocked"))
+                        .GetAwaiter().GetResult());
+                }
+                Equal(1, foreign.Requests.Count);
+                Equal(false, Directory.Exists(Path.Combine(root, "blocked")));
+
+                var truncated = new QueueHttpMessageHandler();
+                truncated.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(Encoding.UTF8.GetBytes(manifest))
+                    }));
+                truncated.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new ByteArrayContent(archive.Take(
+                            archive.Length - 1).ToArray())
+                    }));
+                string incompleteRoot = Path.Combine(root, "incomplete");
+                using (var downloader = new DdfProductUpdatePackageDownloader(
+                    trust, truncated))
+                {
+                    Throws<InvalidDataException>(() => downloader
+                        .DownloadAuthorizedAsync(checkedResult, request,
+                            "win-x64", "x64", incompleteRoot)
+                        .GetAwaiter().GetResult());
+                }
+                Equal(0, Directory.GetFiles(incompleteRoot).Length);
             }
             finally
             {

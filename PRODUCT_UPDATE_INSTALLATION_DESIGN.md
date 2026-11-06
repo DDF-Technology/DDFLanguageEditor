@@ -208,6 +208,17 @@ script lo ZIP iniziale è fornito esplicitamente e lo stager esegue poi il suo
 download verificato: l'orchestrazione del primo download e dei due consensi
 nella UI standalone resta da implementare. L'embedded non deve adottarla.
 
+`DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
+esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con
+al massimo un redirect HTTPS verso CDN GitHub ammessi, verifica nuovamente
+firma, policy e corrispondenza con l'aggiornamento già controllato, scarica
+entro quota in un file `.partial`, controlla SHA-256 e produce l'inventario
+tramite l'inspector. In caso di errore rimuove soltanto i propri file
+temporanei. Una prova online reale su `v0.12.6` ha prodotto 373 voci senza
+installare. Il collegamento ai dialoghi di consenso standalone, la costruzione
+del piano persistito e l'avvio del worker rimangono aperti; nessuna nuova
+azione automatica è disponibile nella UI o nell'embedded.
+
 ## Matrice di verifica obbligatoria
 
 - portable e installazione per utente, Debug/Release e percorsi con spazi;
