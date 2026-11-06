@@ -8,7 +8,8 @@ param(
     [string]$PreviousBuildRoot,
     [string]$CurrentVersion = '0.12.5',
     [switch]$RollbackProbe,
-    [switch]$CrashProbe
+    [switch]$CrashProbe,
+    [switch]$UseLocalStaging
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,8 +118,13 @@ $null = $store.Transition($journal.Revision,
     $now.AddSeconds(1))
 $stager = [DDFLanguageEditor.Core.DdfProductUpdateStager]::new()
 try {
-    $seal = $stager.StageAsync($plan, $json, $trust, $store,
-        $now.AddSeconds(2)).GetAwaiter().GetResult()
+    $seal = if ($UseLocalStaging) {
+        $stager.StageLocalAsync($plan, $json, $trust, $store,
+            $now.AddSeconds(2), $archive).GetAwaiter().GetResult()
+    } else {
+        $stager.StageAsync($plan, $json, $trust, $store,
+            $now.AddSeconds(2)).GetAwaiter().GetResult()
+    }
     if ($store.Read().State -ne
         [DDFLanguageEditor.Core.DdfProductUpdateInstallationState]::Staged -or
         $seal.FileCount -ne $inventory.Count -or

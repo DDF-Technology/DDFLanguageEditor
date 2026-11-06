@@ -264,12 +264,38 @@ namespace DDFLanguageEditor.Core
             this.options = options ?? DdfProductUpdateStagingOptions.Default;
         }
 
-        public async Task<DdfProductUpdateStagingSeal> StageAsync(
+        public Task<DdfProductUpdateStagingSeal> StageAsync(
             DdfProductUpdateInstallationPlan plan, string signedManifestJson,
             DdfReleaseTrustStore trustStore,
             DdfProductUpdateInstallationJournalStore journalStore,
             DateTimeOffset stagedUtc, CancellationToken cancellationToken = default,
             IProgress<DdfProductUpdateStagingProgress> progress = null)
+            => StageCoreAsync(plan, signedManifestJson, trustStore, journalStore,
+                stagedUtc, null, cancellationToken, progress);
+
+        public Task<DdfProductUpdateStagingSeal> StageLocalAsync(
+            DdfProductUpdateInstallationPlan plan, string signedManifestJson,
+            DdfReleaseTrustStore trustStore,
+            DdfProductUpdateInstallationJournalStore journalStore,
+            DateTimeOffset stagedUtc, string verifiedArchivePath,
+            CancellationToken cancellationToken = default,
+            IProgress<DdfProductUpdateStagingProgress> progress = null)
+        {
+            if (string.IsNullOrWhiteSpace(verifiedArchivePath))
+                throw new ArgumentException("Archivio locale richiesto.",
+                    nameof(verifiedArchivePath));
+            return StageCoreAsync(plan, signedManifestJson, trustStore,
+                journalStore, stagedUtc, verifiedArchivePath,
+                cancellationToken, progress);
+        }
+
+        private async Task<DdfProductUpdateStagingSeal> StageCoreAsync(
+            DdfProductUpdateInstallationPlan plan, string signedManifestJson,
+            DdfReleaseTrustStore trustStore,
+            DdfProductUpdateInstallationJournalStore journalStore,
+            DateTimeOffset stagedUtc, string verifiedArchivePath,
+            CancellationToken cancellationToken,
+            IProgress<DdfProductUpdateStagingProgress> progress)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -322,8 +348,13 @@ namespace DDFLanguageEditor.Core
                     DdfProductUpdateInstallationState.Downloading,
                     downloadStartedUtc);
                 ownsPartial = true;
-                await DownloadAsync(plan, partial, progress, cancellationToken)
-                    .ConfigureAwait(false);
+                if (verifiedArchivePath == null)
+                    await DownloadAsync(plan, partial, progress, cancellationToken)
+                        .ConfigureAwait(false);
+                else
+                    await CopyVerifiedLocalArchiveAsync(plan,
+                        verifiedArchivePath, partial, progress,
+                        cancellationToken).ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();
                 VerifyManifest(plan, signedManifestJson, trustStore);
@@ -392,6 +423,70 @@ namespace DDFLanguageEditor.Core
             if (disposed) return;
             disposed = true;
             client.Dispose();
+        }
+
+        private async Task CopyVerifiedLocalArchiveAsync(
+            DdfProductUpdateInstallationPlan plan, string sourcePath,
+            string destination,
+            IProgress<DdfProductUpdateStagingProgress> progress,
+            CancellationToken cancellationToken)
+        {
+            if (!Path.IsPathFullyQualified(sourcePath))
+                throw new InvalidDataException("Archivio locale non assoluto.");
+            string source = Path.GetFullPath(sourcePath);
+            if (!File.Exists(source) ||
+                (File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0 ||
+                IsInside(source, plan.TargetRoot) ||
+                IsInside(source, plan.StagingRoot) ||
+                IsInside(source, plan.BackupRoot))
+                throw new InvalidDataException(
+                    "Archivio locale assente o in una directory non ammessa.");
+            if (plan.AssetSize > options.MaximumAssetBytes)
+                throw new InvalidDataException("Asset oltre il limite configurato.");
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+            timeout.CancelAfter(options.Timeout);
+            await using var input = new FileStream(source, FileMode.Open,
+                FileAccess.Read, FileShare.Read, BufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            if (input.Length != plan.AssetSize)
+                throw new InvalidDataException("Dimensione archivio locale divergente.");
+            await using var output = new FileStream(destination, FileMode.CreateNew,
+                FileAccess.Write, FileShare.None, BufferSize,
+                FileOptions.Asynchronous | FileOptions.WriteThrough);
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            byte[] buffer = new byte[BufferSize];
+            long total = 0;
+            while (true)
+            {
+                int read = await input.ReadAsync(buffer.AsMemory(), timeout.Token)
+                    .ConfigureAwait(false);
+                if (read == 0) break;
+                total = checked(total + read);
+                if (total > plan.AssetSize)
+                    throw new InvalidDataException("Archivio locale oltre quota.");
+                hash.AppendData(buffer, 0, read);
+                await output.WriteAsync(buffer.AsMemory(0, read), timeout.Token)
+                    .ConfigureAwait(false);
+                progress?.Report(new DdfProductUpdateStagingProgress(total,
+                    plan.AssetSize));
+            }
+            await output.FlushAsync(timeout.Token).ConfigureAwait(false);
+            output.Flush(true);
+            if (total != plan.AssetSize ||
+                !string.Equals(Convert.ToHexString(hash.GetHashAndReset())
+                    .ToLowerInvariant(), plan.AssetSha256,
+                    StringComparison.Ordinal))
+                throw new InvalidDataException(
+                    "Archivio locale incompleto o SHA-256 non valido.");
+        }
+
+        private static bool IsInside(string path, string directory)
+        {
+            string root = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(directory));
+            return path.StartsWith(root + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task DownloadAsync(DdfProductUpdateInstallationPlan plan,

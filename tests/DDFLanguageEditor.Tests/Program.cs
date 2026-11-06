@@ -8979,6 +8979,51 @@ namespace DDFLanguageEditor.Tests
                 Equal(archive.LongLength, progress.Last().BytesReceived);
                 Equal(0, Directory.GetFiles(root, "*.partial",
                     SearchOption.TopDirectoryOnly).Length);
+
+                string localArchive = Path.Combine(root, "verified.zip");
+                File.WriteAllBytes(localArchive, archive);
+                DateTimeOffset localNow = DateTimeOffset.UtcNow.AddMinutes(-1);
+                void StageLocalCase(string name, bool valid)
+                {
+                    string localRoot = Path.Combine(root, name);
+                    var localPlan = CreateStagingPlan(localRoot, version, uri,
+                        archive, manifest, files, localNow);
+                    var localStore = new DdfProductUpdateInstallationJournalStore(
+                        Path.Combine(localRoot, "state", "journal.json"));
+                    var state = localStore.Create(DdfProductUpdateInstallationJson
+                        .ComputePlanSha256(localPlan), localNow);
+                    localStore.Transition(state.Revision,
+                        DdfProductUpdateInstallationState.DownloadAuthorized,
+                        localNow.AddSeconds(1));
+                    var noNetwork = new QueueHttpMessageHandler();
+                    using var localStager = new DdfProductUpdateStager(noNetwork);
+                    if (valid)
+                    {
+                        DdfProductUpdateStagingSeal localSeal = localStager
+                            .StageLocalAsync(localPlan, manifest, trust,
+                                localStore, DateTimeOffset.UtcNow,
+                                localArchive).GetAwaiter().GetResult();
+                        Equal(files.Count, localSeal.FileCount);
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            localStore.Read().State);
+                    }
+                    else
+                    {
+                        Throws<InvalidDataException>(() => localStager
+                            .StageLocalAsync(localPlan, manifest, trust,
+                                localStore, DateTimeOffset.UtcNow,
+                                localArchive).GetAwaiter().GetResult());
+                        Equal(DdfProductUpdateInstallationState.Failed,
+                            localStore.Read().State);
+                        Equal(false, Directory.Exists(localPlan.StagingRoot));
+                    }
+                    Equal(0, noNetwork.Requests.Count);
+                }
+                StageLocalCase("local-good", true);
+                byte[] modifiedArchive = (byte[])archive.Clone();
+                modifiedArchive[modifiedArchive.Length - 1] ^= 0x01;
+                File.WriteAllBytes(localArchive, modifiedArchive);
+                StageLocalCase("local-tampered", false);
             }
             finally
             {

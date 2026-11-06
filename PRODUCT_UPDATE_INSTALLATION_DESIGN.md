@@ -204,9 +204,10 @@ ZIP già scaricato soltanto dopo firma, policy di compatibilità, hash e
 dimensione; rifiuta path insicuri, link, duplicati e quote superate senza
 estrarre né eseguire file. La prova reale con `v0.12.6` ha prodotto 373 voci;
 l'installazione completa è riuscita anche in un percorso con spazi. Nello
-script lo ZIP iniziale è fornito esplicitamente e lo stager esegue poi il suo
-download verificato: l'orchestrazione del primo download e dei due consensi
-nella UI standalone resta da implementare. L'embedded non deve adottarla.
+script lo ZIP iniziale è fornito esplicitamente; lo stager può ora usare
+`StageLocalAsync` per ricontrollarlo e sigillarlo senza un secondo download.
+L'orchestrazione dei due consensi nella UI standalone resta da implementare.
+L'embedded non deve adottarla.
 
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con
@@ -218,6 +219,9 @@ temporanei. Una prova online reale su `v0.12.6` ha prodotto 373 voci senza
 installare. Il collegamento ai dialoghi di consenso standalone, la costruzione
 del piano persistito e l'avvio del worker rimangono aperti; nessuna nuova
 azione automatica è disponibile nella UI o nell'embedded.
+La prova `-UseLocalStaging` ha poi installato la stessa copia verificata in
+un target isolato `0.12.5`, con health check verde e backup conservato, senza
+richiedere una seconda connessione a GitHub (`2026-11-06`).
 
 ## Matrice di verifica obbligatoria
 
