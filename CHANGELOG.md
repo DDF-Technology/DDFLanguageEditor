@@ -2,9 +2,9 @@
 
 ## Correzioni non ancora rilasciate
 
-- Le iconbar ora adeguano esplicitamente icone, pulsanti e spazi al DPI del monitor all'apertura e quando la finestra passa a un altro DPI. Smoke standalone/embedded a 96/144/192 DPI e ritorno a 96 verdi; verifica visiva al 100% eseguita su entrambe le app. Resta la matrice visiva a DPI Windows reali 150%/200%.
+- Le iconbar ora adeguano esplicitamente icone, pulsanti e spazi al DPI del monitor all'apertura e quando la finestra passa a un altro DPI. Smoke standalone/embedded a 96/144/192 DPI e ritorno a 96 verdi; verifica visiva diretta al 100% e prova manuale dell'utente al 150%/200% su standalone e DatabaseDemo embedded, inclusi stati attivi/disabilitati e passaggio tra monitor, senza difetti segnalati. Schermi ripristinati al 100%.
 
-- Sostituiti i glifi di font delle iconbar con 58 icone vettoriali piatte, distinte e renderizzate localmente anche nella shell embedded; invariati comandi, tooltip e nomi accessibili. Verifica visiva a scala corrente nello standalone e in DatabaseDemo, smoke WinForms completo e controlli automatici a 20/30/40 px verdi. Resta la verifica visuale a DPI Windows reali 100%/150%/200%.
+- Sostituiti i glifi di font delle iconbar con 58 icone vettoriali piatte, distinte e renderizzate localmente anche nella shell embedded; invariati comandi, tooltip e nomi accessibili. Smoke WinForms completo e controlli automatici a 20/30/40 px verdi.
 
 - Completata la verifica visiva del debug multifile dopo oltre cinque minuti in pausa: Watch e Step reattivi, breakpoint aggiunto durante la sessione e raggiunto, ingresso F10 nella funzione esterna con scheda/Flowchart/Call Stack sincronizzati, Stop pulito e nessun Runner residuo. Distinta la prova UI sul backend VM dallo smoke automatico del worker compilato.
 
