@@ -204,6 +204,7 @@ namespace DDFLanguageEditor.Tests
             Run("models immutable versioned product update results", ModelsImmutableVersionedProductUpdateResults);
             Run("persists update installation plans and crash journals atomically", PersistsUpdateInstallationPlansAndCrashJournalsAtomically);
             Run("downloads and seals verified update staging safely", DownloadsAndSealsVerifiedUpdateStagingSafely);
+            Run("inspects signed update archives before planning", InspectsSignedUpdateArchivesBeforePlanning);
             Run("accepts only one trusted GitHub asset redirect", AcceptsOnlyOneTrustedGitHubAssetRedirect);
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
@@ -8668,6 +8669,80 @@ namespace DDFLanguageEditor.Tests
                         .StartsWith("https://www.ddf.technology/schemas/",
                             StringComparison.Ordinal));
                 }
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void InspectsSignedUpdateArchivesBeforePlanning()
+        {
+            string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "ddf-update-inspect-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    ["DDFLanguageEditor.exe"] = Encoding.UTF8.GetBytes("exe"),
+                    ["DDFLanguageEditor.dll"] = Encoding.UTF8.GetBytes("app"),
+                    ["DDFLanguageEditor.Core.dll"] = Encoding.UTF8.GetBytes("core"),
+                    ["DDFLanguageEditor.runtimeconfig.json"] = Encoding.UTF8.GetBytes("{}"),
+                    ["coreclr.dll"] = Encoding.UTF8.GetBytes("clr"),
+                    ["hostfxr.dll"] = Encoding.UTF8.GetBytes("fxr"),
+                    ["hostpolicy.dll"] = Encoding.UTF8.GetBytes("policy")
+                };
+                using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+                var trust = new DdfReleaseTrustStore(new Dictionary<string, byte[]>
+                {
+                    ["release-2026"] = key.ExportSubjectPublicKeyInfo()
+                });
+                const string version = "0.13.6-beta.2";
+                var uri = new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.2/editor.zip");
+                var request = DdfProductUpdateRequest.ForStandalone();
+                var compatibility = new DdfReleaseCompatibility("0.34", "0.99",
+                    DdfProductVersionCatalog.Current.PersistenceVersions);
+
+                string SignedManifest(byte[] bytes) =>
+                    DdfReleaseManifestCodec.Serialize(DdfReleaseManifestSigner.Sign(
+                        DdfReleaseManifest.CreateUnsigned(
+                            DdfProductVersionCatalog.Current.ProductId, version,
+                            DdfProductUpdateChannel.Beta, DateTimeOffset.UtcNow,
+                            "Archive inspection.", compatibility,
+                            new[] { new DdfReleaseManifestAsset(
+                                DdfProductUpdateComponentKind.Standalone,
+                                request.ComponentId, version, "win-x64", "x64",
+                                uri, bytes.LongLength, HashBytes(bytes)) }),
+                        "release-2026", key));
+
+                byte[] archive = CreateProductUpdateArchive(files);
+                string archivePath = Path.Combine(root, "editor.zip");
+                File.WriteAllBytes(archivePath, archive);
+                string manifest = SignedManifest(archive);
+                IReadOnlyList<DdfProductUpdateInstallationFile> inventory =
+                    DdfProductUpdateArchiveInspector.Inspect(archivePath,
+                        manifest, trust, request, "win-x64", "x64");
+                Equal(files.Count, inventory.Count);
+                Equal(HashBytes(files["DDFLanguageEditor.exe"]),
+                    inventory.Single(file => file.RelativePath ==
+                        "DDFLanguageEditor.exe").Sha256);
+
+                byte[] corrupted = (byte[])archive.Clone();
+                corrupted[corrupted.Length - 1] ^= 0x01;
+                File.WriteAllBytes(archivePath, corrupted);
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateArchiveInspector.Inspect(archivePath,
+                        manifest, trust, request, "win-x64", "x64"));
+
+                byte[] unsafeArchive = CreateProductUpdateArchive(files,
+                    "../escape.txt", Encoding.UTF8.GetBytes("escape"));
+                File.WriteAllBytes(archivePath, unsafeArchive);
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateArchiveInspector.Inspect(archivePath,
+                        SignedManifest(unsafeArchive), trust, request,
+                        "win-x64", "x64"));
+                Equal(false, File.Exists(Path.Combine(root, "escape.txt")));
             }
             finally
             {

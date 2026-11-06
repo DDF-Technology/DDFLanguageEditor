@@ -71,21 +71,13 @@ if ($actualHash -ne $asset.Sha256 -or (Get-Item -LiteralPath $archive).Length -n
     throw 'Archivio locale non corrispondente al manifesto firmato.'
 }
 
-$inventory = [Collections.Generic.List[DDFLanguageEditor.Core.DdfProductUpdateInstallationFile]]::new()
-$zip = [IO.Compression.ZipFile]::OpenRead($archive)
-try {
-    foreach ($entry in $zip.Entries) {
-        if ($entry.FullName.EndsWith('/')) { continue }
-        $stream = $entry.Open()
-        try {
-            $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($stream)).ToLowerInvariant()
-        }
-        finally { $stream.Dispose() }
-        $inventory.Add([DDFLanguageEditor.Core.DdfProductUpdateInstallationFile]::new(
-            $entry.FullName, $entry.Length, $hash))
-    }
-}
-finally { $zip.Dispose() }
+$request = [DDFLanguageEditor.Core.DdfProductUpdateRequest]::new(
+    [DDFLanguageEditor.Core.DdfProductUpdateComponentKind]::Standalone,
+    $asset.ComponentId, $CurrentVersion,
+    [DDFLanguageEditor.Core.DdfProductUpdateChannel]::Beta)
+$inventory = [DDFLanguageEditor.Core.DdfProductUpdateArchiveInspector]::Inspect(
+    $archive, $json, $trust, $request, $asset.RuntimeIdentifier,
+    $asset.Architecture, $null, [Threading.CancellationToken]::None)
 
 $parent = $null
 if ($previous -and -not $RollbackProbe -and -not $CrashProbe) {
@@ -218,7 +210,8 @@ public sealed class DdfUpdateAcceptanceImmediateWaiter : IDdfProductUpdateProces
     $stdout = Join-Path $root 'worker.stdout.txt'
     $stderr = Join-Path $root 'worker.stderr.txt'
     $worker = Start-Process -FilePath $workerExe -PassThru -WindowStyle Hidden `
-        -ArgumentList @('--plan', $planPath, '--journal', $journalPath,
+        -ArgumentList @('--plan', ('"' + $planPath + '"'),
+            '--journal', ('"' + $journalPath + '"'),
             '--nonce', $plan.Nonce) -RedirectStandardOutput $stdout `
         -RedirectStandardError $stderr
     try {

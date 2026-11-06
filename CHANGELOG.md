@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto `DdfProductUpdateArchiveInspector` per costruire l'inventario d'installazione da un archivio locale soltanto dopo firma ufficiale, policy di compatibilità, SHA-256 e dimensione; lettura limitata senza estrazione e rifiuto di file essenziali mancanti, percorsi insicuri e link. Core `339/339`, archivio reale `v0.12.6` (373 file) e installazione isolata in percorso con spazi verificati. Acquisizione iniziale dello ZIP e consensi UI non sono ancora collegati.
+
 - Il downloader dell'updater segue ora un solo redirect HTTPS verso i CDN GitHub esplicitamente ammessi, mantenendo controllo di firma, hash, dimensione e inventario; rifiuta host estranei e catene di redirect. Il test della release reale `v0.12.6` ha completato download e staging di 373 file e installazione fuori processo su una copia isolata `0.12.5`, con attesa della chiusura, health check e backup preservato. Su altre copie isolate, rollback dopo corruzione e recovery da swap interrotto hanno ripristinato la build precedente, che supera il self-test. La correzione richiede una release successiva prima dell'attivazione della UI.
 
 - Le iconbar ora adeguano esplicitamente icone, pulsanti e spazi al DPI del monitor all'apertura e quando la finestra passa a un altro DPI. Smoke standalone/embedded a 96/144/192 DPI e ritorno a 96 verdi; verifica visiva diretta al 100% e prova manuale dell'utente al 150%/200% su standalone e DatabaseDemo embedded, inclusi stati attivi/disabilitati e passaggio tra monitor, senza difetti segnalati. Schermi ripristinati al 100%.

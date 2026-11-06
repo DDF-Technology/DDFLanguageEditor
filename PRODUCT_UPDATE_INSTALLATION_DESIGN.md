@@ -199,6 +199,15 @@ verifica quarantena, hash e self-test del target ripristinato; `-CrashProbe`
 simula l'interruzione dopo il rename target→backup e verifica il recovery e il
 self-test della versione precedente. Ogni modalità usa una directory nuova.
 
+`DdfProductUpdateArchiveInspector` costruisce l'inventario del piano da uno
+ZIP già scaricato soltanto dopo firma, policy di compatibilità, hash e
+dimensione; rifiuta path insicuri, link, duplicati e quote superate senza
+estrarre né eseguire file. La prova reale con `v0.12.6` ha prodotto 373 voci;
+l'installazione completa è riuscita anche in un percorso con spazi. Nello
+script lo ZIP iniziale è fornito esplicitamente e lo stager esegue poi il suo
+download verificato: l'orchestrazione del primo download e dei due consensi
+nella UI standalone resta da implementare. L'embedded non deve adottarla.
+
 ## Matrice di verifica obbligatoria
 
 - portable e installazione per utente, Debug/Release e percorsi con spazi;
