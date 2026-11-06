@@ -57,7 +57,6 @@ namespace DDF___Program_Language_Editor
             })
             {
                 button.CheckOnClick = false;
-                button.Font = new Font("Segoe UI Symbol", 11F);
             }
 
             int breakpointIndex = toolStripMain.Items.IndexOf(toolbarBreakpointButton);

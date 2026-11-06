@@ -5346,8 +5346,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
                     Require(!moduleDiagnostics.Any(diagnostic =>
                             diagnostic.Code == "DDF201" || diagnostic.Code == "DDF312"),
                         "L'editor segnala come sconosciuto un export di un modulo installato.");
-                    Require(FindToolbarButton(form, "toolbarModuleManagerButton").Text !=
-                            FindToolbarButton(form, "toolbarLanguageManagerButton").Text,
+                    Require(!SameToolbarIcon(FindToolbarButton(form, "toolbarModuleManagerButton"),
+                            FindToolbarButton(form, "toolbarLanguageManagerButton")),
                         "Gestore moduli e gestore linguaggi usano la stessa icona.");
                     ToolStripMenuItem modules = FindMenuItem(form, "modulesMenuItem");
                     Require(modules.DropDownItems.Count == 1,
@@ -8738,8 +8738,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
 
         private static void AssertMainToolbar(MainForm form)
         {
-            Require(FindToolbarButton(form, "toolbarLanguageManagerButton").Text !=
-                FindToolbarButton(form, "toolbarSettingsButton").Text,
+            Require(!SameToolbarIcon(FindToolbarButton(form, "toolbarLanguageManagerButton"),
+                FindToolbarButton(form, "toolbarSettingsButton")),
                 "Gestione pacchetti e Impostazioni usano la stessa icona.");
             ToolStripPanel toolbarPanel = FindControl<ToolStripPanel>(form, "toolStripPanelMain");
             ToolStrip[] toolbars = FindToolbars(form).ToArray();
@@ -8768,13 +8768,29 @@ namespace DDFLanguageEditor.EditorSmokeTests
             foreach (string name in expected)
             {
                 ToolStripButton button = FindToolbarButton(form, name);
-                Require(button.DisplayStyle == ToolStripItemDisplayStyle.Text && !string.IsNullOrWhiteSpace(button.Text),
+                Require(button.DisplayStyle == ToolStripItemDisplayStyle.Image && button.Image != null,
                     "Il comando toolbar non presenta un'icona: " + name);
                 Require(!string.IsNullOrWhiteSpace(button.ToolTipText), "Tooltip toolbar mancante: " + name);
-                if (button.Enabled)
-                    Require(ColorDistance(button.ForeColor, button.BackColor) >= 80,
-                        "L'icona toolbar non ha contrasto sufficiente: " + name);
+                Require(!string.IsNullOrWhiteSpace(button.AccessibleName), "Nome accessibile toolbar mancante: " + name);
+                Require(button.Image.Width >= 40 && button.Image.Height >= 40,
+                    "L'icona toolbar non ha risoluzione sufficiente: " + name);
+                foreach (int targetSize in new[] { 20, 30, 40 })
+                {
+                    using (var scaled = new Bitmap(button.Image, new Size(targetSize, targetSize)))
+                    {
+                        bool visiblePixel = false;
+                        for (int y = 0; y < targetSize && !visiblePixel; y++)
+                            for (int x = 0; x < targetSize && !visiblePixel; x++)
+                                visiblePixel = scaled.GetPixel(x, y).A > 0;
+                        Require(visiblePixel, "Icona toolbar vuota a " + targetSize + " px: " + name);
+                    }
+                }
             }
+            ToolStripButton[] icons = expected.Select(name => FindToolbarButton(form, name)).ToArray();
+            for (int left = 0; left < icons.Length; left++)
+                for (int right = left + 1; right < icons.Length; right++)
+                    Require(!SameToolbarIcon(icons[left], icons[right]),
+                        "Icone toolbar indistinguibili: " + icons[left].Name + " e " + icons[right].Name);
             Require(toolbars.SelectMany(item => item.Items.OfType<ToolStripButton>()).Count() == expected.Length,
                 "Numero inatteso di pulsanti nelle barre degli strumenti.");
             Require(toolbars.Length == 7 && toolbars.All(item => item.GripStyle == ToolStripGripStyle.Visible),
@@ -8820,6 +8836,19 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 Require(hasNavy && hasOrange, "La form non usa la nuova icona incorporata navy/arancio.");
             }
             Console.WriteLine("PASS sette toolbar mobili per categoria con 58 comandi, posizione e visibilità persistenti");
+        }
+
+        private static bool SameToolbarIcon(ToolStripButton left, ToolStripButton right)
+        {
+            using (var first = new Bitmap(left.Image))
+            using (var second = new Bitmap(right.Image))
+            {
+                if (first.Size != second.Size) return false;
+                for (int y = 0; y < first.Height; y++)
+                    for (int x = 0; x < first.Width; x++)
+                        if (first.GetPixel(x, y) != second.GetPixel(x, y)) return false;
+                return true;
+            }
         }
 
         private static void AssertRunLastBuildCommand(bool visible)

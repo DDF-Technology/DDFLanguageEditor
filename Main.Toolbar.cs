@@ -147,7 +147,6 @@ namespace DDF___Program_Language_Editor
             toolbarLanguagePlaygroundButton = createToolbarButton("toolbarLanguagePlaygroundButton", "\uE9D9", "Playground linguaggio", languagePlaygroundMenuItem_Click);
             toolStripMain.Items.Add(toolbarLanguagePlaygroundButton);
             toolbarBreakpointButton = createToolbarButton("toolbarBreakpointButton", "●", "Attiva/disattiva breakpoint (F9)", toggleBreakpointMenuItem_Click);
-            toolbarBreakpointButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
             toolbarBreakpointButton.ForeColor = AppTheme.Stop;
             toolStripMain.Items.Add(toolbarBreakpointButton);
             toolbarRunButton = createToolbarButton("toolbarRunButton", "\uE768", "Avvia debug (F5)", runProgramMenuItem_Click);
@@ -165,12 +164,12 @@ namespace DDF___Program_Language_Editor
             {
                 AutoSize = false,
                 AccessibleName = toolTip,
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new Font("Segoe MDL2 Assets", 11F),
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = ToolbarIconProvider.Create(name),
+                ImageScaling = ToolStripItemImageScaling.SizeToFit,
                 Margin = new Padding(1, 1, 1, 2),
                 Name = name,
                 Size = new Size(30, 28),
-                Text = glyph,
                 ToolTipText = toolTip
             };
             button.Click += handler;

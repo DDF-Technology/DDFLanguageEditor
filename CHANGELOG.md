@@ -2,6 +2,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Sostituiti i glifi di font delle iconbar con 58 icone vettoriali piatte, distinte e renderizzate localmente anche nella shell embedded; invariati comandi, tooltip e nomi accessibili. Verifica visiva a scala corrente nello standalone e in DatabaseDemo, smoke WinForms completo e controlli automatici a 20/30/40 px verdi. Resta la verifica visuale a DPI Windows reali 100%/150%/200%.
+
 - Completata la verifica visiva del debug multifile dopo oltre cinque minuti in pausa: Watch e Step reattivi, breakpoint aggiunto durante la sessione e raggiunto, ingresso F10 nella funzione esterna con scheda/Flowchart/Call Stack sincronizzati, Stop pulito e nessun Runner residuo. Distinta la prova UI sul backend VM dallo smoke automatico del worker compilato.
 
 - Il Package Studio apre una finestra più ampia adattata allo spazio disponibile; nella scheda `Inizia` le due righe per parole chiave e operatori condividono colonne allineate, la guida è più compatta e spiegazioni/profili usano l'altezza libera. Eliminati gli scorrimenti superflui all'apertura; verifica visiva e smoke WinForms completo verdi.

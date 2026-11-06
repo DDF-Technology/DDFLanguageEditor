@@ -195,12 +195,13 @@ namespace DDF___Program_Language_Editor
             {
                 AccessibleName = "Linguaggio attivo",
                 AutoSize = false,
-                DisplayStyle = ToolStripItemDisplayStyle.Text,
-                Font = new System.Drawing.Font("Segoe MDL2 Assets", 11F),
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                Image = ToolbarIconProvider.Create("toolbarLanguageButton"),
+                ImageScaling = ToolStripItemImageScaling.SizeToFit,
                 Margin = new Padding(1, 1, 1, 2),
                 Name = "toolbarLanguageButton",
                 Size = new System.Drawing.Size(38, 28),
-                Text = "\uE8F1"
+                ToolTipText = "Linguaggio attivo"
             };
             toolbarLanguageButton.DropDownItems.Add("Gestisci pacchetti...", null, manageLanguagePackagesMenuItem_Click);
             toolbarLanguageStudioMenuItem = new ToolStripMenuItem(

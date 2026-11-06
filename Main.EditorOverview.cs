@@ -35,7 +35,6 @@ namespace DDF___Program_Language_Editor
             toolbarOverviewButton = createToolbarButton(
                 "toolbarOverviewButton", "▥", "Overview diagnostica", showOverviewMenuItem_Click);
             toolbarOverviewButton.CheckOnClick = false;
-            toolbarOverviewButton.Font = new Font("Segoe UI Symbol", 11F);
             int toolbarIndex = toolStripMain.Items.IndexOf(toolbarWordWrapButton);
             toolStripMain.Items.Insert(toolbarIndex + 1, toolbarOverviewButton);
             applyEditorOverviewSettings();
