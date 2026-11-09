@@ -211,6 +211,7 @@ namespace DDFLanguageEditor.Tests
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
             Run("rejects reused updater PIDs and waits for the active editor", RejectsReusedUpdaterPidsAndActiveEditor);
+            Run("preserves the old install when a target file is locked", PreservesOldInstallWhenTargetFileIsLocked);
             Run("completes updates only after a successful health check", CompletesUpdatesOnlyAfterSuccessfulHealthCheck);
             Run("keeps embedded product update checks host controlled", KeepsEmbeddedProductUpdateChecksHostControlled);
             Run("checks the fixed GitHub release feed safely", ChecksFixedGitHubReleaseFeedSafely);
@@ -9454,6 +9455,82 @@ namespace DDFLanguageEditor.Tests
             Throws<TimeoutException>(() => waiter.WaitForExitAsync(current.Id,
                 startedUtc, TimeSpan.FromMilliseconds(50),
                 CancellationToken.None).GetAwaiter().GetResult());
+        }
+
+        private static void PreservesOldInstallWhenTargetFileIsLocked()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                DateTimeOffset now = DateTimeOffset.UtcNow.AddMinutes(-1);
+                byte[] nextExe = Encoding.UTF8.GetBytes("new-editor");
+                string nonce = new string('7', 64);
+                var plan = new DdfProductUpdateInstallationPlan(
+                    "portable-locked", DdfProductVersionCatalog.Current.ProductId,
+                    "0.12.5", "0.13.6-beta.4", "win-x64", "x64",
+                    new string('a', 64), "release-2026",
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.4/editor.zip"),
+                    100, new string('b', 64), Path.Combine(root, "target"),
+                    Path.Combine(root, "staging"), Path.Combine(root, "backup"),
+                    "DDFLanguageEditor.exe", 4242, now.AddMinutes(-1), nonce,
+                    false, new[] { new DdfProductUpdateInstallationFile(
+                        "DDFLanguageEditor.exe", nextExe.LongLength,
+                        HashBytes(nextExe)) }, now);
+                Directory.CreateDirectory(plan.TargetRoot);
+                string targetExe = Path.Combine(plan.TargetRoot,
+                    "DDFLanguageEditor.exe");
+                File.WriteAllText(targetExe, "old-editor", Encoding.UTF8);
+                Directory.CreateDirectory(plan.StagingRoot);
+                File.WriteAllBytes(Path.Combine(plan.StagingRoot,
+                    "DDFLanguageEditor.exe"), nextExe);
+                string planPath = Path.Combine(root, "state", "plan.json");
+                string journalPath = Path.Combine(root, "state", "journal.json");
+                DdfProductUpdateInstallationJournalStore.WritePlan(planPath, plan);
+                string planHash = DdfProductUpdateInstallationJson
+                    .ComputePlanSha256(plan);
+                string sealJson = JsonSerializer.Serialize(new
+                {
+                    schemaVersion = DdfProductUpdateStagingSeal.SchemaVersionValue,
+                    planSha256 = planHash,
+                    inventorySha256 = DdfProductUpdateStagingSealCodec
+                        .ComputeInventorySha256(plan.Inventory),
+                    assetSha256 = plan.AssetSha256,
+                    fileCount = plan.Inventory.Count,
+                    totalFileBytes = plan.Inventory.Sum(file => file.Size),
+                    stagedUtc = now.AddSeconds(3)
+                });
+                File.WriteAllText(DdfProductUpdateStagingSealCodec.SealPathFor(
+                    plan.StagingRoot), sealJson, new UTF8Encoding(false));
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    journalPath);
+                DdfProductUpdateInstallationJournal journal = store.Create(
+                    planHash, now);
+                foreach (DdfProductUpdateInstallationState state in new[]
+                {
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    DdfProductUpdateInstallationState.Downloading,
+                    DdfProductUpdateInstallationState.Staged,
+                    DdfProductUpdateInstallationState.InstallAuthorized
+                })
+                    journal = store.Transition(journal.Revision, state,
+                        now.AddSeconds(journal.Revision + 1));
+                var worker = new DdfProductUpdateWorker(
+                    new ImmediateProcessWaiter());
+                using (var heldFile = new FileStream(targetExe, FileMode.Open,
+                    FileAccess.Read, FileShare.Read))
+                    Throws<InvalidDataException>(() => worker.ApplyAsync(
+                        planPath, journalPath, nonce).GetAwaiter().GetResult());
+                Equal(DdfProductUpdateInstallationState.Failed,
+                    store.Read().State);
+                Equal("old-editor", File.ReadAllText(targetExe, Encoding.UTF8));
+                Equal(false, Directory.Exists(plan.BackupRoot));
+                Equal(true, Directory.Exists(plan.StagingRoot));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
         }
 
         private static void SwapsStagedUpdatesAndRollsBackCorruptedPromotions()

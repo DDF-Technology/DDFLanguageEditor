@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Un test Windows dell'updater tiene aperto l'EXE di una copia temporanea mentre il worker tenta lo swap: il journal termina in `Failed` e target e staging rimangono intatti, senza backup parziale. Core `342/342` verdi; gli altri guasti ambientali restano da coprire.
+
 - Estesa la matrice di accettazione dell'updater: test con processo reale per PID/istante divergenti e timeout dell'editor ancora aperto; lock esclusivo concorrente che lascia `InstallAuthorized` e il target intatti. Core `341/341` verdi. I guasti ambientali rimanenti e l'attivazione UI sono ancora aperti.
 
 - Introdotto il gate del secondo consenso all'aggiornamento: un rifiuto lascia `Staged` invariato; l'autorizzazione richiede stessa sessione, manifesto e archivio firmati, piano/journal correlati e staging integro. Test su PID/istante divergenti e sigillo alterato confermano il rifiuto senza avanzamento. Il gate non è ancora collegato alla UI e non avvia il worker; Core `340/340` verdi.

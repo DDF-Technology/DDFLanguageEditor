@@ -270,8 +270,10 @@ richiedere una seconda connessione a GitHub (`2026-11-06`).
 
 Il gate Core verifica ora con un processo reale il PID riutilizzato e l'editor
 ancora aperto; il test del lock conferma che un secondo worker non avanza e
-non modifica il target. Restano le prove sui file bloccati da terzi e sugli
-altri guasti ambientali prima di attivare la UI.
+non modifica il target. Una prova Windows con l'EXE temporaneo tenuto aperto
+da un altro handle verifica che lo swap fallisca senza cambiare la vecchia
+copia. Restano accesso negato, spazio esaurito e altri guasti ambientali
+prima di attivare la UI.
 
 ## Criteri di accettazione
 
