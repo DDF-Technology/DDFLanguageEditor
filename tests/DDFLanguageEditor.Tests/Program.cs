@@ -8771,6 +8771,28 @@ namespace DDFLanguageEditor.Tests
                     Equal(HashBytes(archive), HashBytes(
                         File.ReadAllBytes(prepared.ArchivePath)));
                     Equal(manifest, prepared.SignedManifestJson);
+                    Equal(manifest, File.ReadAllText(prepared.ManifestPath));
+                    DdfProductUpdatePreparedPackage reopened =
+                        DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
+                            prepared.ArchivePath, trust, request, "win-x64", "x64");
+                    Equal(prepared.Inventory.Count, reopened.Inventory.Count);
+                    Equal(prepared.ArchivePath, reopened.ArchivePath);
+                    File.WriteAllText(prepared.ManifestPath, "{}", Encoding.UTF8);
+                    Throws<InvalidDataException>(() =>
+                        DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
+                            prepared.ArchivePath, trust, request, "win-x64", "x64"));
+                    File.WriteAllText(prepared.ManifestPath, manifest,
+                        new UTF8Encoding(false));
+                    File.Delete(prepared.ManifestPath);
+                    Throws<InvalidDataException>(() =>
+                        DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
+                            prepared.ArchivePath, trust, request, "win-x64", "x64"));
+                    File.WriteAllText(prepared.ManifestPath, manifest,
+                        new UTF8Encoding(false));
+                    File.WriteAllBytes(prepared.ArchivePath, new byte[] { 1, 2, 3 });
+                    Throws<InvalidDataException>(() =>
+                        DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
+                            prepared.ArchivePath, trust, request, "win-x64", "x64"));
                 }
                 Equal(6, handler.Requests.Count);
 

@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il download dell'aggiornamento conserva una ricevuta firmata accanto allo ZIP e la UI la riapre prima di dichiarare completata l'operazione. La riapertura ricontrolla firma, compatibilità, SHA-256 e inventario; ricevuta o archivio alterati vengono rifiutati. Non viene ancora creato un piano d'installazione né avviato il worker. Core `340/340` verdi.
+
 - Lo standalone mostra `Scarica` solo per una release verificata e chiede consenso esplicito dopo aver riletto il manifesto firmato e mostrato versione, origine e dimensione dello ZIP. L'annullamento non scarica l'archivio; la conferma lo salva e verifica senza installarlo. L'embedded resta escluso e l'installazione continua a essere disabilitata. Build Release 0 warning/errori, Core `340/340` e smoke UI updater verdi.
 
 - Lo stager può usare lo ZIP locale già scaricato e verificato, senza un secondo download: ricontrolla SHA-256 e manifesto, poi estrae e sigilla con la pipeline esistente. I test rifiutano un file alterato senza rete; la prova reale isolata `0.12.5 → 0.12.6` ha superato health check e conservato il backup usando `-UseLocalStaging`.

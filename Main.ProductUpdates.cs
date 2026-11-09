@@ -288,9 +288,14 @@ namespace DDF___Program_Language_Editor
                 DdfProductUpdatePreparedPackage prepared = await downloader
                     .DownloadAuthorizedAsync(result, request, runtimeIdentifier,
                         architecture, destination, cancellation.Token);
+                prepared = DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
+                    prepared.ArchivePath, DdfOfficialReleaseTrustStore.Create(),
+                    request, runtimeIdentifier, architecture,
+                    cancellationToken: cancellation.Token);
                 if (IsDisposed || Disposing) return;
                 appendOutput("Aggiornamento " + offer.Version +
                     " scaricato e verificato in " + prepared.ArchivePath +
+                    ". Ricevuta firmata: " + prepared.ManifestPath +
                     ". Installazione non ancora disponibile.");
                 MessageBox.Show(this,
                     "Download e verifica completati. L'installazione " +

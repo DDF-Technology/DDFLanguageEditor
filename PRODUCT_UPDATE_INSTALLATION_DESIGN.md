@@ -214,6 +214,11 @@ nella directory di stato, senza installarlo o eseguirlo. Il consenso separato
 all'installazione, il piano persistito e l'avvio del worker restano da collegare.
 L'embedded non adotta nessuna di queste azioni.
 
+Il download verificato conserva anche il manifesto firmato come ricevuta
+locale accanto allo ZIP. La riapertura verifica di nuovo firma, policy, hash e
+inventario; il solo fatto che i file esistano non autorizza lo staging o
+l'installazione. Il piano persistito resta una fase successiva.
+
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con
 al massimo un redirect HTTPS verso CDN GitHub ammessi, verifica nuovamente

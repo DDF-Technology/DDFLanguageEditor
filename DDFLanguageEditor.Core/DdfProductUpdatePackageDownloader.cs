@@ -15,16 +15,18 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfProductUpdatePreparedPackage
     {
         internal DdfProductUpdatePreparedPackage(string archivePath,
-            string signedManifestJson,
+            string manifestPath, string signedManifestJson,
             IReadOnlyList<DdfProductUpdateInstallationFile> inventory)
         {
             ArchivePath = archivePath;
+            ManifestPath = manifestPath;
             SignedManifestJson = signedManifestJson;
             Inventory = new ReadOnlyCollection<DdfProductUpdateInstallationFile>(
                 new List<DdfProductUpdateInstallationFile>(inventory));
         }
 
         public string ArchivePath { get; }
+        public string ManifestPath { get; }
         public string SignedManifestJson { get; }
         public IReadOnlyList<DdfProductUpdateInstallationFile> Inventory { get; }
     }
@@ -154,6 +156,7 @@ namespace DDFLanguageEditor.Core
             string partial = Path.Combine(destination,
                 Guid.NewGuid().ToString("N") + ".partial");
             string archivePath = Path.ChangeExtension(partial, ".zip");
+            string manifestPath = Path.ChangeExtension(partial, ".manifest.json");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
             timeout.CancelAfter(options.Timeout);
@@ -210,15 +213,69 @@ namespace DDFLanguageEditor.Core
                     DdfProductUpdateArchiveInspector.Inspect(archivePath,
                         manifestJson, trustStore, request, runtimeIdentifier,
                         architecture, options, timeout.Token);
+                byte[] manifestBytes = new UTF8Encoding(false, true).GetBytes(
+                    manifestJson);
+                await using (var receipt = new FileStream(manifestPath,
+                    FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                    BufferSize, FileOptions.Asynchronous | FileOptions.WriteThrough))
+                {
+                    await receipt.WriteAsync(manifestBytes.AsMemory(),
+                        timeout.Token).ConfigureAwait(false);
+                    await receipt.FlushAsync(timeout.Token).ConfigureAwait(false);
+                    receipt.Flush(true);
+                }
                 return new DdfProductUpdatePreparedPackage(archivePath,
-                    manifestJson, inventory);
+                    manifestPath, manifestJson, inventory);
             }
             catch
             {
                 if (File.Exists(partial)) File.Delete(partial);
                 if (File.Exists(archivePath)) File.Delete(archivePath);
+                if (File.Exists(manifestPath)) File.Delete(manifestPath);
                 throw;
             }
+        }
+
+        public static DdfProductUpdatePreparedPackage ReopenVerifiedLocal(
+            string archivePath, DdfReleaseTrustStore trustStore,
+            DdfProductUpdateRequest request, string runtimeIdentifier,
+            string architecture, DdfProductUpdateStagingOptions options = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(archivePath) ||
+                !Path.IsPathFullyQualified(archivePath) ||
+                !string.Equals(Path.GetExtension(archivePath), ".zip",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Archivio ZIP assoluto richiesto.",
+                    nameof(archivePath));
+            string archive = Path.GetFullPath(archivePath);
+            ValidateDestination(Path.GetDirectoryName(archive));
+            string manifestPath = Path.ChangeExtension(archive, ".manifest.json");
+            var info = new FileInfo(manifestPath);
+            if (!info.Exists || info.Length == 0 ||
+                info.Length > MaximumManifestBytes ||
+                (info.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Ricevuta firmata assente o non valida.");
+            byte[] manifestBytes;
+            using (var receipt = new FileStream(manifestPath, FileMode.Open,
+                FileAccess.Read, FileShare.Read, BufferSize,
+                FileOptions.SequentialScan))
+            {
+                if (receipt.Length == 0 || receipt.Length > MaximumManifestBytes)
+                    throw new InvalidDataException("Ricevuta firmata oltre quota.");
+                manifestBytes = new byte[checked((int)receipt.Length)];
+                receipt.ReadExactly(manifestBytes);
+                if (receipt.ReadByte() != -1)
+                    throw new InvalidDataException("Ricevuta firmata oltre quota.");
+            }
+            string manifestJson = new UTF8Encoding(false, true).GetString(
+                manifestBytes);
+            IReadOnlyList<DdfProductUpdateInstallationFile> inventory =
+                DdfProductUpdateArchiveInspector.Inspect(archive, manifestJson,
+                    trustStore, request, runtimeIdentifier, architecture,
+                    options, cancellationToken);
+            return new DdfProductUpdatePreparedPackage(archive, manifestPath,
+                manifestJson, inventory);
         }
 
         public void Dispose()
