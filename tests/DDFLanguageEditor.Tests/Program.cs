@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Globalization;
@@ -209,6 +210,7 @@ namespace DDFLanguageEditor.Tests
             Run("accepts only one trusted GitHub asset redirect", AcceptsOnlyOneTrustedGitHubAssetRedirect);
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
+            Run("rejects reused updater PIDs and waits for the active editor", RejectsReusedUpdaterPidsAndActiveEditor);
             Run("completes updates only after a successful health check", CompletesUpdatesOnlyAfterSuccessfulHealthCheck);
             Run("keeps embedded product update checks host controlled", KeepsEmbeddedProductUpdateChecksHostControlled);
             Run("checks the fixed GitHub release feed safely", ChecksFixedGitHubReleaseFeedSafely);
@@ -9439,6 +9441,21 @@ namespace DDFLanguageEditor.Tests
         private static string HashBytes(byte[] bytes) => Convert.ToHexString(
             SHA256.HashData(bytes)).ToLowerInvariant();
 
+        private static void RejectsReusedUpdaterPidsAndActiveEditor()
+        {
+            using Process current = Process.GetCurrentProcess();
+            DateTimeOffset startedUtc = new DateTimeOffset(
+                current.StartTime.ToUniversalTime(), TimeSpan.Zero);
+            var waiter = new DdfProductUpdateProcessWaiter();
+            Throws<InvalidOperationException>(() => waiter.WaitForExitAsync(
+                current.Id, startedUtc.AddTicks(1),
+                TimeSpan.FromMilliseconds(50), CancellationToken.None)
+                .GetAwaiter().GetResult());
+            Throws<TimeoutException>(() => waiter.WaitForExitAsync(current.Id,
+                startedUtc, TimeSpan.FromMilliseconds(50),
+                CancellationToken.None).GetAwaiter().GetResult());
+        }
+
         private static void SwapsStagedUpdatesAndRollsBackCorruptedPromotions()
         {
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
@@ -9520,6 +9537,17 @@ namespace DDFLanguageEditor.Tests
                     journalPath, new string('8', 64)).GetAwaiter().GetResult());
                 Equal(DdfProductUpdateInstallationState.InstallAuthorized,
                     store.Read().State);
+                using (var rivalLock = new FileStream(journalPath + ".lock",
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+                {
+                    Throws<InvalidOperationException>(() => worker.ApplyAsync(
+                        planPath, journalPath, nonce).GetAwaiter().GetResult());
+                    Equal(DdfProductUpdateInstallationState.InstallAuthorized,
+                        store.Read().State);
+                    Equal(false, Directory.Exists(plan.BackupRoot));
+                    Equal("old-editor", File.ReadAllText(Path.Combine(
+                        plan.TargetRoot, "DDFLanguageEditor.exe"), Encoding.UTF8));
+                }
 
                 DdfProductUpdateWorkerResult applied = worker.ApplyAsync(planPath,
                     journalPath, nonce).GetAwaiter().GetResult();

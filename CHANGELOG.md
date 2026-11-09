@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Estesa la matrice di accettazione dell'updater: test con processo reale per PID/istante divergenti e timeout dell'editor ancora aperto; lock esclusivo concorrente che lascia `InstallAuthorized` e il target intatti. Core `341/341` verdi. I guasti ambientali rimanenti e l'attivazione UI sono ancora aperti.
+
 - Introdotto il gate del secondo consenso all'aggiornamento: un rifiuto lascia `Staged` invariato; l'autorizzazione richiede stessa sessione, manifesto e archivio firmati, piano/journal correlati e staging integro. Test su PID/istante divergenti e sigillo alterato confermano il rifiuto senza avanzamento. Il gate non è ancora collegato alla UI e non avvia il worker; Core `340/340` verdi.
 
 - Il Core dispone ora di un coordinatore locale che, da pacchetto e destinazione rivalidati, persiste piano e journal e completa lo staging senza installare. Rifiuta uno stato precedente o journal dentro la directory da sostituire; il test verifica `Staged`, target e backup intatti e secondo tentativo negato. La UI non lo invoca ancora, perché il PID del piano deve appartenere alla sessione che autorizzerà l'installazione. Core `340/340` verdi.

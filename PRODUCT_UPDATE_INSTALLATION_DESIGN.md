@@ -268,6 +268,11 @@ richiedere una seconda connessione a GitHub (`2026-11-06`).
 - incompatibilità fra protocollo worker, manifesto e schema persistito;
 - assenza completa di download/installazione/elevazione nell'embedded.
 
+Il gate Core verifica ora con un processo reale il PID riutilizzato e l'editor
+ancora aperto; il test del lock conferma che un secondo worker non avanza e
+non modifica il target. Restano le prove sui file bloccati da terzi e sugli
+altri guasti ambientali prima di attivare la UI.
+
 ## Criteri di accettazione
 
 L'installazione potrà essere dichiarata disponibile soltanto quando una suite
