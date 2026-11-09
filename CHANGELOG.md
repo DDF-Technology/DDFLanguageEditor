@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Il Core dispone ora di un coordinatore locale che, da pacchetto e destinazione rivalidati, persiste piano e journal e completa lo staging senza installare. Rifiuta uno stato precedente o journal dentro la directory da sostituire; il test verifica `Staged`, target e backup intatti e secondo tentativo negato. La UI non lo invoca ancora, perché il PID del piano deve appartenere alla sessione che autorizzerà l'installazione. Core `340/340` verdi.
+
 - Aggiunto un preflight in sola lettura per la destinazione dell'updater: riconosce l'EXE standalone self-contained, verifica i componenti essenziali, esclude copie nel repository, directory di sistema e reparse point, e propone staging/backup separati sullo stesso volume. Dopo il download la UI ne registra l'esito; non crea piano o journal e non avvia il worker. Core `340/340` verdi.
 
 - Una factory Core costruisce il piano immutabile solo dal pacchetto locale riaperto e rivalidato, derivando asset, versione, firma, hash e inventario dal manifesto verificato e generando un nonce nuovo. Il test integrato persiste piano/journal in isolamento e completa lo staging locale senza rete, fermandosi a `Staged`: nessuna installazione o sostituzione dell'editor è abilitata. Core `340/340` verdi.

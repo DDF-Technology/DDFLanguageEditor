@@ -229,6 +229,12 @@ e controlla che sia una distribuzione standalone self-contained integra nei
 componenti essenziali. Rifiuta copie nel repository, directory di sistema e
 reparse point; prepara percorsi distinti sul medesimo volume ma non li crea.
 La UI mostra l'esito dopo il download senza costruire o applicare un piano.
+Il coordinatore Core `DdfProductUpdateLocalPreparation` può già persistire
+piano e journal e sigillare lo staging da archivio locale verificato. Rifiuta
+uno stato precedente e non concede `InstallAuthorized`; non viene chiamato
+dalla UI. Il PID e l'istante dell'editor devono essere acquisiti nella stessa
+sessione in cui si chiede il consenso all'installazione: creare il piano al
+solo download lo renderebbe obsoleto dopo un riavvio dell'editor.
 
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con

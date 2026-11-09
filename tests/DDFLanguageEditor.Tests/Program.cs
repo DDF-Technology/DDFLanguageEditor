@@ -8813,9 +8813,13 @@ namespace DDFLanguageEditor.Tests
                         journalStore.Read().State);
                     Equal(false, Directory.Exists(localPlan.TargetRoot));
                     Equal(true, Directory.Exists(localPlan.StagingRoot));
-                    string installedRoot = CreateTemporaryDirectory();
+                    string installContainer = CreateTemporaryDirectory();
+                    string installedRoot = Path.Combine(installContainer,
+                        "portable-editor");
+                    DdfProductUpdateInstallationBinding binding = null;
                     try
                     {
+                        Directory.CreateDirectory(installedRoot);
                         foreach (string name in new[]
                         {
                             "DDFLanguageEditor.exe", "DDFLanguageEditor.dll",
@@ -8833,8 +8837,8 @@ namespace DDFLanguageEditor.Tests
                             "{}", Encoding.UTF8);
                         string installedExe = Path.Combine(installedRoot,
                             "DDFLanguageEditor.exe");
-                        DdfProductUpdateInstallationBinding binding =
-                            DdfProductUpdateInstallationBinding.Resolve(installedExe);
+                        binding = DdfProductUpdateInstallationBinding.Resolve(
+                            installedExe);
                         DdfProductUpdateInstallationBinding nextBinding =
                             DdfProductUpdateInstallationBinding.Resolve(installedExe);
                         Equal(installedRoot, binding.TargetRoot);
@@ -8842,6 +8846,40 @@ namespace DDFLanguageEditor.Tests
                         Equal(false, binding.StagingRoot == nextBinding.StagingRoot);
                         Equal(Path.GetPathRoot(installedRoot),
                             Path.GetPathRoot(binding.StagingRoot));
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateLocalPreparation.PrepareAsync(
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding,
+                                Path.Combine(installedRoot, "update-state"),
+                                1234, DateTimeOffset.UtcNow.AddMinutes(-1))
+                                .GetAwaiter().GetResult());
+                        Equal(false, File.Exists(Path.Combine(installedRoot,
+                            "update-state", "plan.json")));
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateLocalPreparation.PrepareAsync(
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding, installContainer, 1234,
+                                DateTimeOffset.UtcNow.AddMinutes(-1))
+                                .GetAwaiter().GetResult());
+                        string boundState = Path.Combine(root, "bound-state");
+                        DdfProductUpdateLocalPreparationResult staged =
+                            DdfProductUpdateLocalPreparation.PrepareAsync(
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding, boundState, 1234,
+                                DateTimeOffset.UtcNow.AddMinutes(-1))
+                                .GetAwaiter().GetResult();
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            new DdfProductUpdateInstallationJournalStore(
+                                staged.JournalPath).Read().State);
+                        Equal(binding.TargetRoot, staged.Plan.TargetRoot);
+                        Equal(false, Directory.Exists(binding.BackupRoot));
+                        Equal(true, File.Exists(installedExe));
+                        Throws<InvalidOperationException>(() =>
+                            DdfProductUpdateLocalPreparation.PrepareAsync(
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding, boundState, 1234,
+                                DateTimeOffset.UtcNow.AddMinutes(-1))
+                                .GetAwaiter().GetResult());
                         Throws<InvalidDataException>(() =>
                             DdfProductUpdateInstallationBinding.Resolve(
                                 Path.Combine(installedRoot, "dotnet.exe")));
@@ -8855,7 +8893,7 @@ namespace DDFLanguageEditor.Tests
                     }
                     finally
                     {
-                        Directory.Delete(installedRoot, true);
+                        Directory.Delete(installContainer, true);
                     }
                     File.WriteAllText(prepared.ManifestPath, "{}", Encoding.UTF8);
                     Throws<InvalidDataException>(() =>
