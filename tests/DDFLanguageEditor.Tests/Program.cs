@@ -8813,6 +8813,50 @@ namespace DDFLanguageEditor.Tests
                         journalStore.Read().State);
                     Equal(false, Directory.Exists(localPlan.TargetRoot));
                     Equal(true, Directory.Exists(localPlan.StagingRoot));
+                    string installedRoot = CreateTemporaryDirectory();
+                    try
+                    {
+                        foreach (string name in new[]
+                        {
+                            "DDFLanguageEditor.exe", "DDFLanguageEditor.dll",
+                            "DDFLanguageEditor.WinForms.dll",
+                            "DDFLanguageEditor.Core.dll",
+                            "DDFLanguageEditor.deps.json",
+                            "DDFLanguageEditor.runtimeconfig.json",
+                            "coreclr.dll", "hostfxr.dll", "hostpolicy.dll"
+                        })
+                            File.WriteAllText(Path.Combine(installedRoot, name), name);
+                        string languageRoot = Path.Combine(installedRoot,
+                            "language-packages", "ddf");
+                        Directory.CreateDirectory(languageRoot);
+                        File.WriteAllText(Path.Combine(languageRoot, "manifest.json"),
+                            "{}", Encoding.UTF8);
+                        string installedExe = Path.Combine(installedRoot,
+                            "DDFLanguageEditor.exe");
+                        DdfProductUpdateInstallationBinding binding =
+                            DdfProductUpdateInstallationBinding.Resolve(installedExe);
+                        DdfProductUpdateInstallationBinding nextBinding =
+                            DdfProductUpdateInstallationBinding.Resolve(installedExe);
+                        Equal(installedRoot, binding.TargetRoot);
+                        Equal(binding.InstallationId, nextBinding.InstallationId);
+                        Equal(false, binding.StagingRoot == nextBinding.StagingRoot);
+                        Equal(Path.GetPathRoot(installedRoot),
+                            Path.GetPathRoot(binding.StagingRoot));
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateInstallationBinding.Resolve(
+                                Path.Combine(installedRoot, "dotnet.exe")));
+                        Directory.CreateDirectory(Path.Combine(installedRoot, ".git"));
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateInstallationBinding.Resolve(installedExe));
+                        Directory.Delete(Path.Combine(installedRoot, ".git"));
+                        File.Delete(Path.Combine(installedRoot, "coreclr.dll"));
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateInstallationBinding.Resolve(installedExe));
+                    }
+                    finally
+                    {
+                        Directory.Delete(installedRoot, true);
+                    }
                     File.WriteAllText(prepared.ManifestPath, "{}", Encoding.UTF8);
                     Throws<InvalidDataException>(() =>
                         DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(

@@ -297,6 +297,19 @@ namespace DDF___Program_Language_Editor
                     " scaricato e verificato in " + prepared.ArchivePath +
                     ". Ricevuta firmata: " + prepared.ManifestPath +
                     ". Installazione non ancora disponibile.");
+                try
+                {
+                    DdfProductUpdateInstallationBinding binding =
+                        DdfProductUpdateInstallationBinding.Resolve(
+                            Environment.ProcessPath);
+                    appendOutput("Preflight installazione: destinazione " +
+                        binding.TargetRoot + ". Piano e applicazione ancora disabilitati.");
+                }
+                catch (InvalidDataException exception)
+                {
+                    appendOutput("Preflight installazione non disponibile: " +
+                        exception.Message);
+                }
                 MessageBox.Show(this,
                     "Download e verifica completati. L'installazione " +
                     "automatica non è ancora disponibile in questa beta.",

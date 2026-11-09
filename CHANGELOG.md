@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Aggiunto un preflight in sola lettura per la destinazione dell'updater: riconosce l'EXE standalone self-contained, verifica i componenti essenziali, esclude copie nel repository, directory di sistema e reparse point, e propone staging/backup separati sullo stesso volume. Dopo il download la UI ne registra l'esito; non crea piano o journal e non avvia il worker. Core `340/340` verdi.
+
 - Una factory Core costruisce il piano immutabile solo dal pacchetto locale riaperto e rivalidato, derivando asset, versione, firma, hash e inventario dal manifesto verificato e generando un nonce nuovo. Il test integrato persiste piano/journal in isolamento e completa lo staging locale senza rete, fermandosi a `Staged`: nessuna installazione o sostituzione dell'editor è abilitata. Core `340/340` verdi.
 
 - Il download dell'aggiornamento conserva una ricevuta firmata accanto allo ZIP e la UI la riapre prima di dichiarare completata l'operazione. La riapertura ricontrolla firma, compatibilità, SHA-256 e inventario; ricevuta o archivio alterati vengono rifiutati. La UI non crea ancora un piano d'installazione né avvia il worker. Core `340/340` verdi.

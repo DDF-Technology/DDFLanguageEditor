@@ -5,8 +5,9 @@ attivazione generale non attiva**
 (`0.13.6`).
 
 Questo documento definisce il confine di sicurezza dell'eventuale updater di
-DDFLanguageEditor. Non abilita download, installazione, elevazione, chiusura o
-riavvio dell'applicazione. La chiave ufficiale è provisionata e la prima
+DDFLanguageEditor. Il download con consenso è disponibile nello standalone;
+non sono abilitati installazione, elevazione, chiusura o riavvio
+dell'applicazione. La chiave ufficiale è provisionata e la prima
 release remota firmata è pubblicata; l'attivazione richiede ancora il
 completamento dei gate descritti qui sotto. Il
 Core comprende ora i contratti `DdfProductUpdateInstallationPlan@1.0` e
@@ -223,6 +224,11 @@ riapertura. Un test isola piano e journal e completa `StageLocalAsync` senza
 rete, fermandosi a `Staged`: non viene autorizzata l'installazione. Il binding
 alla directory dell'editor in esecuzione, il consenso distinto e l'avvio del
 worker rimangono esclusi dalla UI corrente.
+Il preflight di destinazione legge soltanto il percorso dell'EXE in esecuzione
+e controlla che sia una distribuzione standalone self-contained integra nei
+componenti essenziali. Rifiuta copie nel repository, directory di sistema e
+reparse point; prepara percorsi distinti sul medesimo volume ma non li crea.
+La UI mostra l'esito dopo il download senza costruire o applicare un piano.
 
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con
