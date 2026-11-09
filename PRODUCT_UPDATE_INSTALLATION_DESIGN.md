@@ -235,6 +235,10 @@ uno stato precedente e non concede `InstallAuthorized`; non viene chiamato
 dalla UI. Il PID e l'istante dell'editor devono essere acquisiti nella stessa
 sessione in cui si chiede il consenso all'installazione: creare il piano al
 solo download lo renderebbe obsoleto dopo un riavvio dell'editor.
+Il gate Core `DdfProductUpdateInstallAuthorization` separa il rifiuto (nessuna
+transizione) dall'autorizzazione: prima di `InstallAuthorized` ricontrolla
+sessione, manifesto firmato, archivio, piano/journal e sigillo staging.
+Non avvia il worker e non è ancora invocato dalla UI.
 
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con

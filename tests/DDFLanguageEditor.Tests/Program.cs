@@ -8874,6 +8874,40 @@ namespace DDFLanguageEditor.Tests
                         Equal(binding.TargetRoot, staged.Plan.TargetRoot);
                         Equal(false, Directory.Exists(binding.BackupRoot));
                         Equal(true, File.Exists(installedExe));
+                        bool Authorize(int pid, DateTimeOffset started,
+                            bool consent) =>
+                            DdfProductUpdateInstallAuthorization.TryAuthorize(
+                                staged.PlanPath, staged.JournalPath,
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding, installedExe, pid, started,
+                                consent);
+                        Equal(false, Authorize(1234,
+                            staged.Plan.ParentProcessStartedUtc, false));
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            new DdfProductUpdateInstallationJournalStore(
+                                staged.JournalPath).Read().State);
+                        Throws<InvalidOperationException>(() => Authorize(1235,
+                            staged.Plan.ParentProcessStartedUtc, true));
+                        Throws<InvalidOperationException>(() => Authorize(1234,
+                            staged.Plan.ParentProcessStartedUtc.AddSeconds(1), true));
+                        string stagedSealPath = DdfProductUpdateStagingSealCodec
+                            .SealPathFor(binding.StagingRoot);
+                        string originalSeal = File.ReadAllText(stagedSealPath);
+                        File.WriteAllText(stagedSealPath, "{}", Encoding.UTF8);
+                        Throws<InvalidDataException>(() => Authorize(1234,
+                            staged.Plan.ParentProcessStartedUtc, true));
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            new DdfProductUpdateInstallationJournalStore(
+                                staged.JournalPath).Read().State);
+                        File.WriteAllText(stagedSealPath, originalSeal,
+                            new UTF8Encoding(false));
+                        Equal(true, Authorize(1234,
+                            staged.Plan.ParentProcessStartedUtc, true));
+                        Equal(DdfProductUpdateInstallationState.InstallAuthorized,
+                            new DdfProductUpdateInstallationJournalStore(
+                                staged.JournalPath).Read().State);
+                        Equal(false, Directory.Exists(binding.BackupRoot));
+                        Equal(true, File.Exists(installedExe));
                         Throws<InvalidOperationException>(() =>
                             DdfProductUpdateLocalPreparation.PrepareAsync(
                                 prepared.ArchivePath, trust, request, "win-x64",
