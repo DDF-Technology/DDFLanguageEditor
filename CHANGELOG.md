@@ -8,7 +8,9 @@
 
 ## Correzioni non ancora rilasciate
 
-- Il download dell'aggiornamento conserva una ricevuta firmata accanto allo ZIP e la UI la riapre prima di dichiarare completata l'operazione. La riapertura ricontrolla firma, compatibilità, SHA-256 e inventario; ricevuta o archivio alterati vengono rifiutati. Non viene ancora creato un piano d'installazione né avviato il worker. Core `340/340` verdi.
+- Una factory Core costruisce il piano immutabile solo dal pacchetto locale riaperto e rivalidato, derivando asset, versione, firma, hash e inventario dal manifesto verificato e generando un nonce nuovo. Il test integrato persiste piano/journal in isolamento e completa lo staging locale senza rete, fermandosi a `Staged`: nessuna installazione o sostituzione dell'editor è abilitata. Core `340/340` verdi.
+
+- Il download dell'aggiornamento conserva una ricevuta firmata accanto allo ZIP e la UI la riapre prima di dichiarare completata l'operazione. La riapertura ricontrolla firma, compatibilità, SHA-256 e inventario; ricevuta o archivio alterati vengono rifiutati. La UI non crea ancora un piano d'installazione né avvia il worker. Core `340/340` verdi.
 
 - Lo standalone mostra `Scarica` solo per una release verificata e chiede consenso esplicito dopo aver riletto il manifesto firmato e mostrato versione, origine e dimensione dello ZIP. L'annullamento non scarica l'archivio; la conferma lo salva e verifica senza installarlo. L'embedded resta escluso e l'installazione continua a essere disabilitata. Build Release 0 warning/errori, Core `340/340` e smoke UI updater verdi.
 

@@ -8777,6 +8777,42 @@ namespace DDFLanguageEditor.Tests
                             prepared.ArchivePath, trust, request, "win-x64", "x64");
                     Equal(prepared.Inventory.Count, reopened.Inventory.Count);
                     Equal(prepared.ArchivePath, reopened.ArchivePath);
+                    string planRoot = Path.Combine(root, "local-plan");
+                    DateTimeOffset plannedUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+                    DdfProductUpdateInstallationPlan localPlan =
+                        DdfProductUpdateLocalPlanFactory.Create(
+                            prepared.ArchivePath, trust, request, "win-x64", "x64",
+                            "portable-local-test", Path.Combine(planRoot, "target"),
+                            Path.Combine(planRoot, "staging"),
+                            Path.Combine(planRoot, "backup"),
+                            "DDFLanguageEditor.exe", 1234,
+                            plannedUtc.AddMinutes(-1), plannedUtc);
+                    Equal(version, localPlan.TargetVersion);
+                    Equal(HashBytes(Encoding.UTF8.GetBytes(manifest)),
+                        localPlan.ManifestSha256);
+                    Equal(files.Count, localPlan.Inventory.Count);
+                    string planPath = Path.Combine(planRoot, "state", "plan.json");
+                    DdfProductUpdateInstallationJournalStore.WritePlan(
+                        planPath, localPlan);
+                    var journalStore = new DdfProductUpdateInstallationJournalStore(
+                        Path.Combine(planRoot, "state", "journal.json"));
+                    var journal = journalStore.Create(
+                        DdfProductUpdateInstallationJson.ComputePlanSha256(localPlan),
+                        plannedUtc);
+                    journalStore.Transition(journal.Revision,
+                        DdfProductUpdateInstallationState.DownloadAuthorized,
+                        plannedUtc.AddSeconds(1));
+                    var noNetwork = new QueueHttpMessageHandler();
+                    using (var stager = new DdfProductUpdateStager(noNetwork))
+                        stager.StageLocalAsync(localPlan,
+                            reopened.SignedManifestJson, trust, journalStore,
+                            DateTimeOffset.UtcNow, reopened.ArchivePath)
+                            .GetAwaiter().GetResult();
+                    Equal(0, noNetwork.Requests.Count);
+                    Equal(DdfProductUpdateInstallationState.Staged,
+                        journalStore.Read().State);
+                    Equal(false, Directory.Exists(localPlan.TargetRoot));
+                    Equal(true, Directory.Exists(localPlan.StagingRoot));
                     File.WriteAllText(prepared.ManifestPath, "{}", Encoding.UTF8);
                     Throws<InvalidDataException>(() =>
                         DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
