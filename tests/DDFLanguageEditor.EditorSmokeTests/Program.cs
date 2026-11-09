@@ -9315,20 +9315,28 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "productUpdateOpenReleaseButton").Enabled &&
                     FindControl<Button>(details,
                         "productUpdateOpenReleaseButton").AccessibleName.Length > 0 &&
+                    FindControl<Button>(details,
+                        "productUpdateDownloadButton").Enabled &&
                     FindControl<TextBox>(details,
                         "productUpdateDetailsTextBox").AccessibleName.Length > 0,
                 "Il popup aggiornamenti non espone la release verificata.");
             Button openButton = FindControl<Button>(details,
                 "productUpdateOpenReleaseButton");
+            Button downloadButton = FindControl<Button>(details,
+                "productUpdateDownloadButton");
             Button closeButton = FindControl<Button>(details,
                 "productUpdateCloseButton");
             Rectangle clientBounds = details.RectangleToScreen(
                 details.ClientRectangle);
             Rectangle openBounds = openButton.RectangleToScreen(
                 openButton.ClientRectangle);
+            Rectangle downloadBounds = downloadButton.RectangleToScreen(
+                downloadButton.ClientRectangle);
             Rectangle closeBounds = closeButton.RectangleToScreen(
                 closeButton.ClientRectangle);
-            Require(openBounds.Bottom <= clientBounds.Bottom - 12 &&
+            Require(downloadBounds.Bottom <= clientBounds.Bottom - 12 &&
+                    downloadBounds.Right < openBounds.Left &&
+                    openBounds.Bottom <= clientBounds.Bottom - 12 &&
                     closeBounds.Bottom <= clientBounds.Bottom - 12 &&
                     openBounds.Right < closeBounds.Left &&
                     closeBounds.Right <= clientBounds.Right - 12,
@@ -9339,11 +9347,24 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "Chiudi non chiude il popup non modale.");
 
             Uri openedRelease = null;
+            int downloadRequests = 0;
             using (var actionForm = new ProductUpdateForm(available,
-                uri => openedRelease = uri))
+                uri => openedRelease = uri,
+                result =>
+                {
+                    downloadRequests++;
+                    Require(ReferenceEquals(available, result),
+                        "Scarica usa un risultato diverso da quello mostrato.");
+                    return Task.CompletedTask;
+                }))
             {
                 actionForm.Show(form);
                 PumpMessages(50);
+                FindControl<Button>(actionForm,
+                    "productUpdateDownloadButton").PerformClick();
+                PumpMessages(50);
+                Require(downloadRequests == 1,
+                    "Scarica non richiede il flusso autorizzato.");
                 FindControl<Button>(actionForm,
                     "productUpdateOpenReleaseButton").PerformClick();
                 Require(openedRelease == available.VerifiedReleaseUri,
@@ -9364,6 +9385,8 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 Require(!FindControl<Button>(currentForm,
                         "productUpdateOpenReleaseButton").Enabled &&
+                    !FindControl<Button>(currentForm,
+                        "productUpdateDownloadButton").Enabled &&
                     FindControl<Label>(currentForm,
                         "productUpdateActionHintLabel").Text.Contains(
                             "Nessuna nuova release", StringComparison.Ordinal),

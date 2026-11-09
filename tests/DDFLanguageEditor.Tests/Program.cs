@@ -8742,11 +8742,27 @@ namespace DDFLanguageEditor.Tests
                 handler.Enqueue((message, token) => Task.FromResult(
                     new HttpResponseMessage(HttpStatusCode.OK)
                     {
+                        Content = new ByteArrayContent(Encoding.UTF8.GetBytes(manifest))
+                    }));
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.Redirect)
+                    {
+                        Headers = { Location = cdn }
+                    }));
+                handler.Enqueue((message, token) => Task.FromResult(
+                    new HttpResponseMessage(HttpStatusCode.OK)
+                    {
                         Content = new ByteArrayContent(archive)
                     }));
                 using (var downloader = new DdfProductUpdatePackageDownloader(
                     trust, handler))
                 {
+                    DdfProductUpdateVerifiedOffer offer = downloader
+                        .InspectOfferAsync(checkedResult, request,
+                            "win-x64", "x64").GetAwaiter().GetResult();
+                    Equal(archive.LongLength, offer.AssetSize);
+                    Equal(version, offer.Version);
+                    Equal(2, handler.Requests.Count);
                     DdfProductUpdatePreparedPackage prepared = downloader
                         .DownloadAuthorizedAsync(checkedResult, request,
                             "win-x64", "x64", Path.Combine(root, "allowed"))
@@ -8756,7 +8772,7 @@ namespace DDFLanguageEditor.Tests
                         File.ReadAllBytes(prepared.ArchivePath)));
                     Equal(manifest, prepared.SignedManifestJson);
                 }
-                Equal(4, handler.Requests.Count);
+                Equal(6, handler.Requests.Count);
 
                 var foreign = new QueueHttpMessageHandler();
                 foreign.Enqueue((message, token) => Task.FromResult(

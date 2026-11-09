@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DDFLanguageEditor.Core;
 
@@ -9,10 +10,12 @@ namespace DDF___Program_Language_Editor
     public sealed class ProductUpdateForm : Form
     {
         private readonly Button openReleaseButton;
+        private readonly Button downloadButton;
         private readonly DdfProductUpdateResult result;
 
         public ProductUpdateForm(DdfProductUpdateResult result,
-            Action<Uri> openRelease)
+            Action<Uri> openRelease,
+            Func<DdfProductUpdateResult, Task> download = null)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
             Name = "ProductUpdateForm";
@@ -69,12 +72,13 @@ namespace DDF___Program_Language_Editor
             var footer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 3,
+                ColumnCount = 4,
                 RowCount = 2,
                 Margin = Padding.Empty,
                 Padding = Padding.Empty
             };
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104F));
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
             footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -91,7 +95,7 @@ namespace DDF___Program_Language_Editor
                         ? "Nessuna nuova release da aprire."
                         : "Nessuna pagina di release verificata da aprire."
             }, 0, 0);
-            footer.SetColumnSpan(footer.Controls[0], 3);
+            footer.SetColumnSpan(footer.Controls[0], 4);
             var close = new Button
             {
                 Name = "productUpdateCloseButton",
@@ -114,8 +118,35 @@ namespace DDF___Program_Language_Editor
             {
                 if (result.IsActionable) openRelease?.Invoke(result.VerifiedReleaseUri);
             };
-            footer.Controls.Add(openReleaseButton, 1, 1);
-            footer.Controls.Add(close, 2, 1);
+            downloadButton = new Button
+            {
+                Name = "productUpdateDownloadButton",
+                AccessibleName = "Scarica aggiornamento verificato",
+                Text = "Scarica",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(6, 2, 0, 3),
+                Enabled = result.IsActionable && download != null
+            };
+            downloadButton.Click += async (sender, args) =>
+            {
+                if (!result.IsActionable || download == null) return;
+                downloadButton.Enabled = false;
+                try { await download(result); }
+                catch (Exception exception)
+                {
+                    if (!IsDisposed)
+                        MessageBox.Show(this, exception.Message,
+                            "Download aggiornamento", MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    if (!IsDisposed) downloadButton.Enabled = true;
+                }
+            };
+            footer.Controls.Add(downloadButton, 1, 1);
+            footer.Controls.Add(openReleaseButton, 2, 1);
+            footer.Controls.Add(close, 3, 1);
             layout.Controls.Add(footer, 0, 6);
             layout.SetColumnSpan(footer, 2);
             Controls.Add(layout);

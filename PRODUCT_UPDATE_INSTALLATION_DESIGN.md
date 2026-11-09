@@ -206,8 +206,13 @@ estrarre né eseguire file. La prova reale con `v0.12.6` ha prodotto 373 voci;
 l'installazione completa è riuscita anche in un percorso con spazi. Nello
 script lo ZIP iniziale è fornito esplicitamente; lo stager può ora usare
 `StageLocalAsync` per ricontrollarlo e sigillarlo senza un secondo download.
-L'orchestrazione dei due consensi nella UI standalone resta da implementare.
-L'embedded non deve adottarla.
+Il primo consenso al download è ora collegato alla UI standalone: prima di
+mostrarlo, `InspectOfferAsync` rilegge il manifesto firmato e presenta versione,
+origine e dimensione dell'asset. Annullare non richiede lo ZIP. Dopo conferma,
+`DownloadAuthorizedAsync` verifica di nuovo il manifesto e scarica l'archivio
+nella directory di stato, senza installarlo o eseguirlo. Il consenso separato
+all'installazione, il piano persistito e l'avvio del worker restano da collegare.
+L'embedded non adotta nessuna di queste azioni.
 
 `DdfProductUpdatePackageDownloader` copre ora il primo download dopo consenso
 esplicito del chiamante: recupera dal repository ufficiale manifesto e ZIP con
@@ -216,9 +221,10 @@ firma, policy e corrispondenza con l'aggiornamento già controllato, scarica
 entro quota in un file `.partial`, controlla SHA-256 e produce l'inventario
 tramite l'inspector. In caso di errore rimuove soltanto i propri file
 temporanei. Una prova online reale su `v0.12.6` ha prodotto 373 voci senza
-installare. Il collegamento ai dialoghi di consenso standalone, la costruzione
-del piano persistito e l'avvio del worker rimangono aperti; nessuna nuova
-azione automatica è disponibile nella UI o nell'embedded.
+installare. La UI standalone espone il download soltanto dopo consenso
+esplicito; la costruzione del piano persistito e l'avvio del worker rimangono
+aperti. Nessuna installazione automatica è disponibile nella UI o
+nell'embedded.
 La prova `-UseLocalStaging` ha poi installato la stessa copia verificata in
 un target isolato `0.12.5`, con health check verde e backup conservato, senza
 richiedere una seconda connessione a GitHub (`2026-11-06`).

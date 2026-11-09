@@ -29,6 +29,22 @@ namespace DDFLanguageEditor.Core
         public IReadOnlyList<DdfProductUpdateInstallationFile> Inventory { get; }
     }
 
+    public sealed class DdfProductUpdateVerifiedOffer
+    {
+        internal DdfProductUpdateVerifiedOffer(DdfReleaseManifestAsset asset,
+            string signedManifestJson)
+        {
+            Asset = asset;
+            SignedManifestJson = signedManifestJson;
+        }
+
+        internal DdfReleaseManifestAsset Asset { get; }
+        internal string SignedManifestJson { get; }
+        public string Version => Asset.Version;
+        public Uri AssetUri => Asset.Uri;
+        public long AssetSize => Asset.Size;
+    }
+
     /// <summary>
     /// Downloads the signed manifest and matching ZIP only after the caller
     /// has obtained explicit download consent. It does not install anything.
@@ -68,6 +84,59 @@ namespace DDFLanguageEditor.Core
             };
         }
 
+        public async Task<DdfProductUpdateVerifiedOffer> InspectOfferAsync(
+            DdfProductUpdateResult checkedResult,
+            DdfProductUpdateRequest request, string runtimeIdentifier,
+            string architecture, CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            Uri assetUri = ValidateCheckedResult(checkedResult, request);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+            timeout.CancelAfter(options.Timeout);
+            Uri manifestUri = new Uri(assetUri,
+                DdfSignedGitHubReleaseEvaluator.ManifestAssetName);
+            string manifestJson;
+            using (HttpResponseMessage response = await GetResponseAsync(
+                manifestUri, timeout.Token).ConfigureAwait(false))
+            {
+                if (response.Content.Headers.ContentLength > MaximumManifestBytes)
+                    throw new InvalidDataException("Manifesto oltre quota.");
+                await using Stream input = await response.Content
+                    .ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+                using var buffer = new MemoryStream();
+                byte[] chunk = new byte[16 * 1024];
+                while (true)
+                {
+                    int read = await input.ReadAsync(chunk.AsMemory(),
+                        timeout.Token).ConfigureAwait(false);
+                    if (read == 0) break;
+                    if (buffer.Length + read > MaximumManifestBytes)
+                        throw new InvalidDataException("Manifesto oltre quota.");
+                    buffer.Write(chunk, 0, read);
+                }
+                manifestJson = new UTF8Encoding(false, true).GetString(
+                    buffer.ToArray());
+            }
+            DdfReleaseManifestVerification verification =
+                DdfReleaseManifestVerifier.Verify(manifestJson, trustStore);
+            DdfProductUpdateResult verified = DdfReleaseUpdatePolicy.Evaluate(
+                verification, request, runtimeIdentifier, architecture,
+                DateTimeOffset.UtcNow);
+            if (!verified.IsActionable ||
+                verified.AvailableVersion != checkedResult.AvailableVersion ||
+                !Uri.Equals(verified.VerifiedReleaseUri, assetUri))
+                throw new InvalidDataException(
+                    "Manifesto firmato divergente dal controllo precedente.");
+            DdfReleaseManifestAsset[] matches = verification.Manifest.Assets
+                .Where(item => item.ComponentKind == request.ComponentKind &&
+                    item.ComponentId == request.ComponentId &&
+                    Uri.Equals(item.Uri, assetUri)).ToArray();
+            if (matches.Length != 1 || matches[0].Size > options.MaximumAssetBytes)
+                throw new InvalidDataException("Asset firmato ambiguo o oltre quota.");
+            return new DdfProductUpdateVerifiedOffer(matches[0], manifestJson);
+        }
+
         public async Task<DdfProductUpdatePreparedPackage> DownloadAuthorizedAsync(
             DdfProductUpdateResult checkedResult,
             DdfProductUpdateRequest request, string runtimeIdentifier,
@@ -76,28 +145,7 @@ namespace DDFLanguageEditor.Core
             IProgress<DdfProductUpdateStagingProgress> progress = null)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            if (checkedResult == null) throw new ArgumentNullException(
-                nameof(checkedResult));
-            if (request == null) throw new ArgumentNullException(nameof(request));
-            if (!checkedResult.IsActionable ||
-                checkedResult.ComponentKind != DdfProductUpdateComponentKind.Standalone ||
-                checkedResult.ComponentKind != request.ComponentKind ||
-                checkedResult.ComponentId != request.ComponentId ||
-                checkedResult.CurrentVersion != request.CurrentVersion ||
-                checkedResult.Channel != request.Channel)
-                throw new InvalidDataException(
-                    "Controllo aggiornamenti precedente non azionabile.");
-            Uri assetUri = checkedResult.VerifiedReleaseUri;
-            string prefix = "/" + DdfGitHubReleaseProvider.Repository +
-                "/releases/download/v" + checkedResult.AvailableVersion + "/";
-            if (assetUri == null || assetUri.Scheme != Uri.UriSchemeHttps ||
-                !string.Equals(assetUri.Host, "github.com",
-                    StringComparison.OrdinalIgnoreCase) ||
-                !assetUri.AbsolutePath.StartsWith(prefix, StringComparison.Ordinal) ||
-                !assetUri.AbsolutePath.EndsWith(".zip", StringComparison.Ordinal) ||
-                assetUri.UserInfo.Length != 0 || assetUri.Query.Length != 0 ||
-                assetUri.Fragment.Length != 0)
-                throw new InvalidDataException("URI asset non autorizzata.");
+            Uri assetUri = ValidateCheckedResult(checkedResult, request);
             if (string.IsNullOrWhiteSpace(destinationDirectory) ||
                 !Path.IsPathFullyQualified(destinationDirectory))
                 throw new ArgumentException("Directory assoluta richiesta.",
@@ -111,44 +159,11 @@ namespace DDFLanguageEditor.Core
             timeout.CancelAfter(options.Timeout);
             try
             {
-                Uri manifestUri = new Uri(assetUri,
-                    DdfSignedGitHubReleaseEvaluator.ManifestAssetName);
-                string manifestJson;
-                using (HttpResponseMessage response = await GetResponseAsync(
-                    manifestUri, timeout.Token).ConfigureAwait(false))
-                {
-                    if (response.Content.Headers.ContentLength > MaximumManifestBytes)
-                        throw new InvalidDataException("Manifesto oltre quota.");
-                    await using Stream input = await response.Content
-                        .ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
-                    using var buffer = new MemoryStream();
-                    byte[] chunk = new byte[16 * 1024];
-                    while (true)
-                    {
-                        int read = await input.ReadAsync(chunk.AsMemory(),
-                            timeout.Token).ConfigureAwait(false);
-                        if (read == 0) break;
-                        if (buffer.Length + read > MaximumManifestBytes)
-                            throw new InvalidDataException("Manifesto oltre quota.");
-                        buffer.Write(chunk, 0, read);
-                    }
-                    manifestJson = new UTF8Encoding(false, true).GetString(
-                        buffer.ToArray());
-                }
-                DdfReleaseManifestVerification verification =
-                    DdfReleaseManifestVerifier.Verify(manifestJson, trustStore);
-                DdfProductUpdateResult verified = DdfReleaseUpdatePolicy.Evaluate(
-                    verification, request, runtimeIdentifier, architecture,
-                    DateTimeOffset.UtcNow);
-                if (!verified.IsActionable ||
-                    verified.AvailableVersion != checkedResult.AvailableVersion ||
-                    !Uri.Equals(verified.VerifiedReleaseUri, assetUri))
-                    throw new InvalidDataException(
-                        "Manifesto firmato divergente dal controllo precedente.");
-                DdfReleaseManifestAsset asset = verification.Manifest.Assets
-                    .Single(item => Uri.Equals(item.Uri, assetUri));
-                if (asset.Size > options.MaximumAssetBytes)
-                    throw new InvalidDataException("Asset oltre quota.");
+                DdfProductUpdateVerifiedOffer offer = await InspectOfferAsync(
+                    checkedResult, request, runtimeIdentifier, architecture,
+                    timeout.Token).ConfigureAwait(false);
+                string manifestJson = offer.SignedManifestJson;
+                DdfReleaseManifestAsset asset = offer.Asset;
 
                 ValidateDestination(destination);
                 Directory.CreateDirectory(destination);
@@ -211,6 +226,35 @@ namespace DDFLanguageEditor.Core
             if (disposed) return;
             disposed = true;
             client.Dispose();
+        }
+
+        private static Uri ValidateCheckedResult(
+            DdfProductUpdateResult checkedResult,
+            DdfProductUpdateRequest request)
+        {
+            if (checkedResult == null) throw new ArgumentNullException(
+                nameof(checkedResult));
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (!checkedResult.IsActionable ||
+                checkedResult.ComponentKind != DdfProductUpdateComponentKind.Standalone ||
+                checkedResult.ComponentKind != request.ComponentKind ||
+                checkedResult.ComponentId != request.ComponentId ||
+                checkedResult.CurrentVersion != request.CurrentVersion ||
+                checkedResult.Channel != request.Channel)
+                throw new InvalidDataException(
+                    "Controllo aggiornamenti precedente non azionabile.");
+            Uri assetUri = checkedResult.VerifiedReleaseUri;
+            string prefix = "/" + DdfGitHubReleaseProvider.Repository +
+                "/releases/download/v" + checkedResult.AvailableVersion + "/";
+            if (assetUri == null || assetUri.Scheme != Uri.UriSchemeHttps ||
+                !string.Equals(assetUri.Host, "github.com",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !assetUri.AbsolutePath.StartsWith(prefix, StringComparison.Ordinal) ||
+                !assetUri.AbsolutePath.EndsWith(".zip", StringComparison.Ordinal) ||
+                assetUri.UserInfo.Length != 0 || assetUri.Query.Length != 0 ||
+                assetUri.Fragment.Length != 0)
+                throw new InvalidDataException("URI asset non autorizzata.");
+            return assetUri;
         }
 
         private async Task<HttpResponseMessage> GetResponseAsync(Uri uri,

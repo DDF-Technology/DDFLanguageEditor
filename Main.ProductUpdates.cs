@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -24,6 +25,8 @@ namespace DDF___Program_Language_Editor
         private DdfProductUpdateStartupRecoveryStatus productUpdateRecoveryStatus;
         private ProductUpdateForm productUpdateForm;
         private bool productUpdateCheckRunning;
+        private bool productUpdateDownloadRunning;
+        private CancellationTokenSource productUpdateDownloadCancellation;
 
         private void initializeProductUpdates()
         {
@@ -248,10 +251,81 @@ namespace DDF___Program_Language_Editor
             if (result == null || embeddedHostMode) return;
             productUpdateForm?.Close();
             productUpdateForm = new ProductUpdateForm(result,
-                openProductUpdateUri);
+                openProductUpdateUri, downloadProductUpdateAsync);
             productUpdateForm.FormClosed += (sender, args) =>
                 productUpdateForm = null;
             productUpdateForm.Show(this);
+        }
+
+        private async Task downloadProductUpdateAsync(DdfProductUpdateResult result)
+        {
+            if (embeddedHostMode || productUpdateDownloadRunning ||
+                result == null || !result.IsActionable ||
+                productUpdateRecoveryStatus?.RequiresAttention == true)
+                return;
+            productUpdateDownloadRunning = true;
+            var cancellation = new CancellationTokenSource();
+            productUpdateDownloadCancellation = cancellation;
+            try
+            {
+                var request = DdfProductUpdateRequest.ForStandalone(result.Channel);
+                string runtimeIdentifier = RuntimeInformation.RuntimeIdentifier;
+                string architecture = RuntimeInformation.ProcessArchitecture
+                    .ToString().ToLowerInvariant();
+                using var downloader = new DdfProductUpdatePackageDownloader(
+                    DdfOfficialReleaseTrustStore.Create());
+                DdfProductUpdateVerifiedOffer offer = await downloader
+                    .InspectOfferAsync(result, request, runtimeIdentifier,
+                        architecture, cancellation.Token);
+                if (IsDisposed || Disposing) return;
+                using (var consent = new ProductUpdateDownloadConsentForm(
+                    result, offer))
+                    if (consent.ShowDialog(this) != DialogResult.OK) return;
+
+                string destination = Path.Combine(
+                    AppSettingsStore.GetProductUpdateStateDirectory(),
+                    "downloads");
+                DdfProductUpdatePreparedPackage prepared = await downloader
+                    .DownloadAuthorizedAsync(result, request, runtimeIdentifier,
+                        architecture, destination, cancellation.Token);
+                if (IsDisposed || Disposing) return;
+                appendOutput("Aggiornamento " + offer.Version +
+                    " scaricato e verificato in " + prepared.ArchivePath +
+                    ". Installazione non ancora disponibile.");
+                MessageBox.Show(this,
+                    "Download e verifica completati. L'installazione " +
+                    "automatica non è ancora disponibile in questa beta.",
+                    "Aggiornamento scaricato", MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (OperationCanceledException)
+            {
+                if (!IsDisposed)
+                    appendOutput("Download aggiornamento annullato.");
+            }
+            catch (Exception exception) when (exception is IOException ||
+                exception is InvalidDataException ||
+                exception is System.Net.Http.HttpRequestException ||
+                exception is UnauthorizedAccessException ||
+                exception is TimeoutException)
+            {
+                if (!IsDisposed)
+                {
+                    appendOutput("Download aggiornamento non riuscito: " +
+                        exception.Message);
+                    MessageBox.Show(this, exception.Message,
+                        "Download aggiornamento", MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
+            finally
+            {
+                productUpdateDownloadRunning = false;
+                if (ReferenceEquals(productUpdateDownloadCancellation,
+                        cancellation))
+                    productUpdateDownloadCancellation = null;
+                cancellation.Dispose();
+            }
         }
 
         private void persistProductUpdateSettings()
@@ -278,6 +352,7 @@ namespace DDF___Program_Language_Editor
             productUpdateCancellation?.Cancel();
             productUpdateCancellation?.Dispose();
             productUpdateCancellation = null;
+            productUpdateDownloadCancellation?.Cancel();
             if (productUpdateProvider is IDisposable disposable)
                 disposable.Dispose();
             productUpdateProvider = null;
