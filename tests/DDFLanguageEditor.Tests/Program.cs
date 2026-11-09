@@ -9213,6 +9213,59 @@ namespace DDFLanguageEditor.Tests
                     Equal(0, noNetwork.Requests.Count);
                 }
                 StageLocalCase("local-good", true);
+                void RejectLocalEnvironment(string name, bool occupiedStaging)
+                {
+                    string caseRoot = Path.Combine(root, name);
+                    var casePlan = CreateStagingPlan(caseRoot, version, uri,
+                        archive, manifest, files, localNow);
+                    Directory.CreateDirectory(casePlan.TargetRoot);
+                    string oldExe = Path.Combine(casePlan.TargetRoot,
+                        "DDFLanguageEditor.exe");
+                    File.WriteAllText(oldExe, "old-editor", Encoding.UTF8);
+                    var caseStore = new DdfProductUpdateInstallationJournalStore(
+                        Path.Combine(caseRoot, "state", "journal.json"));
+                    var caseJournal = caseStore.Create(
+                        DdfProductUpdateInstallationJson.ComputePlanSha256(casePlan),
+                        localNow);
+                    caseStore.Transition(caseJournal.Revision,
+                        DdfProductUpdateInstallationState.DownloadAuthorized,
+                        localNow.AddSeconds(1));
+                    if (occupiedStaging)
+                        File.WriteAllText(casePlan.StagingRoot, "occupied",
+                            Encoding.UTF8);
+                    var noNetwork = new QueueHttpMessageHandler();
+                    using var limitedStager = new DdfProductUpdateStager(noNetwork,
+                        occupiedStaging ? null :
+                        new DdfProductUpdateStagingOptions(
+                            TimeSpan.FromSeconds(10),
+                            maximumExtractedBytes: 1));
+                    if (occupiedStaging)
+                    {
+                        Throws<IOException>(() => limitedStager.StageLocalAsync(
+                            casePlan, manifest, trust, caseStore,
+                            DateTimeOffset.UtcNow, localArchive).GetAwaiter()
+                            .GetResult());
+                        Equal(DdfProductUpdateInstallationState.Failed,
+                            caseStore.Read().State);
+                        Equal("occupied", File.ReadAllText(
+                            casePlan.StagingRoot, Encoding.UTF8));
+                    }
+                    else
+                    {
+                        Throws<InvalidDataException>(() => limitedStager
+                            .StageLocalAsync(casePlan, manifest, trust,
+                                caseStore, DateTimeOffset.UtcNow, localArchive)
+                            .GetAwaiter().GetResult());
+                        Equal(DdfProductUpdateInstallationState.DownloadAuthorized,
+                            caseStore.Read().State);
+                        Equal(false, Directory.Exists(casePlan.StagingRoot));
+                    }
+                    Equal("old-editor", File.ReadAllText(oldExe, Encoding.UTF8));
+                    Equal(false, Directory.Exists(casePlan.BackupRoot));
+                    Equal(0, noNetwork.Requests.Count);
+                }
+                RejectLocalEnvironment("local-quota", false);
+                RejectLocalEnvironment("local-occupied", true);
                 byte[] modifiedArchive = (byte[])archive.Clone();
                 modifiedArchive[modifiedArchive.Length - 1] ^= 0x01;
                 File.WriteAllBytes(localArchive, modifiedArchive);

@@ -274,6 +274,11 @@ non modifica il target. Una prova Windows con l'EXE temporaneo tenuto aperto
 da un altro handle verifica che lo swap fallisca senza cambiare la vecchia
 copia. Restano accesso negato, spazio esaurito e altri guasti ambientali
 prima di attivare la UI.
+Il preflight dello staging rifiuta anche un percorso previsto già occupato da
+un file oltre che da una directory; una quota di estrazione insufficiente
+nega l'operazione prima di scrivere. I test conservano la vecchia copia e non
+aprono la rete. Una quota applicativa non equivale a un vero disco pieno:
+`Access denied` e `ENOSPC` fisici richiedono ancora prove dedicate.
 
 ## Criteri di accettazione
 

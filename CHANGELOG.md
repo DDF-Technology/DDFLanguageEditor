@@ -8,6 +8,8 @@
 
 ## Correzioni non ancora rilasciate
 
+- Lo stager rifiuta ora anche file preesistenti sui percorsi previsti per staging ed estrazione. Test di quota di estrazione insufficiente e destinazione occupata confermano target e backup intatti, nessuna rete e journal coerente; non simulano ACL negate o disco fisicamente pieno. Core `342/342` verdi.
+
 - Un test Windows dell'updater tiene aperto l'EXE di una copia temporanea mentre il worker tenta lo swap: il journal termina in `Failed` e target e staging rimangono intatti, senza backup parziale. Core `342/342` verdi; gli altri guasti ambientali restano da coprire.
 
 - Estesa la matrice di accettazione dell'updater: test con processo reale per PID/istante divergenti e timeout dell'editor ancora aperto; lock esclusivo concorrente che lascia `InstallAuthorized` e il target intatti. Core `341/341` verdi. I guasti ambientali rimanenti e l'attivazione UI sono ancora aperti.

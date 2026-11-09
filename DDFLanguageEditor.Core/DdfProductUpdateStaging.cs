@@ -719,8 +719,10 @@ namespace DDFLanguageEditor.Core
             string extracting, string partial, string seal)
         {
             EnsureExistingAncestorsAreRegular(parent);
-            if (Directory.Exists(staging) || Directory.Exists(extracting) ||
-                File.Exists(partial) || File.Exists(seal))
+            if (Directory.Exists(staging) || File.Exists(staging) ||
+                Directory.Exists(extracting) || File.Exists(extracting) ||
+                Directory.Exists(partial) || File.Exists(partial) ||
+                Directory.Exists(seal) || File.Exists(seal))
                 throw new IOException("Lo staging contiene residui non autorizzati.");
             Directory.CreateDirectory(parent);
         }
