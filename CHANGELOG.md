@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.12.7 Beta - candidato locale non pubblicato
+## 0.12.7 Beta
 
-- Allineati matrice autorevole, metadati assembly e pacchetti SDK alla versione bootstrap `0.12.7 Beta`. La `v0.12.6` resta l'ultima release pubblicata. Un candidato `0.12.7` è stato firmato e verificato localmente con `official-2026`; nessun asset `0.12.7` è stato pubblicato o distribuito. Staging locale firmato da `0.12.6`: 374 file e target intatto.
+- Allineati matrice autorevole, metadati assembly e pacchetti SDK alla versione bootstrap `0.12.7 Beta`. Il pacchetto è stato firmato e verificato localmente con `official-2026`; lo staging locale firmato da `0.12.6` ha verificato 374 file mantenendo il target intatto. La prima installazione da `v0.12.6` è manuale; il gate UI di auto-update richiede una release successiva.
 
 - `publish-release.ps1` può creare un candidato sotto `.artifacts/acceptance/<nome>` senza sovrascrivere la pubblicazione ordinaria. Il gate locale non firmato ha verificato ZIP/SHA-256, 374 voci, worker self-contained identico nel pacchetto, self-test EXE con exit `0` e rifiuto del worker senza piano con exit `1`. Il candidato è stato rimosso dopo la prova; non è una release distribuibile.
 

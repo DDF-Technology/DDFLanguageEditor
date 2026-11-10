@@ -1,13 +1,12 @@
-# DDFLanguageEditor 0.12.7 Beta — candidato bootstrap non pubblicato
+# DDFLanguageEditor 0.12.7 Beta
 
-Questa versione locale prepara il primo standalone che include il worker
-dell'updater. Un candidato isolato è stato firmato e verificato localmente,
-ma non è stato pubblicato né approvato come release distribuibile; `v0.12.6`
-resta l'ultima release pubblicata e richiederà un aggiornamento manuale per adottare questo
-bootstrap. Un aggiornamento automatico completo potrà essere provato solo
-contro una release firmata successiva, partendo dalla `0.12.7` installata.
+Questa release bootstrap è il primo standalone che include il worker
+dell'updater. La `v0.12.6` non può installarla automaticamente: serve un primo
+aggiornamento manuale. Un aggiornamento automatico completo potrà essere
+provato contro una release firmata successiva, partendo dalla `0.12.7`
+installata.
 
-Novità previste nel candidato: download e staging di release verificate,
+Novità incluse: download e staging di release verificate,
 secondo consenso prima dell'installazione, worker self-contained fuori processo,
 rollback e ritentativo pre-swap controllato. La finalizzazione di `Completed`
 può eliminare il backup precedente solo dopo conferma e verifica dell'intero
@@ -17,8 +16,8 @@ riparati automaticamente dall'editor aperto.
 La prova con disco fisicamente pieno e gli altri guasti ambientali residui
 sono stati rinunciati, non superati; vedere la roadmap per il rischio residuo.
 Build Release, pacchetto, firma ufficiale e staging su copia isolata sono
-stati verificati. Restano la pubblicazione e la prova UI end-to-end contro
-una release successiva realmente disponibile.
+stati verificati. La prova UI end-to-end dell'installazione automatica resta
+aperta fino a una release successiva realmente disponibile.
 
 ## Release precedente: 0.12.6 Beta
 
