@@ -38,6 +38,9 @@ namespace DDF___Program_Language_Editor
                     typeof(MainForm).Assembly == null ||
                     typeof(DdfDotNetEditorBuildService).Assembly == null)
                     return 1;
+                // Exercise the same worker resolution performed during normal
+                // startup, not just the assemblies loaded by this entry point.
+                _ = new DdfDotNetEditorBuildService();
                 Console.Out.WriteLine(
                     DdfProductUpdateProcessHealthCheck.SuccessMarker);
                 return 0;

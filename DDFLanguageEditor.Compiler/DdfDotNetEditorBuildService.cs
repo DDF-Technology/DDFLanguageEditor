@@ -348,6 +348,9 @@ namespace DDFLanguageEditor.Compiler
             if (!string.IsNullOrWhiteSpace(environment) &&
                 File.Exists(Path.GetFullPath(environment)))
                 return Path.GetFullPath(environment);
+            string packaged = Path.Combine(AppContext.BaseDirectory,
+                "support", "runner", "DDFLanguageEditor.Runner.exe");
+            if (File.Exists(packaged)) return packaged;
             DirectoryInfo directory = new(AppContext.BaseDirectory);
             for (int depth = 0; directory != null && depth < 7;
                  depth++, directory = directory.Parent)

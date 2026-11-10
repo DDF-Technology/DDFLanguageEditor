@@ -1,8 +1,9 @@
 # DDFLanguageEditor
 
-> **Beta 0.12.7 — progetto sperimentale.** L'editor include il primo
-> interprete DDF interno; linguaggio e runtime non sono ancora completi né
-> stabili.
+> **Beta 0.12.8 in preparazione — progetto sperimentale.** La release
+> `v0.12.7` pubblicata non si avvia da un'estrazione pulita: manca il runner
+> standalone. Non usarla; è in preparazione un hotfix. Linguaggio e runtime
+> restano sperimentali.
 
 DDFLanguageEditor conserva ed espone il primo esperimento WinForms dedicato al
 linguaggio sperimentale DDF. Offre un'area di scrittura scura con numeri di riga,

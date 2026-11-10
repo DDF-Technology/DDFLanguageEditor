@@ -9280,11 +9280,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
             DdfProductUpdateResult available =
                 DdfProductUpdateResult.Available(
                     DdfProductUpdateComponentKind.Standalone,
-                    identity.ProductId, identity.CurrentVersion, "0.12.8",
+                    identity.ProductId, identity.CurrentVersion, "0.12.9",
                     DdfProductUpdateChannel.Stable,
                     DdfProductUpdateCompatibility.Compatible, checkedAt,
                     checkedAt.AddHours(-1), "Release verificata di prova.",
-                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.12.8/DDFLanguageEditor.zip"));
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.12.9/DDFLanguageEditor.zip"));
             var provider = new FixedProductUpdateProvider(available);
             SetPrivateField(form, "createProductUpdateProvider",
                 new Func<IDdfProductUpdateProvider>(() => provider));
@@ -9301,7 +9301,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "statusUpdateLabel"];
             Require(updateStatus.Visible && updateStatus.IsLink &&
                     updateStatus.AccessibleName.Length > 0 &&
-                    updateStatus.Text.Contains("0.12.8",
+                    updateStatus.Text.Contains("0.12.9",
                         StringComparison.Ordinal),
                 "La release verificata non produce una notifica non modale.");
             PumpUntil(() => form.OwnedForms.OfType<ProductUpdateForm>().Any(),

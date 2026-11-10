@@ -1,4 +1,19 @@
-# DDFLanguageEditor 0.12.7 Beta
+# DDFLanguageEditor 0.12.8 Beta — hotfix non pubblicato
+
+La release `v0.12.7` non si avvia da un'estrazione pulita: il pacchetto non
+contiene `DDFLanguageEditor.Runner.dll`, che il servizio di build cerca già
+durante l'avvio. Il titolo della release GitHub è stato contrassegnato come
+non avviabile. Non sostituire l'installazione precedente con la `0.12.7`.
+
+Questo hotfix include il runner DDF come EXE separato e self-contained sotto
+`support/runner`, senza richiedere un'installazione .NET globale. Il controllo
+di pubblicazione richiede il file e avvia l'autoverifica del prodotto, che ora
+costruisce anche il servizio di build. Build Release senza avvisi/errori, Core
+`345/345`, smoke UI updater, avvio GUI da ZIP estratto e runner senza `dotnet`
+nel `PATH` sono stati verificati localmente. La pubblicazione richiede ancora
+firma e approvazione della release.
+
+## Release precedente: 0.12.7 Beta — non avviabile da ZIP pulito
 
 Questa release bootstrap è il primo standalone che include il worker
 dell'updater. La `v0.12.6` non può installarla automaticamente: serve un primo

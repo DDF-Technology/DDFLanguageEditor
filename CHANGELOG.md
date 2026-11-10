@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.8 Beta - hotfix locale non pubblicato
+
+- Corretto il crash all'avvio della `v0.12.7` estratta da ZIP: il servizio di build richiedeva il runner DDF, ma il pacchetto conteneva soltanto il suo launcher e non la DLL. Il runner viene ora distribuito come EXE self-contained in `support/runner`; il resolver sceglie quel file prima dei percorsi di sviluppo. La pipeline richiede il runner e avvia il self-test del prodotto, che verifica anche la costruzione del servizio di build. Avvio GUI controllato, Core `345/345` e smoke UI updater verdi; runner avviato senza `dotnet` nel `PATH`.
+
 ## 0.12.7 Beta
 
 - Allineati matrice autorevole, metadati assembly e pacchetti SDK alla versione bootstrap `0.12.7 Beta`. Il pacchetto è stato firmato e verificato localmente con `official-2026`; lo staging locale firmato da `0.12.6` ha verificato 374 file mantenendo il target intatto. La prima installazione da `v0.12.6` è manuale; il gate UI di auto-update richiede una release successiva.

@@ -11,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot 'DDFLanguageEditor.App\DDFLanguageEditor.App.csproj'
+$runnerProject = Join-Path $repositoryRoot 'DDFLanguageEditor.Runner\DDFLanguageEditor.Runner.csproj'
 $updaterProject = Join-Path $repositoryRoot 'DDFLanguageEditor.Updater\DDFLanguageEditor.Updater.csproj'
 $versionMatrixPath = Join-Path $repositoryRoot 'ddf-version-matrix.json'
 $versionMatrix = Get-Content -LiteralPath $versionMatrixPath -Raw |
@@ -32,6 +33,7 @@ $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'publish')
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'release'))
 $packageName = "DDFLanguageEditor-$applicationVersion-$RuntimeIdentifier-self-contained"
 $publishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot $packageName))
+$runnerPublishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot "$packageName-runner"))
 $updaterPublishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot "$packageName-updater"))
 $archivePath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
@@ -45,12 +47,13 @@ function Assert-PathUnderArtifactRoot([string]$Path) {
 }
 
 Assert-PathUnderArtifactRoot $publishDirectory
+Assert-PathUnderArtifactRoot $runnerPublishDirectory
 Assert-PathUnderArtifactRoot $updaterPublishDirectory
 Assert-PathUnderArtifactRoot $archivePath
 Assert-PathUnderArtifactRoot $checksumPath
 Assert-PathUnderArtifactRoot $releaseManifestPath
 
-foreach ($path in @($publishDirectory, $updaterPublishDirectory, $archivePath, $checksumPath,
+foreach ($path in @($publishDirectory, $runnerPublishDirectory, $updaterPublishDirectory, $archivePath, $checksumPath,
         $releaseManifestPath)) {
     if (Test-Path -LiteralPath $path) {
         Remove-Item -LiteralPath $path -Recurse -Force
@@ -72,6 +75,29 @@ $dotnet = Get-Command dotnet -ErrorAction Stop
     -p:PublishReadyToRun=false `
     -p:PublishDir="$publishDirectory\"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+# The script runner is separate from the updater worker. The editor resolves
+# this executable at startup and must not depend on a machine-wide dotnet host.
+& $dotnet.Source publish $runnerProject `
+    --configuration $Configuration `
+    --runtime $RuntimeIdentifier `
+    --self-contained true `
+    --disable-build-servers `
+    --maxcpucount:1 `
+    -p:NuGetAudit=false `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:PublishTrimmed=false `
+    -p:PublishDir="$runnerPublishDirectory\"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$publishedRunner = Join-Path $runnerPublishDirectory 'DDFLanguageEditor.Runner.exe'
+if (-not (Test-Path -LiteralPath $publishedRunner -PathType Leaf)) {
+    throw 'Runner DDF self-contained assente dalla pubblicazione.'
+}
+$runnerDestination = Join-Path $publishDirectory 'support\runner'
+New-Item -ItemType Directory -Path $runnerDestination -Force | Out-Null
+Copy-Item -LiteralPath $publishedRunner `
+    -Destination (Join-Path $runnerDestination 'DDFLanguageEditor.Runner.exe')
 
 # The updater must be launched from outside the installation it replaces.
 # Ship a self-contained single-file worker so the editor can copy the verified
@@ -108,7 +134,8 @@ $requiredFiles = @(
     'hostfxr.dll',
     'hostpolicy.dll',
     'System.Windows.Forms.dll',
-    'System.Drawing.Common.dll'
+    'System.Drawing.Common.dll',
+    'support\runner\DDFLanguageEditor.Runner.exe',
     'support\updater\DDFLanguageEditor.Updater.exe'
 )
 
@@ -118,6 +145,31 @@ $missingFiles = @($requiredFiles | Where-Object {
 if ($missingFiles.Count -gt 0) {
     throw "Pubblicazione self-contained incompleta. File mancanti: $($missingFiles -join ', ')"
 }
+
+# A normal launch constructs the build service before showing the main form.
+# The health check exercises that same dependency from the published layout.
+$healthStart = [System.Diagnostics.ProcessStartInfo]::new()
+$healthStart.FileName = Join-Path $publishDirectory 'DDFLanguageEditor.exe'
+$healthStart.Arguments = '--verify-installation'
+$healthStart.WorkingDirectory = $publishDirectory
+$healthStart.UseShellExecute = $false
+$healthStart.CreateNoWindow = $true
+$healthStart.RedirectStandardOutput = $true
+$healthStart.RedirectStandardError = $true
+$healthProcess = [System.Diagnostics.Process]::Start($healthStart)
+try {
+    if (-not $healthProcess.WaitForExit(30000)) {
+        $healthProcess.Kill($true)
+        throw 'Self-test del prodotto pubblicato scaduto dopo 30 secondi.'
+    }
+    $healthOutput = $healthProcess.StandardOutput.ReadToEnd().Trim()
+    $healthError = $healthProcess.StandardError.ReadToEnd().Trim()
+    if ($healthProcess.ExitCode -ne 0 -or
+        $healthOutput -ne 'DDF INSTALLATION OK') {
+        throw "Self-test del prodotto pubblicato fallito (exit $($healthProcess.ExitCode)): $healthError"
+    }
+}
+finally { $healthProcess.Dispose() }
 
 $requiredLanguageFiles = @(
     'manifest.json',
