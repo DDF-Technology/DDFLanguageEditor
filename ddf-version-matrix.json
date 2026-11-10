@@ -2,12 +2,12 @@
   "$schema": "./ddf-version-matrix.schema.json",
   "schemaVersion": "1.0",
   "product": {
-    "version": "0.12.6",
+    "version": "0.12.7",
     "stability": "beta",
-    "displayVersion": "0.12.6 Beta",
-    "assemblyVersion": "0.12.6.0",
-    "fileVersion": "0.12.6.0",
-    "informationalVersion": "0.12.6"
+    "displayVersion": "0.12.7 Beta",
+    "assemblyVersion": "0.12.7.0",
+    "fileVersion": "0.12.7.0",
+    "informationalVersion": "0.12.7"
   },
   "productUpdate": {
     "productId": "ddf-language-editor",
@@ -102,30 +102,30 @@
     {
       "id": "standalone",
       "project": "DDFLanguageEditor.App/DDFLanguageEditor.App.csproj",
-      "version": "0.12.6",
-      "assemblyVersion": "0.12.6.0",
-      "fileVersion": "0.12.6.0",
-      "informationalVersion": "0.12.6"
+      "version": "0.12.7",
+      "assemblyVersion": "0.12.7.0",
+      "fileVersion": "0.12.7.0",
+      "informationalVersion": "0.12.7"
     },
     {
       "id": "core-sdk",
       "project": "DDFLanguageEditor.Core/DDFLanguageEditor.Core.csproj",
-      "version": "0.12.6",
-      "assemblyVersion": "0.12.6.0",
-      "fileVersion": "0.12.6.0",
-      "informationalVersion": "0.12.6",
+      "version": "0.12.7",
+      "assemblyVersion": "0.12.7.0",
+      "fileVersion": "0.12.7.0",
+      "informationalVersion": "0.12.7",
       "packageId": "DDFLanguageEditor.Core",
-      "packageVersion": "0.12.6-beta"
+      "packageVersion": "0.12.7-beta"
     },
     {
       "id": "winforms-sdk",
       "project": "DDF - Program Language Editor.csproj",
-      "version": "0.12.6",
-      "assemblyVersion": "0.12.6.0",
-      "fileVersion": "0.12.6.0",
-      "informationalVersion": "0.12.6",
+      "version": "0.12.7",
+      "assemblyVersion": "0.12.7.0",
+      "fileVersion": "0.12.7.0",
+      "informationalVersion": "0.12.7",
       "packageId": "DDFLanguageEditor.WinForms",
-      "packageVersion": "0.12.6-beta"
+      "packageVersion": "0.12.7-beta"
     },
     {
       "id": "compiler",

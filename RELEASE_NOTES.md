@@ -1,4 +1,26 @@
-# DDFLanguageEditor 0.12.6 Beta
+# DDFLanguageEditor 0.12.7 Beta — candidato bootstrap non pubblicato
+
+Questa versione locale prepara il primo standalone che include il worker
+dell'updater. Un candidato isolato è stato firmato e verificato localmente,
+ma non è stato pubblicato né approvato come release distribuibile; `v0.12.6`
+resta l'ultima release pubblicata e richiederà un aggiornamento manuale per adottare questo
+bootstrap. Un aggiornamento automatico completo potrà essere provato solo
+contro una release firmata successiva, partendo dalla `0.12.7` installata.
+
+Novità previste nel candidato: download e staging di release verificate,
+secondo consenso prima dell'installazione, worker self-contained fuori processo,
+rollback e ritentativo pre-swap controllato. La finalizzazione di `Completed`
+può eliminare il backup precedente solo dopo conferma e verifica dell'intero
+target. `Applying`, `Verifying`, `RolledBack` e stati ambigui non vengono
+riparati automaticamente dall'editor aperto.
+
+La prova con disco fisicamente pieno e gli altri guasti ambientali residui
+sono stati rinunciati, non superati; vedere la roadmap per il rischio residuo.
+Build Release, pacchetto, firma ufficiale e staging su copia isolata sono
+stati verificati. Restano la pubblicazione e la prova UI end-to-end contro
+una release successiva realmente disponibile.
+
+## Release precedente: 0.12.6 Beta
 
 Windows x64 self-contained beta under the MIT License. This is a real product
 release candidate, not a declaration that the DDF language or Editor SDK has

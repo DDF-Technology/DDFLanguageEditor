@@ -90,7 +90,9 @@ namespace DDF___Program_Language_Editor
                 TextAlign = ContentAlignment.MiddleRight,
                 AutoEllipsis = true,
                 Text = result.IsActionable
-                    ? "Release verificata disponibile: apri i dettagli sul sito."
+                    ? download == null
+                        ? "Risolvi prima l'aggiornamento precedente."
+                        : "Release verificata disponibile: apri i dettagli sul sito."
                     : result.State == DdfProductUpdateState.UpToDate
                         ? "Nessuna nuova release da aprire."
                         : "Nessuna pagina di release verificata da aprire."

@@ -71,7 +71,7 @@ namespace DDF___Program_Language_Editor
             {
                 AutoSize = true,
                 Checked = plan.RestartRequested,
-                Visible = installation,
+                Visible = installation && plan.RestartRequested,
                 Text = "Riavvia DDF Language Editor al termine",
                 AccessibleName = "Riavvia l'editor dopo l'installazione",
                 Margin = new Padding(0, 12, 0, 4)
@@ -82,8 +82,9 @@ namespace DDF___Program_Language_Editor
                 MaximumSize = new Size(545, 0),
                 Margin = new Padding(0, 8, 0, 12),
                 Text = installation
-                    ? "L'editor verrà chiuso soltanto dopo questa conferma. " +
-                      "Il worker conserverà il backup fino al controllo di integrità."
+                    ? "Dopo la conferma il pacchetto verrà preparato e l'editor chiuso. " +
+                      "Il worker conserverà il backup fino al controllo di integrità. " +
+                      "Al termine, riavvia l'editor manualmente."
                     : "Il download non installa né esegue il pacchetto. " +
                       "Firma, hash e inventario saranno verificati prima dell'installazione."
             };
@@ -97,6 +98,8 @@ namespace DDF___Program_Language_Editor
             };
             var confirmButton = new Button
             {
+                Name = installation ? "productUpdateInstallConfirmButton" :
+                    "productUpdateDownloadConfirmButton",
                 AutoSize = true,
                 DialogResult = DialogResult.OK,
                 Text = installation ? "Installa" : "Scarica",
@@ -106,6 +109,7 @@ namespace DDF___Program_Language_Editor
             };
             var cancelButton = new Button
             {
+                Name = "productUpdateConsentCancelButton",
                 AutoSize = true,
                 DialogResult = DialogResult.Cancel,
                 Text = "Annulla"

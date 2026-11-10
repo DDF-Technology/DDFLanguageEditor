@@ -398,6 +398,7 @@ namespace DDFLanguageEditor.Core
             }
             catch (Exception exception) when (exception is HttpRequestException ||
                 exception is IOException || exception is InvalidDataException ||
+                exception is UnauthorizedAccessException ||
                 exception is CryptographicException ||
                 exception is OverflowException)
             {

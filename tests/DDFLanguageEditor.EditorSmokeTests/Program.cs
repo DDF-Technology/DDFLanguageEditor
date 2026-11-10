@@ -9280,11 +9280,11 @@ namespace DDFLanguageEditor.EditorSmokeTests
             DdfProductUpdateResult available =
                 DdfProductUpdateResult.Available(
                     DdfProductUpdateComponentKind.Standalone,
-                    identity.ProductId, identity.CurrentVersion, "0.12.6",
+                    identity.ProductId, identity.CurrentVersion, "0.12.8",
                     DdfProductUpdateChannel.Stable,
                     DdfProductUpdateCompatibility.Compatible, checkedAt,
                     checkedAt.AddHours(-1), "Release verificata di prova.",
-                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.12.6/DDFLanguageEditor.zip"));
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.12.8/DDFLanguageEditor.zip"));
             var provider = new FixedProductUpdateProvider(available);
             SetPrivateField(form, "createProductUpdateProvider",
                 new Func<IDdfProductUpdateProvider>(() => provider));
@@ -9301,7 +9301,7 @@ namespace DDFLanguageEditor.EditorSmokeTests
                 "statusUpdateLabel"];
             Require(updateStatus.Visible && updateStatus.IsLink &&
                     updateStatus.AccessibleName.Length > 0 &&
-                    updateStatus.Text.Contains("0.12.6",
+                    updateStatus.Text.Contains("0.12.8",
                         StringComparison.Ordinal),
                 "La release verificata non produce una notifica non modale.");
             PumpUntil(() => form.OwnedForms.OfType<ProductUpdateForm>().Any(),
@@ -9391,6 +9391,59 @@ namespace DDFLanguageEditor.EditorSmokeTests
                         "productUpdateActionHintLabel").Text.Contains(
                             "Nessuna nuova release", StringComparison.Ordinal),
                     "Il popup aggiornato non spiega perché Apri release è disabilitato.");
+            }
+            using (var blockedForm = new ProductUpdateForm(available,
+                uri => { }))
+            {
+                Require(!FindControl<Button>(blockedForm,
+                        "productUpdateDownloadButton").Enabled &&
+                    FindControl<Label>(blockedForm,
+                        "productUpdateActionHintLabel").Text.Contains(
+                            "precedente", StringComparison.Ordinal),
+                    "Un aggiornamento precedente non blocca il nuovo download.");
+            }
+
+            DateTimeOffset planNow = DateTimeOffset.UtcNow.AddMinutes(-1);
+            string planRoot = Path.Combine(Path.GetTempPath(),
+                "ddf-update-consent-smoke-" + Guid.NewGuid().ToString("N"));
+            var consentPlan = new DdfProductUpdateInstallationPlan(
+                "portable-consent", identity.ProductId,
+                identity.CurrentVersion, "0.13.6-beta.4", "win-x64", "x64",
+                new string('a', 64), "official-2026",
+                new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.4/editor.zip"),
+                100, new string('b', 64), Path.Combine(planRoot, "target"),
+                Path.Combine(planRoot, "staging"), Path.Combine(planRoot, "backup"),
+                "DDFLanguageEditor.exe", 1234, planNow.AddMinutes(-1),
+                new string('c', 64), false,
+                new[] { new DdfProductUpdateInstallationFile(
+                    "DDFLanguageEditor.exe", 10, new string('d', 64)) }, planNow);
+            Assembly editorAssembly = typeof(MainForm).Assembly;
+            Type consentType = editorAssembly.GetType(
+                "DDF___Program_Language_Editor.ProductUpdateInstallationConsentForm",
+                true);
+            Type stageType = editorAssembly.GetType(
+                "DDF___Program_Language_Editor.ProductUpdateConsentStage", true);
+            using (var installConsent = (Form)Activator.CreateInstance(consentType,
+                consentPlan, Enum.Parse(stageType, "Install")))
+            {
+                bool inspected = false;
+                installConsent.Shown += (sender, args) =>
+                {
+                    inspected = installConsent.StartPosition ==
+                            FormStartPosition.CenterScreen &&
+                        FindControl<Button>(installConsent,
+                            "productUpdateInstallConfirmButton").Text == "Installa" &&
+                        FindControl<Button>(installConsent,
+                            "productUpdateConsentCancelButton").Text == "Annulla" &&
+                        !enumerateControls(installConsent).OfType<CheckBox>()
+                            .Any(item => item.Visible);
+                    installConsent.BeginInvoke(new Action(() =>
+                        FindControl<Button>(installConsent,
+                            "productUpdateConsentCancelButton").PerformClick()));
+                };
+                Require(installConsent.ShowDialog(form) == DialogResult.Cancel &&
+                        inspected,
+                    "Il secondo consenso non è distinto o Annulla non funziona.");
             }
 
             ProductUpdateSettings parsed = ProductUpdateSettings.Parse(

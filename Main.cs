@@ -407,8 +407,10 @@ namespace DDF___Program_Language_Editor
                 stopExecution();
                 return;
             }
-            bool hotExitPrepared = editorSettings?.HotExitEnabled == true && prepareHotExit();
-            if (!hotExitPrepared && !confirmAllDocumentChanges())
+            bool hotExitPrepared = !productUpdateInstallCloseApproved &&
+                editorSettings?.HotExitEnabled == true && prepareHotExit();
+            if (!productUpdateInstallCloseApproved && !hotExitPrepared &&
+                !confirmAllDocumentChanges())
             {
                 e.Cancel = true;
                 return;

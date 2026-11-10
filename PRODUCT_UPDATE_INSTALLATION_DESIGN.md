@@ -1,15 +1,18 @@
 # Installazione aggiornamenti standalone — contratto di progetto
 
-Stato: **fasi 1–4 implementate; accettazione su copia isolata avviata;
-attivazione generale non attiva**
+Stato: **fasi 1–4 implementate; shell standalone collegata in sorgente;
+accettazione della release successiva ancora aperta**
 (`0.13.6`).
 
-Questo documento definisce il confine di sicurezza dell'eventuale updater di
+Questo documento definisce il confine di sicurezza dell'updater di
 DDFLanguageEditor. Il download con consenso è disponibile nello standalone;
-non sono abilitati installazione, elevazione, chiusura o riavvio
-dell'applicazione. La chiave ufficiale è provisionata e la prima
-release remota firmata è pubblicata; l'attivazione richiede ancora il
-completamento dei gate descritti qui sotto. Il
+il sorgente collega ora anche preparazione, secondo consenso, lancio del worker
+e chiusura dell'editor, ma solo per una release firmata che contenga il worker.
+La release pubblicata `v0.12.6` non lo contiene: può essere scaricata, non
+installata dalla UI. Elevazione e riavvio automatico non sono abilitati.
+Anche il consumer `v0.12.6` già distribuito non possiede questo nuovo flusso:
+la prima release che lo include richiederà un aggiornamento manuale di bootstrap.
+L'accettazione end-to-end di una nuova release rimane aperta. Il
 Core comprende ora i contratti `DdfProductUpdateInstallationPlan@1.0` e
 `DdfProductUpdateInstallationJournal@1.0`, la persistenza atomica, la macchina
 a stati e il pianificatore deterministico di recovery. Il downloader/stager
@@ -21,13 +24,12 @@ attende l'esatto processo editor, usa un lock esclusivo, esegue rename di
 directory e conserva backup/quarantena per il rollback. Il worker esegue ora il
 self-test fisso, completa o ripristina atomicamente, applica l'eventuale scelta
 di riavvio e offre una pulizia differita separata. La shell ispeziona in modo
-read-only piano e journal all'avvio e dispone dei dialoghi di consenso; il
-flusso non è ancora attivato per l'utente finale. La release remota firmata
+read-only piano e journal all'avvio e dispone dei dialoghi di consenso. La release remota firmata
 `v0.12.6` è stata verificata dal consumer `0.12.5`; download, staging e
 installazione con health check sono riusciti su una copia isolata. Anche il
 rollback di una nuova copia danneggiata e il recovery dopo un'interruzione tra
-backup e promozione hanno ripristinato `0.12.5` funzionante. Restano gli altri
-casi della matrice di accettazione. La release `0.12.6`
+backup e promozione hanno ripristinato `0.12.5` funzionante. I guasti
+ambientali residui sono stati rinunciati, non superati. La release `0.12.6`
 pubblicata non include la successiva correzione per il redirect CDN del download.
 
 ## Perimetro
@@ -272,13 +274,64 @@ Il gate Core verifica ora con un processo reale il PID riutilizzato e l'editor
 ancora aperto; il test del lock conferma che un secondo worker non avanza e
 non modifica il target. Una prova Windows con l'EXE temporaneo tenuto aperto
 da un altro handle verifica che lo swap fallisca senza cambiare la vecchia
-copia. Restano accesso negato, spazio esaurito e altri guasti ambientali
-prima di attivare la UI.
+copia. Una DACL Windows applicata a una directory temporanea nega realmente la
+creazione di file: lo stager termina con `Failed`, senza toccare vecchia copia o
+backup; il test ripristina la DACL.
+Un secondo test Windows nega anche la rinomina del target nello swap: la DACL
+temporanea blocca sia `Delete` sulla directory sia la cancellazione dei figli
+dal padre, perché uno dei due soli diritti potrebbe consentire l'operazione.
+Il worker conserva target e staging e registra `Failed` senza backup parziale.
+La prossima release pubblicata includerà l'EXE updater self-contained a file
+singolo in `support/updater`, verificato dall'inventario firmato dell'archivio.
+Il worker non deve essere eseguito da lì: va copiato in un'area di
+stato separata e verificata prima del lancio, perché la directory dell'editor
+sarà sostituita. La release `v0.12.6` già pubblicata non contiene il worker e
+non è quindi abilitata all'installazione dalla UI.
+`DdfProductUpdateWorkerDeployment` realizza ora la sola copia: richiede il
+worker nell'inventario del piano, rivalida il sigillo dello staging, verifica
+dimensione e SHA-256 del file sorgente e della copia e rifiuta area di stato
+interna alle directory sostituite, reparse point e destinazioni già occupate.
+Non concede consenso, non avvia processi e non cancella copie precedenti.
+Nella shell standalone, il secondo dialogo viene mostrato prima della
+preparazione locale: annullarlo non lascia journal. Dopo il consenso, la shell
+conferma le modifiche aperte, mantiene l'editor non modificabile durante lo
+staging, rivalida il worker copiato con un handle che ne nega la scrittura,
+autorizza il piano e avvia il worker prima di chiudere l'editor, così il PID
+può essere attestato. Se la chiusura non avviene, tenta di arrestare il worker
+prima di portare il journal a `Cancelled`. Il riavvio automatico non è ancora
+offerto. Il ritentativo UI è ora disponibile soltanto per stati pre-swap
+correlati e senza backup: una conferma esplicita consente di rimuovere i soli
+residui dell'updater sotto lock esclusivo, lasciando intatto il target.
+Nel percorso di ritentativo pre-swap, lock occupato, piano alterato, backup
+presente, reparse point e stati di swap, verifica o completamento sono rifiutati;
+l'utente riceve un avviso senza pulizia automatica. Restano il recovery
+post-swap non completato e la prova UI end-to-end con una nuova release firmata.
+Lo stato `Completed` dispone ora di una **finalizzazione distinta**: la UI
+avverte che il backup della versione precedente verrà eliminato definitivamente
+e richiede un nuovo consenso. Sotto lock, il Core rivalida piano, installazione
+corrente e inventario completo del nuovo target; soltanto allora rimuove il
+backup e archivia i propri metadati. Un target alterato o una directory di
+quarantena imprevista blocca la pulizia. `Applying`, `Verifying`, `RolledBack`
+e i casi ambigui continuano a richiedere recovery separato: non vengono
+trattati come un semplice `Completed`.
+La pubblicazione ha ora un'opzione di isolamento `-ArtifactSubdirectory` per
+creare candidati sotto `.artifacts/acceptance` senza toccare la release
+ordinaria. Un candidato locale non firmato ha confermato ZIP/checksum, worker
+presente e identico all'inventario ZIP, self-test dell'editor ed esecuzione
+fail-closed del worker privo di piano. Non autorizza installazione o
+distribuzione: resta necessaria una nuova versione con manifesto ufficiale
+firmato e una prova completa dalla UI su copia separata.
 Il preflight dello staging rifiuta anche un percorso previsto già occupato da
 un file oltre che da una directory; una quota di estrazione insufficiente
 nega l'operazione prima di scrivere. I test conservano la vecchia copia e non
 aprono la rete. Una quota applicativa non equivale a un vero disco pieno:
-`Access denied` e `ENOSPC` fisici richiedono ancora prove dedicate.
+Su richiesta del proprietario (`2026-11-10`), la prova `ENOSPC` su un volume
+fisicamente pieno e gli altri guasti ambientali residui sono **rinunciati, non
+superati**. La quota applicativa non dimostra il comportamento del filesystem
+esaurito; il rifiuto ACL è coperto nello staging e nello swap, non in ogni
+possibile fase del worker. Il rischio residuo resta documentato e separato dai
+gate ancora necessari: consenso UI end-to-end, release firmata successiva e
+verifiche funzionali/sicurezza correlate. La rinuncia non abilita l'installazione.
 
 ## Criteri di accettazione
 

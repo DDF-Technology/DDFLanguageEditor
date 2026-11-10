@@ -1,12 +1,26 @@
 # Changelog
 
-## 0.12.6 Beta - 2026-11-06
+## 0.12.7 Beta - candidato locale non pubblicato
 
-- Il candidato di prodotto `0.12.6 Beta` allinea matrice autorevole, metadati assembly e NuGet, README, About e note di rilascio; i test UI leggono la versione dalla matrice. Build Debug/Release senza warning, Core `337/337`, smoke WinForms completo e gate pack SDK `0.12.6-beta` verdi. Il test Network sul timeout mantiene 20 ms e ammette correttamente la scadenza prima dell'invio HTTP; se l'invio è iniziato, verifica comunque la cancellazione.
-- Pubblicata la prerelease firmata [`v0.12.6`](https://github.com/DDF-Technology/DDFLanguageEditor/releases/tag/v0.12.6) con ZIP Windows x64 self-contained, SHA-256 e manifesto ECDSA ufficiale. Il workflow GitHub ha superato Debug, 337 test Core, Release, firma e upload; la build consumer `0.12.5` rileva online `0.12.6` come aggiornamento compatibile. L'installazione automatica resta inattiva in attesa del gate end-to-end su copia isolata.
-- Uniformato il confronto del campione di pubblicazione linguistica tra terminatori di riga CRLF/LF senza modificare il sorgente DDF né indebolire il test di esecuzione.
+- Allineati matrice autorevole, metadati assembly e pacchetti SDK alla versione bootstrap `0.12.7 Beta`. La `v0.12.6` resta l'ultima release pubblicata. Un candidato `0.12.7` è stato firmato e verificato localmente con `official-2026`; nessun asset `0.12.7` è stato pubblicato o distribuito. Staging locale firmato da `0.12.6`: 374 file e target intatto.
 
-## Correzioni non ancora rilasciate
+- `publish-release.ps1` può creare un candidato sotto `.artifacts/acceptance/<nome>` senza sovrascrivere la pubblicazione ordinaria. Il gate locale non firmato ha verificato ZIP/SHA-256, 374 voci, worker self-contained identico nel pacchetto, self-test EXE con exit `0` e rifiuto del worker senza piano con exit `1`. Il candidato è stato rimosso dopo la prova; non è una release distribuibile.
+
+- La notifica updater può finalizzare separatamente uno stato `Completed`, dopo avviso e conferma che il backup precedente verrà eliminato. Il Core verifica lock, piano, installazione corrente e SHA-256 dell'intero target; con target alterato o quarantena inattesa conserva il backup. Solo a verifica riuscita archivia metadati, worker e sigillo. Core `345/345` verdi; rollback e stati di swap restano fuori da questa pulizia.
+
+- Lo standalone rende visibile uno stato updater preesistente e blocca nuovi download finché non viene risolto. «Ripulisci aggiornamento e ritenta» richiede conferma, lock esclusivo, piano correlato all'installazione corrente e assenza di backup; elimina solo residui propri (staging, sigillo, partial/estrazione, worker e piano/journal). Il target non viene eliminato; stati post-swap o ambigui richiedono recovery separato. Test Core di lock, piano alterato, backup presente e nuovo staging, più smoke UI, verdi.
+
+- Collegati nello standalone secondo consenso, staging locale, autorizzazione, copia e lancio del worker verificato. Il rifiuto del consenso non crea journal; le modifiche aperte vengono confermate prima dello staging e il worker viene fermato se la chiusura dell'editor non riesce. Il riavvio automatico non è proposto. Core `344/344`, build Release UI e smoke aggiornamenti verdi; manca ancora una release firmata contenente il worker per la prova end-to-end, quindi `v0.12.6` resta solo scaricabile.
+
+- Aggiunta la copia Core del worker aggiornamenti in un'area di stato esterna al target: sigillo e inventario firmato vengono rivalidati, poi dimensione e SHA-256 del binario sono controllati prima e dopo la copia. Destinazioni interne, reparse point, duplicati e file alterati sono rifiutati; nessun processo viene avviato. Core `344/344` verdi.
+
+- La pubblicazione della prossima release include il worker updater come EXE `win-x64` self-contained single-file sotto `support/updater` e ne verifica la presenza prima dello ZIP e del manifesto firmato. Prova isolata: l'EXE si avvia fuori dalla directory del prodotto e rifiuta argomenti mancanti con exit code `1`. La UI non copia né avvia ancora il worker; `v0.12.6` non lo contiene.
+
+- Su richiesta del proprietario, la prova su disco fisicamente pieno e gli altri guasti ambientali residui dell'updater vengono esclusi dal gate della `0.13.6`, senza dichiararli superati. Rischi residui documentati; l'installazione UI resta disattivata in attesa dei consensi end-to-end, della release firmata successiva e dei gate funzionali/sicurezza.
+
+- Un gate Windows nega con DACL temporanee la rinomina del target durante lo swap del worker, bloccando sia `Delete` sul target sia `DeleteSubdirectoriesAndFiles` sul padre. Il journal finisce in `Failed`, la vecchia copia resta intatta e non nasce un backup parziale. ACL ripristinate dopo la prova; Core `343/343` verdi.
+
+- Lo stager registra ora `Failed` anche quando Windows nega l'accesso con `UnauthorizedAccessException`. Un test applica una DACL restrittiva soltanto a una directory temporanea, verifica il diniego reale e la conservazione del vecchio EXE, poi ripristina i permessi. Core `342/342` verdi; non equivale a coprire tutte le fasi del worker o il disco fisicamente pieno.
 
 - Lo stager rifiuta ora anche file preesistenti sui percorsi previsti per staging ed estrazione. Test di quota di estrazione insufficiente e destinazione occupata confermano target e backup intatti, nessuna rete e journal coerente; non simulano ACL negate o disco fisicamente pieno. Core `342/342` verdi.
 
@@ -240,6 +254,12 @@
 - Introdotta la fondazione SDK dei lease di risorsa opachi e revocabili, senza attivare prematuramente `use`. `DdfHostResourceDescriptor` dichiara tipo nominale, capability, nome e lifetime di esecuzione; `IDdfHostResourceLeaseAuthority` autorizza o nega ogni acquisizione e osserva snapshot sanificati `Active`/`Revoked`/`Released`. `DdfHostInvocationContext.RegisterResourceLeaseAsync` collega il lease al registro LIFO esistente: diniego e revoca rilasciano subito la risorsa, la fine dell'esecuzione rilascia quelle ancora attive e le gare concorrenti non duplicano il cleanup. Il lease pubblico non espone l'oggetto nativo; un diniego converge in `DDF409`. AST, IR, sintassi `use` e backend Roslyn restano parte della futura verticale DDF `0.23`. Core `267/267`.
 - Avviata la verticale degli adapter host tipizzati senza attivare in anticipo i tipi pianificati del linguaggio. `DdfHostValueAdapter.Create<THost,TScript>` elimina i cast dai convertitori dell'host, verifica esattamente i valori ai due lati del confine e lega l'adapter a un solo tipo DDF; parametri, risultati e oggetti rifiutano la registrazione se il tipo dichiarato non coincide. `Enumeration<TEnum>` richiede una tabella esplicita e nominale, senza conversione numerica, reflection o fallback su membri CLR. `Kind`, `ScriptTypeName` e `IsTyped` sono metadati additivi; costruttore legacy e `Identity` restano compatibili. `maybe`, `long`, `decimal`, valori temporali e collezioni rimangono inattivi fino alle rispettive milestone. Core `266/266`.
 - `fixed` è ora riconoscibile come valore immutabile lungo tutta la verticale IDE/debug: simboli documento e completamento espongono `IsReadOnly`/`IsFixed` e mostrano la categoria `fixed · sola lettura`; Outline, Variabili e Watch rendono visibile lo stato, mentre snapshot VM, Editor SDK e debugger Roslyn/worker conservano gli stessi metadati. Le API sono additive e mantengono costruttori e registrazioni legacy; la Runtime ABI passa a `1.10.0`. Gate verdi: Core `265/265`, Runtime ABI `12/12`, Compiler `24/24`, packaging e compatibilità SDK legacy/aggiornata.
+
+## 0.12.6 Beta - 2026-11-06
+
+- Il candidato di prodotto `0.12.6 Beta` allinea matrice autorevole, metadati assembly e NuGet, README, About e note di rilascio; i test UI leggono la versione dalla matrice. Build Debug/Release senza warning, Core `337/337`, smoke WinForms completo e gate pack SDK `0.12.6-beta` verdi. Il test Network sul timeout mantiene 20 ms e ammette correttamente la scadenza prima dell'invio HTTP; se l'invio è iniziato, verifica comunque la cancellazione.
+- Pubblicata la prerelease firmata [`v0.12.6`](https://github.com/DDF-Technology/DDFLanguageEditor/releases/tag/v0.12.6) con ZIP Windows x64 self-contained, SHA-256 e manifesto ECDSA ufficiale. Il workflow GitHub ha superato Debug, 337 test Core, Release, firma e upload; la build consumer `0.12.5` rileva online `0.12.6` come aggiornamento compatibile. L'installazione automatica resta inattiva in attesa del gate end-to-end su copia isolata.
+- Uniformato il confronto del campione di pubblicazione linguistica tra terminatori di riga CRLF/LF senza modificare il sorgente DDF né indebolire il test di esecuzione.
 
 ## 0.13.5 - in sviluppo
 

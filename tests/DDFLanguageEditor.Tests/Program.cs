@@ -11,6 +11,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -212,7 +214,10 @@ namespace DDFLanguageEditor.Tests
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
             Run("rejects reused updater PIDs and waits for the active editor", RejectsReusedUpdaterPidsAndActiveEditor);
             Run("preserves the old install when a target file is locked", PreservesOldInstallWhenTargetFileIsLocked);
+            Run("preserves the old install when swap access is denied", PreservesOldInstallWhenSwapAccessIsDenied);
+            Run("copies only the signed updater worker outside the install", CopiesOnlySignedUpdaterWorkerOutsideInstall);
             Run("completes updates only after a successful health check", CompletesUpdatesOnlyAfterSuccessfulHealthCheck);
+            Run("finalizes only a verified completed update", FinalizesOnlyVerifiedCompletedUpdate);
             Run("keeps embedded product update checks host controlled", KeepsEmbeddedProductUpdateChecksHostControlled);
             Run("checks the fixed GitHub release feed safely", ChecksFixedGitHubReleaseFeedSafely);
             Run("exercises product updates through an isolated loopback server", ExercisesProductUpdatesThroughIsolatedLoopbackServer);
@@ -8911,12 +8916,53 @@ namespace DDFLanguageEditor.Tests
                                 staged.JournalPath).Read().State);
                         Equal(false, Directory.Exists(binding.BackupRoot));
                         Equal(true, File.Exists(installedExe));
+                        Equal(true, DdfProductUpdateRetryCleanup.CanDiscard(
+                            DdfProductUpdateStartupRecovery.Inspect(
+                                staged.PlanPath, staged.JournalPath)));
                         Throws<InvalidOperationException>(() =>
                             DdfProductUpdateLocalPreparation.PrepareAsync(
                                 prepared.ArchivePath, trust, request, "win-x64",
                                 "x64", binding, boundState, 1234,
                                 DateTimeOffset.UtcNow.AddMinutes(-1))
                                 .GetAwaiter().GetResult());
+                        using (var heldLock = new FileStream(
+                            staged.JournalPath + ".lock", FileMode.OpenOrCreate,
+                            FileAccess.ReadWrite, FileShare.None))
+                            Throws<IOException>(() =>
+                                DdfProductUpdateRetryCleanup.Discard(boundState,
+                                    installedExe));
+                        Equal(true, Directory.Exists(binding.StagingRoot));
+                        string originalPlan = File.ReadAllText(staged.PlanPath,
+                            Encoding.UTF8);
+                        File.WriteAllText(staged.PlanPath, "{}", Encoding.UTF8);
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateRetryCleanup.Discard(boundState,
+                                installedExe));
+                        Equal(true, Directory.Exists(binding.StagingRoot));
+                        File.WriteAllText(staged.PlanPath, originalPlan,
+                            new UTF8Encoding(false));
+                        Directory.CreateDirectory(binding.BackupRoot);
+                        Throws<InvalidDataException>(() =>
+                            DdfProductUpdateRetryCleanup.Discard(boundState,
+                                installedExe));
+                        Equal(true, Directory.Exists(binding.BackupRoot));
+                        Directory.Delete(binding.BackupRoot);
+                        DdfProductUpdateRetryCleanup.Discard(boundState,
+                            installedExe);
+                        Equal(false, File.Exists(staged.PlanPath));
+                        Equal(false, File.Exists(staged.JournalPath));
+                        Equal(false, Directory.Exists(binding.StagingRoot));
+                        Equal(false, Directory.Exists(binding.BackupRoot));
+                        Equal(true, File.Exists(installedExe));
+                        DdfProductUpdateLocalPreparationResult retry =
+                            DdfProductUpdateLocalPreparation.PrepareAsync(
+                                prepared.ArchivePath, trust, request, "win-x64",
+                                "x64", binding, boundState, 1234,
+                                DateTimeOffset.UtcNow.AddMinutes(-1))
+                                .GetAwaiter().GetResult();
+                        Equal(DdfProductUpdateInstallationState.Staged,
+                            new DdfProductUpdateInstallationJournalStore(
+                                retry.JournalPath).Read().State);
                         Throws<InvalidDataException>(() =>
                             DdfProductUpdateInstallationBinding.Resolve(
                                 Path.Combine(installedRoot, "dotnet.exe")));
@@ -9266,6 +9312,80 @@ namespace DDFLanguageEditor.Tests
                 }
                 RejectLocalEnvironment("local-quota", false);
                 RejectLocalEnvironment("local-occupied", true);
+                if (OperatingSystem.IsWindows())
+                {
+                    string aclRoot = CreateTemporaryDirectory();
+                    var aclDirectory = new DirectoryInfo(aclRoot);
+                    var denyRule = new FileSystemAccessRule(
+                        WindowsIdentity.GetCurrent().User ?? throw new
+                            InvalidOperationException("SID utente assente."),
+                        FileSystemRights.CreateFiles,
+                        InheritanceFlags.None, PropagationFlags.None,
+                        AccessControlType.Deny);
+                    bool aclApplied = false;
+                    try
+                    {
+                        var aclPlan = CreateStagingPlan(aclRoot, version, uri,
+                            archive, manifest, files, localNow);
+                        Directory.CreateDirectory(aclPlan.TargetRoot);
+                        string oldExe = Path.Combine(aclPlan.TargetRoot,
+                            "DDFLanguageEditor.exe");
+                        File.WriteAllText(oldExe, "old-editor", Encoding.UTF8);
+                        var aclStore = new DdfProductUpdateInstallationJournalStore(
+                            Path.Combine(aclRoot, "state", "journal.json"));
+                        var aclJournal = aclStore.Create(
+                            DdfProductUpdateInstallationJson.ComputePlanSha256(
+                                aclPlan), localNow);
+                        aclStore.Transition(aclJournal.Revision,
+                            DdfProductUpdateInstallationState.DownloadAuthorized,
+                            localNow.AddSeconds(1));
+                        DirectorySecurity restrictedAcl = FileSystemAclExtensions
+                            .GetAccessControl(aclDirectory,
+                                AccessControlSections.Access);
+                        restrictedAcl.AddAccessRule(denyRule);
+                        FileSystemAclExtensions.SetAccessControl(aclDirectory,
+                            restrictedAcl);
+                        aclApplied = true;
+                        Throws<UnauthorizedAccessException>(() =>
+                        {
+                            using var denied = new FileStream(Path.Combine(
+                                aclRoot, "write-probe"), FileMode.CreateNew,
+                                FileAccess.Write, FileShare.None);
+                        });
+                        var noNetwork = new QueueHttpMessageHandler();
+                        using var aclStager = new DdfProductUpdateStager(noNetwork);
+                        Throws<UnauthorizedAccessException>(() => aclStager
+                            .StageLocalAsync(aclPlan, manifest, trust, aclStore,
+                                DateTimeOffset.UtcNow, localArchive)
+                            .GetAwaiter().GetResult());
+                        Equal(DdfProductUpdateInstallationState.Failed,
+                            aclStore.Read().State);
+                        Equal("old-editor", File.ReadAllText(oldExe,
+                            Encoding.UTF8));
+                        Equal(false, Directory.Exists(aclPlan.BackupRoot));
+                        Equal(false, Directory.Exists(aclPlan.StagingRoot));
+                        Equal(0, noNetwork.Requests.Count);
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (aclApplied)
+                            {
+                                DirectorySecurity restoredAcl =
+                                    FileSystemAclExtensions.GetAccessControl(
+                                        aclDirectory, AccessControlSections.Access);
+                                restoredAcl.RemoveAccessRuleSpecific(denyRule);
+                                FileSystemAclExtensions.SetAccessControl(
+                                    aclDirectory, restoredAcl);
+                            }
+                        }
+                        finally
+                        {
+                            Directory.Delete(aclRoot, true);
+                        }
+                    }
+                }
                 byte[] modifiedArchive = (byte[])archive.Clone();
                 modifiedArchive[modifiedArchive.Length - 1] ^= 0x01;
                 File.WriteAllBytes(localArchive, modifiedArchive);
@@ -9511,9 +9631,115 @@ namespace DDFLanguageEditor.Tests
         }
 
         private static void PreservesOldInstallWhenTargetFileIsLocked()
+            => PreservesOldInstallWhenSwapIsBlocked(false);
+
+        private static void CopiesOnlySignedUpdaterWorkerOutsideInstall()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                byte[] editorBytes = Encoding.UTF8.GetBytes("new-editor");
+                byte[] workerBytes = Encoding.UTF8.GetBytes("verified-worker");
+                string nonce = new string('8', 64);
+                DateTimeOffset now = DateTimeOffset.UtcNow.AddMinutes(-1);
+                var plan = new DdfProductUpdateInstallationPlan(
+                    "portable-worker", DdfProductVersionCatalog.Current.ProductId,
+                    "0.12.5", "0.13.6-beta.4", "win-x64", "x64",
+                    new string('a', 64), "release-2026",
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.4/editor.zip"),
+                    100, new string('b', 64), Path.Combine(root, "target"),
+                    Path.Combine(root, "staging"), Path.Combine(root, "backup"),
+                    "DDFLanguageEditor.exe", 4242, now.AddMinutes(-1), nonce,
+                    false, new[]
+                    {
+                        new DdfProductUpdateInstallationFile(
+                            "DDFLanguageEditor.exe", editorBytes.Length,
+                            HashBytes(editorBytes)),
+                        new DdfProductUpdateInstallationFile(
+                            DdfProductUpdateWorkerDeployment.WorkerRelativePath,
+                            workerBytes.Length, HashBytes(workerBytes))
+                    }, now);
+                Directory.CreateDirectory(plan.TargetRoot);
+                string oldExe = Path.Combine(plan.TargetRoot,
+                    "DDFLanguageEditor.exe");
+                File.WriteAllText(oldExe, "old-editor", Encoding.UTF8);
+                Directory.CreateDirectory(Path.Combine(plan.StagingRoot,
+                    "support", "updater"));
+                File.WriteAllBytes(Path.Combine(plan.StagingRoot,
+                    "DDFLanguageEditor.exe"), editorBytes);
+                string sourceWorker = Path.Combine(plan.StagingRoot, "support",
+                    "updater", "DDFLanguageEditor.Updater.exe");
+                File.WriteAllBytes(sourceWorker, workerBytes);
+                string sealJson = JsonSerializer.Serialize(new
+                {
+                    schemaVersion = DdfProductUpdateStagingSeal.SchemaVersionValue,
+                    planSha256 = DdfProductUpdateInstallationJson
+                        .ComputePlanSha256(plan),
+                    inventorySha256 = DdfProductUpdateStagingSealCodec
+                        .ComputeInventorySha256(plan.Inventory),
+                    assetSha256 = plan.AssetSha256,
+                    fileCount = plan.Inventory.Count,
+                    totalFileBytes = plan.Inventory.Sum(file => file.Size),
+                    stagedUtc = now.AddSeconds(3)
+                });
+                File.WriteAllText(DdfProductUpdateStagingSealCodec.SealPathFor(
+                    plan.StagingRoot), sealJson, new UTF8Encoding(false));
+                string state = Path.Combine(root, "state");
+                Directory.CreateDirectory(state);
+                string deployed = DdfProductUpdateWorkerDeployment.CopyVerified(
+                    plan, state);
+                SequenceEqual(workerBytes, File.ReadAllBytes(deployed));
+                using (FileStream held = DdfProductUpdateWorkerDeployment
+                    .OpenVerifiedForLaunch(plan, deployed))
+                {
+                    Equal(workerBytes.Length, (int)held.Length);
+                    if (OperatingSystem.IsWindows())
+                        Throws<IOException>(() => File.WriteAllText(deployed,
+                            "tampered", Encoding.UTF8));
+                }
+                Equal(false, deployed.StartsWith(plan.TargetRoot,
+                    StringComparison.OrdinalIgnoreCase));
+                Equal(false, deployed.StartsWith(plan.StagingRoot,
+                    StringComparison.OrdinalIgnoreCase));
+                Equal("old-editor", File.ReadAllText(oldExe, Encoding.UTF8));
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateWorkerDeployment.CopyVerified(plan, state));
+                File.WriteAllText(sourceWorker, "tampered", Encoding.UTF8);
+                string secondState = Path.Combine(root, "state-2");
+                Directory.CreateDirectory(secondState);
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateWorkerDeployment.CopyVerified(plan,
+                        secondState));
+                Equal(false, Directory.Exists(Path.Combine(secondState,
+                    "worker-" + nonce)));
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateWorkerDeployment.CopyVerified(plan,
+                        plan.TargetRoot));
+                File.WriteAllText(deployed, "tampered", Encoding.UTF8);
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateWorkerDeployment.OpenVerifiedForLaunch(
+                        plan, deployed));
+                Equal("old-editor", File.ReadAllText(oldExe, Encoding.UTF8));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        private static void PreservesOldInstallWhenSwapAccessIsDenied()
+            => PreservesOldInstallWhenSwapIsBlocked(true);
+
+        private static void PreservesOldInstallWhenSwapIsBlocked(bool denySwap)
         {
             if (!OperatingSystem.IsWindows()) return;
             string root = CreateTemporaryDirectory();
+            DirectoryInfo aclDirectory = null;
+            DirectoryInfo aclParent = null;
+            FileSystemAccessRule denyRule = null;
+            FileSystemAccessRule denyChildRule = null;
+            bool aclApplied = false;
+            bool parentAclApplied = false;
             try
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow.AddMinutes(-1);
@@ -9570,8 +9796,37 @@ namespace DDFLanguageEditor.Tests
                         now.AddSeconds(journal.Revision + 1));
                 var worker = new DdfProductUpdateWorker(
                     new ImmediateProcessWaiter());
-                using (var heldFile = new FileStream(targetExe, FileMode.Open,
-                    FileAccess.Read, FileShare.Read))
+                if (denySwap)
+                {
+                    aclDirectory = new DirectoryInfo(plan.TargetRoot);
+                    denyRule = new FileSystemAccessRule(
+                        WindowsIdentity.GetCurrent().User ?? throw new
+                            InvalidOperationException("SID utente assente."),
+                        FileSystemRights.Delete,
+                        InheritanceFlags.None, PropagationFlags.None,
+                        AccessControlType.Deny);
+                    DirectorySecurity restrictedAcl = FileSystemAclExtensions
+                        .GetAccessControl(aclDirectory,
+                            AccessControlSections.Access);
+                    restrictedAcl.AddAccessRule(denyRule);
+                    FileSystemAclExtensions.SetAccessControl(aclDirectory,
+                        restrictedAcl);
+                    aclApplied = true;
+                    aclParent = new DirectoryInfo(root);
+                    denyChildRule = new FileSystemAccessRule(
+                        WindowsIdentity.GetCurrent().User ?? throw new
+                            InvalidOperationException("SID utente assente."),
+                        FileSystemRights.DeleteSubdirectoriesAndFiles,
+                        InheritanceFlags.None, PropagationFlags.None,
+                        AccessControlType.Deny);
+                    DirectorySecurity parentAcl = FileSystemAclExtensions
+                        .GetAccessControl(aclParent, AccessControlSections.Access);
+                    parentAcl.AddAccessRule(denyChildRule);
+                    FileSystemAclExtensions.SetAccessControl(aclParent, parentAcl);
+                    parentAclApplied = true;
+                }
+                using (var heldFile = denySwap ? null : new FileStream(
+                    targetExe, FileMode.Open, FileAccess.Read, FileShare.Read))
                     Throws<InvalidDataException>(() => worker.ApplyAsync(
                         planPath, journalPath, nonce).GetAwaiter().GetResult());
                 Equal(DdfProductUpdateInstallationState.Failed,
@@ -9582,7 +9837,31 @@ namespace DDFLanguageEditor.Tests
             }
             finally
             {
-                Directory.Delete(root, true);
+                try
+                {
+                    if (parentAclApplied)
+                    {
+                        DirectorySecurity restoredParent = FileSystemAclExtensions
+                            .GetAccessControl(aclParent,
+                                AccessControlSections.Access);
+                        restoredParent.RemoveAccessRuleSpecific(denyChildRule);
+                        FileSystemAclExtensions.SetAccessControl(aclParent,
+                            restoredParent);
+                    }
+                    if (aclApplied)
+                    {
+                        DirectorySecurity restoredAcl = FileSystemAclExtensions
+                            .GetAccessControl(aclDirectory,
+                                AccessControlSections.Access);
+                        restoredAcl.RemoveAccessRuleSpecific(denyRule);
+                        FileSystemAclExtensions.SetAccessControl(aclDirectory,
+                            restoredAcl);
+                    }
+                }
+                finally
+                {
+                    Directory.Delete(root, true);
+                }
             }
         }
 
@@ -9801,6 +10080,114 @@ namespace DDFLanguageEditor.Tests
             finally
             {
                 if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
+        private static void FinalizesOnlyVerifiedCompletedUpdate()
+        {
+            string root = CreateTemporaryDirectory();
+            try
+            {
+                string target = Path.Combine(root, "portable-editor");
+                Directory.CreateDirectory(target);
+                foreach (string name in new[]
+                {
+                    "DDFLanguageEditor.exe", "DDFLanguageEditor.dll",
+                    "DDFLanguageEditor.WinForms.dll",
+                    "DDFLanguageEditor.Core.dll",
+                    "DDFLanguageEditor.deps.json",
+                    "DDFLanguageEditor.runtimeconfig.json",
+                    "coreclr.dll", "hostfxr.dll", "hostpolicy.dll"
+                })
+                    File.WriteAllText(Path.Combine(target, name), name,
+                        Encoding.UTF8);
+                string languageRoot = Path.Combine(target,
+                    "language-packages", "ddf");
+                Directory.CreateDirectory(languageRoot);
+                File.WriteAllText(Path.Combine(languageRoot, "manifest.json"),
+                    "{}", Encoding.UTF8);
+                string currentExe = Path.Combine(target,
+                    "DDFLanguageEditor.exe");
+                DdfProductUpdateInstallationBinding binding =
+                    DdfProductUpdateInstallationBinding.Resolve(currentExe);
+                DdfProductUpdateInstallationFile[] inventory =
+                    Directory.GetFiles(target, "*", SearchOption.AllDirectories)
+                        .Select(path => new DdfProductUpdateInstallationFile(
+                            Path.GetRelativePath(target, path).Replace('\\', '/'),
+                            new FileInfo(path).Length,
+                            HashBytes(File.ReadAllBytes(path)))).ToArray();
+                DateTimeOffset now = DateTimeOffset.UtcNow.AddMinutes(-1);
+                var plan = new DdfProductUpdateInstallationPlan(
+                    binding.InstallationId,
+                    DdfProductVersionCatalog.Current.ProductId,
+                    "0.12.5", "0.13.6-beta.4", "win-x64", "x64",
+                    new string('a', 64), "official-2026",
+                    new Uri("https://github.com/DDF-Technology/DDFLanguageEditor/releases/download/v0.13.6-beta.4/editor.zip"),
+                    100, new string('b', 64), binding.TargetRoot,
+                    binding.StagingRoot, binding.BackupRoot,
+                    binding.ApplicationExecutable, 4242, now.AddMinutes(-1),
+                    new string('8', 64), false, inventory, now);
+                Directory.CreateDirectory(plan.BackupRoot);
+                File.WriteAllText(Path.Combine(plan.BackupRoot,
+                    "DDFLanguageEditor.exe"), "previous", Encoding.UTF8);
+                string state = Path.Combine(root, "state");
+                string planPath = Path.Combine(state, "plan.json");
+                string journalPath = Path.Combine(state, "journal.json");
+                DdfProductUpdateInstallationJournalStore.WritePlan(planPath,
+                    plan);
+                var store = new DdfProductUpdateInstallationJournalStore(
+                    journalPath);
+                DdfProductUpdateInstallationJournal journal = store.Create(
+                    DdfProductUpdateInstallationJson.ComputePlanSha256(plan),
+                    now);
+                foreach (DdfProductUpdateInstallationState transition in new[]
+                {
+                    DdfProductUpdateInstallationState.DownloadAuthorized,
+                    DdfProductUpdateInstallationState.Downloading,
+                    DdfProductUpdateInstallationState.Staged,
+                    DdfProductUpdateInstallationState.InstallAuthorized,
+                    DdfProductUpdateInstallationState.WaitingForEditorExit,
+                    DdfProductUpdateInstallationState.Applying,
+                    DdfProductUpdateInstallationState.Verifying,
+                    DdfProductUpdateInstallationState.Completed
+                })
+                    journal = store.Transition(journal.Revision, transition,
+                        now.AddSeconds(journal.Revision + 1));
+                string workerRoot = Path.Combine(state,
+                    "worker-" + plan.Nonce);
+                Directory.CreateDirectory(workerRoot);
+                File.WriteAllText(Path.Combine(workerRoot,
+                    "DDFLanguageEditor.Updater.exe"), "worker", Encoding.UTF8);
+                string seal = DdfProductUpdateStagingSealCodec.SealPathFor(
+                    plan.StagingRoot);
+                File.WriteAllText(seal, "seal", Encoding.UTF8);
+                Equal(true, DdfProductUpdateRetryCleanup.CanFinalizeCompleted(
+                    DdfProductUpdateStartupRecovery.Inspect(planPath,
+                        journalPath)));
+                using (var heldLock = new FileStream(journalPath + ".lock",
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+                    Throws<IOException>(() =>
+                        DdfProductUpdateRetryCleanup.FinalizeCompleted(state,
+                            currentExe));
+                File.WriteAllText(currentExe, "tampered", Encoding.UTF8);
+                Throws<InvalidDataException>(() =>
+                    DdfProductUpdateRetryCleanup.FinalizeCompleted(state,
+                        currentExe));
+                Equal(true, Directory.Exists(plan.BackupRoot));
+                File.WriteAllText(currentExe, "DDFLanguageEditor.exe",
+                    Encoding.UTF8);
+                DdfProductUpdateRetryCleanup.FinalizeCompleted(state,
+                    currentExe);
+                Equal(false, Directory.Exists(plan.BackupRoot));
+                Equal(false, Directory.Exists(workerRoot));
+                Equal(false, File.Exists(seal));
+                Equal(false, File.Exists(planPath));
+                Equal(false, File.Exists(journalPath));
+                Equal(true, File.Exists(currentExe));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
             }
         }
 

@@ -3,6 +3,7 @@ param(
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$SkipArchive,
     [switch]$SkipSignedManifest,
+    [string]$ArtifactSubdirectory = '',
     [string]$SigningKeyId = 'official-2026'
 )
 
@@ -10,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot 'DDFLanguageEditor.App\DDFLanguageEditor.App.csproj'
+$updaterProject = Join-Path $repositoryRoot 'DDFLanguageEditor.Updater\DDFLanguageEditor.Updater.csproj'
 $versionMatrixPath = Join-Path $repositoryRoot 'ddf-version-matrix.json'
 $versionMatrix = Get-Content -LiteralPath $versionMatrixPath -Raw |
     ConvertFrom-Json
@@ -17,11 +19,20 @@ $applicationVersion = [string]$versionMatrix.product.version
 if ([string]::IsNullOrWhiteSpace($applicationVersion)) {
     throw 'Versione prodotto non trovata nella matrice autorevole.'
 }
-$artifactRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot '.artifacts'))
+$baseArtifactRoot = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot '.artifacts'))
+if ($ArtifactSubdirectory -and $ArtifactSubdirectory -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') {
+    throw 'ArtifactSubdirectory deve essere un singolo nome sicuro, non un percorso.'
+}
+$artifactRoot = if ($ArtifactSubdirectory) {
+    [System.IO.Path]::GetFullPath((Join-Path $baseArtifactRoot "acceptance\$ArtifactSubdirectory"))
+} else {
+    $baseArtifactRoot
+}
 $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'publish'))
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $artifactRoot 'release'))
 $packageName = "DDFLanguageEditor-$applicationVersion-$RuntimeIdentifier-self-contained"
 $publishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot $packageName))
+$updaterPublishDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishRoot "$packageName-updater"))
 $archivePath = [System.IO.Path]::GetFullPath((Join-Path $releaseRoot "$packageName.zip"))
 $checksumPath = "$archivePath.sha256"
 $releaseManifestPath = Join-Path $releaseRoot 'ddf-release-manifest.json'
@@ -34,11 +45,12 @@ function Assert-PathUnderArtifactRoot([string]$Path) {
 }
 
 Assert-PathUnderArtifactRoot $publishDirectory
+Assert-PathUnderArtifactRoot $updaterPublishDirectory
 Assert-PathUnderArtifactRoot $archivePath
 Assert-PathUnderArtifactRoot $checksumPath
 Assert-PathUnderArtifactRoot $releaseManifestPath
 
-foreach ($path in @($publishDirectory, $archivePath, $checksumPath,
+foreach ($path in @($publishDirectory, $updaterPublishDirectory, $archivePath, $checksumPath,
         $releaseManifestPath)) {
     if (Test-Path -LiteralPath $path) {
         Remove-Item -LiteralPath $path -Recurse -Force
@@ -61,6 +73,30 @@ $dotnet = Get-Command dotnet -ErrorAction Stop
     -p:PublishDir="$publishDirectory\"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+# The updater must be launched from outside the installation it replaces.
+# Ship a self-contained single-file worker so the editor can copy the verified
+# executable to its separate state directory after explicit install consent.
+& $dotnet.Source publish $updaterProject `
+    --configuration $Configuration `
+    --runtime $RuntimeIdentifier `
+    --self-contained true `
+    --disable-build-servers `
+    --maxcpucount:1 `
+    -p:NuGetAudit=false `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:PublishTrimmed=false `
+    -p:PublishDir="$updaterPublishDirectory\"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$publishedUpdater = Join-Path $updaterPublishDirectory 'DDFLanguageEditor.Updater.exe'
+if (-not (Test-Path -LiteralPath $publishedUpdater -PathType Leaf)) {
+    throw 'Worker updater self-contained assente dalla pubblicazione.'
+}
+$updaterDestination = Join-Path $publishDirectory 'support\updater'
+New-Item -ItemType Directory -Path $updaterDestination -Force | Out-Null
+Copy-Item -LiteralPath $publishedUpdater `
+    -Destination (Join-Path $updaterDestination 'DDFLanguageEditor.Updater.exe')
+
 $requiredFiles = @(
     'DDFLanguageEditor.exe',
     'DDFLanguageEditor.dll',
@@ -73,6 +109,7 @@ $requiredFiles = @(
     'hostpolicy.dll',
     'System.Windows.Forms.dll',
     'System.Drawing.Common.dll'
+    'support\updater\DDFLanguageEditor.Updater.exe'
 )
 
 $missingFiles = @($requiredFiles | Where-Object {

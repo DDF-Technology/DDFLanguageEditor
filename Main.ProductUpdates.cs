@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ namespace DDF___Program_Language_Editor
         private bool productUpdateCheckRunning;
         private bool productUpdateDownloadRunning;
         private CancellationTokenSource productUpdateDownloadCancellation;
+        private bool productUpdateInstallCloseApproved;
 
         private void initializeProductUpdates()
         {
@@ -69,11 +71,9 @@ namespace DDF___Program_Language_Editor
             };
             statusUpdateLabel.Click += (sender, args) =>
             {
-                if (productUpdateRecoveryStatus?.RequiresAttention == true)
+                if (productUpdateRecoveryStatus?.HasState == true)
                 {
-                    MessageBox.Show(this, productUpdateRecoveryStatus.Detail,
-                        "Aggiornamento da recuperare", MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                    showProductUpdateRecoveryDialog();
                     return;
                 }
                 showProductUpdateResult(lastProductUpdateResult);
@@ -177,7 +177,7 @@ namespace DDF___Program_Language_Editor
         private void presentProductUpdateResult(DdfProductUpdateResult result,
             bool manual)
         {
-            if (productUpdateRecoveryStatus?.RequiresAttention == true)
+            if (productUpdateRecoveryStatus?.HasState == true)
                 presentProductUpdateRecoveryStatus();
             else
             {
@@ -205,23 +205,22 @@ namespace DDF___Program_Language_Editor
             productUpdateRecoveryStatus = DdfProductUpdateStartupRecovery.Inspect(
                 Path.Combine(stateDirectory, "plan.json"),
                 Path.Combine(stateDirectory, "journal.json"));
-            if (!productUpdateRecoveryStatus.HasState ||
-                productUpdateRecoveryStatus.Action ==
-                    DdfProductUpdateRecoveryAction.None) return;
+            if (!productUpdateRecoveryStatus.HasState) return;
 
-            appendOutput("Aggiornamenti: " +
+            appendOutput("Aggiornamenti: stato precedente da esaminare. " +
                 productUpdateRecoveryStatus.Detail + " Azione prevista: " +
                 describeProductUpdateRecoveryAction(
                     productUpdateRecoveryStatus.Action) + ".");
-            if (productUpdateRecoveryStatus.RequiresAttention)
-                presentProductUpdateRecoveryStatus();
+            productUpdateForm?.Close();
+            presentProductUpdateRecoveryStatus();
         }
 
         private void presentProductUpdateRecoveryStatus()
         {
             statusUpdateLabel.Visible = true;
             statusUpdateLabel.Text = "Aggiornamento da recuperare";
-            statusUpdateLabel.ToolTipText = productUpdateRecoveryStatus.Detail;
+            statusUpdateLabel.ToolTipText =
+                "Apri lo stato dell'aggiornamento precedente";
             statusUpdateLabel.AccessibleName =
                 "Aggiornamento incompleto che richiede attenzione";
         }
@@ -246,12 +245,116 @@ namespace DDF___Program_Language_Editor
             }
         }
 
+        private void showProductUpdateRecoveryDialog()
+        {
+            if (embeddedHostMode) return;
+            string state = AppSettingsStore.GetProductUpdateStateDirectory();
+            string plan = Path.Combine(state, "plan.json");
+            string journal = Path.Combine(state, "journal.json");
+            productUpdateRecoveryStatus = DdfProductUpdateStartupRecovery.Inspect(
+                plan, journal);
+            if (!productUpdateRecoveryStatus.HasState)
+            {
+                if (lastProductUpdateResult != null)
+                    presentProductUpdateResult(lastProductUpdateResult, false);
+                else statusUpdateLabel.Visible = false;
+                return;
+            }
+            if (DdfProductUpdateRetryCleanup.CanFinalizeCompleted(
+                    productUpdateRecoveryStatus))
+            {
+                DialogResult finish = MessageBox.Show(this,
+                    "La nuova installazione risulta completata. Dopo un'ultima " +
+                    "verifica dei suoi file, eliminare il backup della versione " +
+                    "precedente e archiviare lo stato dell'aggiornamento?\n\n" +
+                    "Questa operazione elimina definitivamente la copia " +
+                    "precedente; non sarà più disponibile per il rollback.",
+                    "Finalizza aggiornamento completato",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+                if (finish != DialogResult.Yes) return;
+                try
+                {
+                    DdfProductUpdateRetryCleanup.FinalizeCompleted(state,
+                        Environment.ProcessPath);
+                    productUpdateRecoveryStatus =
+                        DdfProductUpdateStartupRecovery.Inspect(plan, journal);
+                    appendOutput("Aggiornamenti: backup precedente eliminato " +
+                        "dopo verifica della nuova installazione.");
+                    if (lastProductUpdateResult != null)
+                        presentProductUpdateResult(lastProductUpdateResult, false);
+                    else statusUpdateLabel.Visible = false;
+                }
+                catch (Exception exception) when (exception is IOException ||
+                    exception is InvalidDataException ||
+                    exception is InvalidOperationException ||
+                    exception is UnauthorizedAccessException)
+                {
+                    productUpdateRecoveryStatus =
+                        DdfProductUpdateStartupRecovery.Inspect(plan, journal);
+                    presentProductUpdateRecoveryStatus();
+                    MessageBox.Show(this, exception.Message,
+                        "Finalizzazione aggiornamento non riuscita",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return;
+            }
+            if (!DdfProductUpdateRetryCleanup.CanDiscard(
+                    productUpdateRecoveryStatus))
+            {
+                MessageBox.Show(this,
+                    "Questo stato non consente un ritentativo automatico. " +
+                    "Il backup e l'installazione non verranno rimossi.\n\n" +
+                    productUpdateRecoveryStatus.Detail + "\nAzione: " +
+                    describeProductUpdateRecoveryAction(
+                        productUpdateRecoveryStatus.Action),
+                    "Aggiornamento da recuperare", MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+            DialogResult consent = MessageBox.Show(this,
+                "Eliminare soltanto lo staging, il worker temporaneo e lo " +
+                "stato del tentativo precedente? L'installazione corrente " +
+                "e l'eventuale backup non saranno toccati.\n\n" +
+                "Dopo la pulizia potrai riprovare il download.",
+                "Ripulisci aggiornamento e ritenta",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+            if (consent != DialogResult.Yes) return;
+            try
+            {
+                DdfProductUpdateRetryCleanup.Discard(state,
+                    Environment.ProcessPath);
+                productUpdateRecoveryStatus =
+                    DdfProductUpdateStartupRecovery.Inspect(plan, journal);
+                appendOutput("Aggiornamenti: tentativo precedente ripulito; " +
+                    "l'installazione corrente è rimasta intatta.");
+                if (lastProductUpdateResult != null)
+                    presentProductUpdateResult(lastProductUpdateResult, false);
+                else statusUpdateLabel.Visible = false;
+            }
+            catch (Exception exception) when (exception is IOException ||
+                exception is InvalidDataException ||
+                exception is InvalidOperationException ||
+                exception is UnauthorizedAccessException)
+            {
+                productUpdateRecoveryStatus =
+                    DdfProductUpdateStartupRecovery.Inspect(plan, journal);
+                presentProductUpdateRecoveryStatus();
+                MessageBox.Show(this, exception.Message,
+                    "Pulizia aggiornamento non riuscita", MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
         private void showProductUpdateResult(DdfProductUpdateResult result)
         {
             if (result == null || embeddedHostMode) return;
             productUpdateForm?.Close();
             productUpdateForm = new ProductUpdateForm(result,
-                openProductUpdateUri, downloadProductUpdateAsync);
+                openProductUpdateUri,
+                productUpdateRecoveryStatus?.HasState == true
+                    ? null : downloadProductUpdateAsync);
             productUpdateForm.FormClosed += (sender, args) =>
                 productUpdateForm = null;
             productUpdateForm.Show(this);
@@ -261,11 +364,13 @@ namespace DDF___Program_Language_Editor
         {
             if (embeddedHostMode || productUpdateDownloadRunning ||
                 result == null || !result.IsActionable ||
-                productUpdateRecoveryStatus?.RequiresAttention == true)
+                productUpdateRecoveryStatus?.HasState == true)
                 return;
             productUpdateDownloadRunning = true;
             var cancellation = new CancellationTokenSource();
             productUpdateDownloadCancellation = cancellation;
+            string preparedJournalPath = null;
+            bool installationWorkerStarted = false;
             try
             {
                 var request = DdfProductUpdateRequest.ForStandalone(result.Channel);
@@ -295,38 +400,162 @@ namespace DDF___Program_Language_Editor
                 if (IsDisposed || Disposing) return;
                 appendOutput("Aggiornamento " + offer.Version +
                     " scaricato e verificato in " + prepared.ArchivePath +
-                    ". Ricevuta firmata: " + prepared.ManifestPath +
-                    ". Installazione non ancora disponibile.");
+                    ". Ricevuta firmata: " + prepared.ManifestPath + ".");
+                if (!prepared.Inventory.Any(file =>
+                    file.RelativePath.Equals(
+                        DdfProductUpdateWorkerDeployment.WorkerRelativePath,
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    appendOutput("Installazione automatica non disponibile: " +
+                        "la release non contiene il worker firmato.");
+                    MessageBox.Show(this,
+                        "Download verificato. Questa release non include il " +
+                        "worker necessario all'installazione automatica.",
+                        "Aggiornamento scaricato", MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+                DdfProductUpdateInstallationBinding binding;
                 try
                 {
-                    DdfProductUpdateInstallationBinding binding =
-                        DdfProductUpdateInstallationBinding.Resolve(
-                            Environment.ProcessPath);
+                    binding = DdfProductUpdateInstallationBinding.Resolve(
+                        Environment.ProcessPath);
                     appendOutput("Preflight installazione: destinazione " +
-                        binding.TargetRoot + ". Piano e applicazione ancora disabilitati.");
+                        binding.TargetRoot + ".");
                 }
                 catch (InvalidDataException exception)
                 {
                     appendOutput("Preflight installazione non disponibile: " +
                         exception.Message);
+                    MessageBox.Show(this,
+                        "Download verificato. Installazione automatica non " +
+                        "disponibile per questa copia: " + exception.Message,
+                        "Aggiornamento scaricato", MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
                 }
-                MessageBox.Show(this,
-                    "Download e verifica completati. L'installazione " +
-                    "automatica non è ancora disponibile in questa beta.",
-                    "Aggiornamento scaricato", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                using Process current = Process.GetCurrentProcess();
+                DateTimeOffset startedUtc = new DateTimeOffset(
+                    current.StartTime.ToUniversalTime(), TimeSpan.Zero);
+                string stateDirectory =
+                    AppSettingsStore.GetProductUpdateStateDirectory();
+                DdfProductUpdateInstallationPlan previewPlan =
+                    DdfProductUpdateLocalPlanFactory.Create(
+                        prepared.ArchivePath,
+                        DdfOfficialReleaseTrustStore.Create(), request,
+                        runtimeIdentifier, architecture,
+                        binding.InstallationId, binding.TargetRoot,
+                        binding.StagingRoot, binding.BackupRoot,
+                        binding.ApplicationExecutable, current.Id,
+                        startedUtc, DateTimeOffset.UtcNow);
+                using (var consent = new ProductUpdateInstallationConsentForm(
+                    previewPlan, ProductUpdateConsentStage.Install))
+                    if (consent.ShowDialog(this) != DialogResult.OK) return;
+                if (!confirmAllDocumentChanges()) return;
+                DdfProductUpdateLocalPreparationResult staged;
+                Enabled = false;
+                UseWaitCursor = true;
+                try
+                {
+                    staged = await DdfProductUpdateLocalPreparation.PrepareAsync(
+                        prepared.ArchivePath,
+                        DdfOfficialReleaseTrustStore.Create(), request,
+                        runtimeIdentifier, architecture, binding,
+                        stateDirectory, current.Id, startedUtc,
+                        cancellation.Token);
+                }
+                finally
+                {
+                    if (!IsDisposed)
+                    {
+                        Enabled = true;
+                        UseWaitCursor = false;
+                    }
+                }
+                preparedJournalPath = staged.JournalPath;
+                if (IsDisposed || Disposing)
+                {
+                    tryCancelProductUpdateInstallation(staged.JournalPath);
+                    return;
+                }
+                string workerPath = DdfProductUpdateWorkerDeployment.CopyVerified(
+                    staged.Plan, stateDirectory);
+                bool authorized = DdfProductUpdateInstallAuthorization.TryAuthorize(
+                    staged.PlanPath, staged.JournalPath, prepared.ArchivePath,
+                    DdfOfficialReleaseTrustStore.Create(), request,
+                    runtimeIdentifier, architecture, binding,
+                    Environment.ProcessPath, current.Id, startedUtc, true);
+                if (!authorized) return;
+                Process worker = null;
+                try
+                {
+                    using (DdfProductUpdateWorkerDeployment.OpenVerifiedForLaunch(
+                        staged.Plan, workerPath))
+                    {
+                        var startInfo = new ProcessStartInfo
+                        {
+                            FileName = workerPath,
+                            WorkingDirectory = Path.GetDirectoryName(workerPath),
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        startInfo.ArgumentList.Add("--plan");
+                        startInfo.ArgumentList.Add(staged.PlanPath);
+                        startInfo.ArgumentList.Add("--journal");
+                        startInfo.ArgumentList.Add(staged.JournalPath);
+                        startInfo.ArgumentList.Add("--nonce");
+                        startInfo.ArgumentList.Add(staged.Plan.Nonce);
+                        worker = Process.Start(startInfo) ?? throw new
+                            InvalidOperationException("Avvio worker non riuscito.");
+                        installationWorkerStarted = true;
+                    }
+                    productUpdateInstallCloseApproved = true;
+                    Close();
+                    if (!IsDisposed)
+                    {
+                        if (!stopProductUpdateWorker(worker))
+                            throw new InvalidOperationException(
+                                "Impossibile arrestare il worker dopo " +
+                                "l'annullamento della chiusura.");
+                        cancelProductUpdateInstallation(staged.JournalPath);
+                        installationWorkerStarted = false;
+                        appendOutput("Installazione annullata: l'editor è rimasto aperto.");
+                    }
+                }
+                catch
+                {
+                    if (worker == null)
+                        cancelProductUpdateInstallation(staged.JournalPath);
+                    else if (!IsDisposed && stopProductUpdateWorker(worker))
+                    {
+                        installationWorkerStarted = false;
+                        tryCancelProductUpdateInstallation(staged.JournalPath);
+                    }
+                    throw;
+                }
+                finally
+                {
+                    productUpdateInstallCloseApproved = false;
+                    worker?.Dispose();
+                }
             }
             catch (OperationCanceledException)
             {
+                if (!installationWorkerStarted)
+                    tryCancelProductUpdateInstallation(preparedJournalPath);
                 if (!IsDisposed)
                     appendOutput("Download aggiornamento annullato.");
             }
             catch (Exception exception) when (exception is IOException ||
                 exception is InvalidDataException ||
+                exception is InvalidOperationException ||
+                exception is System.ComponentModel.Win32Exception ||
                 exception is System.Net.Http.HttpRequestException ||
                 exception is UnauthorizedAccessException ||
                 exception is TimeoutException)
             {
+                if (!installationWorkerStarted)
+                    tryCancelProductUpdateInstallation(preparedJournalPath);
                 if (!IsDisposed)
                 {
                     appendOutput("Download aggiornamento non riuscito: " +
@@ -338,12 +567,48 @@ namespace DDF___Program_Language_Editor
             }
             finally
             {
+                if (!IsDisposed && preparedJournalPath != null &&
+                    !installationWorkerStarted)
+                    inspectPendingProductUpdateRecovery();
                 productUpdateDownloadRunning = false;
                 if (ReferenceEquals(productUpdateDownloadCancellation,
                         cancellation))
                     productUpdateDownloadCancellation = null;
                 cancellation.Dispose();
             }
+        }
+
+        private static void cancelProductUpdateInstallation(string journalPath)
+        {
+            var store = new DdfProductUpdateInstallationJournalStore(journalPath);
+            DdfProductUpdateInstallationJournal journal = store.Read();
+            if (DdfProductUpdateInstallationTransitions.CanTransition(
+                    journal.State, DdfProductUpdateInstallationState.Cancelled))
+                store.Transition(journal.Revision,
+                    DdfProductUpdateInstallationState.Cancelled,
+                    DateTimeOffset.UtcNow);
+        }
+
+        private static void tryCancelProductUpdateInstallation(string journalPath)
+        {
+            if (string.IsNullOrWhiteSpace(journalPath)) return;
+            try { cancelProductUpdateInstallation(journalPath); }
+            catch (Exception exception) when (exception is IOException ||
+                exception is InvalidDataException ||
+                exception is InvalidOperationException ||
+                exception is UnauthorizedAccessException) { }
+        }
+
+        private static bool stopProductUpdateWorker(Process worker)
+        {
+            try
+            {
+                if (!worker.HasExited)
+                    worker.Kill(entireProcessTree: true);
+                return worker.WaitForExit(2000);
+            }
+            catch (InvalidOperationException) { return false; }
+            catch (System.ComponentModel.Win32Exception) { return false; }
         }
 
         private void persistProductUpdateSettings()
