@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.12.8 Beta - hotfix locale non pubblicato
+## 0.12.8 Beta
 
-- Corretto il crash all'avvio della `v0.12.7` estratta da ZIP: il servizio di build richiedeva il runner DDF, ma il pacchetto conteneva soltanto il suo launcher e non la DLL. Il runner viene ora distribuito come EXE self-contained in `support/runner`; il resolver sceglie quel file prima dei percorsi di sviluppo. La pipeline richiede il runner e avvia il self-test del prodotto, che verifica anche la costruzione del servizio di build. Avvio GUI controllato, Core `345/345` e smoke UI updater verdi; runner avviato senza `dotnet` nel `PATH`.
+- Corretto il crash all'avvio della `v0.12.7` estratta da ZIP: il servizio di build richiedeva il runner DDF, ma il pacchetto conteneva soltanto il suo launcher e non la DLL. Il runner viene ora distribuito come EXE self-contained in `support/runner`; il resolver sceglie quel file prima dei percorsi di sviluppo. La pipeline richiede il runner e avvia il self-test del prodotto, che verifica anche la costruzione del servizio di build. Avvio GUI controllato, Core `345/345` e smoke UI updater verdi; runner avviato senza `dotnet` nel `PATH`. Il gate bridge editor con runner distribuito ha compilato in Debug/Release, eseguito uno script e pubblicato un EXE.
 
 ## 0.12.7 Beta
 

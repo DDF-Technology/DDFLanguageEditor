@@ -57,6 +57,12 @@ namespace DDFLanguageEditor.Compiler.Tests
                     return 0;
                 }
                 if ((args ?? Array.Empty<string>()).Contains(
+                        "--editor-bridge-only", StringComparer.Ordinal))
+                {
+                    BuildsEditorArtifactsThroughStandaloneBridge();
+                    return 0;
+                }
+                if ((args ?? Array.Empty<string>()).Contains(
                         "--worker-write-gate", StringComparer.Ordinal))
                 {
                     RunsTransactionalFileBrokerOutOfProcess(

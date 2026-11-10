@@ -1,9 +1,8 @@
 # DDFLanguageEditor
 
-> **Beta 0.12.8 in preparazione — progetto sperimentale.** La release
-> `v0.12.7` pubblicata non si avvia da un'estrazione pulita: manca il runner
-> standalone. Non usarla; è in preparazione un hotfix. Linguaggio e runtime
-> restano sperimentali.
+> **Beta 0.12.8 — progetto sperimentale.** La release `v0.12.7` non si avvia
+> da un'estrazione pulita: usare la `v0.12.8` o successiva. Linguaggio e
+> runtime restano sperimentali.
 
 DDFLanguageEditor conserva ed espone il primo esperimento WinForms dedicato al
 linguaggio sperimentale DDF. Offre un'area di scrittura scura con numeri di riga,
