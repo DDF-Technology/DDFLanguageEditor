@@ -1,5 +1,9 @@
 # Changelog
 
+## In sviluppo — successivo alla 0.12.9 Beta
+
+- La prova UI isolata `0.12.8 → 0.12.9` ha completato controllo della release, consensi, download e verifica dell'archivio firmato, ma il worker si è fermato prima dello swap: l'editor era già uscito quando il worker ha tentato di attestare il PID. Il sorgente ora usa un segnale Windows nominato dal nonce del piano; il worker lo attiva solo dopo aver verificato PID e istante d'avvio, e l'editor aspetta il segnale prima di chiudersi. Il test copre anche la consegna del segnale tra due processi reali. La build Release è senza avvisi, i test Core sono `347/347` e lo smoke UI updater è verde. Serve ancora una release firmata che includa la correzione per ripetere il gate UI end-to-end.
+
 ## 0.12.9 Beta
 
 - Corretto il secondo crash all'avvio da ZIP pulito: la `v0.12.8` include il runner EXE, ma il servizio di debug cercava ancora la vecchia DLL tramite un resolver indipendente. Build e debug usano ora un unico `DdfDotNetRunnerLocator`; il self-test costruisce entrambi i servizi. Le prove sotto il repository avevano mascherato il difetto trovando la DLL di sviluppo nelle cartelle parent. Lo script di release estrae ora lo ZIP in una cartella temporanea esterna e ripete il self-test. Build Release senza warning, Core `345/345`, compilatore `32/32`, smoke UI, avvio esterno e bridge con runner estratto verdi. La release `v0.12.8` è contrassegnata su GitHub come non avviabile.

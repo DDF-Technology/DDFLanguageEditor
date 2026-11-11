@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using DDFLanguageEditor.Core;
 
@@ -19,7 +20,11 @@ namespace DDFLanguageEditor.Updater
                     DdfProductUpdateInstallationJournalStore.ReadPlan(
                         parsed.PlanPath);
                 EnsureWorkerOutsideTarget(plan.TargetRoot);
-                var worker = new DdfProductUpdateWorker();
+                using EventWaitHandle readyEvent = OpenReadyEvent(
+                    parsed.ReadyEventName);
+                var waiter = new DdfProductUpdateProcessWaiter(
+                    readyEvent == null ? null : () => readyEvent.Set());
+                var worker = new DdfProductUpdateWorker(waiter);
                 DdfProductUpdateWorkerResult result = parsed.Cleanup
                     ? worker.Cleanup(parsed.PlanPath, parsed.JournalPath,
                         parsed.Nonce)
@@ -54,7 +59,9 @@ namespace DDFLanguageEditor.Updater
                 exception is InvalidDataException ||
                 exception is InvalidOperationException ||
                 exception is IOException || exception is UnauthorizedAccessException ||
-                exception is TimeoutException)
+                exception is TimeoutException ||
+                exception is WaitHandleCannotBeOpenedException ||
+                exception is PlatformNotSupportedException)
             {
                 Console.Error.WriteLine("DDF updater: " + exception.Message);
                 return 1;
@@ -74,6 +81,15 @@ namespace DDFLanguageEditor.Updater
                     "Il worker updater deve risiedere fuori dall'installazione sostituita.");
         }
 
+        private static EventWaitHandle OpenReadyEvent(string name)
+        {
+            if (name == null) return null;
+            if (!OperatingSystem.IsWindows())
+                throw new PlatformNotSupportedException(
+                    "Il segnale di avvio updater richiede Windows.");
+            return EventWaitHandle.OpenExisting(name);
+        }
+
         private static void Restart(DdfProductUpdateInstallationPlan plan)
         {
             string executable = Path.GetFullPath(Path.Combine(plan.TargetRoot,
@@ -91,13 +107,14 @@ namespace DDFLanguageEditor.Updater
         private sealed class WorkerArguments
         {
             private WorkerArguments(string planPath, string journalPath,
-                string nonce, bool recover, bool cleanup)
+                string nonce, bool recover, bool cleanup, string readyEventName)
             {
                 PlanPath = planPath;
                 JournalPath = journalPath;
                 Nonce = nonce;
                 Recover = recover;
                 Cleanup = cleanup;
+                ReadyEventName = readyEventName;
             }
 
             public string PlanPath { get; }
@@ -105,6 +122,7 @@ namespace DDFLanguageEditor.Updater
             public string Nonce { get; }
             public bool Recover { get; }
             public bool Cleanup { get; }
+            public string ReadyEventName { get; }
 
             public static WorkerArguments Parse(string[] args)
             {
@@ -114,6 +132,7 @@ namespace DDFLanguageEditor.Updater
                 string nonce = null;
                 bool recover = false;
                 bool cleanup = false;
+                string readyEventName = null;
                 var seen = new HashSet<string>(StringComparer.Ordinal);
                 for (int index = 0; index < args.Length; index++)
                 {
@@ -132,7 +151,7 @@ namespace DDFLanguageEditor.Updater
                         continue;
                     }
                     if (option != "--plan" && option != "--journal" &&
-                        option != "--nonce")
+                        option != "--nonce" && option != "--ready-event")
                         throw new ArgumentException("Argomento worker sconosciuto: " +
                             option + ".");
                     if (++index >= args.Length)
@@ -140,7 +159,8 @@ namespace DDFLanguageEditor.Updater
                     string value = args[index];
                     if (option == "--plan") plan = value;
                     else if (option == "--journal") journal = value;
-                    else nonce = value;
+                    else if (option == "--nonce") nonce = value;
+                    else readyEventName = value;
                 }
                 if (string.IsNullOrWhiteSpace(plan) ||
                     string.IsNullOrWhiteSpace(journal) ||
@@ -154,8 +174,14 @@ namespace DDFLanguageEditor.Updater
                 if (recover && cleanup)
                     throw new ArgumentException(
                         "--recover e --cleanup sono mutuamente esclusivi.");
+                if (readyEventName != null && (recover || cleanup ||
+                    !string.Equals(readyEventName,
+                        DdfProductUpdateReadySignal.NameFor(nonce),
+                        StringComparison.Ordinal)))
+                    throw new ArgumentException("Segnale worker non valido.");
                 return new WorkerArguments(Path.GetFullPath(plan),
-                    Path.GetFullPath(journal), nonce, recover, cleanup);
+                    Path.GetFullPath(journal), nonce, recover, cleanup,
+                    readyEventName);
             }
         }
     }

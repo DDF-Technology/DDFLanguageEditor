@@ -31,6 +31,9 @@ namespace DDFLanguageEditor.Tests
 
         private static int Main(string[] args)
         {
+            if (args?.Length == 4 &&
+                args[0] == "--updater-ready-probe")
+                return RunUpdaterReadyProbe(args);
             if (args?.Contains("--product-update-github-only",
                     StringComparer.Ordinal) == true)
                 return RunRealGitHubProductUpdateSmoke();
@@ -213,6 +216,8 @@ namespace DDFLanguageEditor.Tests
             Run("rejects unsafe update archives without touching the target", RejectsUnsafeUpdateArchivesWithoutTouchingTarget);
             Run("swaps staged updates and rolls back corrupted promotions", SwapsStagedUpdatesAndRollsBackCorruptedPromotions);
             Run("rejects reused updater PIDs and waits for the active editor", RejectsReusedUpdaterPidsAndActiveEditor);
+            Run("signals updater readiness only after editor attestation", SignalsUpdaterReadinessAfterEditorAttestation);
+            Run("signals updater readiness across real processes", SignalsUpdaterReadinessAcrossProcesses);
             Run("preserves the old install when a target file is locked", PreservesOldInstallWhenTargetFileIsLocked);
             Run("preserves the old install when swap access is denied", PreservesOldInstallWhenSwapAccessIsDenied);
             Run("copies only the signed updater worker outside the install", CopiesOnlySignedUpdaterWorkerOutsideInstall);
@@ -9628,6 +9633,117 @@ namespace DDFLanguageEditor.Tests
             Throws<TimeoutException>(() => waiter.WaitForExitAsync(current.Id,
                 startedUtc, TimeSpan.FromMilliseconds(50),
                 CancellationToken.None).GetAwaiter().GetResult());
+        }
+
+        private static void SignalsUpdaterReadinessAfterEditorAttestation()
+        {
+            string nonce = Guid.NewGuid().ToString("N") +
+                Guid.NewGuid().ToString("N");
+            string name = DdfProductUpdateReadySignal.NameFor(nonce);
+            if (!name.EndsWith(nonce, StringComparison.Ordinal))
+                throw new InvalidOperationException("Invalid readiness name.");
+            using Process current = Process.GetCurrentProcess();
+            DateTimeOffset startedUtc = new DateTimeOffset(
+                current.StartTime.ToUniversalTime(), TimeSpan.Zero);
+            bool ready = false;
+            var waiter = new DdfProductUpdateProcessWaiter(() => ready = true);
+            Throws<InvalidOperationException>(() => waiter.WaitForExitAsync(
+                current.Id, startedUtc.AddTicks(1),
+                TimeSpan.FromMilliseconds(50), CancellationToken.None)
+                .GetAwaiter().GetResult());
+            if (ready)
+                throw new InvalidOperationException(
+                    "Wrong process identity signalled readiness.");
+            Throws<TimeoutException>(() => waiter.WaitForExitAsync(current.Id,
+                startedUtc, TimeSpan.FromMilliseconds(50),
+                CancellationToken.None).GetAwaiter().GetResult());
+            if (!ready)
+                throw new InvalidOperationException(
+                    "Verified process did not signal readiness.");
+            Throws<ArgumentException>(() =>
+                DdfProductUpdateReadySignal.NameFor("not-a-nonce"));
+        }
+
+        private static int RunUpdaterReadyProbe(string[] args)
+        {
+            if (!OperatingSystem.IsWindows()) return 2;
+            try
+            {
+                int processId = int.Parse(args[2], CultureInfo.InvariantCulture);
+                long startedTicks = long.Parse(args[3],
+                    CultureInfo.InvariantCulture);
+                using EventWaitHandle ready = EventWaitHandle.OpenExisting(args[1]);
+                var waiter = new DdfProductUpdateProcessWaiter(
+                    () => ready.Set());
+                try
+                {
+                    waiter.WaitForExitAsync(processId,
+                        new DateTimeOffset(startedTicks, TimeSpan.Zero),
+                        TimeSpan.FromSeconds(2), CancellationToken.None)
+                        .GetAwaiter().GetResult();
+                    return 3;
+                }
+                catch (TimeoutException) { return 0; }
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine(exception);
+                return 1;
+            }
+        }
+
+        private static void SignalsUpdaterReadinessAcrossProcesses()
+        {
+            if (!OperatingSystem.IsWindows()) return;
+            string nonce = Guid.NewGuid().ToString("N") +
+                Guid.NewGuid().ToString("N");
+            using var ready = new EventWaitHandle(false,
+                EventResetMode.ManualReset,
+                DdfProductUpdateReadySignal.NameFor(nonce),
+                out bool createdNew);
+            if (!createdNew)
+                throw new InvalidOperationException(
+                    "Readiness event was already present.");
+            using Process current = Process.GetCurrentProcess();
+            DateTimeOffset startedUtc = new DateTimeOffset(
+                current.StartTime.ToUniversalTime(), TimeSpan.Zero);
+            var start = new ProcessStartInfo
+            {
+                FileName = Environment.ProcessPath ?? throw new
+                    InvalidOperationException("Test executable path absent."),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+            if (Path.GetFileName(start.FileName).Equals("dotnet.exe",
+                    StringComparison.OrdinalIgnoreCase))
+                start.ArgumentList.Add(typeof(Program).Assembly.Location);
+            start.ArgumentList.Add("--updater-ready-probe");
+            start.ArgumentList.Add(DdfProductUpdateReadySignal.NameFor(nonce));
+            start.ArgumentList.Add(current.Id.ToString(CultureInfo.InvariantCulture));
+            start.ArgumentList.Add(startedUtc.Ticks.ToString(
+                CultureInfo.InvariantCulture));
+            using Process child = Process.Start(start) ?? throw new
+                InvalidOperationException("Updater probe did not start.");
+            try
+            {
+                if (!ready.WaitOne(TimeSpan.FromSeconds(10)))
+                    throw new InvalidOperationException(
+                        "Child did not attest the live parent: " +
+                        (child.HasExited ? child.StandardError.ReadToEnd() :
+                            "still running"));
+                if (!child.WaitForExit(5000))
+                    throw new InvalidOperationException(
+                        "Updater probe did not terminate.");
+                if (child.ExitCode != 0)
+                    throw new InvalidOperationException(
+                        "Updater probe failed: " +
+                        child.StandardError.ReadToEnd());
+            }
+            finally
+            {
+                if (!child.HasExited) child.Kill(entireProcessTree: true);
+            }
         }
 
         private static void PreservesOldInstallWhenTargetFileIsLocked()

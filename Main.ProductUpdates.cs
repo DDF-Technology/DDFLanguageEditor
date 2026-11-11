@@ -489,6 +489,14 @@ namespace DDF___Program_Language_Editor
                 Process worker = null;
                 try
                 {
+                    string readyName = DdfProductUpdateReadySignal.NameFor(
+                        staged.Plan.Nonce);
+                    using var readyEvent = new EventWaitHandle(false,
+                        EventResetMode.ManualReset, readyName,
+                        out bool createdNew);
+                    if (!createdNew)
+                        throw new InvalidOperationException(
+                            "Segnale di avvio updater già presente.");
                     using (DdfProductUpdateWorkerDeployment.OpenVerifiedForLaunch(
                         staged.Plan, workerPath))
                     {
@@ -505,10 +513,16 @@ namespace DDF___Program_Language_Editor
                         startInfo.ArgumentList.Add(staged.JournalPath);
                         startInfo.ArgumentList.Add("--nonce");
                         startInfo.ArgumentList.Add(staged.Plan.Nonce);
+                        startInfo.ArgumentList.Add("--ready-event");
+                        startInfo.ArgumentList.Add(readyName);
                         worker = Process.Start(startInfo) ?? throw new
                             InvalidOperationException("Avvio worker non riuscito.");
                         installationWorkerStarted = true;
                     }
+                    if (!await Task.Run(() =>
+                        waitForProductUpdateWorkerReady(worker, readyEvent)))
+                        throw new InvalidOperationException(
+                            "Il worker non ha attestato l'editor prima della chiusura.");
                     productUpdateInstallCloseApproved = true;
                     Close();
                     if (!IsDisposed)
@@ -609,6 +623,18 @@ namespace DDF___Program_Language_Editor
             }
             catch (InvalidOperationException) { return false; }
             catch (System.ComponentModel.Win32Exception) { return false; }
+        }
+
+        private static bool waitForProductUpdateWorkerReady(Process worker,
+            EventWaitHandle readyEvent)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (readyEvent.WaitOne(100)) return true;
+                if (worker.HasExited) return false;
+            }
+            return false;
         }
 
         private void persistProductUpdateSettings()

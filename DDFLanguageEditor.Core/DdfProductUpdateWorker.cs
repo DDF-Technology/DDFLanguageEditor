@@ -19,6 +19,15 @@ namespace DDFLanguageEditor.Core
     public sealed class DdfProductUpdateProcessWaiter :
         IDdfProductUpdateProcessWaiter
     {
+        private readonly Action onAttested;
+
+        public DdfProductUpdateProcessWaiter() : this(null) { }
+
+        public DdfProductUpdateProcessWaiter(Action onAttested)
+        {
+            this.onAttested = onAttested;
+        }
+
         public async Task WaitForExitAsync(int processId,
             DateTimeOffset processStartedUtc, TimeSpan timeout,
             CancellationToken cancellationToken)
@@ -53,6 +62,7 @@ namespace DDFLanguageEditor.Core
                 if (actualStartedUtc != processStartedUtc)
                     throw new InvalidOperationException(
                         "Il PID appartiene a un processo differente.");
+                onAttested?.Invoke();
                 using var timeoutSource = CancellationTokenSource
                     .CreateLinkedTokenSource(cancellationToken);
                 timeoutSource.CancelAfter(timeout);
@@ -68,6 +78,18 @@ namespace DDFLanguageEditor.Core
                         "L'editor non si è chiuso entro il timeout.", exception);
                 }
             }
+        }
+    }
+
+    public static class DdfProductUpdateReadySignal
+    {
+        public static string NameFor(string nonce)
+        {
+            if (nonce == null || nonce.Length != 64 ||
+                nonce.Any(character => !Uri.IsHexDigit(character)))
+                throw new ArgumentException("Nonce updater non valido.",
+                    nameof(nonce));
+            return @"Local\DDFLanguageEditor.Updater.Ready." + nonce;
         }
     }
 
