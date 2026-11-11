@@ -18,8 +18,9 @@ Gate locale: build Debug e Release senza warning, 347 test Core, 32 test
 contrattuali del compilatore e smoke WinForms completo con 80 comandi menu
 superati. Il candidato ZIP `win-x64` self-contained ha superato il self-test
 anche dopo estrazione fuori dal repository; i pacchetti SDK Core e WinForms
-`0.12.10-beta` sono stati generati. Il candidato locale non firmato non è
-distribuibile. Nel publish single-file del runner permangono tre avvisi
+`0.12.10-beta` sono stati generati. La prerelease GitHub contiene ZIP,
+checksum e manifesto `official-2026` verificati; il candidato locale non
+firmato non è distribuibile. Nel publish single-file del runner permangono tre avvisi
 `IL3000` già noti e separati dalle build della soluzione.
 
 ## Release precedente: 0.12.9 Beta
