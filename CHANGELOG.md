@@ -1,8 +1,8 @@
 # Changelog
 
-## In sviluppo — dopo la 0.12.10 Beta
+## 0.12.11 Beta — candidata
 
-- Il popup degli aggiornamenti mostra ora l'attività di preparazione, la percentuale e i MiB ricevuti durante il download, poi la verifica dell'archivio. Gli eventi di progresso tardivi non sovrascrivono lo stato di verifica; a fine operazione il popup ripristina la descrizione originale. Smoke WinForms mirato e build Release verdi. Il gate di installazione UI `0.12.10 → release firmata successiva` resta aperto.
+- Il popup degli aggiornamenti mostra ora l'attività di preparazione, la percentuale e i MiB ricevuti durante il download, poi la verifica dell'archivio. Gli eventi di progresso tardivi non sovrascrivono lo stato di verifica; a fine operazione il popup ripristina la descrizione originale. Smoke WinForms mirato e build Release verdi. Il gate di installazione UI `0.12.10 → 0.12.11` resta aperto.
 
 ## 0.12.10 Beta
 

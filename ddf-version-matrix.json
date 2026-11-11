@@ -2,12 +2,12 @@
   "$schema": "./ddf-version-matrix.schema.json",
   "schemaVersion": "1.0",
   "product": {
-    "version": "0.12.10",
+    "version": "0.12.11",
     "stability": "beta",
-    "displayVersion": "0.12.10 Beta",
-    "assemblyVersion": "0.12.10.0",
-    "fileVersion": "0.12.10.0",
-    "informationalVersion": "0.12.10"
+    "displayVersion": "0.12.11 Beta",
+    "assemblyVersion": "0.12.11.0",
+    "fileVersion": "0.12.11.0",
+    "informationalVersion": "0.12.11"
   },
   "productUpdate": {
     "productId": "ddf-language-editor",
@@ -102,30 +102,30 @@
     {
       "id": "standalone",
       "project": "DDFLanguageEditor.App/DDFLanguageEditor.App.csproj",
-      "version": "0.12.10",
-      "assemblyVersion": "0.12.10.0",
-      "fileVersion": "0.12.10.0",
-      "informationalVersion": "0.12.10"
+      "version": "0.12.11",
+      "assemblyVersion": "0.12.11.0",
+      "fileVersion": "0.12.11.0",
+      "informationalVersion": "0.12.11"
     },
     {
       "id": "core-sdk",
       "project": "DDFLanguageEditor.Core/DDFLanguageEditor.Core.csproj",
-      "version": "0.12.10",
-      "assemblyVersion": "0.12.10.0",
-      "fileVersion": "0.12.10.0",
-      "informationalVersion": "0.12.10",
+      "version": "0.12.11",
+      "assemblyVersion": "0.12.11.0",
+      "fileVersion": "0.12.11.0",
+      "informationalVersion": "0.12.11",
       "packageId": "DDFLanguageEditor.Core",
-      "packageVersion": "0.12.10-beta"
+      "packageVersion": "0.12.11-beta"
     },
     {
       "id": "winforms-sdk",
       "project": "DDF - Program Language Editor.csproj",
-      "version": "0.12.10",
-      "assemblyVersion": "0.12.10.0",
-      "fileVersion": "0.12.10.0",
-      "informationalVersion": "0.12.10",
+      "version": "0.12.11",
+      "assemblyVersion": "0.12.11.0",
+      "fileVersion": "0.12.11.0",
+      "informationalVersion": "0.12.11",
       "packageId": "DDFLanguageEditor.WinForms",
-      "packageVersion": "0.12.10-beta"
+      "packageVersion": "0.12.11-beta"
     },
     {
       "id": "compiler",

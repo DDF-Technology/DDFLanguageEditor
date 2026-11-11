@@ -1,4 +1,14 @@
-# DDFLanguageEditor 0.12.10 Beta
+# DDFLanguageEditor 0.12.11 Beta
+
+Questa beta rende visibile nel popup dell'updater la preparazione del download,
+i MiB ricevuti e la percentuale di avanzamento, seguiti dalla verifica
+dell'archivio. Gli eventi di progresso arrivati in ritardo non sovrascrivono
+lo stato di verifica. La release serve anche a provare il percorso completo
+di aggiornamento automatico partendo da una copia isolata della `0.12.10`.
+Questa prova resta un gate di accettazione: la sola pubblicazione non equivale
+a dichiarare concluso l'updater. Non usare build non firmate per installazioni.
+
+## Release precedente: 0.12.10 Beta
 
 Questa beta corregge la sincronizzazione dell'installazione automatica. Nella
 prova UI isolata `0.12.8 → 0.12.9`, il controllo della release, i due consensi,
