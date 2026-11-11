@@ -1,4 +1,4 @@
-# DDFLanguageEditor 0.12.9 Beta — candidato non pubblicato
+# DDFLanguageEditor 0.12.9 Beta
 
 La `v0.12.8` pubblicata non si avvia da una cartella esterna al repository:
 il servizio di debug usa ancora un resolver separato che cerca la vecchia DLL
@@ -7,13 +7,13 @@ avevano trovato per errore la DLL di sviluppo nelle directory parent. La
 release GitHub è segnalata come non avviabile; non sostituire con essa una
 installazione precedente.
 
-Il candidato `0.12.9` usa un solo resolver per build e debug e verifica
+La `0.12.9` usa un solo resolver per build e debug e verifica
 entrambi i servizi nel self-test dell'EXE distribuito. Lo script di release
 estrae ora lo ZIP in una cartella temporanea esterna al repository e ripete
 il self-test prima di creare una release. La prova esterna è riuscita:
 self-test, avvio GUI, bridge Debug/Release/Run/Publish con il runner estratto,
 build Release senza warning, 345 test Core, 32 test del compilatore e smoke
-UI updater sono verdi. Il candidato non è ancora firmato né pubblicato.
+UI updater sono verdi.
 
 La `0.12.8` può essere avviata temporaneamente impostando solo per il suo
 processo `DDF_RUNNER_PATH` al file `support/runner/DDFLanguageEditor.Runner.exe`

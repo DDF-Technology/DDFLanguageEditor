@@ -1,6 +1,6 @@
 # DDFLanguageEditor
 
-> **Beta 0.12.9 in preparazione — progetto sperimentale.** Le release
+> **Beta 0.12.9 — progetto sperimentale.** Le release
 > `v0.12.7` e `v0.12.8` non si avviano affidabilmente fuori dal repository:
 > non usarle. Linguaggio e runtime restano sperimentali.
 
