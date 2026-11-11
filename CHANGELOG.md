@@ -1,5 +1,9 @@
 # Changelog
 
+## In sviluppo — dopo la 0.12.10 Beta
+
+- Il popup degli aggiornamenti mostra ora l'attività di preparazione, la percentuale e i MiB ricevuti durante il download, poi la verifica dell'archivio. Gli eventi di progresso tardivi non sovrascrivono lo stato di verifica; a fine operazione il popup ripristina la descrizione originale. Smoke WinForms mirato e build Release verdi. Il gate di installazione UI `0.12.10 → release firmata successiva` resta aperto.
+
 ## 0.12.10 Beta
 
 - La prova UI isolata `0.12.8 → 0.12.9` ha completato controllo della release, consensi, download e verifica dell'archivio firmato, ma il worker si è fermato prima dello swap: l'editor era già uscito quando il worker ha tentato di attestare il PID. Il sorgente ora usa un segnale Windows nominato dal nonce del piano; il worker lo attiva solo dopo aver verificato PID e istante d'avvio, e l'editor aspetta il segnale prima di chiudersi. Il test copre anche la consegna del segnale tra due processi reali. Build Debug/Release senza avvisi, Core `347/347`, compilatore `32/32` e smoke WinForms completo verdi. Lo ZIP self-contained supera il self-test estratto fuori dal repository; pack SDK Core/WinForms `0.12.10-beta` verificati. La prerelease `v0.12.10` è stata pubblicata con manifesto firmato `official-2026`; il digest remoto dello ZIP corrisponde al file verificato. Il gate UI end-to-end partendo dalla `0.12.10` resta aperto.

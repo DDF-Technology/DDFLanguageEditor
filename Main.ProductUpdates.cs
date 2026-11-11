@@ -369,6 +369,7 @@ namespace DDF___Program_Language_Editor
             productUpdateDownloadRunning = true;
             var cancellation = new CancellationTokenSource();
             productUpdateDownloadCancellation = cancellation;
+            ProductUpdateForm progressForm = productUpdateForm;
             string preparedJournalPath = null;
             bool installationWorkerStarted = false;
             try
@@ -387,12 +388,17 @@ namespace DDF___Program_Language_Editor
                     result, offer))
                     if (consent.ShowDialog(this) != DialogResult.OK) return;
 
+                progressForm?.BeginDownloadProgress();
+                var downloadProgress = new Progress<DdfProductUpdateStagingProgress>(
+                    progress => progressForm?.ReportDownloadProgress(progress));
                 string destination = Path.Combine(
                     AppSettingsStore.GetProductUpdateStateDirectory(),
                     "downloads");
                 DdfProductUpdatePreparedPackage prepared = await downloader
                     .DownloadAuthorizedAsync(result, request, runtimeIdentifier,
-                        architecture, destination, cancellation.Token);
+                        architecture, destination, cancellation.Token,
+                        downloadProgress);
+                progressForm?.ShowDownloadVerification();
                 prepared = DdfProductUpdatePackageDownloader.ReopenVerifiedLocal(
                     prepared.ArchivePath, DdfOfficialReleaseTrustStore.Create(),
                     request, runtimeIdentifier, architecture,
@@ -581,6 +587,7 @@ namespace DDF___Program_Language_Editor
             }
             finally
             {
+                progressForm?.EndDownloadProgress();
                 if (!IsDisposed && preparedJournalPath != null &&
                     !installationWorkerStarted)
                     inspectPendingProductUpdateRecovery();

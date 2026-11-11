@@ -9360,6 +9360,32 @@ namespace DDFLanguageEditor.EditorSmokeTests
             {
                 actionForm.Show(form);
                 PumpMessages(50);
+                ProgressBar updateProgress = FindControl<ProgressBar>(
+                    actionForm, "productUpdateProgressBar");
+                Label updateHint = FindControl<Label>(
+                    actionForm, "productUpdateActionHintLabel");
+                Require(!updateProgress.Visible,
+                    "L'avanzamento non deve apparire prima del consenso.");
+                actionForm.BeginDownloadProgress();
+                Require(updateProgress.Visible &&
+                    updateProgress.Style == ProgressBarStyle.Marquee,
+                    "Il download deve mostrare subito un'attività visibile.");
+                actionForm.ReportDownloadProgress(
+                    new DdfProductUpdateStagingProgress(5, 10));
+                Require(updateProgress.Value == 500 &&
+                    updateHint.Text.Contains("50%", StringComparison.Ordinal),
+                    "La percentuale del download non segue i byte ricevuti.");
+                actionForm.ShowDownloadVerification();
+                actionForm.ReportDownloadProgress(
+                    new DdfProductUpdateStagingProgress(10, 10));
+                Require(updateProgress.Style == ProgressBarStyle.Marquee &&
+                    updateHint.Text.Contains("Verifica", StringComparison.Ordinal),
+                    "Un evento tardivo sovrascrive la verifica dell'archivio.");
+                actionForm.EndDownloadProgress();
+                Require(!updateProgress.Visible &&
+                    updateHint.Text.Contains("Release verificata",
+                        StringComparison.Ordinal),
+                    "Il popup non ripristina lo stato dopo il download.");
                 FindControl<Button>(actionForm,
                     "productUpdateDownloadButton").PerformClick();
                 PumpMessages(50);

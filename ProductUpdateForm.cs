@@ -12,6 +12,11 @@ namespace DDF___Program_Language_Editor
         private readonly Button openReleaseButton;
         private readonly Button downloadButton;
         private readonly DdfProductUpdateResult result;
+        private readonly Label actionHintLabel;
+        private readonly ProgressBar downloadProgressBar;
+        private readonly string initialActionHint;
+        private bool downloadProgressActive;
+        private bool downloadProgressReceiving;
 
         public ProductUpdateForm(DdfProductUpdateResult result,
             Action<Uri> openRelease,
@@ -45,7 +50,7 @@ namespace DDF___Program_Language_Editor
             for (int row = 0; row < 5; row++)
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 86F));
 
             addRow(layout, 0, "Stato", describeState(result));
             addRow(layout, 1, "Versione corrente", result.CurrentVersion);
@@ -73,7 +78,7 @@ namespace DDF___Program_Language_Editor
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 4,
-                RowCount = 2,
+                RowCount = 3,
                 Margin = Padding.Empty,
                 Padding = Padding.Empty
             };
@@ -81,9 +86,10 @@ namespace DDF___Program_Language_Editor
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 104F));
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
-            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
             footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            footer.Controls.Add(new Label
+            actionHintLabel = new Label
             {
                 Name = "productUpdateActionHintLabel",
                 Dock = DockStyle.Fill,
@@ -96,8 +102,21 @@ namespace DDF___Program_Language_Editor
                     : result.State == DdfProductUpdateState.UpToDate
                         ? "Nessuna nuova release da aprire."
                         : "Nessuna pagina di release verificata da aprire."
-            }, 0, 0);
-            footer.SetColumnSpan(footer.Controls[0], 4);
+            };
+            initialActionHint = actionHintLabel.Text;
+            footer.Controls.Add(actionHintLabel, 0, 0);
+            footer.SetColumnSpan(actionHintLabel, 4);
+            downloadProgressBar = new ProgressBar
+            {
+                Name = "productUpdateProgressBar",
+                AccessibleName = "Avanzamento download aggiornamento",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 2, 0, 2),
+                Maximum = 1000,
+                Visible = false
+            };
+            footer.Controls.Add(downloadProgressBar, 0, 1);
+            footer.SetColumnSpan(downloadProgressBar, 4);
             var close = new Button
             {
                 Name = "productUpdateCloseButton",
@@ -146,9 +165,9 @@ namespace DDF___Program_Language_Editor
                     if (!IsDisposed) downloadButton.Enabled = true;
                 }
             };
-            footer.Controls.Add(downloadButton, 1, 1);
-            footer.Controls.Add(openReleaseButton, 2, 1);
-            footer.Controls.Add(close, 3, 1);
+            footer.Controls.Add(downloadButton, 1, 2);
+            footer.Controls.Add(openReleaseButton, 2, 2);
+            footer.Controls.Add(close, 3, 2);
             layout.Controls.Add(footer, 0, 6);
             layout.SetColumnSpan(footer, 2);
             Controls.Add(layout);
@@ -158,6 +177,47 @@ namespace DDF___Program_Language_Editor
         }
 
         public DdfProductUpdateResult Result => result;
+
+        public void BeginDownloadProgress()
+        {
+            if (IsDisposed) return;
+            downloadProgressActive = true;
+            downloadProgressReceiving = true;
+            actionHintLabel.Text = "Preparazione del download verificato...";
+            downloadProgressBar.Style = ProgressBarStyle.Marquee;
+            downloadProgressBar.Visible = true;
+        }
+
+        public void ReportDownloadProgress(DdfProductUpdateStagingProgress progress)
+        {
+            if (!downloadProgressActive || !downloadProgressReceiving ||
+                IsDisposed || progress == null) return;
+            downloadProgressBar.Style = ProgressBarStyle.Continuous;
+            downloadProgressBar.Value = (int)Math.Min(1000,
+                progress.Fraction * 1000);
+            actionHintLabel.Text = string.Format(
+                "Scaricamento: {0:F1} / {1:F1} MB ({2:F0}%)",
+                progress.BytesReceived / 1048576d,
+                progress.TotalBytes / 1048576d,
+                progress.Fraction * 100);
+        }
+
+        public void ShowDownloadVerification()
+        {
+            if (!downloadProgressActive || IsDisposed) return;
+            downloadProgressReceiving = false;
+            actionHintLabel.Text = "Verifica dell'archivio scaricato...";
+            downloadProgressBar.Style = ProgressBarStyle.Marquee;
+        }
+
+        public void EndDownloadProgress()
+        {
+            if (IsDisposed) return;
+            downloadProgressActive = false;
+            downloadProgressReceiving = false;
+            downloadProgressBar.Visible = false;
+            actionHintLabel.Text = initialActionHint;
+        }
 
         private static string describeState(DdfProductUpdateResult value)
         {
