@@ -41,6 +41,8 @@ namespace DDF___Program_Language_Editor
                 // Exercise the same worker resolution performed during normal
                 // startup, not just the assemblies loaded by this entry point.
                 _ = new DdfDotNetEditorBuildService();
+                using var debugService = new DdfDotNetEditorDebugService(
+                    () => null, () => null, (_, _, _) => null);
                 Console.Out.WriteLine(
                     DdfProductUpdateProcessHealthCheck.SuccessMarker);
                 return 0;

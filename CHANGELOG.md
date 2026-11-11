@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.9 Beta - candidato locale non pubblicato
+
+- Corretto il secondo crash all'avvio da ZIP pulito: la `v0.12.8` include il runner EXE, ma il servizio di debug cercava ancora la vecchia DLL tramite un resolver indipendente. Build e debug usano ora un unico `DdfDotNetRunnerLocator`; il self-test costruisce entrambi i servizi. Le prove sotto il repository avevano mascherato il difetto trovando la DLL di sviluppo nelle cartelle parent. Lo script di release estrae ora lo ZIP in una cartella temporanea esterna e ripete il self-test. Build Release senza warning, Core `345/345`, compilatore `32/32`, smoke UI, avvio esterno e bridge con runner estratto verdi. La release `v0.12.8` è contrassegnata su GitHub come non avviabile; `0.12.9` resta un candidato locale non firmato.
+
 ## 0.12.8 Beta
 
 - Corretto il crash all'avvio della `v0.12.7` estratta da ZIP: il servizio di build richiedeva il runner DDF, ma il pacchetto conteneva soltanto il suo launcher e non la DLL. Il runner viene ora distribuito come EXE self-contained in `support/runner`; il resolver sceglie quel file prima dei percorsi di sviluppo. La pipeline richiede il runner e avvia il self-test del prodotto, che verifica anche la costruzione del servizio di build. Avvio GUI controllato, Core `345/345` e smoke UI updater verdi; runner avviato senza `dotnet` nel `PATH`. Il gate bridge editor con runner distribuito ha compilato in Debug/Release, eseguito uno script e pubblicato un EXE.

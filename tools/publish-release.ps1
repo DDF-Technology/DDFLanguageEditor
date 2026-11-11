@@ -46,6 +46,31 @@ function Assert-PathUnderArtifactRoot([string]$Path) {
     }
 }
 
+function Assert-PublishedHealth([string]$Directory) {
+    $healthStart = [System.Diagnostics.ProcessStartInfo]::new()
+    $healthStart.FileName = Join-Path $Directory 'DDFLanguageEditor.exe'
+    $healthStart.Arguments = '--verify-installation'
+    $healthStart.WorkingDirectory = $Directory
+    $healthStart.UseShellExecute = $false
+    $healthStart.CreateNoWindow = $true
+    $healthStart.RedirectStandardOutput = $true
+    $healthStart.RedirectStandardError = $true
+    $healthProcess = [System.Diagnostics.Process]::Start($healthStart)
+    try {
+        if (-not $healthProcess.WaitForExit(30000)) {
+            $healthProcess.Kill($true)
+            throw "Self-test scaduto dopo 30 secondi: $Directory"
+        }
+        $healthOutput = $healthProcess.StandardOutput.ReadToEnd().Trim()
+        $healthError = $healthProcess.StandardError.ReadToEnd().Trim()
+        if ($healthProcess.ExitCode -ne 0 -or
+            $healthOutput -ne 'DDF INSTALLATION OK') {
+            throw "Self-test fallito in $Directory (exit $($healthProcess.ExitCode)): $healthError"
+        }
+    }
+    finally { $healthProcess.Dispose() }
+}
+
 Assert-PathUnderArtifactRoot $publishDirectory
 Assert-PathUnderArtifactRoot $runnerPublishDirectory
 Assert-PathUnderArtifactRoot $updaterPublishDirectory
@@ -146,30 +171,9 @@ if ($missingFiles.Count -gt 0) {
     throw "Pubblicazione self-contained incompleta. File mancanti: $($missingFiles -join ', ')"
 }
 
-# A normal launch constructs the build service before showing the main form.
-# The health check exercises that same dependency from the published layout.
-$healthStart = [System.Diagnostics.ProcessStartInfo]::new()
-$healthStart.FileName = Join-Path $publishDirectory 'DDFLanguageEditor.exe'
-$healthStart.Arguments = '--verify-installation'
-$healthStart.WorkingDirectory = $publishDirectory
-$healthStart.UseShellExecute = $false
-$healthStart.CreateNoWindow = $true
-$healthStart.RedirectStandardOutput = $true
-$healthStart.RedirectStandardError = $true
-$healthProcess = [System.Diagnostics.Process]::Start($healthStart)
-try {
-    if (-not $healthProcess.WaitForExit(30000)) {
-        $healthProcess.Kill($true)
-        throw 'Self-test del prodotto pubblicato scaduto dopo 30 secondi.'
-    }
-    $healthOutput = $healthProcess.StandardOutput.ReadToEnd().Trim()
-    $healthError = $healthProcess.StandardError.ReadToEnd().Trim()
-    if ($healthProcess.ExitCode -ne 0 -or
-        $healthOutput -ne 'DDF INSTALLATION OK') {
-        throw "Self-test del prodotto pubblicato fallito (exit $($healthProcess.ExitCode)): $healthError"
-    }
-}
-finally { $healthProcess.Dispose() }
+# Normal startup constructs both build and debug services; the self-test now
+# does the same. This in-tree check is followed by an external ZIP check below.
+Assert-PublishedHealth $publishDirectory
 
 $requiredLanguageFiles = @(
     'manifest.json',
@@ -232,6 +236,36 @@ if (-not $SkipArchive) {
     Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $archivePath -CompressionLevel Optimal
     $checksum = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Set-Content -LiteralPath $checksumPath -Value "$checksum  $([System.IO.Path]::GetFileName($archivePath))" -Encoding ascii
+
+    # An in-tree launch can accidentally discover a developer Runner.dll in a
+    # parent directory. Validate the ZIP from a fresh external directory too.
+    $temporaryBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+    $externalHealthRoot = [System.IO.Path]::GetFullPath((Join-Path $temporaryBase `
+        ("ddf-release-health-" + [Guid]::NewGuid().ToString('N'))))
+    $temporaryPrefix = $temporaryBase.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
+        [System.IO.Path]::DirectorySeparatorChar
+    $repositoryPrefix = $repositoryRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
+        [System.IO.Path]::DirectorySeparatorChar
+    if (-not $externalHealthRoot.StartsWith($temporaryPrefix,
+            [System.StringComparison]::OrdinalIgnoreCase) -or
+        $externalHealthRoot.StartsWith($repositoryPrefix,
+            [System.StringComparison]::OrdinalIgnoreCase) -or
+        (Test-Path -LiteralPath $externalHealthRoot)) {
+        throw "Directory esterna del self-test non sicura: $externalHealthRoot"
+    }
+    try {
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $externalHealthRoot
+        Assert-PublishedHealth $externalHealthRoot
+    }
+    finally {
+        if (Test-Path -LiteralPath $externalHealthRoot) {
+            if ((Get-Item -LiteralPath $externalHealthRoot -Force).Attributes -band
+                [System.IO.FileAttributes]::ReparsePoint) {
+                throw "Directory esterna del self-test è un reparse point: $externalHealthRoot"
+            }
+            Remove-Item -LiteralPath $externalHealthRoot -Recurse -Force
+        }
+    }
 }
 
 if (-not $SkipArchive -and -not $SkipSignedManifest) {

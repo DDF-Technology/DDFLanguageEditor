@@ -5,10 +5,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>DDFLanguagePackageStudio</AssemblyName>
     <ApplicationIcon>..\Resource\DDFLanguageEditor.ico</ApplicationIcon>
-    <Version>0.12.8</Version>
-    <FileVersion>0.12.8.0</FileVersion>
-    <AssemblyVersion>0.12.8.0</AssemblyVersion>
-    <InformationalVersion>0.12.8</InformationalVersion>
+    <Version>0.12.9</Version>
+    <FileVersion>0.12.9.0</FileVersion>
+    <AssemblyVersion>0.12.9.0</AssemblyVersion>
+    <InformationalVersion>0.12.9</InformationalVersion>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
