@@ -1,8 +1,8 @@
 # Changelog
 
-## In sviluppo — successivo alla 0.12.9 Beta
+## 0.12.10 Beta (in preparazione)
 
-- La prova UI isolata `0.12.8 → 0.12.9` ha completato controllo della release, consensi, download e verifica dell'archivio firmato, ma il worker si è fermato prima dello swap: l'editor era già uscito quando il worker ha tentato di attestare il PID. Il sorgente ora usa un segnale Windows nominato dal nonce del piano; il worker lo attiva solo dopo aver verificato PID e istante d'avvio, e l'editor aspetta il segnale prima di chiudersi. Il test copre anche la consegna del segnale tra due processi reali. La build Release è senza avvisi, i test Core sono `347/347` e lo smoke UI updater è verde. Serve ancora una release firmata che includa la correzione per ripetere il gate UI end-to-end.
+- La prova UI isolata `0.12.8 → 0.12.9` ha completato controllo della release, consensi, download e verifica dell'archivio firmato, ma il worker si è fermato prima dello swap: l'editor era già uscito quando il worker ha tentato di attestare il PID. Il sorgente ora usa un segnale Windows nominato dal nonce del piano; il worker lo attiva solo dopo aver verificato PID e istante d'avvio, e l'editor aspetta il segnale prima di chiudersi. Il test copre anche la consegna del segnale tra due processi reali. Build Debug/Release senza avvisi, Core `347/347`, compilatore `32/32` e smoke WinForms completo verdi. Il candidato ZIP self-contained supera il self-test estratto fuori dal repository; pack SDK Core/WinForms `0.12.10-beta` verificati. La release firmata e il gate UI end-to-end partendo dalla `0.12.10` restano aperti.
 
 ## 0.12.9 Beta
 

@@ -1,4 +1,28 @@
-# DDFLanguageEditor 0.12.9 Beta
+# DDFLanguageEditor 0.12.10 Beta
+
+Questa beta corregge la sincronizzazione dell'installazione automatica. Nella
+prova UI isolata `0.12.8 → 0.12.9`, il controllo della release, i due consensi,
+il download e la verifica del pacchetto firmato sono riusciti, ma l'editor si
+è chiuso prima che il worker potesse attestare il processo: il journal è
+terminato in `Failed` prima dello swap, lasciando intatta la versione iniziale.
+
+Il worker della `0.12.10` segnala la propria prontezza solo dopo aver verificato
+PID e istante d'avvio dell'editor. L'editor aspetta questo segnale prima di
+chiudersi; un test di regressione verifica il segnale anche fra due processi
+Windows reali. La `0.12.9` già pubblicata non contiene la correzione: per
+validare il percorso UI completo occorrerà aggiornare una `0.12.10` installata
+verso una release firmata successiva. L'aggiornamento dell'installazione
+personale da `0.12.9` a `0.12.10` resta manuale.
+
+Gate locale: build Debug e Release senza warning, 347 test Core, 32 test
+contrattuali del compilatore e smoke WinForms completo con 80 comandi menu
+superati. Il candidato ZIP `win-x64` self-contained ha superato il self-test
+anche dopo estrazione fuori dal repository; i pacchetti SDK Core e WinForms
+`0.12.10-beta` sono stati generati. Il candidato locale non firmato non è
+distribuibile. Nel publish single-file del runner permangono tre avvisi
+`IL3000` già noti e separati dalle build della soluzione.
+
+## Release precedente: 0.12.9 Beta
 
 La `v0.12.8` pubblicata non si avvia da una cartella esterna al repository:
 il servizio di debug usa ancora un resolver separato che cerca la vecchia DLL
