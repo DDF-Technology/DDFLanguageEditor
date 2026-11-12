@@ -5,8 +5,13 @@ i MiB ricevuti e la percentuale di avanzamento, seguiti dalla verifica
 dell'archivio. Gli eventi di progresso arrivati in ritardo non sovrascrivono
 lo stato di verifica. La release serve anche a provare il percorso completo
 di aggiornamento automatico partendo da una copia isolata della `0.12.10`.
-Questa prova resta un gate di accettazione: la sola pubblicazione non equivale
-a dichiarare concluso l'updater. Non usare build non firmate per installazioni.
+La prova UI end-to-end su una copia temporanea isolata `0.12.10 → 0.12.11`
+è stata completata il `2026-11-12`: manifesto e ZIP firmati verificati, due
+consensi distinti, worker fuori processo, riavvio della nuova versione,
+`--verify-installation` riuscito e finalizzazione del backup solo dopo
+conferma. L'installazione dell'utente sul Desktop non è stata toccata. Le prove
+di disco fisicamente pieno e degli altri guasti ambientali residuali sono
+state rinunciate, non superate. Non usare build non firmate per installazioni.
 
 ## Release precedente: 0.12.10 Beta
 

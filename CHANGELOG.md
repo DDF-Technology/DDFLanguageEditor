@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.12.11 Beta — candidata
+## 0.12.11 Beta
 
-- Il popup degli aggiornamenti mostra ora l'attività di preparazione, la percentuale e i MiB ricevuti durante il download, poi la verifica dell'archivio. Gli eventi di progresso tardivi non sovrascrivono lo stato di verifica; a fine operazione il popup ripristina la descrizione originale. Smoke WinForms mirato e build Release verdi. Il gate di installazione UI `0.12.10 → 0.12.11` resta aperto.
+- Il popup degli aggiornamenti mostra ora l'attività di preparazione, la percentuale e i MiB ricevuti durante il download, poi la verifica dell'archivio. Gli eventi di progresso tardivi non sovrascrivono lo stato di verifica; a fine operazione il popup ripristina la descrizione originale. Build Debug/Release, Core `347/347`, compilatore `32/32`, smoke WinForms completo e CI ordinaria/firmata verdi. La prerelease `v0.12.11` è pubblicata con manifesto `official-2026` e digest ZIP remoto verificato. La prova UI end-to-end su copia temporanea isolata `0.12.10 → 0.12.11` ha superato controllo remoto, due consensi, download e verifica firmata, worker fuori processo, swap, health check, riavvio e finalizzazione esplicita: journal `Completed`, EXE `0.12.11.0`, `--verify-installation` con exit code `0` e backup precedente rimosso solo dopo conferma (`2026-11-12`). L'installazione sul Desktop non è stata modificata. Le prove di disco fisicamente pieno e degli altri guasti ambientali residuali restano rinunciate, non superate.
 
 ## 0.12.10 Beta
 
